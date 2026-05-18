@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"regexp"
 	"strconv"
 	"strings"
 
@@ -198,6 +199,10 @@ func (s *Server) CreatePage(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "internal", "create page: last insert id failed")
 		return
 	}
+	if err := syncPageLinks(ctx, tx, id, req.Body); err != nil {
+		writeError(w, http.StatusInternalServerError, "internal", "sync page_links failed")
+		return
+	}
 	page, err := selectPageByIDTx(ctx, tx, id)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "internal", "fetch created page failed")
@@ -265,8 +270,16 @@ func (s *Server) UpdatePage(w http.ResponseWriter, r *http.Request) {
 	sets = append(sets, "updated_at = datetime('now')")
 	args = append(args, id)
 
+	ctx := r.Context()
+	tx, err := s.DB.BeginTx(ctx, nil)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "internal", "begin tx failed")
+		return
+	}
+	defer tx.Rollback()
+
 	stmt := "UPDATE pages SET " + strings.Join(sets, ", ") + " WHERE id = ?"
-	res, err := s.DB.ExecContext(r.Context(), stmt, args...)
+	res, err := tx.ExecContext(ctx, stmt, args...)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "internal", "update page failed")
 		return
@@ -280,9 +293,19 @@ func (s *Server) UpdatePage(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotFound, "not_found", "page not found")
 		return
 	}
-	p, err := selectPageByID(r.Context(), s.DB, id)
+	if req.Body != nil {
+		if err := syncPageLinks(ctx, tx, id, *req.Body); err != nil {
+			writeError(w, http.StatusInternalServerError, "internal", "sync page_links failed")
+			return
+		}
+	}
+	p, err := selectPageByIDTx(ctx, tx, id)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "internal", "fetch updated page failed")
+		return
+	}
+	if err := tx.Commit(); err != nil {
+		writeError(w, http.StatusInternalServerError, "internal", "commit failed")
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"page": p})
@@ -301,6 +324,16 @@ func (s *Server) DeletePage(w http.ResponseWriter, r *http.Request) {
 	}
 	defer tx.Rollback()
 
+	// Cache the live title onto any incoming page_links rows so backlinks
+	// from other pages still render with a usable label after deletion.
+	if _, err := tx.ExecContext(ctx,
+		`UPDATE page_links
+		   SET last_known_title = COALESCE((SELECT title FROM pages WHERE id = ?), last_known_title)
+		 WHERE target_id = ?`, id, id); err != nil {
+		writeError(w, http.StatusInternalServerError, "internal", "cache page_links titles failed")
+		return
+	}
+
 	res, err := tx.ExecContext(ctx, `DELETE FROM pages WHERE id = ?`, id)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "internal", "delete page failed")
@@ -315,6 +348,14 @@ func (s *Server) DeletePage(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotFound, "not_found", "page not found")
 		return
 	}
+
+	// Explicitly clear outgoing rows for the deleted source — no FK / no
+	// triggers; nothing else would remove them.
+	if _, err := tx.ExecContext(ctx, `DELETE FROM page_links WHERE source_id = ?`, id); err != nil {
+		writeError(w, http.StatusInternalServerError, "internal", "delete page_links source rows failed")
+		return
+	}
+
 	if err := tx.Commit(); err != nil {
 		writeError(w, http.StatusInternalServerError, "internal", "commit failed")
 		return
@@ -705,4 +746,63 @@ func nullableInt64(p *int64) any {
 		return nil
 	}
 	return *p
+}
+
+// wikiLinkRE matches the canonical wikilink URL form serialised by the
+// Milkdown mention node. The URL is the source of truth — we don't parse
+// the surrounding node syntax.
+var wikiLinkRE = regexp.MustCompile(`tela://page/([0-9]+)`)
+
+// parseWikiLinks extracts unique target page ids referenced by body via
+// `tela://page/{N}` URLs. Order of returned ids is not guaranteed.
+func parseWikiLinks(body string) []int64 {
+	matches := wikiLinkRE.FindAllStringSubmatch(body, -1)
+	if len(matches) == 0 {
+		return nil
+	}
+	seen := make(map[int64]struct{}, len(matches))
+	ids := make([]int64, 0, len(matches))
+	for _, m := range matches {
+		n, err := strconv.ParseInt(m[1], 10, 64)
+		if err != nil || n <= 0 {
+			continue
+		}
+		if _, ok := seen[n]; ok {
+			continue
+		}
+		seen[n] = struct{}{}
+		ids = append(ids, n)
+	}
+	return ids
+}
+
+// syncPageLinks rebuilds the outgoing page_links rows for sourceID from
+// body: deletes existing rows, then inserts one row per unique wikilink
+// target. last_known_title is the live target title, or an empty string
+// when the target does not exist — that's how a freshly broken link is
+// recorded.
+func syncPageLinks(ctx context.Context, tx *sql.Tx, sourceID int64, body string) error {
+	if _, err := tx.ExecContext(ctx, `DELETE FROM page_links WHERE source_id = ?`, sourceID); err != nil {
+		return fmt.Errorf("delete outgoing page_links: %w", err)
+	}
+	targets := parseWikiLinks(body)
+	if len(targets) == 0 {
+		return nil
+	}
+	placeholders := make([]string, 0, len(targets))
+	args := make([]any, 0, len(targets)*3)
+	for _, tid := range targets {
+		var title sql.NullString
+		err := tx.QueryRowContext(ctx, `SELECT title FROM pages WHERE id = ?`, tid).Scan(&title)
+		if err != nil && !errors.Is(err, sql.ErrNoRows) {
+			return fmt.Errorf("lookup target title: %w", err)
+		}
+		placeholders = append(placeholders, "(?, ?, ?)")
+		args = append(args, sourceID, tid, title.String)
+	}
+	stmt := `INSERT INTO page_links(source_id, target_id, last_known_title) VALUES ` + strings.Join(placeholders, ", ")
+	if _, err := tx.ExecContext(ctx, stmt, args...); err != nil {
+		return fmt.Errorf("insert page_links: %w", err)
+	}
+	return nil
 }
