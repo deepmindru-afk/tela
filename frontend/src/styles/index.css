@@ -6,6 +6,7 @@
 @import './themes/light.css';
 @import './themes/dark.css';
 @import './themes/warm.css';
+@import './editor.css';
 
 @layer base {
   html,

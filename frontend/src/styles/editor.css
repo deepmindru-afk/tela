@@ -1,0 +1,92 @@
+@layer components {
+  /* Editor host — minimal functional layout. Content theming (headings,
+     lists, code, etc.) is intentionally left to a later pass. */
+  .tela-milkdown {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+  }
+  .tela-milkdown [data-milkdown-root] {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+  }
+  .tela-milkdown .ProseMirror {
+    flex: 1;
+    min-height: 0;
+    outline: none;
+    white-space: pre-wrap;
+    font-variant-ligatures: none;
+    -webkit-font-variant-ligatures: none;
+    padding: var(--space-2);
+  }
+  .tela-milkdown .ProseMirror[contenteditable='false'] {
+    cursor: default;
+  }
+
+  /* Slash menu — positioned by @floating-ui via SlashProvider. Visibility
+     is toggled via the `data-show` attribute the provider sets. */
+  .tela-slash-menu {
+    position: fixed;
+    z-index: 50;
+    min-width: 16rem;
+    max-width: 22rem;
+    max-height: 18rem;
+    overflow-y: auto;
+    background: var(--surface-1);
+    color: var(--text-primary);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-md);
+    padding: var(--space-1);
+    box-shadow: 0 10px 30px -8px
+      color-mix(in srgb, var(--text-primary) 25%, transparent);
+    display: none;
+    flex-direction: column;
+    gap: 1px;
+    outline: none;
+  }
+  .tela-slash-menu[data-show='true'] {
+    display: flex;
+  }
+
+  .tela-slash-item {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-1);
+    padding: var(--space-2) var(--space-3);
+    background: transparent;
+    border: none;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    text-align: left;
+    color: var(--text-primary);
+    transition:
+      background-color var(--duration-fast) var(--ease-out),
+      color var(--duration-fast) var(--ease-out);
+  }
+  .tela-slash-item[data-active='true'] {
+    background: var(--surface-2);
+  }
+  .tela-slash-item-label {
+    font-family: var(--font-sans);
+    font-size: var(--text-sm);
+    line-height: var(--leading-tight);
+    color: var(--text-primary);
+  }
+  .tela-slash-item-hint {
+    font-family: var(--font-sans);
+    font-size: var(--text-xs);
+    line-height: var(--leading-tight);
+    color: var(--text-muted);
+  }
+
+  .tela-slash-empty {
+    padding: var(--space-2) var(--space-3);
+    font-family: var(--font-sans);
+    font-size: var(--text-sm);
+    line-height: var(--leading-tight);
+    color: var(--text-muted);
+  }
+}

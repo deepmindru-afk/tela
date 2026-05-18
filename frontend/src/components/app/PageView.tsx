@@ -22,7 +22,7 @@ import {
 } from '../ui/dialog'
 import { Input } from '../ui/input'
 import { SaveIndicator, type SaveStatus } from '../ui/save-indicator'
-import { TextArea } from '../ui/textarea'
+import { MilkdownEditor } from './milkdown-editor'
 import { cn } from '../../lib/utils'
 
 const SAVED_FLASH_MS = 1500
@@ -129,8 +129,7 @@ function PageEditor({ page, spaceId, onDeleted }: PageEditorProps) {
   }, [])
 
   const handleBodyChange = useCallback(
-    (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-      const next = e.target.value
+    (next: string) => {
       setBody(next)
       cancelDebounce()
       debounceRef.current = window.setTimeout(() => {
@@ -142,11 +141,17 @@ function PageEditor({ page, spaceId, onDeleted }: PageEditorProps) {
     [save, cancelDebounce],
   )
 
+  // Read latest body via ref so onBlur, which is wired into Milkdown's
+  // listener once at mount, always sees the most recent value.
+  const bodyRef = useRef(body)
+  bodyRef.current = body
+
   const handleBodyBlur = useCallback(() => {
     cancelDebounce()
-    if (body === lastSavedRef.current.body) return
-    void save({ body })
-  }, [body, save, cancelDebounce])
+    const current = bodyRef.current
+    if (current === lastSavedRef.current.body) return
+    void save({ body: current })
+  }, [save, cancelDebounce])
 
   // autoFocus rule: empty title → focus title; non-empty → focus body.
   const titleAutoFocus = page.title.length === 0
@@ -188,13 +193,12 @@ function PageEditor({ page, spaceId, onDeleted }: PageEditorProps) {
           )}
         />
 
-        <TextArea
-          autoFocus={bodyAutoFocus}
-          value={body}
+        <MilkdownEditor
+          defaultValue={page.body}
           onChange={handleBodyChange}
           onBlur={handleBodyBlur}
-          placeholder="Start writing…"
-          aria-label="Page body"
+          autoFocus={bodyAutoFocus}
+          ariaLabel="Page body"
           className="flex-1 min-h-[calc(var(--space-8)*8)]"
         />
       </div>
