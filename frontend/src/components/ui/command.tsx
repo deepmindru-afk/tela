@@ -406,6 +406,11 @@ export interface CommandInlinePickerProps {
   label?: string
   className?: string
   autoFocus?: boolean
+  // Controlled highlighted-row value. Drives both arrow-key cursor position and
+  // the visual selected state. When uncontrolled, cmdk auto-highlights the first
+  // matching row each time the query changes.
+  value?: string
+  onValueChange?: (next: string) => void
 }
 
 // Non-modal inline-picker variant. Embedded inside other dialogs (M4.2 parent
@@ -421,6 +426,8 @@ export const CommandInlinePicker = forwardRef<
     label = 'Picker',
     className,
     autoFocus = true,
+    value,
+    onValueChange,
   },
   ref,
 ) {
@@ -428,6 +435,8 @@ export const CommandInlinePicker = forwardRef<
     <CmdkRoot
       ref={ref}
       label={label}
+      value={value}
+      onValueChange={onValueChange}
       className={cn('tela-command-root tela-command-inline', className)}
     >
       <div className="tela-command-input-row">
