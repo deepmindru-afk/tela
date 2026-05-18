@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import type { Meta, StoryObj } from '@storybook/react-vite'
 import {
   Bell,
@@ -14,7 +14,17 @@ import {
   CommandInlinePicker,
   CommandPalette,
   type CommandItem,
+  type CommandSubPicker,
 } from './command'
+import {
+  materializeCommands,
+  type CommandContext,
+} from '../../lib/commands'
+// Side effect: registers the 3 starter commands so the Registry story below
+// shows them populated.
+import '../../lib/commands/starters'
+import { getTheme, setTheme, type ThemeName } from '../../lib/theme'
+import type { Space } from '../../lib/types'
 import { Button } from './button'
 import {
   Dialog,
@@ -271,6 +281,88 @@ export const InlinePicker: Story = {
             </div>
           </DialogContent>
         </Dialog>
+      </div>
+    )
+  },
+}
+
+const SAMPLE_SPACES: Space[] = [
+  { id: 1, name: 'Engineering', slug: 'engineering', created_at: '', updated_at: '' },
+  { id: 2, name: 'Operations', slug: 'operations', created_at: '', updated_at: '' },
+  { id: 3, name: 'Design', slug: 'design', created_at: '', updated_at: '' },
+]
+
+export const ModalCommandsModeRegistry: Story = {
+  name: 'Modal — commands mode populated from registry (3 starters)',
+  render: () => {
+    const [open, setOpen] = useState(true)
+    const [subPicker, setSubPicker] = useState<CommandSubPicker | null>(null)
+    const [searchRequest, setSearchRequest] =
+      useState<{ value: string; nonce: number } | null>(null)
+    const [theme, setLocalTheme] = useState<ThemeName>(() => getTheme())
+    const [log, setLog] = useState<string | null>(null)
+
+    const ctx = useMemo<CommandContext>(
+      () => ({
+        currentTheme: theme,
+        setTheme: (next) => {
+          setTheme(next)
+          setLocalTheme(next)
+          setLog(`Theme → ${next}`)
+        },
+        spaces: SAMPLE_SPACES,
+        navigateToSpace: (spaceId) => {
+          setLog(
+            `(stub) navigate to ${
+              SAMPLE_SPACES.find((s) => s.id === spaceId)?.name ?? spaceId
+            }`,
+          )
+        },
+        openHelpMode: () => {
+          setSubPicker(null)
+          setSearchRequest((prev) => ({
+            value: '?',
+            nonce: (prev?.nonce ?? 0) + 1,
+          }))
+        },
+        openSubPicker: (spec) => setSubPicker(spec),
+        closePalette: () => setOpen(false),
+      }),
+      [theme],
+    )
+
+    const commandsItems = useMemo(() => materializeCommands(ctx), [ctx])
+
+    return (
+      <div className="min-h-[80vh] p-[var(--space-7)]">
+        <Button
+          onClick={() => {
+            setSubPicker(null)
+            setSearchRequest(null)
+            setOpen(true)
+          }}
+        >
+          Open commands palette
+        </Button>
+        {log ? (
+          <p className="mt-[var(--space-4)] text-[length:var(--text-sm)] text-[var(--text-muted)]">
+            {log}
+          </p>
+        ) : null}
+        <CommandPalette
+          open={open}
+          onOpenChange={(next) => {
+            setOpen(next)
+            if (!next) {
+              setSubPicker(null)
+              setSearchRequest(null)
+            }
+          }}
+          initialMode="commands"
+          commandsItems={commandsItems}
+          subPicker={subPicker}
+          searchRequest={searchRequest ?? undefined}
+        />
       </div>
     )
   },

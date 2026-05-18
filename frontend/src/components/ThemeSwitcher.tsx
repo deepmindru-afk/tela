@@ -1,9 +1,19 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { ToggleGroup, ToggleGroupItem } from './ui/toggle'
-import { getTheme, setTheme, THEMES, type ThemeName } from '../lib/theme'
+import {
+  getTheme,
+  setTheme,
+  subscribeToTheme,
+  THEMES,
+  type ThemeName,
+} from '../lib/theme'
 
 export function ThemeSwitcher() {
   const [active, setActive] = useState<ThemeName>(() => getTheme())
+
+  // Keep the toggle group in sync with theme changes that originate elsewhere
+  // (e.g., the "Toggle theme" command in the palette).
+  useEffect(() => subscribeToTheme(setActive), [])
 
   return (
     <ToggleGroup

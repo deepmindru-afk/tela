@@ -29,6 +29,20 @@ export interface CommandItem {
   icon?: ReactNode
   keywords?: string[]
   onSelect: () => void
+  // Set true for items that manage their own close behaviour (e.g., commands
+  // that switch the palette into help mode or open a sub-picker). Default —
+  // the modal palette closes after the item's onSelect fires.
+  keepPaletteOpen?: boolean
+}
+
+// Inline sub-picker descriptor — used by CommandPalette to render a picker
+// surface inside the same modal instead of the regular CommandShell. Mirrors
+// CommandInlinePickerProps but typed as data for registry-driven commands.
+export interface CommandSubPicker {
+  label: string
+  placeholder: string
+  emptyMessage?: string
+  items: CommandItem[]
 }
 
 export type CommandMode = 'pages' | 'commands' | 'help' | 'mentions' | 'tags'
@@ -271,6 +285,13 @@ export interface CommandPaletteProps {
   tagsItems?: CommandItem[]
   pagesPlaceholder?: string
   emptyMessage?: string
+  // Programmatic search push from outside. When `value` changes, the palette
+  // overwrites its internal search — lets a command (e.g., "Show keyboard
+  // shortcuts") switch the open palette into help mode without re-opening.
+  searchRequest?: { value: string; nonce: number }
+  // When non-null, replaces CommandShell with an inline picker inside the
+  // same modal. Selecting an item closes the palette.
+  subPicker?: CommandSubPicker | null
 }
 
 // Modal (overlay + portal) variant. Drives the global search/command palette.
@@ -284,6 +305,8 @@ export function CommandPalette({
   tagsItems,
   pagesPlaceholder,
   emptyMessage,
+  searchRequest,
+  subPicker,
 }: CommandPaletteProps) {
   const [search, setSearch] = useState('')
 
@@ -298,17 +321,41 @@ export function CommandPalette({
     }
   }, [open, initialMode])
 
+  // External search push (e.g., a command switching into help mode). Nonce
+  // forces the effect to re-fire even when the same value is requested twice.
+  useEffect(() => {
+    if (searchRequest) setSearch(searchRequest.value)
+  }, [searchRequest])
+
   const closeAfter = useCallback(
     (items?: CommandItem[]): CommandItem[] | undefined =>
-      items?.map((item) => ({
-        ...item,
-        onSelect: () => {
-          item.onSelect()
-          onOpenChange(false)
-        },
-      })),
+      items?.map((item) =>
+        item.keepPaletteOpen
+          ? item
+          : {
+              ...item,
+              onSelect: () => {
+                item.onSelect()
+                onOpenChange(false)
+              },
+            },
+      ),
     [onOpenChange],
   )
+
+  // Sub-picker items always close the palette after selection — distinct from
+  // top-level items that may opt out via keepPaletteOpen.
+  const subPickerItems = useMemo<CommandItem[] | undefined>(() => {
+    if (!subPicker) return undefined
+    return subPicker.items.map((item) => ({
+      ...item,
+      keepPaletteOpen: false,
+      onSelect: () => {
+        item.onSelect()
+        onOpenChange(false)
+      },
+    }))
+  }, [subPicker, onOpenChange])
 
   return (
     <DialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
@@ -319,21 +366,33 @@ export function CommandPalette({
           aria-label="Command palette"
         >
           <DialogPrimitive.Title className="tela-sr-only">
-            Command palette
+            {subPicker ? subPicker.label : 'Command palette'}
           </DialogPrimitive.Title>
           <DialogPrimitive.Description className="tela-sr-only">
-            Type to search pages, run commands, or get help.
+            {subPicker
+              ? subPicker.placeholder
+              : 'Type to search pages, run commands, or get help.'}
           </DialogPrimitive.Description>
-          <CommandShell
-            search={search}
-            onSearchChange={setSearch}
-            pagesItems={closeAfter(pagesItems)}
-            commandsItems={closeAfter(commandsItems)}
-            mentionsItems={closeAfter(mentionsItems)}
-            tagsItems={closeAfter(tagsItems)}
-            pagesPlaceholder={pagesPlaceholder}
-            emptyMessage={emptyMessage}
-          />
+          {subPicker && subPickerItems ? (
+            <CommandInlinePicker
+              items={subPickerItems}
+              placeholder={subPicker.placeholder}
+              label={subPicker.label}
+              emptyMessage={subPicker.emptyMessage}
+              className="tela-command-inline--in-modal"
+            />
+          ) : (
+            <CommandShell
+              search={search}
+              onSearchChange={setSearch}
+              pagesItems={closeAfter(pagesItems)}
+              commandsItems={closeAfter(commandsItems)}
+              mentionsItems={closeAfter(mentionsItems)}
+              tagsItems={closeAfter(tagsItems)}
+              pagesPlaceholder={pagesPlaceholder}
+              emptyMessage={emptyMessage}
+            />
+          )}
         </DialogPrimitive.Content>
       </DialogPrimitive.Portal>
     </DialogPrimitive.Root>
@@ -411,52 +470,27 @@ export const CommandInlinePicker = forwardRef<
 // custom composition (groups, separators) don't reach into cmdk directly.
 export { CmdkGroup as CommandGroup, CmdkSeparator as CommandSeparator }
 
-export interface CommandHostProps {
-  pagesItems?: CommandItem[]
-  commandsItems?: CommandItem[]
-  mentionsItems?: CommandItem[]
-  tagsItems?: CommandItem[]
-  pagesPlaceholder?: string
-  // M4.2 wires the new-page dialog through this callback. Until then the
-  // Cmd-N binding is reserved but no-ops.
+// Mode helper re-exported so the app-level host can compute prefix-seeded
+// search-request payloads without re-deriving the prefix table.
+export { prefixForMode }
+
+// Shared utility for app-level mounts: registers the Cmd-K / Cmd-Shift-P /
+// Cmd-N keyboard contract. Callers supply handlers; the hook scopes them to
+// non-editable focus per useGlobalShortcut's rules.
+export interface PaletteShortcuts {
+  onOpenPages: () => void
+  onOpenCommands: () => void
   onNewPage?: () => void
 }
 
-// App-level mount: owns the palette's open state, the keyboard contract
-// (Cmd-K → pages, Cmd-Shift-P → commands, Cmd-N → stub), and renders the
-// modal palette. App.tsx mounts one of these inside its providers.
-export function CommandHost({
-  pagesItems,
-  commandsItems,
-  mentionsItems,
-  tagsItems,
-  pagesPlaceholder,
+export function usePaletteShortcuts({
+  onOpenPages,
+  onOpenCommands,
   onNewPage,
-}: CommandHostProps) {
-  const [open, setOpen] = useState(false)
-  const [initialMode, setInitialMode] = useState<CommandMode>('pages')
-
-  const openWith = useCallback((mode: CommandMode) => {
-    setInitialMode(mode)
-    setOpen(true)
-  }, [])
-
+}: PaletteShortcuts): void {
   useGlobalShortcut({
-    'mod+k': () => openWith('pages'),
-    'mod+shift+p': () => openWith('commands'),
+    'mod+k': () => onOpenPages(),
+    'mod+shift+p': () => onOpenCommands(),
     'mod+n': () => onNewPage?.(),
   })
-
-  return (
-    <CommandPalette
-      open={open}
-      onOpenChange={setOpen}
-      initialMode={initialMode}
-      pagesItems={pagesItems}
-      commandsItems={commandsItems}
-      mentionsItems={mentionsItems}
-      tagsItems={tagsItems}
-      pagesPlaceholder={pagesPlaceholder}
-    />
-  )
 }

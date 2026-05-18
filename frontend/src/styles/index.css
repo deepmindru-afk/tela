@@ -279,6 +279,14 @@
     overflow: hidden;
   }
 
+  /* Strip the inline picker's own chrome when it's nested inside the modal —
+     the modal already supplies border, radius, and background. */
+  .tela-command-inline--in-modal {
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+  }
+
   .tela-command-input-row {
     display: flex;
     align-items: center;
