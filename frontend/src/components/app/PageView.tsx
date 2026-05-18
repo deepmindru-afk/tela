@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { Suspense, lazy, useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useNavigate } from '@tanstack/react-router'
 import { ChevronRight, FileText, Plus, Trash2 } from 'lucide-react'
 import { ApiError } from '../../lib/api'
@@ -23,8 +23,32 @@ import {
 } from '../ui/dialog'
 import { Input } from '../ui/input'
 import { SaveIndicator, type SaveStatus } from '../ui/save-indicator'
-import { MilkdownEditor } from './milkdown-editor'
 import { cn } from '../../lib/utils'
+
+// Milkdown is the largest dependency in the app (~700 KB raw). Lazy-load it so
+// non-editor routes (sidebar, spaces list, command palette) don't pay for it
+// on first paint.
+const MilkdownEditor = lazy(() =>
+  import('./milkdown-editor').then((m) => ({ default: m.MilkdownEditor })),
+)
+
+const EDITOR_MIN_H = 'min-h-[calc(var(--space-8)*8)]'
+
+function EditorFallback() {
+  return (
+    <div
+      role="status"
+      aria-busy="true"
+      aria-label="Loading editor"
+      className={cn(
+        EDITOR_MIN_H,
+        'p-[var(--space-2)]',
+        'rounded-[var(--radius-sm)]',
+        'bg-[var(--surface-2)]',
+      )}
+    />
+  )
+}
 
 const SAVED_FLASH_MS = 1500
 const BODY_DEBOUNCE_MS = 500
@@ -241,14 +265,16 @@ function PageEditor({ page, spaceId, onDeleted }: PageEditorProps) {
           )}
         />
 
-        <MilkdownEditor
-          defaultValue={page.body}
-          onChange={handleBodyChange}
-          onBlur={handleBodyBlur}
-          autoFocus={bodyAutoFocus}
-          ariaLabel="Page body"
-          className="min-h-[calc(var(--space-8)*8)]"
-        />
+        <Suspense fallback={<EditorFallback />}>
+          <MilkdownEditor
+            defaultValue={page.body}
+            onChange={handleBodyChange}
+            onBlur={handleBodyBlur}
+            autoFocus={bodyAutoFocus}
+            ariaLabel="Page body"
+            className={EDITOR_MIN_H}
+          />
+        </Suspense>
 
         <ChildPagesSection
           spaceId={spaceId}
