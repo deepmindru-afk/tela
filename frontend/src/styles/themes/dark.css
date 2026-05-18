@@ -13,5 +13,15 @@
     --danger: #f87171;
     --warning: #fbbf24;
     --success: #4ade80;
+
+    --syntax-comment: #8a8a96;
+    --syntax-keyword: #c4b5fd;
+    --syntax-string: #86efac;
+    --syntax-number: #fdba74;
+    --syntax-function: #93c5fd;
+    --syntax-punctuation: #a1a1aa;
+    --syntax-operator: #ececef;
+    --syntax-tag: #f9a8d4;
+    --syntax-attr: #93c5fd;
   }
 }

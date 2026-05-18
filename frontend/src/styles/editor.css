@@ -20,9 +20,345 @@
     font-variant-ligatures: none;
     -webkit-font-variant-ligatures: none;
     padding: var(--space-2);
+    font-family: var(--font-sans);
+    font-size: var(--text-base);
+    line-height: var(--leading-normal);
+    color: var(--text-primary);
   }
   .tela-milkdown .ProseMirror[contenteditable='false'] {
     cursor: default;
+  }
+
+  /* Headings */
+  .tela-milkdown .ProseMirror h1,
+  .tela-milkdown .ProseMirror h2,
+  .tela-milkdown .ProseMirror h3,
+  .tela-milkdown .ProseMirror h4,
+  .tela-milkdown .ProseMirror h5,
+  .tela-milkdown .ProseMirror h6 {
+    font-family: var(--font-sans);
+    font-weight: 600;
+    color: var(--text-primary);
+    line-height: var(--leading-tight);
+  }
+  .tela-milkdown .ProseMirror h1 {
+    font-size: var(--text-3xl);
+    margin: var(--space-7) 0 var(--space-3);
+  }
+  .tela-milkdown .ProseMirror h2 {
+    font-size: var(--text-2xl);
+    margin: var(--space-6) 0 var(--space-3);
+  }
+  .tela-milkdown .ProseMirror h3 {
+    font-size: var(--text-xl);
+    margin: var(--space-5) 0 var(--space-2);
+  }
+  .tela-milkdown .ProseMirror h4 {
+    font-size: var(--text-lg);
+    margin: var(--space-4) 0 var(--space-2);
+  }
+  .tela-milkdown .ProseMirror h5,
+  .tela-milkdown .ProseMirror h6 {
+    font-size: var(--text-base);
+    margin: var(--space-4) 0 var(--space-2);
+    color: var(--text-muted);
+  }
+
+  /* Reset leading/trailing block margins so the editor's outer padding
+     remains the source of truth for top/bottom whitespace. */
+  .tela-milkdown .ProseMirror > :first-child {
+    margin-top: 0;
+  }
+  .tela-milkdown .ProseMirror > :last-child {
+    margin-bottom: 0;
+  }
+
+  /* Paragraphs */
+  .tela-milkdown .ProseMirror p {
+    font-size: var(--text-base);
+    line-height: var(--leading-relaxed);
+    color: var(--text-primary);
+    margin: 0 0 var(--space-3);
+  }
+
+  /* Strong / em */
+  .tela-milkdown .ProseMirror strong {
+    font-weight: 600;
+    color: inherit;
+  }
+  .tela-milkdown .ProseMirror em {
+    font-style: italic;
+    color: inherit;
+  }
+
+  /* Lists */
+  .tela-milkdown .ProseMirror ul,
+  .tela-milkdown .ProseMirror ol {
+    padding-left: var(--space-6);
+    margin: 0 0 var(--space-3);
+  }
+  .tela-milkdown .ProseMirror ul {
+    list-style: disc;
+  }
+  .tela-milkdown .ProseMirror ol {
+    list-style: decimal;
+  }
+  .tela-milkdown .ProseMirror li {
+    margin: var(--space-1) 0;
+    line-height: var(--leading-relaxed);
+  }
+  .tela-milkdown .ProseMirror li > p {
+    margin: 0;
+  }
+  .tela-milkdown .ProseMirror li::marker {
+    color: var(--text-muted);
+  }
+  .tela-milkdown .ProseMirror ul ul,
+  .tela-milkdown .ProseMirror ul ol,
+  .tela-milkdown .ProseMirror ol ul,
+  .tela-milkdown .ProseMirror ol ol {
+    margin: var(--space-1) 0;
+    padding-left: var(--space-5);
+  }
+
+  /* Task lists (GFM). Milkdown's task-list-item renders as
+     `li[data-item-type="task"][data-checked="true|false"]` with no
+     native checkbox in the DOM, so we draw one with ::before and key
+     visual state off data-checked. Visual language matches the Toggle
+     primitive (token-derived radius + accent fill when checked). */
+  .tela-milkdown .ProseMirror li[data-item-type='task'] {
+    list-style: none;
+    position: relative;
+    padding-left: var(--space-6);
+  }
+  .tela-milkdown .ProseMirror li[data-item-type='task']::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: calc(
+      (var(--leading-relaxed) * var(--text-base) - var(--space-4)) / 2
+    );
+    width: var(--space-4);
+    height: var(--space-4);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-sm);
+    background: var(--surface-1);
+    box-sizing: border-box;
+    transition:
+      background-color var(--duration-fast) var(--ease-out),
+      border-color var(--duration-fast) var(--ease-out);
+  }
+  .tela-milkdown .ProseMirror li[data-item-type='task'][data-checked='true']::before {
+    background: var(--accent);
+    border-color: var(--accent);
+  }
+  .tela-milkdown .ProseMirror li[data-item-type='task'][data-checked='true']::after {
+    content: '';
+    position: absolute;
+    left: calc(var(--space-1) * 0.5);
+    top: calc(
+      (var(--leading-relaxed) * var(--text-base) - var(--space-4)) / 2 +
+        var(--space-1) * 0.25
+    );
+    width: var(--space-4);
+    height: var(--space-4);
+    background: var(--accent-fg);
+    clip-path: polygon(
+      14% 44%,
+      0 65%,
+      40% 100%,
+      100% 30%,
+      80% 12%,
+      40% 70%
+    );
+  }
+  .tela-milkdown
+    .ProseMirror
+    li[data-item-type='task'][data-checked='true']
+    > p {
+    color: var(--text-muted);
+    text-decoration: line-through;
+    text-decoration-color: color-mix(
+      in srgb,
+      var(--text-muted) 60%,
+      transparent
+    );
+  }
+
+  /* Blockquote */
+  .tela-milkdown .ProseMirror blockquote {
+    border-left: var(--space-1) solid var(--border-subtle);
+    padding: var(--space-3) var(--space-4);
+    margin: 0 0 var(--space-3);
+    color: var(--text-muted);
+    font-style: italic;
+  }
+  .tela-milkdown .ProseMirror blockquote > :first-child {
+    margin-top: 0;
+  }
+  .tela-milkdown .ProseMirror blockquote > :last-child {
+    margin-bottom: 0;
+  }
+
+  /* Inline code */
+  .tela-milkdown .ProseMirror :not(pre) > code {
+    font-family: var(--font-mono);
+    font-size: 0.875em;
+    background: var(--surface-2);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-sm);
+    padding: 0 var(--space-1);
+    color: var(--text-primary);
+  }
+
+  /* Code blocks */
+  .tela-milkdown .ProseMirror pre {
+    font-family: var(--font-mono);
+    font-size: var(--text-sm);
+    line-height: var(--leading-normal);
+    color: var(--text-primary);
+    background: var(--surface-2);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-md);
+    padding: var(--space-4);
+    margin: 0 0 var(--space-3);
+    overflow-x: auto;
+  }
+  .tela-milkdown .ProseMirror pre code {
+    background: none;
+    border: none;
+    padding: 0;
+    font-family: inherit;
+    font-size: inherit;
+    color: inherit;
+  }
+
+  /* Prism syntax highlighting — colors come from --syntax-* tokens so
+     each theme controls its own palette. */
+  .tela-milkdown .ProseMirror .token.comment,
+  .tela-milkdown .ProseMirror .token.prolog,
+  .tela-milkdown .ProseMirror .token.doctype,
+  .tela-milkdown .ProseMirror .token.cdata {
+    color: var(--syntax-comment);
+    font-style: italic;
+  }
+  .tela-milkdown .ProseMirror .token.keyword,
+  .tela-milkdown .ProseMirror .token.atrule,
+  .tela-milkdown .ProseMirror .token.important,
+  .tela-milkdown .ProseMirror .token.builtin {
+    color: var(--syntax-keyword);
+  }
+  .tela-milkdown .ProseMirror .token.string,
+  .tela-milkdown .ProseMirror .token.attr-value,
+  .tela-milkdown .ProseMirror .token.char,
+  .tela-milkdown .ProseMirror .token.regex {
+    color: var(--syntax-string);
+  }
+  .tela-milkdown .ProseMirror .token.number,
+  .tela-milkdown .ProseMirror .token.boolean,
+  .tela-milkdown .ProseMirror .token.constant,
+  .tela-milkdown .ProseMirror .token.symbol {
+    color: var(--syntax-number);
+  }
+  .tela-milkdown .ProseMirror .token.function,
+  .tela-milkdown .ProseMirror .token.class-name {
+    color: var(--syntax-function);
+  }
+  .tela-milkdown .ProseMirror .token.punctuation {
+    color: var(--syntax-punctuation);
+  }
+  .tela-milkdown .ProseMirror .token.operator,
+  .tela-milkdown .ProseMirror .token.entity,
+  .tela-milkdown .ProseMirror .token.url {
+    color: var(--syntax-operator);
+  }
+  .tela-milkdown .ProseMirror .token.tag,
+  .tela-milkdown .ProseMirror .token.selector {
+    color: var(--syntax-tag);
+  }
+  .tela-milkdown .ProseMirror .token.attr-name,
+  .tela-milkdown .ProseMirror .token.property,
+  .tela-milkdown .ProseMirror .token.variable {
+    color: var(--syntax-attr);
+  }
+  .tela-milkdown .ProseMirror .token.bold {
+    font-weight: 600;
+  }
+  .tela-milkdown .ProseMirror .token.italic {
+    font-style: italic;
+  }
+
+  /* Links */
+  .tela-milkdown .ProseMirror a {
+    color: var(--accent);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+    text-decoration-thickness: 1px;
+    transition: text-decoration-thickness var(--duration-fast)
+      var(--ease-out);
+  }
+  .tela-milkdown .ProseMirror a:hover,
+  .tela-milkdown .ProseMirror a:focus-visible {
+    text-decoration-thickness: 2px;
+  }
+
+  /* Horizontal rule */
+  .tela-milkdown .ProseMirror hr {
+    border: none;
+    height: 1px;
+    background: var(--border-subtle);
+    margin: var(--space-5) 0;
+  }
+
+  /* Tables (GFM). Milkdown wraps tables in `.tableWrapper` for
+     horizontal scrolling; we round the wrapper so the corners look
+     right even when content overflows. */
+  .tela-milkdown .ProseMirror .tableWrapper {
+    overflow-x: auto;
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-sm);
+    margin: 0 0 var(--space-3);
+  }
+  .tela-milkdown .ProseMirror table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: var(--text-sm);
+    line-height: var(--leading-normal);
+    color: var(--text-primary);
+  }
+  .tela-milkdown .ProseMirror .tableWrapper > table {
+    margin: 0;
+  }
+  .tela-milkdown .ProseMirror table th,
+  .tela-milkdown .ProseMirror table td {
+    padding: var(--space-2) var(--space-3);
+    border-bottom: 1px solid var(--border-subtle);
+    border-right: 1px solid var(--border-subtle);
+    text-align: left;
+    vertical-align: top;
+  }
+  .tela-milkdown .ProseMirror table th:last-child,
+  .tela-milkdown .ProseMirror table td:last-child {
+    border-right: none;
+  }
+  .tela-milkdown .ProseMirror table tr:last-child td {
+    border-bottom: none;
+  }
+  .tela-milkdown .ProseMirror table th {
+    background: var(--surface-2);
+    font-weight: 600;
+  }
+  .tela-milkdown .ProseMirror table th > p,
+  .tela-milkdown .ProseMirror table td > p {
+    margin: 0;
+  }
+
+  /* Images */
+  .tela-milkdown .ProseMirror img {
+    max-width: 100%;
+    height: auto;
+    border-radius: var(--radius-md);
+    display: inline-block;
   }
 
   /* Slash menu — positioned by @floating-ui via SlashProvider. Visibility

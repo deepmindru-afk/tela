@@ -5,7 +5,7 @@ import {
   editorViewCtx,
   rootCtx,
 } from '@milkdown/kit/core'
-import { commonmark } from '@milkdown/kit/preset/commonmark'
+import { commonmark, imageAttr } from '@milkdown/kit/preset/commonmark'
 import { gfm } from '@milkdown/kit/preset/gfm'
 import { history } from '@milkdown/kit/plugin/history'
 import { clipboard } from '@milkdown/kit/plugin/clipboard'
@@ -56,6 +56,7 @@ function MilkdownEditorInner({
         ctx.set(slashPlugin.key, {
           view: pluginViewFactory({ component: SlashView }),
         })
+        ctx.set(imageAttr.key, () => ({ loading: 'lazy' }))
       })
       .use(commonmark)
       .use(gfm)
