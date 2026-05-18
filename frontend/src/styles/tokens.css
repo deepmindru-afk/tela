@@ -17,10 +17,12 @@
     --leading-normal: 1.5;
     --leading-relaxed: 1.7;
 
-    --radius-xs: 2px;
-    --radius-sm: 4px;
+    /* All radii derive from --radius-md so a single edit reshapes every
+       primitive (Button, Input, Card, Dialog, Tooltip, Toggle). */
     --radius-md: 8px;
-    --radius-lg: 12px;
+    --radius-xs: calc(var(--radius-md) * 0.25);
+    --radius-sm: calc(var(--radius-md) * 0.5);
+    --radius-lg: calc(var(--radius-md) * 1.5);
 
     --space-1: 0.25rem;
     --space-2: 0.5rem;

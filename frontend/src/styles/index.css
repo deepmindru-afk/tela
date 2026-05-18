@@ -26,3 +26,110 @@
       color var(--duration-base) var(--ease-out);
   }
 }
+
+@layer components {
+  @keyframes tela-fade-in {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+
+  @keyframes tela-fade-out {
+    from {
+      opacity: 1;
+    }
+    to {
+      opacity: 0;
+    }
+  }
+
+  @keyframes tela-dialog-in {
+    from {
+      opacity: 0;
+      transform: translate(-50%, -50%) scale(0.96);
+    }
+    to {
+      opacity: 1;
+      transform: translate(-50%, -50%) scale(1);
+    }
+  }
+
+  @keyframes tela-dialog-out {
+    from {
+      opacity: 1;
+      transform: translate(-50%, -50%) scale(1);
+    }
+    to {
+      opacity: 0;
+      transform: translate(-50%, -50%) scale(0.96);
+    }
+  }
+
+  .tela-dialog-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 50;
+    background: color-mix(in srgb, var(--text-primary) 50%, transparent);
+    backdrop-filter: blur(2px);
+  }
+  .tela-dialog-overlay[data-state='open'] {
+    animation: tela-fade-in var(--duration-base) var(--ease-out);
+  }
+  .tela-dialog-overlay[data-state='closed'] {
+    animation: tela-fade-out var(--duration-fast) var(--ease-out);
+  }
+
+  .tela-dialog-content {
+    position: fixed;
+    left: 50%;
+    top: 50%;
+    z-index: 50;
+    transform: translate(-50%, -50%);
+    width: 100%;
+    max-width: min(32rem, calc(100vw - var(--space-7)));
+    background: var(--surface-1);
+    color: var(--text-primary);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-lg);
+    box-shadow: 0 20px 50px -10px
+      color-mix(in srgb, var(--text-primary) 25%, transparent);
+    padding: var(--space-6);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+    outline: none;
+  }
+  .tela-dialog-content[data-state='open'] {
+    animation: tela-dialog-in var(--duration-base) var(--ease-out);
+  }
+  .tela-dialog-content[data-state='closed'] {
+    animation: tela-dialog-out var(--duration-fast) var(--ease-out);
+  }
+
+  .tela-tooltip-content {
+    z-index: 50;
+    background: var(--surface-3);
+    color: var(--text-primary);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-sm);
+    padding: var(--space-1) var(--space-3);
+    font-family: var(--font-sans);
+    font-size: var(--text-xs);
+    line-height: var(--leading-tight);
+    box-shadow: 0 4px 12px -4px
+      color-mix(in srgb, var(--text-primary) 20%, transparent);
+  }
+  .tela-tooltip-content[data-state='delayed-open'],
+  .tela-tooltip-content[data-state='instant-open'] {
+    animation: tela-fade-in var(--duration-fast) var(--ease-out);
+  }
+  .tela-tooltip-content[data-state='closed'] {
+    animation: tela-fade-out var(--duration-fast) var(--ease-out);
+  }
+  .tela-tooltip-arrow {
+    fill: var(--surface-3);
+  }
+}
