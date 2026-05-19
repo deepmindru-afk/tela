@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { ImportSection } from '../components/app/ImportSection'
 import { SettingsProfileTab } from '../components/app/SettingsProfileTab'
 import { SettingsUsersTab } from '../components/app/SettingsUsersTab'
 import { Button } from '../components/ui/button'
@@ -17,6 +18,12 @@ const PROFILE_TAB: SettingsTab = {
   render: () => <SettingsProfileTab />,
 }
 
+const IMPORT_TAB: SettingsTab = {
+  id: 'import',
+  label: 'Import',
+  render: () => <ImportSection />,
+}
+
 const USERS_TAB: SettingsTab = {
   id: 'users',
   label: 'Users',
@@ -28,8 +35,8 @@ export function SettingsPage() {
   // The Users tab is gated on instance-admin; the array itself drops it for
   // non-admins so /settings looks identical to today's Profile-only shell.
   const tabs = useMemo<SettingsTab[]>(() => {
-    if (me.data?.is_instance_admin) return [PROFILE_TAB, USERS_TAB]
-    return [PROFILE_TAB]
+    if (me.data?.is_instance_admin) return [PROFILE_TAB, IMPORT_TAB, USERS_TAB]
+    return [PROFILE_TAB, IMPORT_TAB]
   }, [me.data?.is_instance_admin])
   const [activeId, setActiveId] = useState(tabs[0].id)
   const active = tabs.find((t) => t.id === activeId) ?? tabs[0]
