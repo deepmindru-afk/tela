@@ -31,18 +31,30 @@ export interface SheetContentProps
   extends React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content>,
     VariantProps<typeof sheetVariants> {
   showClose?: boolean
+  // When false, the dim/blur overlay behind the sheet is not rendered.
+  // Pair with Sheet's `modal={false}` for an "alongside" panel that lets
+  // the user keep interacting with content behind it (used by the M8
+  // CommentsPanel so selection in the editor stays available).
+  withOverlay?: boolean
 }
 
 export const SheetContent = forwardRef<
   React.ElementRef<typeof DialogPrimitive.Content>,
   SheetContentProps
 >(function SheetContent(
-  { side = 'right', className, children, showClose = true, ...props },
+  {
+    side = 'right',
+    className,
+    children,
+    showClose = true,
+    withOverlay = true,
+    ...props
+  },
   ref,
 ) {
   return (
     <SheetPortal>
-      <SheetOverlay />
+      {withOverlay ? <SheetOverlay /> : null}
       <DialogPrimitive.Content
         ref={ref}
         className={cn(sheetVariants({ side }), className)}

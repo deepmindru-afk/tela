@@ -8,12 +8,16 @@ import {
   useState,
 } from 'react'
 import { Link, useNavigate } from '@tanstack/react-router'
-import { ChevronRight, FileText, Plus, Trash2 } from 'lucide-react'
+import { ChevronRight, FileText, MessageSquare, Plus, Trash2 } from 'lucide-react'
+import type { EditorView } from '@milkdown/kit/prose/view'
 import { ApiError } from '../../lib/api'
 import { pushRecentPage } from '../../lib/recentPages'
 import type { TelaProvider } from '../../lib/collab/tela-provider'
+import { captureAnchor, type CommentAnchor } from '../../lib/comments/anchor'
+import { useComments } from '../../lib/comments/use-comments'
 import { useMe } from '../../lib/queries/auth'
 import { useSpaceMembers } from '../../lib/queries/members'
+import { CommentsPanel } from './CommentsPanel'
 import { PresenceAvatars } from './presence-avatars'
 import {
   useAllPages,
@@ -140,6 +144,51 @@ function PageEditor({ page, spaceId, onDeleted }: PageEditorProps) {
   // first page open per session has a brief loading-skeleton window.
   const roleResolved = me.data != null && members.data != null
   const isViewer = roleResolved && myMembership?.role === 'viewer'
+  const isSpaceOwner = myMembership?.role === 'owner'
+
+  // M8.3 — comments surface. The panel toggle, panel itself, and selection
+  // bridge are all gated behind a non-viewer role; viewers don't see the
+  // button at all and the editor's selection bridge is unused. The editor's
+  // PM view ref is owned here so the composer's captureAnchor() reads the
+  // live selection at submit time without prop-drilling the view down.
+  const editorViewRef = useRef<EditorView | null>(null)
+  const [commentsOpen, setCommentsOpen] = useState(false)
+  const [selectionEmpty, setSelectionEmpty] = useState(true)
+  const [selectionPreview, setSelectionPreview] = useState('')
+  const handleViewReady = useCallback((view: EditorView | null) => {
+    editorViewRef.current = view
+  }, [])
+  const handleSelectionChange = useCallback(
+    ({ isEmpty, text }: { isEmpty: boolean; text: string }) => {
+      setSelectionEmpty(isEmpty)
+      setSelectionPreview(text)
+    },
+    [],
+  )
+  const captureCurrentAnchor = useCallback((): CommentAnchor | null => {
+    const view = editorViewRef.current
+    if (!view) return null
+    const { from, to } = view.state.selection
+    if (from === to) return null
+    try {
+      return captureAnchor(view, from, to)
+    } catch {
+      return null
+    }
+  }, [])
+  // Drives the "Comments (N)" badge on the header toggle. The CommentsPanel
+  // shares the same queryKey, so this hook hits the cache instead of
+  // re-fetching when the panel is open. Skipped entirely for viewers — they
+  // see no comments surface and the backend would 403 them.
+  const commentsForHeader = useComments({
+    pageId: page.id,
+    enabled: roleResolved && !isViewer,
+  })
+  const openThreadCount = useMemo(() => {
+    const data = commentsForHeader.data
+    if (!data) return null
+    return data.reduce((n, t) => n + (t.root.resolved ? 0 : 1), 0)
+  }, [commentsForHeader.data])
 
   // M7.4 — collab provider, lifted into PageView so the header
   // <PresenceAvatars /> and the local-awareness user-state seeding share
@@ -337,6 +386,23 @@ function PageEditor({ page, spaceId, onDeleted }: PageEditorProps) {
             awareness={provider?.awareness ?? null}
           />
           <SaveIndicator status={status} />
+          {roleResolved && !isViewer ? (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              aria-label="Comments"
+              onClick={() => setCommentsOpen(true)}
+              className="h-[var(--space-8)] px-[var(--space-3)]"
+            >
+              <MessageSquare width={16} height={16} />
+              {openThreadCount != null ? (
+                <span>Comments ({openThreadCount})</span>
+              ) : (
+                <span>Comments</span>
+              )}
+            </Button>
+          ) : null}
           <Button
             type="button"
             variant="ghost"
@@ -380,6 +446,8 @@ function PageEditor({ page, spaceId, onDeleted }: PageEditorProps) {
               collabPageId={isViewer ? null : page.id}
               readOnly={isViewer}
               onCollabReady={setProvider}
+              onViewReady={isViewer ? undefined : handleViewReady}
+              onSelectionChange={isViewer ? undefined : handleSelectionChange}
             />
           </Suspense>
         ) : (
@@ -402,6 +470,19 @@ function PageEditor({ page, spaceId, onDeleted }: PageEditorProps) {
         onOpenChange={setDeleteOpen}
         onDeleted={onDeleted}
       />
+
+      {roleResolved && !isViewer && me.data ? (
+        <CommentsPanel
+          pageId={page.id}
+          open={commentsOpen}
+          onOpenChange={setCommentsOpen}
+          hasSelection={!selectionEmpty}
+          captureAnchor={captureCurrentAnchor}
+          anchorPreview={selectionEmpty ? null : selectionPreview}
+          me={{ id: me.data.id, username: me.data.username }}
+          isSpaceOwner={isSpaceOwner}
+        />
+      ) : null}
     </div>
   )
 }

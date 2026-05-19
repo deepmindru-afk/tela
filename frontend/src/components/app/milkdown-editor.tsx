@@ -19,6 +19,8 @@ import {
   usePluginViewFactory,
 } from '@prosemirror-adapter/react'
 import { prism } from '@milkdown/plugin-prism'
+import { Plugin } from '@milkdown/kit/prose/state'
+import type { EditorView } from '@milkdown/kit/prose/view'
 import * as Y from 'yjs'
 import {
   prosemirrorToYXmlFragment,
@@ -72,6 +74,14 @@ export interface MilkdownEditorProps {
   // PageView header (PresenceAvatars) and PageView's awareness local-state
   // seeding can hook into the same provider. Not invoked in non-collab mode.
   onCollabReady?: (provider: TelaProvider) => void
+  // M8.3 — selection bridge. `onViewReady` fires once with the EditorView on
+  // mount (and once with null on unmount) so CommentsPanel can snapshot
+  // anchors at submit time. `onSelectionChange` fires whenever the PM
+  // selection transitions and exposes the current selection's plain-text
+  // projection (empty when the selection is collapsed). Both flow through
+  // a single tiny PM plugin so we don't double-up subscription paths.
+  onViewReady?: (view: EditorView | null) => void
+  onSelectionChange?: (state: { isEmpty: boolean; text: string }) => void
 }
 
 // Reconnecting banner copy.
@@ -88,12 +98,26 @@ function MilkdownEditorInner({
   collabPageId,
   readOnly,
   onCollabReady,
+  onViewReady,
+  onSelectionChange,
 }: MilkdownEditorProps) {
   const pluginViewFactory = usePluginViewFactory()
 
   // Keep callbacks fresh without recreating the editor on every render.
-  const callbacks = useRef({ onChange, onBlur })
-  callbacks.current = { onChange, onBlur }
+  const callbacks = useRef({ onChange, onBlur, onViewReady, onSelectionChange })
+  callbacks.current = { onChange, onBlur, onViewReady, onSelectionChange }
+
+  // M8.3 — single-source the selection projection so the PM plugin and any
+  // future consumer read selection text via the same '\n' block separator
+  // contract that lib/comments/anchor.ts uses. Diverging here would silently
+  // misalign captureAnchor/resolveAnchor offsets.
+  function emitSelection(view: EditorView) {
+    const cb = callbacks.current.onSelectionChange
+    if (!cb) return
+    const { from, to, empty } = view.state.selection
+    const text = empty ? '' : view.state.doc.textBetween(from, to, '\n')
+    cb({ isEmpty: empty, text })
+  }
 
   // M7.2 — lazy-init Y.Doc + TelaProvider in a stable ref so the editor
   // factory captures them once. Y.Doc lifecycle pitfall: a re-render with
@@ -205,6 +229,31 @@ function MilkdownEditorInner({
         ctx.set(editorViewOptionsCtx, {
           editable: () => editableRef.current,
         })
+
+        // M8.3 — selection bridge: a no-decoration PM plugin that fires
+        // onViewReady on mount/unmount and onSelectionChange whenever the
+        // selection transitions. The plugin captures the live callback
+        // refs (not the props at editor-build time) so the React side can
+        // change handlers without rebuilding the editor.
+        const selectionBridge = new Plugin({
+          view: (view) => {
+            callbacks.current.onViewReady?.(view)
+            // Initial selection state — fire so consumers don't have to
+            // wait for the first selection event to know the editor is
+            // ready and the selection is currently collapsed/non-collapsed.
+            emitSelection(view)
+            return {
+              update: (view, prevState) => {
+                if (view.state.selection.eq(prevState.selection)) return
+                emitSelection(view)
+              },
+              destroy: () => {
+                callbacks.current.onViewReady?.(null)
+              },
+            }
+          },
+        })
+        ctx.update(prosePluginsCtx, (existing) => [...existing, selectionBridge])
 
         // M7.2: bind y-prosemirror's sync + undo plugins when collab is
         // active. ySyncPlugin observes the Y.XmlFragment and pushes the

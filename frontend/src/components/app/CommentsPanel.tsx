@@ -1,0 +1,170 @@
+import { useMemo } from 'react'
+import type { CommentAnchor } from '../../lib/comments/anchor'
+import {
+  useComments,
+  useCreateComment,
+  useDeleteComment,
+  useUpdateComment,
+} from '../../lib/comments/use-comments'
+import {
+  Sheet,
+  SheetBody,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from '../ui/sheet'
+import { CommentComposer } from './CommentComposer'
+import { CommentThread } from './CommentThread'
+
+interface CommentsPanelProps {
+  pageId: number
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  // Live editor selection state. The composer is disabled while empty.
+  hasSelection: boolean
+  // Snapshot the current PM selection into a CommentAnchor at submit time.
+  captureAnchor: () => CommentAnchor | null
+  // Live anchor preview (selection text) so users see what they're commenting
+  // on without leaving focus on the editor. Empty when selection is empty.
+  anchorPreview: string | null
+  // Current viewer — needed for optimistic author + edit/delete gates.
+  me: { id: number; username: string }
+  // True iff the viewer's space role is 'owner'. Owners can delete any
+  // comment in the page.
+  isSpaceOwner: boolean
+}
+
+export function CommentsPanel({
+  pageId,
+  open,
+  onOpenChange,
+  hasSelection,
+  captureAnchor,
+  anchorPreview,
+  me,
+  isSpaceOwner,
+}: CommentsPanelProps) {
+  // Backend orders threads ASC by created_at; show newest at top in the panel.
+  const commentsQuery = useComments({ pageId })
+  const createComment = useCreateComment(pageId, me)
+  const updateComment = useUpdateComment(pageId)
+  const deleteComment = useDeleteComment(pageId)
+
+  const threadsData = commentsQuery.data
+  const displayThreads = useMemo(() => {
+    // Newest first. (#74 will filter resolved here based on a localStorage
+    // toggle; v0 ships everything since the backend already returns the full
+    // set for the count derivation.)
+    if (!threadsData) return []
+    return [...threadsData].reverse()
+  }, [threadsData])
+  const threads = threadsData ?? []
+
+  async function handleCreateRoot(input: {
+    body: string
+    anchor_prefix: string
+    anchor_exact: string
+    anchor_suffix: string
+  }) {
+    await createComment.mutateAsync({
+      body: input.body,
+      anchor_prefix: input.anchor_prefix,
+      anchor_exact: input.anchor_exact,
+      anchor_suffix: input.anchor_suffix,
+    })
+  }
+
+  async function handleReply(parentId: number, body: string) {
+    await createComment.mutateAsync({ body, parent_id: parentId })
+  }
+
+  async function handleEdit(id: number, body: string) {
+    await updateComment.mutateAsync({ id, body })
+  }
+
+  async function handleDelete(id: number) {
+    await deleteComment.mutateAsync({ id })
+  }
+
+  const totalOpenCount = threads.filter((t) => !t.root.resolved).length
+
+  return (
+    // modal={false} — the comments panel sits beside the editor; the user
+    // must be able to select new passages without first dismissing the
+    // panel. Radix Dialog's default modal behaviour would trap focus and
+    // block pointer events outside the sheet, which makes "select text →
+    // type comment" impossible mid-session.
+    <Sheet open={open} onOpenChange={onOpenChange} modal={false}>
+      <SheetContent
+        side="right"
+        className="flex flex-col"
+        withOverlay={false}
+        // Prevent Radix from auto-pulling focus out of the editor on
+        // initial mount — composer focus is opt-in (the user has to click
+        // the textarea). Without this, opening the panel would steal a
+        // freshly-made selection.
+        onOpenAutoFocus={(e) => e.preventDefault()}
+        // Same reasoning on close — return focus to the editor naturally
+        // by leaving DOM focus where it was, instead of bouncing it to
+        // the trigger button.
+        onCloseAutoFocus={(e) => e.preventDefault()}
+        // Clicks outside the sheet (e.g. into the editor to make a new
+        // selection) must NOT close the panel.
+        onInteractOutside={(e) => e.preventDefault()}
+      >
+        <SheetHeader>
+          <SheetTitle>Comments</SheetTitle>
+          <SheetDescription>
+            {totalOpenCount === 0
+              ? 'No open threads on this page yet.'
+              : totalOpenCount === 1
+                ? '1 open thread on this page.'
+                : `${totalOpenCount} open threads on this page.`}
+          </SheetDescription>
+        </SheetHeader>
+
+        <SheetBody className="flex flex-col gap-[var(--space-4)]">
+          <CommentComposer
+            hasSelection={hasSelection}
+            captureAnchor={captureAnchor}
+            anchorPreview={anchorPreview}
+            onSubmit={handleCreateRoot}
+          />
+
+          {commentsQuery.isLoading ? (
+            <p className="m-0 text-[length:var(--text-sm)] text-[var(--text-muted)] font-[family-name:var(--font-sans)]">
+              Loading…
+            </p>
+          ) : commentsQuery.isError ? (
+            <p
+              role="alert"
+              className="m-0 text-[length:var(--text-sm)] text-[var(--danger)]"
+            >
+              Couldn't load comments.
+            </p>
+          ) : displayThreads.length === 0 ? (
+            <p className="m-0 text-[length:var(--text-sm)] text-[var(--text-muted)] font-[family-name:var(--font-sans)]">
+              No comments yet. Select a passage in the page and write the
+              first one.
+            </p>
+          ) : (
+            <ul className="m-0 p-0 flex flex-col gap-[var(--space-3)]">
+              {displayThreads.map((thread) => (
+                <CommentThread
+                  key={thread.root.id}
+                  thread={thread}
+                  currentUserId={me.id}
+                  isSpaceOwner={isSpaceOwner}
+                  onEditComment={handleEdit}
+                  onDeleteComment={handleDelete}
+                  onReply={handleReply}
+                />
+              ))}
+            </ul>
+          )}
+        </SheetBody>
+      </SheetContent>
+    </Sheet>
+  )
+}
