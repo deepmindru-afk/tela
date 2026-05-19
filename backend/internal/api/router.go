@@ -50,6 +50,22 @@ func registerRoutes(srv *Server, mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/pages/{id}/revisions", srv.ListPageRevisions)
 	mux.HandleFunc("GET /api/pages/{id}/revisions/{rev_id}", srv.GetPageRevision)
 
+	// M15.0 PublicShare management: session-authed, editor+ on source page's
+	// space. Soft-delete via revoked_at so the audit trail survives revocation.
+	mux.HandleFunc("POST /api/pages/{id}/shares", srv.CreateShareLink)
+	mux.HandleFunc("GET /api/pages/{id}/shares", srv.ListShareLinks)
+	mux.HandleFunc("PATCH /api/shares/{share_id}", srv.PatchShareLink)
+	mux.HandleFunc("DELETE /api/shares/{share_id}", srv.DeleteShareLink)
+
+	// M15.0 PublicShare public token API: no session cookie required. MUST be
+	// on auth.IsPublicPath (/api/share/) so the session middleware skips it.
+	// Password-gated when the share has a password_hash — handlers validate the
+	// per-share HMAC cookie themselves.
+	mux.HandleFunc("GET /api/share/{token}", srv.GetPublicShare)
+	mux.HandleFunc("POST /api/share/{token}/auth", srv.PublicShareAuth)
+	mux.HandleFunc("GET /api/share/{token}/page/{page_id}", srv.GetPublicSharePage)
+	mux.HandleFunc("GET /api/share/{token}/tree", srv.GetPublicShareTree)
+
 	mux.HandleFunc("GET /api/search", srv.Search)
 
 	mux.HandleFunc("GET /api/admin/users", srv.ListAdminUsers)

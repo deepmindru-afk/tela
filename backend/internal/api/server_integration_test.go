@@ -21,6 +21,10 @@ import (
 // / context plumbing the package-level handler tests skip.
 func newWiredServer(t *testing.T) (*httptest.Server, *sql.DB) {
 	t.Helper()
+	// Deterministic share secret so M15.0 cookie HMACs round-trip identically
+	// across test invocations. Process-wide via t.Setenv; reset automatically
+	// when the test ends.
+	t.Setenv("TELA_SHARE_SECRET", "tela-test-share-secret-fixed-32-byte!")
 	d := newAPITestDB(t)
 	ts := httptest.NewServer(Handler(d))
 	t.Cleanup(ts.Close)

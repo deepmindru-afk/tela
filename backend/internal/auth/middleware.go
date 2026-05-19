@@ -172,12 +172,17 @@ func SetSessionCookie(w http.ResponseWriter, id string) {
 // brief: /api/health and everything under /api/auth/. Login is anonymous
 // by definition; logout + me handle cookie presence themselves. M11.0 adds
 // /p/* — the public OG-share route, gated by User-Agent allowlist instead of
-// session cookie because crawlers don't carry sessions.
+// session cookie because crawlers don't carry sessions. M15.0 adds
+// /api/share/* — token-scoped public read API; the share handlers gate access
+// themselves via the token + an optional HMAC password cookie.
 func IsPublicPath(p string) bool {
 	if p == "/api/health" {
 		return true
 	}
 	if strings.HasPrefix(p, "/api/auth/") {
+		return true
+	}
+	if strings.HasPrefix(p, "/api/share/") {
 		return true
 	}
 	return strings.HasPrefix(p, "/p/")
