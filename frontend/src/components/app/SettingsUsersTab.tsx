@@ -11,6 +11,7 @@ import { localDateFromSqlite } from '../../lib/relativeTime'
 import type { AdminUserRow } from '../../lib/types'
 import { Badge } from '../ui/badge'
 import { Button } from '../ui/button'
+import { Checkbox } from '../ui/checkbox'
 import {
   Dialog,
   DialogClose,
@@ -88,25 +89,25 @@ export function SettingsUsersTab() {
 
 function UserRow({ row, isSelf }: { row: AdminUserRow; isSelf: boolean }) {
   const [resetOpen, setResetOpen] = useState(false)
-  const [lastAdminError, setLastAdminError] = useState<string | null>(null)
+  const [rowError, setRowError] = useState<string | null>(null)
   const updateUser = useUpdateAdminUser()
 
   async function runUpdate(input: {
     is_active?: boolean
     is_instance_admin?: boolean
   }) {
-    setLastAdminError(null)
+    setRowError(null)
     try {
       await updateUser.mutateAsync({ id: row.id, ...input })
     } catch (err) {
       if (err instanceof ApiError && err.code === 'last_admin') {
-        setLastAdminError(
+        setRowError(
           "Can't deactivate or demote the last instance admin — promote someone first.",
         )
       } else if (err instanceof ApiError) {
-        setLastAdminError(err.message)
+        setRowError(err.message)
       } else {
-        setLastAdminError('Something went wrong. Try again.')
+        setRowError('Something went wrong. Try again.')
       }
     }
   }
@@ -141,12 +142,12 @@ function UserRow({ row, isSelf }: { row: AdminUserRow; isSelf: boolean }) {
         <span className="text-[length:var(--text-xs)] text-[var(--text-muted)] font-[family-name:var(--font-sans)]">
           Created {localDateFromSqlite(row.created_at)}
         </span>
-        {lastAdminError ? (
+        {rowError ? (
           <span
             role="alert"
             className="text-[length:var(--text-xs)] text-[var(--danger)]"
           >
-            {lastAdminError}
+            {rowError}
           </span>
         ) : null}
       </div>
@@ -297,11 +298,9 @@ function CreateUserDialog({
             />
           </div>
           <label className="flex items-center gap-[var(--space-2)] text-[length:var(--text-sm)] text-[var(--text-primary)] cursor-pointer">
-            <input
-              type="checkbox"
+            <Checkbox
               checked={makeAdmin}
-              onChange={(e) => setMakeAdmin(e.target.checked)}
-              className="h-[var(--space-4)] w-[var(--space-4)] accent-[var(--accent)] cursor-pointer"
+              onCheckedChange={(next) => setMakeAdmin(next === true)}
             />
             <span>Make this user an instance admin</span>
           </label>
