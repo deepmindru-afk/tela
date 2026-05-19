@@ -8,7 +8,14 @@ import {
   useState,
 } from 'react'
 import { Link, useNavigate } from '@tanstack/react-router'
-import { ChevronRight, FileText, MessageSquare, Plus, Trash2 } from 'lucide-react'
+import {
+  ChevronRight,
+  FileText,
+  History,
+  MessageSquare,
+  Plus,
+  Trash2,
+} from 'lucide-react'
 import type { EditorView } from '@milkdown/kit/prose/view'
 import { ApiError } from '../../lib/api'
 import { pushRecentPage } from '../../lib/recentPages'
@@ -457,6 +464,23 @@ function PageEditor({ page, spaceId, onDeleted }: PageEditorProps) {
             awareness={provider?.awareness ?? null}
           />
           <SaveIndicator status={status} />
+          {roleResolved && !isViewer ? (
+            <Button
+              asChild
+              variant="ghost"
+              size="sm"
+              aria-label="History"
+              className="h-[var(--space-8)] px-[var(--space-3)]"
+            >
+              <Link
+                to="/spaces/$spaceId/pages/$pageId/history"
+                params={{ spaceId, pageId: page.id }}
+              >
+                <History width={16} height={16} />
+                <span>History</span>
+              </Link>
+            </Button>
+          ) : null}
           {roleResolved && !isViewer ? (
             <Button
               type="button"

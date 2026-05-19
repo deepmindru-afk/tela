@@ -12,6 +12,7 @@ import {
 import { FilePlus, Plus } from 'lucide-react'
 import { AppCommandHost } from '../components/app/AppCommandHost'
 import { NewSpaceDialog } from '../components/app/NewSpaceDialog'
+import { PageHistoryView } from '../components/app/PageHistoryView'
 import { PageView } from '../components/app/PageView'
 import { Sidebar } from '../components/app/Sidebar'
 import { ThemeSwitcher } from '../components/ThemeSwitcher'
@@ -299,12 +300,25 @@ const pageRoute = createRoute({
   },
 })
 
+const pageHistoryRoute = createRoute({
+  getParentRoute: () => spaceRoute,
+  path: 'pages/$pageId/history',
+  parseParams: (raw) => ({ pageId: Number(raw.pageId) }),
+  stringifyParams: (params) => ({ pageId: String(params.pageId) }),
+  component: function PageHistoryRouteComponent() {
+    const { spaceId, pageId } = useParams({
+      from: '/_app/spaces/$spaceId/pages/$pageId/history',
+    })
+    return <PageHistoryView spaceId={spaceId} pageId={pageId} />
+  },
+})
+
 const routeTree = rootRoute.addChildren([
   loginRoute,
   appLayoutRoute.addChildren([
     indexRoute,
     settingsRoute,
-    spaceRoute.addChildren([spaceIndexRoute, pageRoute]),
+    spaceRoute.addChildren([spaceIndexRoute, pageRoute, pageHistoryRoute]),
   ]),
 ])
 
