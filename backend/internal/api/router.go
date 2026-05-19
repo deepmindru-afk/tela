@@ -55,4 +55,8 @@ func registerRoutes(srv *Server, mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/spaces/{id}/members", srv.AddSpaceMember)
 	mux.HandleFunc("PATCH /api/spaces/{id}/members/{user_id}", srv.PatchSpaceMember)
 	mux.HandleFunc("DELETE /api/spaces/{id}/members/{user_id}", srv.DeleteSpaceMember)
+
+	// M7.1 LiveCollab: ws upgrade for Yjs relay. Authed via auth.Middleware
+	// on the upgrade request — must NOT be added to auth.IsPublicPath.
+	mux.HandleFunc("GET /ws/pages/{id}", srv.WSPage)
 }
