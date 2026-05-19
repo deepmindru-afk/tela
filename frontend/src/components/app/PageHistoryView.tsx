@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from 'react'
-import { Link, useNavigate } from '@tanstack/react-router'
+import { Link, useNavigate, useParams } from '@tanstack/react-router'
 import { useQueryClient } from '@tanstack/react-query'
 import { ChevronRight, History } from 'lucide-react'
 import { ApiError, api } from '../../lib/api'
@@ -41,6 +41,16 @@ const REVISIONS_PAGE_SIZE = 50
 interface PageHistoryViewProps {
   spaceId: number
   pageId: number
+}
+
+// Thin wrapper exposed to TanStack Router's lazyRouteComponent so the entire
+// history surface (this module + its DiffViewer dep) ships as its own chunk
+// and the main bundle doesn't carry code only used on /history.
+export function PageHistoryRoute() {
+  const { spaceId, pageId } = useParams({
+    from: '/_app/spaces/$spaceId/pages/$pageId/history',
+  })
+  return <PageHistoryView spaceId={spaceId} pageId={pageId} />
 }
 
 export function PageHistoryView({ spaceId, pageId }: PageHistoryViewProps) {

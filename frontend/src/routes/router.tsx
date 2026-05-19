@@ -4,6 +4,7 @@ import {
   createRoute,
   createRouter,
   isRedirect,
+  lazyRouteComponent,
   Outlet,
   redirect,
   useNavigate,
@@ -12,7 +13,6 @@ import {
 import { FilePlus, Plus } from 'lucide-react'
 import { AppCommandHost } from '../components/app/AppCommandHost'
 import { NewSpaceDialog } from '../components/app/NewSpaceDialog'
-import { PageHistoryView } from '../components/app/PageHistoryView'
 import { PageView } from '../components/app/PageView'
 import { Sidebar } from '../components/app/Sidebar'
 import { ThemeSwitcher } from '../components/ThemeSwitcher'
@@ -310,17 +310,19 @@ const pageRoute = createRoute({
   },
 })
 
+// Lazy-loaded so the page-history surface (PageHistoryView + DiffViewer +
+// page-revisions queries) ships as its own chunk. First nav to /history
+// triggers the fetch; `defaultPreload: 'intent'` below promotes the load to
+// hover-time when the user shows intent on the nav link.
 const pageHistoryRoute = createRoute({
   getParentRoute: () => spaceRoute,
   path: 'pages/$pageId/history',
   parseParams: (raw) => ({ pageId: Number(raw.pageId) }),
   stringifyParams: (params) => ({ pageId: String(params.pageId) }),
-  component: function PageHistoryRouteComponent() {
-    const { spaceId, pageId } = useParams({
-      from: '/_app/spaces/$spaceId/pages/$pageId/history',
-    })
-    return <PageHistoryView spaceId={spaceId} pageId={pageId} />
-  },
+  component: lazyRouteComponent(
+    () => import('../components/app/PageHistoryView'),
+    'PageHistoryRoute',
+  ),
 })
 
 const routeTree = rootRoute.addChildren([

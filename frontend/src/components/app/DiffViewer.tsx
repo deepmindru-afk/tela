@@ -1,8 +1,18 @@
-import { useMemo, useState } from 'react'
-import { diffLines, type Change } from 'diff'
+import { useEffect, useMemo, useState } from 'react'
+import type { Change } from 'diff'
 import { ToggleGroup, ToggleGroupItem } from '../ui/toggle'
 import { Card, CardBody, CardHeader, CardTitle, CardDescription } from '../ui/card'
 import { cn } from '../../lib/utils'
+
+// jsdiff (~10 KB raw / ~4 KB gz) is only used inside this component. We
+// dynamic-import it so the page-history chunk grows and the main bundle
+// shrinks. The browser caches the chunk after first load, so subsequent
+// diffs paint without the skeleton flash.
+type DiffLinesFn = (
+  oldStr: string,
+  newStr: string,
+  options: { newlineIsToken: boolean },
+) => Change[]
 
 export type DiffMode = 'split' | 'inline'
 
@@ -50,7 +60,11 @@ function splitToLines(value: string): string[] {
   return lines
 }
 
-function buildDiff(oldBody: string, newBody: string): BuiltDiff {
+function buildDiff(
+  diffLines: DiffLinesFn,
+  oldBody: string,
+  newBody: string,
+): BuiltDiff {
   const parts: Change[] = diffLines(oldBody, newBody, { newlineIsToken: false })
   let leftLine = 1
   let rightLine = 1
@@ -132,7 +146,27 @@ export function DiffViewer({
   defaultMode = 'split',
 }: DiffViewerProps) {
   const [mode, setMode] = useState<DiffMode>(defaultMode)
-  const built = useMemo(() => buildDiff(oldBody, newBody), [oldBody, newBody])
+  const [diffLines, setDiffLines] = useState<DiffLinesFn | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    void import('diff').then((mod) => {
+      if (cancelled) return
+      // setState treats function values as updater fns, so wrap in `() => fn`
+      // to store the function itself rather than invoking it as an updater.
+      setDiffLines(() => mod.diffLines)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  const built = useMemo(
+    () => (diffLines ? buildDiff(diffLines, oldBody, newBody) : null),
+    [diffLines, oldBody, newBody],
+  )
+
+  if (!built) return <DiffLoadingSkeleton />
 
   if (!built.hasChanges) {
     return (
@@ -336,6 +370,21 @@ function InlineView({ rows }: { rows: DiffRow[] }) {
       {rows.map((row, idx) => (
         <InlineRow key={idx} row={row} isLast={idx === rows.length - 1} />
       ))}
+    </div>
+  )
+}
+
+// One-time-per-session placeholder while the dynamic-imported `diff` module
+// resolves. Mirrors the inline-skeleton pattern used by DiffPaneSkeleton in
+// PageHistoryView (tokens only, no hex / raw px) — there's no shared
+// Skeleton primitive in components/ui/ today.
+function DiffLoadingSkeleton() {
+  return (
+    <div className="flex flex-col gap-[var(--space-2)]" aria-hidden>
+      <div className="h-[var(--space-6)] w-1/3 rounded-[var(--radius-sm)] bg-[var(--surface-3)]" />
+      <div className="h-[var(--space-7)] rounded-[var(--radius-sm)] bg-[var(--surface-3)]" />
+      <div className="h-[var(--space-7)] rounded-[var(--radius-sm)] bg-[var(--surface-3)]" />
+      <div className="h-[var(--space-7)] rounded-[var(--radius-sm)] bg-[var(--surface-3)]" />
     </div>
   )
 }
