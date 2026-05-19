@@ -24,10 +24,12 @@ type backlinkHit struct {
 }
 
 // Backlinks lists pages that link TO the requested page (i.e. sources where
-// page_links.target_id = {id}). 404 if the page itself doesn't exist; empty
-// list when no incoming links. Sort: space_name ASC, title ASC. Source pages
-// in spaces the caller is not a member of are filtered out — no title or
-// snippet leakage across membership boundaries.
+// page_links.target_id = {id}). Empty list when no incoming links. 403
+// "not a member" both when the caller has no membership in the target's
+// space AND when the target page does not exist — collapsing the two cases
+// stops non-members from enumerating page ids. Sort: space_name ASC, title
+// ASC. Source pages in spaces the caller is not a member of are filtered
+// out — no title or snippet leakage across membership boundaries.
 func (s *Server) Backlinks(w http.ResponseWriter, r *http.Request) {
 	id, ok := parseIDParam(w, r, "id")
 	if !ok {
@@ -41,7 +43,9 @@ func (s *Server) Backlinks(w http.ResponseWriter, r *http.Request) {
 	var targetSpaceID int64
 	err := s.DB.QueryRowContext(r.Context(), `SELECT space_id FROM pages WHERE id = ?`, id).Scan(&targetSpaceID)
 	if errors.Is(err, sql.ErrNoRows) {
-		writeError(w, http.StatusNotFound, "not_found", "page not found")
+		// Collapse missing-page to 403 so non-members cannot tell
+		// "exists in another space" from "truly gone".
+		writeError(w, http.StatusForbidden, "forbidden", "not a member")
 		return
 	}
 	if err != nil {

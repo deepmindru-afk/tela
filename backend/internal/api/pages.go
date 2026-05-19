@@ -312,7 +312,9 @@ func (s *Server) GetPage(w http.ResponseWriter, r *http.Request) {
 	}
 	p, err := selectPageByID(r.Context(), s.DB, id)
 	if errors.Is(err, sql.ErrNoRows) {
-		writeError(w, http.StatusNotFound, "not_found", "page not found")
+		// Collapse missing-page to the same 403 a non-member would see, so
+		// callers cannot enumerate page ids across spaces they're not in.
+		writeError(w, http.StatusForbidden, "forbidden", "not a member")
 		return
 	}
 	if err != nil {
@@ -377,7 +379,9 @@ func (s *Server) UpdatePage(w http.ResponseWriter, r *http.Request) {
 
 	existing, err := selectPageByIDTx(ctx, tx, id)
 	if errors.Is(err, sql.ErrNoRows) {
-		writeError(w, http.StatusNotFound, "not_found", "page not found")
+		// Collapse missing-page to 403 so non-members cannot tell
+		// "exists in another space" from "truly gone".
+		writeError(w, http.StatusForbidden, "forbidden", "not a member")
 		return
 	}
 	if err != nil {
@@ -450,7 +454,9 @@ func (s *Server) DeletePage(w http.ResponseWriter, r *http.Request) {
 
 	existing, err := selectPageByIDTx(ctx, tx, id)
 	if errors.Is(err, sql.ErrNoRows) {
-		writeError(w, http.StatusNotFound, "not_found", "page not found")
+		// Collapse missing-page to 403 so non-members cannot tell
+		// "exists in another space" from "truly gone".
+		writeError(w, http.StatusForbidden, "forbidden", "not a member")
 		return
 	}
 	if err != nil {
@@ -573,7 +579,9 @@ func (s *Server) MovePage(w http.ResponseWriter, r *http.Request) {
 
 	page, err := selectPageByIDTx(ctx, tx, id)
 	if errors.Is(err, sql.ErrNoRows) {
-		writeError(w, http.StatusNotFound, "not_found", "page not found")
+		// Collapse missing-page to 403 so non-members cannot tell
+		// "exists in another space" from "truly gone".
+		writeError(w, http.StatusForbidden, "forbidden", "not a member")
 		return
 	}
 	if err != nil {
