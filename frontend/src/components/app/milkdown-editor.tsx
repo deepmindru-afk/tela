@@ -18,7 +18,7 @@ import {
   ProsemirrorAdapterProvider,
   usePluginViewFactory,
 } from '@prosemirror-adapter/react'
-import { prism } from '@milkdown/plugin-prism'
+import { prism, prismConfig } from '@milkdown/plugin-prism'
 import { Plugin } from '@milkdown/kit/prose/state'
 import type { EditorView } from '@milkdown/kit/prose/view'
 import * as Y from 'yjs'
@@ -29,6 +29,7 @@ import {
   yUndoPlugin,
 } from 'y-prosemirror'
 import { cn } from '../../lib/utils'
+import { configureRefractor } from '../../lib/milkdown/refractor-config'
 import { emitOpenNewPage } from '../../lib/newPageEvent'
 import { TelaProvider, type TelaProviderStatus } from '../../lib/collab/tela-provider'
 import { cursorBuilder, selectionBuilder } from '../../lib/collab/cursor-builder'
@@ -280,6 +281,11 @@ function MilkdownEditorInner({
           view: pluginViewFactory({ component: WikilinkView }),
         })
         ctx.set(imageAttr.key, () => ({ loading: 'lazy' }))
+        // M12.1 — register only the curated grammar set (24 langs) on the
+        // shared refractor/core singleton. The plugin's static import of
+        // `refractor` is aliased to `refractor/core` in vite.config.ts so the
+        // plugin's `apply` path uses this same registered singleton.
+        ctx.set(prismConfig.key, { configureRefractor })
 
         // M7.2: wire the editable toggle. Function form is re-evaluated by
         // PM on every updateState; banner-driven readonly + ws-disconnect

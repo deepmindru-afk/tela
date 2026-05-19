@@ -13,6 +13,17 @@ const dirname = typeof __dirname !== 'undefined' ? __dirname : path.dirname(file
 // More info at: https://storybook.js.org/docs/next/writing-tests/integrations/vitest-addon
 export default defineConfig({
   plugins: [react(), tailwindcss()],
+  resolve: {
+    // M12.1 — alias the bare `refractor` specifier to `refractor/core` so
+    // @milkdown/plugin-prism's static `import { refractor } from "refractor"`
+    // resolves to the empty singleton (instead of refractor/lib/common.js,
+    // which refractor marks `sideEffects: ['lib/common.js']` and pulls ~36
+    // grammars). We register a curated 24 onto that same singleton via the
+    // plugin's prismConfig ctx slice. Regex is anchored so subpath imports
+    // (`refractor/javascript`, `refractor/core`) still resolve to their own
+    // files.
+    alias: [{ find: /^refractor$/, replacement: 'refractor/core' }],
+  },
   server: {
     proxy: {
       '/api': {
