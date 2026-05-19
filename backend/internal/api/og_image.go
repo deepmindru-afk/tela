@@ -48,10 +48,12 @@ var (
 	ogAccentColor   = color.RGBA{R: 0x3b, G: 0x82, B: 0xf6, A: 0xff}
 )
 
+// *opentype.Font is concurrent-safe per its docstring; the per-request
+// *opentype.Face wrapper is not, so we keep the parsed fonts here and build
+// faces per render in renderOGImage.
 var (
-	ogTitleFace    font.Face
-	ogSubtitleFace font.Face
-	ogFooterFace   font.Face
+	ogBoldFont    *opentype.Font
+	ogRegularFont *opentype.Font
 )
 
 func init() {
@@ -63,24 +65,8 @@ func init() {
 	if err != nil {
 		panic("og_image: parse goregular: " + err.Error())
 	}
-	ogTitleFace, err = opentype.NewFace(bold, &opentype.FaceOptions{
-		Size: ogTitleSize, DPI: 72, Hinting: font.HintingFull,
-	})
-	if err != nil {
-		panic("og_image: title face: " + err.Error())
-	}
-	ogSubtitleFace, err = opentype.NewFace(regular, &opentype.FaceOptions{
-		Size: ogSubtitleSize, DPI: 72, Hinting: font.HintingFull,
-	})
-	if err != nil {
-		panic("og_image: subtitle face: " + err.Error())
-	}
-	ogFooterFace, err = opentype.NewFace(bold, &opentype.FaceOptions{
-		Size: ogFooterSize, DPI: 72, Hinting: font.HintingFull,
-	})
-	if err != nil {
-		panic("og_image: footer face: " + err.Error())
-	}
+	ogBoldFont = bold
+	ogRegularFont = regular
 }
 
 // HandleOGImage returns the server-rendered 1200×630 PNG share card for a page.
@@ -150,7 +136,36 @@ func (s *Server) HandleOGImage(w http.ResponseWriter, r *http.Request) {
 
 // renderOGImage paints a 1200×630 RGBA card and returns PNG-encoded bytes.
 // Pure function — no DB / no http — so tests can drive it directly.
+//
+// Builds three opentype.Face values per call because opentype.Face is
+// documented as not safe for concurrent use; sharing a Face across goroutines
+// races on its internal sfnt.Buffer / vector.Rasterizer / mask. The parsed
+// *opentype.Font values are concurrent-safe and live at package scope.
 func renderOGImage(title, spaceName string) ([]byte, error) {
+	titleFace, err := opentype.NewFace(ogBoldFont, &opentype.FaceOptions{
+		Size: ogTitleSize, DPI: 72, Hinting: font.HintingFull,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("og: title face: %w", err)
+	}
+	defer titleFace.Close()
+
+	subtitleFace, err := opentype.NewFace(ogRegularFont, &opentype.FaceOptions{
+		Size: ogSubtitleSize, DPI: 72, Hinting: font.HintingFull,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("og: subtitle face: %w", err)
+	}
+	defer subtitleFace.Close()
+
+	footerFace, err := opentype.NewFace(ogBoldFont, &opentype.FaceOptions{
+		Size: ogFooterSize, DPI: 72, Hinting: font.HintingFull,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("og: footer face: %w", err)
+	}
+	defer footerFace.Close()
+
 	img := image.NewRGBA(image.Rect(0, 0, ogCanvasWidth, ogCanvasHeight))
 
 	draw.Draw(img, img.Bounds(), &image.Uniform{C: ogBgColor}, image.Point{}, draw.Src)
@@ -162,11 +177,11 @@ func renderOGImage(title, spaceName string) ([]byte, error) {
 	draw.Draw(img, accentRect, &image.Uniform{C: ogAccentColor}, image.Point{}, draw.Src)
 
 	titleY := ogAccentY + ogAccentHeight + 16 + ogTitleSize
-	titleLines := wrapLines(ogTitleFace, title, ogDrawableWidth, ogMaxTitleLines)
+	titleLines := wrapLines(titleFace, title, ogDrawableWidth, ogMaxTitleLines)
 	titleDrawer := &font.Drawer{
 		Dst:  img,
 		Src:  &image.Uniform{C: ogTitleColor},
-		Face: ogTitleFace,
+		Face: titleFace,
 	}
 	for i, line := range titleLines {
 		titleDrawer.Dot = fixed.P(ogMargin, titleY+i*ogTitleLineH)
@@ -174,12 +189,12 @@ func renderOGImage(title, spaceName string) ([]byte, error) {
 	}
 
 	subtitle := "in " + spaceName
-	subtitle = truncateToWidth(ogSubtitleFace, subtitle, ogDrawableWidth)
+	subtitle = truncateToWidth(subtitleFace, subtitle, ogDrawableWidth)
 	subtitleY := titleY + (len(titleLines)-1)*ogTitleLineH + 24 + ogSubtitleSize
 	subtitleDrawer := &font.Drawer{
 		Dst:  img,
 		Src:  &image.Uniform{C: ogSubtitleColor},
-		Face: ogSubtitleFace,
+		Face: subtitleFace,
 		Dot:  fixed.P(ogMargin, subtitleY),
 	}
 	subtitleDrawer.DrawString(subtitle)
@@ -188,7 +203,7 @@ func renderOGImage(title, spaceName string) ([]byte, error) {
 	footerDrawer := &font.Drawer{
 		Dst:  img,
 		Src:  &image.Uniform{C: ogFooterColor},
-		Face: ogFooterFace,
+		Face: footerFace,
 		Dot:  fixed.P(ogMargin, footerY),
 	}
 	footerDrawer.DrawString("tela")

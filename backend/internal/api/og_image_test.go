@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"sync"
 	"testing"
 )
 
@@ -205,5 +206,54 @@ func TestOGImage_FullFlow(t *testing.T) {
 			t.Fatalf("status=%d want 200", resp.StatusCode)
 		}
 	})
+}
+
+// TestOGImage_ConcurrentRendering hammers renderOGImage from many goroutines
+// to lock in the M11.3 fix: opentype.Face values must be built per render
+// (their private sfnt.Buffer / vector.Rasterizer / mask state is not safe to
+// share). With the pre-fix code holding package-level Face values, this test
+// panics with "index out of range" inside sfnt.LoadGlyph and races on
+// f.mask / the vector rasterizer under -race.
+func TestOGImage_ConcurrentRendering(t *testing.T) {
+	const (
+		goroutines = 32
+		iterations = 8
+	)
+
+	pngMagic := []byte("\x89PNG\r\n\x1a\n")
+
+	var wg sync.WaitGroup
+	wg.Add(goroutines)
+	for g := 0; g < goroutines; g++ {
+		go func(idx int) {
+			defer wg.Done()
+			for i := 0; i < iterations; i++ {
+				title := fmt.Sprintf("Goroutine %d iteration %d — concurrent render check", idx, i)
+				body, err := renderOGImage(title, "Engineering")
+				if err != nil {
+					t.Errorf("goroutine %d iter %d: renderOGImage: %v", idx, i, err)
+					return
+				}
+				if len(body) == 0 {
+					t.Errorf("goroutine %d iter %d: empty bytes", idx, i)
+					return
+				}
+				if !bytes.HasPrefix(body, pngMagic) {
+					t.Errorf("goroutine %d iter %d: missing PNG magic", idx, i)
+					return
+				}
+				img, err := png.Decode(bytes.NewReader(body))
+				if err != nil {
+					t.Errorf("goroutine %d iter %d: png decode: %v", idx, i, err)
+					return
+				}
+				if img.Bounds() != image.Rect(0, 0, 1200, 630) {
+					t.Errorf("goroutine %d iter %d: bounds=%v want 1200x630", idx, i, img.Bounds())
+					return
+				}
+			}
+		}(g)
+	}
+	wg.Wait()
 }
 
