@@ -58,6 +58,7 @@ export class TelaProvider {
   private reconnectAttempts = 0
   private reconnectTimer: number | null = null
   private destroyed = false
+  private pageHideHandler: (() => void) | null = null
 
   // Awareness wire-bridge (#65). The Awareness instance is constructed eagerly
   // so consumers can register on('change') listeners before the ws is open
@@ -71,37 +72,33 @@ export class TelaProvider {
     this.awareness.on('update', this.onAwarenessUpdate)
     this.doc.on('update', this.onDocUpdate)
     this.connect()
+
+    // Hard tab close / cross-document nav doesn't run React unmount, so
+    // destroy() never fires and peers would see our awareness entry linger
+    // ~30s (y-protocols outdatedTimeout). pagehide is the modern equivalent of
+    // beforeunload, fires reliably on mobile Safari, and runs *before* BFCache
+    // freezes the page so the awareness-removal frame still flushes. If the
+    // page later restores from BFCache, the existing ws.onclose / reconnect
+    // path re-opens and PageView's onStatus('connected') effect re-seeds the
+    // local user state — no extra hook needed on the restore side.
+    this.pageHideHandler = () => {
+      this.sendAwarenessRemoval()
+    }
+    window.addEventListener('pagehide', this.pageHideHandler)
   }
 
   destroy(): void {
+    if (this.destroyed) return
     this.destroyed = true
+    if (this.pageHideHandler) {
+      window.removeEventListener('pagehide', this.pageHideHandler)
+      this.pageHideHandler = null
+    }
     if (this.reconnectTimer != null) {
       window.clearTimeout(this.reconnectTimer)
       this.reconnectTimer = null
     }
-    // Best-effort: tell peers we're leaving by removing our own awareness
-    // state. removeAwarenessStates fires the local 'update' listener (which
-    // we unsubscribe immediately after) so the outbound frame goes out once
-    // more before the ws closes.
-    try {
-      removeAwarenessStates(this.awareness, [this.awareness.clientID], this)
-      // The remove above set origin=this, so our outbound listener skipped
-      // it. Send the removal frame explicitly so peers drop our presence
-      // before the ws closes.
-      const ws = this.ws
-      if (ws && ws.readyState === WebSocket.OPEN) {
-        try {
-          const payload = encodeAwarenessUpdate(this.awareness, [
-            this.awareness.clientID,
-          ])
-          ws.send(encodeFrame(TAG_AWARENESS, payload))
-        } catch {
-          // best-effort
-        }
-      }
-    } catch {
-      // best-effort
-    }
+    this.sendAwarenessRemoval()
     this.awareness.off('update', this.onAwarenessUpdate)
     this.doc.off('update', this.onDocUpdate)
     this.awareness.destroy()
@@ -117,6 +114,30 @@ export class TelaProvider {
       } catch {
         // best-effort
       }
+    }
+  }
+
+  // Drop our local awareness entry and (if the ws is still open) push the
+  // removal frame so peers see us leave immediately. removeAwarenessStates
+  // bumps the clock with origin=this so the outbound listener filters its
+  // own fire-back — we send the encoded payload explicitly to make sure the
+  // frame goes out exactly once. Safe to call multiple times: a second call
+  // re-removes an already-gone clientID (no-op in y-protocols).
+  private sendAwarenessRemoval(): void {
+    try {
+      removeAwarenessStates(this.awareness, [this.awareness.clientID], this)
+    } catch {
+      // best-effort
+    }
+    const ws = this.ws
+    if (!ws || ws.readyState !== WebSocket.OPEN) return
+    try {
+      const payload = encodeAwarenessUpdate(this.awareness, [
+        this.awareness.clientID,
+      ])
+      ws.send(encodeFrame(TAG_AWARENESS, payload))
+    } catch {
+      // best-effort
     }
   }
 

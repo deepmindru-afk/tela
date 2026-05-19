@@ -411,13 +411,7 @@ func (s *Server) handleWSFrame(ctx context.Context, rm *room, sender *peer, fram
 			log.Printf("ws page %d: append update: %v", rm.pageID, err)
 			return
 		}
-		rebroadcast := encodeFrame(tagUpdate, payload)
-		for _, other := range rm.peerList() {
-			if other == sender {
-				continue
-			}
-			_ = other.conn.Write(ctx, websocket.MessageBinary, rebroadcast)
-		}
+		broadcastToOthers(ctx, rm, sender, encodeFrame(tagUpdate, payload))
 		if shouldRequest {
 			rm.markSnapshotInFlight(sender, seq)
 			_ = sender.conn.Write(ctx, websocket.MessageBinary, []byte{tagSnapshotReq})
@@ -430,15 +424,22 @@ func (s *Server) handleWSFrame(ctx context.Context, rm *room, sender *peer, fram
 		// Awareness is ephemeral: rebroadcast to other peers, never persist.
 		// The server is opaque to y-protocols/awareness payload format — peers
 		// decode it on receipt via applyAwarenessUpdate.
-		rebroadcast := encodeFrame(tagAwareness, payload)
-		for _, other := range rm.peerList() {
-			if other == sender {
-				continue
-			}
-			_ = other.conn.Write(ctx, websocket.MessageBinary, rebroadcast)
-		}
+		broadcastToOthers(ctx, rm, sender, encodeFrame(tagAwareness, payload))
 	default:
 		// Unknown / future tag: ignore so the protocol stays forward-extensible.
+	}
+}
+
+// broadcastToOthers writes frame to every peer in rm except sender. Best-effort:
+// a write that fails because a peer disconnected mid-broadcast is silently
+// dropped — that peer's own read loop will surface the close and trigger the
+// deferred release().
+func broadcastToOthers(ctx context.Context, rm *room, sender *peer, frame []byte) {
+	for _, other := range rm.peerList() {
+		if other == sender {
+			continue
+		}
+		_ = other.conn.Write(ctx, websocket.MessageBinary, frame)
 	}
 }
 
