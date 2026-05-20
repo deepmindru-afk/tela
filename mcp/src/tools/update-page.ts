@@ -7,11 +7,7 @@ export const updatePageInputSchema = {
   body: z.string().optional().describe("New markdown body. Omit to leave unchanged."),
 };
 
-const updatePageArgs = z
-  .object(updatePageInputSchema)
-  .refine((v) => v.title !== undefined || v.body !== undefined, {
-    message: "at least one of title, body must be provided",
-  });
+const updatePageArgs = z.object(updatePageInputSchema);
 export type UpdatePageArgs = z.infer<typeof updatePageArgs>;
 
 interface PageRow {

@@ -81,7 +81,8 @@ export function buildServer(client: TelaClient, version: string): McpServer {
   server.registerTool(
     "list_spaces",
     {
-      description: "List all Tela spaces this API key can access.",
+      description:
+        "List all Tela spaces this API key can access. Returns id, name, slug only — timestamps (created_at, updated_at) are dropped; this is the navigation projection.",
       inputSchema: listSpacesInputSchema.shape,
     },
     async () => {
@@ -97,7 +98,7 @@ export function buildServer(client: TelaClient, version: string): McpServer {
     "list_pages",
     {
       description:
-        "List pages in a space. Flat list. Pass parent_id to scope to direct children; omit for root pages.",
+        "List pages in a space. Flat list. Pass parent_id to scope to direct children; omit for root pages. Returns id, title, parent_id, position, space_id only — timestamps (created_at, updated_at) are dropped; re-fetch via get_page for the full row.",
       inputSchema: listPagesInputSchema,
     },
     async (args) => {

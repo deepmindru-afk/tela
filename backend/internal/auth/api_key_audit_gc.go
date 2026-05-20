@@ -63,11 +63,11 @@ func StartAuditGC(ctx context.Context, d *sql.DB) {
 // retention cutoff. Single statement so SQLite serializes naturally; no
 // transaction needed.
 //
-// The retention argument is interpolated into the datetime() modifier as a
-// SQL string concat — `?` cannot bind into the modifier expression because
-// SQLite's datetime() takes its arguments as plain TEXT, and the bind happens
-// before SQL parses the expression. The value is a non-negative integer
-// (validated at parse), so concat is safe here.
+// `?` cannot bind into datetime()'s modifier slot as a single arg, so we
+// splice via SQL `||` concat AFTER the bind — the value is still parameterised,
+// just stitched into the modifier string at SQL evaluation time. days is
+// parse-validated as a positive int upstream, so even string-concat would be
+// safe — but this is not string-concat.
 func purgeAuditOlderThan(ctx context.Context, d *sql.DB, days int) error {
 	if days <= 0 {
 		return nil
