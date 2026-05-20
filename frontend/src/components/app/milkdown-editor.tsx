@@ -42,6 +42,11 @@ import {
   calloutsRemarkPlugin,
 } from './milkdown-callouts'
 import {
+  collapsiblesRemarkPlugin,
+  detailsSchema,
+  detailsSummarySchema,
+} from './milkdown-collapsibles'
+import {
   WIKILINK_ALIVE_IDS_META,
   wikilinkAliveIdsCtx,
   wikilinkDecorationPlugin,
@@ -412,7 +417,16 @@ function MilkdownEditorInner({
       // and don't depend on the Yjs branch.
       .use(calloutsRemarkPlugin)
       .use(calloutSchema)
-      .use(calloutInputRule),
+      .use(calloutInputRule)
+      // M13.1 — collapsibles via raw `<details><summary>` HTML pass-through.
+      // The remark plugin detects post-html-transformer paragraph-wrapped
+      // `<details>` / `</details>` brackets and rewrites them into structured
+      // `details` + `details_summary` mdast nodes; the schemas materialize
+      // them as native browser disclosure widgets in the editor; toMarkdown
+      // round-trips back to the same raw HTML form.
+      .use(collapsiblesRemarkPlugin)
+      .use(detailsSummarySchema)
+      .use(detailsSchema),
   )
 
   useEffect(() => {

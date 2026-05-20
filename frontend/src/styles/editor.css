@@ -322,6 +322,64 @@
     color: var(--text-primary);
   }
 
+  /* M13.1 — collapsibles via raw `<details><summary>` HTML pass-through.
+     Browser-native disclosure widget; we only restyle the chrome to cluster
+     with callouts (subtle border-left rail) and to make the summary read as
+     interactive (cursor pointer + bold). Toggle behaviour is delegated to the
+     HTMLDetailsElement built-in — clicks on the `<summary>` fire the standard
+     toggle event with no JS on our side. Rules live outside the `.ProseMirror`
+     scope so Storybook stories render with the same chrome without a Milkdown
+     editor mount. */
+  .tela-details {
+    border-left: var(--space-1) solid var(--border-subtle);
+    background: var(--surface-2);
+    border-radius: var(--radius-sm);
+    padding: var(--space-2) var(--space-4);
+    margin: 0 0 var(--space-3);
+  }
+  .tela-details > summary,
+  .tela-details > .tela-details-summary {
+    cursor: pointer;
+    font-weight: 600;
+    font-family: var(--font-sans);
+    color: var(--text-primary);
+    padding: var(--space-1) 0;
+    list-style: none;
+  }
+  /* Hide the WebKit default disclosure-triangle marker on the summary so we
+     can render our own via ::-webkit-details-marker fallback + the
+     ::marker reset below. We rely on the browser's built-in chevron from
+     the `<details>` element so we don't need to ship a custom icon. */
+  .tela-details > summary::-webkit-details-marker,
+  .tela-details > .tela-details-summary::-webkit-details-marker {
+    display: none;
+  }
+  /* Insert a custom inline triangle that rotates 90° when the host details
+     element is open. ▶ flipped horizontally serves as the closed-state
+     indicator; rotated, it points down (open). Pure CSS, no SVG. */
+  .tela-details > summary::before,
+  .tela-details > .tela-details-summary::before {
+    content: '▶';
+    display: inline-block;
+    margin-right: var(--space-2);
+    font-size: 0.7em;
+    color: var(--text-muted);
+    transition: transform var(--duration-fast) var(--ease-out);
+  }
+  .tela-details[open] > summary::before,
+  .tela-details[open] > .tela-details-summary::before {
+    transform: rotate(90deg);
+  }
+  /* Body wrapper is implicit — block children directly follow the summary in
+     the <details> element. Reset leading/trailing margins so the rounded
+     border container reads cleanly. */
+  .tela-details > *:not(summary):not(.tela-details-summary):first-of-type {
+    margin-top: var(--space-2);
+  }
+  .tela-details > *:last-child {
+    margin-bottom: 0;
+  }
+
   /* Inline code */
   .tela-milkdown .ProseMirror :not(pre) > code {
     font-family: var(--font-mono);
