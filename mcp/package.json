@@ -5,7 +5,7 @@
   "license": "MIT",
   "type": "module",
   "bin": {
-    "tela-mcp": "./dist/server.js"
+    "tela-mcp": "dist/server.js"
   },
   "files": [
     "dist",
