@@ -1,0 +1,229 @@
+package api
+
+import (
+	"database/sql"
+	"errors"
+	"fmt"
+	"html"
+	"net/http"
+)
+
+// M15.5 PublicShare OG bot-gate. Mirrors the M11.0 /p/{id} pattern for share
+// URLs so Slack / Twitter / Discord etc. unfurl shared pages with a real OG
+// card instead of an empty SPA shell.
+//
+// Routing model: Caddy's /share/* block matches a bot UA regexp and routes
+// bots here; everything else hits the frontend SPA (M15.1). The handlers below
+// keep the UA guard as defense-in-depth — if the Caddy block is misconfigured,
+// a real browser still gets a 404 from the backend rather than the OG envelope
+// rendering instead of the SPA.
+
+// HandlePublicShareLink — GET /share/{token}. Bot UA → OG HTML for the share's
+// ROOT page; non-bot UA → 404 (Caddy is the real branch in prod). Token must
+// exist + be active (not revoked, not expired) — missing / revoked / expired
+// all collapse to an identical 404 to avoid a token-enumeration oracle.
+func (s *Server) HandlePublicShareLink(w http.ResponseWriter, r *http.Request) {
+	token := r.PathValue("token")
+	if token == "" {
+		writeNotFoundHTML(w)
+		return
+	}
+	share, err := selectShareLinkByToken(r.Context(), s.DB, token)
+	if errors.Is(err, sql.ErrNoRows) {
+		writeNotFoundHTML(w)
+		return
+	}
+	if err != nil {
+		writeInternalHTML(w)
+		return
+	}
+	if !shareLinkActive(&share) {
+		writeNotFoundHTML(w)
+		return
+	}
+	if !isBotUA(r.Header.Get("User-Agent")) {
+		writeNotFoundHTML(w)
+		return
+	}
+	if share.PasswordHash.Valid {
+		writeLockedShareOGHTML(w, share.Token)
+		return
+	}
+	s.writeShareOGHTML(w, &share, share.PageID, shareRootURL(share.Token))
+}
+
+// HandlePublicShareLinkPage — GET /share/{token}/p/{page_id}. Same gate as the
+// root handler plus a subtree check: descendant page must be in the share's
+// scope (include_descendants=true AND page is a transitive descendant) or
+// equal the root.
+func (s *Server) HandlePublicShareLinkPage(w http.ResponseWriter, r *http.Request) {
+	token := r.PathValue("token")
+	if token == "" {
+		writeNotFoundHTML(w)
+		return
+	}
+	share, err := selectShareLinkByToken(r.Context(), s.DB, token)
+	if errors.Is(err, sql.ErrNoRows) {
+		writeNotFoundHTML(w)
+		return
+	}
+	if err != nil {
+		writeInternalHTML(w)
+		return
+	}
+	if !shareLinkActive(&share) {
+		writeNotFoundHTML(w)
+		return
+	}
+	pageID, ok := parseShareLinkPageID(r)
+	if !ok {
+		writeNotFoundHTML(w)
+		return
+	}
+	if pageID != share.PageID {
+		if !share.IncludeDescendants {
+			writeNotFoundHTML(w)
+			return
+		}
+		inScope, err := pageInShareSubtree(r.Context(), s.DB, share.PageID, pageID)
+		if err != nil {
+			writeInternalHTML(w)
+			return
+		}
+		if !inScope {
+			writeNotFoundHTML(w)
+			return
+		}
+	}
+	if !isBotUA(r.Header.Get("User-Agent")) {
+		writeNotFoundHTML(w)
+		return
+	}
+	if share.PasswordHash.Valid {
+		writeLockedShareOGHTML(w, share.Token)
+		return
+	}
+	s.writeShareOGHTML(w, &share, pageID, shareDescendantURL(share.Token, pageID))
+}
+
+// parseShareLinkPageID parses the {page_id} path value as a positive int64,
+// preserving the writeNotFoundHTML contract (HTML, no JSON oracle).
+func parseShareLinkPageID(r *http.Request) (int64, bool) {
+	raw := r.PathValue("page_id")
+	if raw == "" {
+		return 0, false
+	}
+	var id int64
+	if _, err := fmt.Sscanf(raw, "%d", &id); err != nil || id <= 0 {
+		return 0, false
+	}
+	return id, true
+}
+
+// shareRootURL builds the absolute (or path-only when TELA_PUBLIC_BASE_URL is
+// unset) URL Slack / Twitter / etc. should display for the share root.
+func shareRootURL(token string) string {
+	return fmt.Sprintf("%s/share/%s", publicBaseURL(), token)
+}
+
+// shareDescendantURL builds the absolute (or path-only) URL for a descendant
+// page within a share's subtree.
+func shareDescendantURL(token string, pageID int64) string {
+	return fmt.Sprintf("%s/share/%s/p/%d", publicBaseURL(), token, pageID)
+}
+
+// writeShareOGHTML emits the OG envelope for an unlocked share. The og:image
+// reuses the existing /p/{page_id}/og.png renderer (already public, no auth);
+// only the og:url differs from the /p/{id} flavour, so this routes through
+// writeOGHTMLWithURL.
+func (s *Server) writeShareOGHTML(w http.ResponseWriter, _ *shareLink, pageID int64, pageURL string) {
+	var (
+		title     string
+		body      string
+		spaceName string
+	)
+	err := s.DB.QueryRow(
+		`SELECT p.title, p.body, sp.name
+		   FROM pages p
+		   JOIN spaces sp ON sp.id = p.space_id
+		  WHERE p.id = ?`, pageID,
+	).Scan(&title, &body, &spaceName)
+	if errors.Is(err, sql.ErrNoRows) {
+		writeNotFoundHTML(w)
+		return
+	}
+	if err != nil {
+		writeInternalHTML(w)
+		return
+	}
+	writeOGHTMLWithURL(w, pageID, title, body, spaceName, pageURL)
+}
+
+// writeOGHTMLWithURL is the URL-overridable variant of writeOGHTML. The /p/{id}
+// flavour calls writeOGHTML which builds og:url from publicBaseURL()+/p/{id};
+// shares need /share/{token} or /share/{token}/p/{id}. og:image stays
+// /p/{page_id}/og.png — it's public and the renderer is keyed only on page id.
+func writeOGHTMLWithURL(w http.ResponseWriter, pageID int64, title, body, spaceName, pageURL string) {
+	ogTitle := runeTruncate(title+" — "+spaceName, 100)
+	plain := stripMarkdownToText(body)
+	ogDesc := runeTruncate(plain, 200)
+
+	imageURL := fmt.Sprintf("%s/p/%d/og.png", publicBaseURL(), pageID)
+
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.Header().Set("Cache-Control", "public, max-age=300")
+	w.WriteHeader(http.StatusOK)
+	fmt.Fprintf(w, `<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>%s</title>
+  <meta property="og:title" content="%s">
+  <meta property="og:description" content="%s">
+  <meta property="og:image" content="%s">
+  <meta property="og:url" content="%s">
+  <meta property="og:type" content="article">
+  <meta name="twitter:card" content="summary_large_image">
+</head>
+<body></body>
+</html>`,
+		html.EscapeString(ogTitle),
+		html.EscapeString(ogTitle),
+		html.EscapeString(ogDesc),
+		html.EscapeString(imageURL),
+		html.EscapeString(pageURL),
+	)
+}
+
+// writeLockedShareOGHTML emits a generic OG envelope for a password-protected
+// share so crawlers don't leak the real title / description / image. og:image
+// is intentionally absent — sharing the page's image card on a locked share
+// would defeat the password.
+func writeLockedShareOGHTML(w http.ResponseWriter, token string) {
+	const lockedTitle = "Protected page on Tela"
+	const lockedDesc = "This page is password-protected. Open the link to enter the password."
+
+	pageURL := shareRootURL(token)
+
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.Header().Set("Cache-Control", "public, max-age=300")
+	w.WriteHeader(http.StatusOK)
+	fmt.Fprintf(w, `<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>%s</title>
+  <meta property="og:title" content="%s">
+  <meta property="og:description" content="%s">
+  <meta property="og:url" content="%s">
+  <meta property="og:type" content="article">
+  <meta name="twitter:card" content="summary">
+</head>
+<body></body>
+</html>`,
+		html.EscapeString(lockedTitle),
+		html.EscapeString(lockedTitle),
+		html.EscapeString(lockedDesc),
+		html.EscapeString(pageURL),
+	)
+}

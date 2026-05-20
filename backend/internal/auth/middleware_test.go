@@ -20,11 +20,15 @@ func TestIsPublicPath(t *testing.T) {
 		"/api/auth/logout":      true,
 		"/api/auth/me":          true,
 		"/api/auth/anything":    true,
+		"/api/share/abc123":     true, // M15.0 token-scoped public read API
+		"/share/abc123":         true, // M15.5 bot-UA-gated OG envelope
+		"/share/abc123/p/42":    true,
 		"/api/spaces":           false,
 		"/api/pages/1":          false,
 		"/api/pages/1/backlink": false,
 		"/api/search":           false,
 		"/api/auth":             false, // no trailing slash — not under /api/auth/
+		"/share":                false, // no trailing slash — not under /share/
 	}
 	for path, want := range cases {
 		if got := IsPublicPath(path); got != want {

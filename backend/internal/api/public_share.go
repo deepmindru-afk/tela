@@ -4,7 +4,6 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"html"
 	"net/http"
 	"os"
 	"regexp"
@@ -15,6 +14,8 @@ import (
 // GET /p/{id} returns OG HTML (bot) vs. 302 to the SPA (real browser). The
 // trailing two entries (`bot/` and `bot `) catch the long tail of crawlers
 // that follow the convention `<Name>Bot/<version>` or `<Name>Bot ...`.
+//
+// Mirror of @share_bots regex in deploy/proxy/Caddyfile — keep in sync.
 var botUASubstrings = []string{
 	"slackbot-linkexpanding",
 	"twitterbot",
@@ -92,39 +93,11 @@ func publicBaseURL() string {
 // writeOGHTML emits the OG HTML payload. All user-controlled fields go through
 // html.EscapeString — page titles and bodies are end-user input, and a stored
 // XSS via crawler-rendered OG cards is a real concern even though the bot
-// path bypasses the SPA.
+// path bypasses the SPA. og:url here is the /p/{id} permalink; the share
+// surface (M15.5) reuses writeOGHTMLWithURL with /share/{token}.
 func writeOGHTML(w http.ResponseWriter, pageID int64, title, body, spaceName string) {
-	ogTitle := runeTruncate(title+" — "+spaceName, 100)
-	plain := stripMarkdownToText(body)
-	ogDesc := runeTruncate(plain, 200)
-
-	base := publicBaseURL()
-	pageURL := fmt.Sprintf("%s/p/%d", base, pageID)
-	imageURL := fmt.Sprintf("%s/p/%d/og.png", base, pageID)
-
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	w.Header().Set("Cache-Control", "public, max-age=300")
-	w.WriteHeader(http.StatusOK)
-	fmt.Fprintf(w, `<!doctype html>
-<html lang="en">
-<head>
-  <meta charset="utf-8">
-  <title>%s</title>
-  <meta property="og:title" content="%s">
-  <meta property="og:description" content="%s">
-  <meta property="og:image" content="%s">
-  <meta property="og:url" content="%s">
-  <meta property="og:type" content="article">
-  <meta name="twitter:card" content="summary_large_image">
-</head>
-<body></body>
-</html>`,
-		html.EscapeString(ogTitle),
-		html.EscapeString(ogTitle),
-		html.EscapeString(ogDesc),
-		html.EscapeString(imageURL),
-		html.EscapeString(pageURL),
-	)
+	writeOGHTMLWithURL(w, pageID, title, body, spaceName,
+		fmt.Sprintf("%s/p/%d", publicBaseURL(), pageID))
 }
 
 func writeNotFoundHTML(w http.ResponseWriter) {

@@ -11,6 +11,24 @@
 		reverse_proxy backend:8080
 	}
 
+	# M15.5 PublicShare OG bot-gate: bot UAs hitting /share/* go to the
+	# backend (writes an OG envelope); real browsers fall through to the
+	# frontend SPA (M15.1 share-mode UI). The named matcher must precede
+	# the catch-all /share/* handle — Caddy resolves handles by first match.
+	#
+	# Mirror of botUASubstrings in backend/internal/api/public_share.go —
+	# keep in sync.
+	@share_bots {
+		path /share/*
+		header_regexp User-Agent "(?i)(slackbot-linkexpanding|twitterbot|facebookexternalhit|discordbot|telegrambot|linkedinbot|whatsapp|bot/|bot\s)"
+	}
+	handle @share_bots {
+		reverse_proxy backend:8080
+	}
+	handle /share/* {
+		reverse_proxy frontend:80
+	}
+
 	handle {
 		reverse_proxy frontend:80
 	}

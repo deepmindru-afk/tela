@@ -174,7 +174,10 @@ func SetSessionCookie(w http.ResponseWriter, id string) {
 // /p/* — the public OG-share route, gated by User-Agent allowlist instead of
 // session cookie because crawlers don't carry sessions. M15.0 adds
 // /api/share/* — token-scoped public read API; the share handlers gate access
-// themselves via the token + an optional HMAC password cookie.
+// themselves via the token + an optional HMAC password cookie. M15.5 adds
+// /share/* — bot-UA-gated OG envelope for share links; crawlers don't carry
+// sessions, so the session middleware would otherwise 401 before the handler
+// could decide whether to serve OG HTML or a 404.
 func IsPublicPath(p string) bool {
 	if p == "/api/health" {
 		return true
@@ -183,6 +186,9 @@ func IsPublicPath(p string) bool {
 		return true
 	}
 	if strings.HasPrefix(p, "/api/share/") {
+		return true
+	}
+	if strings.HasPrefix(p, "/share/") {
 		return true
 	}
 	return strings.HasPrefix(p, "/p/")

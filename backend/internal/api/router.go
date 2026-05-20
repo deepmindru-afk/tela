@@ -95,4 +95,13 @@ func registerRoutes(srv *Server, mux *http.ServeMux) {
 	// pattern wins regardless of mux iteration order.
 	mux.HandleFunc("GET /p/{id}/og.png", srv.HandleOGImage)
 	mux.HandleFunc("GET /p/{id}/{slug}", srv.HandlePublicShare)
+
+	// M15.5 PublicShare OG bot-gate: Caddy's /share/* block routes bot UAs
+	// here so Slack / Twitter / Discord unfurl shared pages with real OG
+	// metadata; real browsers fall through to the frontend SPA (M15.1). MUST
+	// be on auth.IsPublicPath. Defense-in-depth UA check inside the handler
+	// means a misconfigured Caddy block 404s real browsers instead of
+	// serving the OG envelope in place of the SPA.
+	mux.HandleFunc("GET /share/{token}", srv.HandlePublicShareLink)
+	mux.HandleFunc("GET /share/{token}/p/{page_id}", srv.HandlePublicShareLinkPage)
 }
