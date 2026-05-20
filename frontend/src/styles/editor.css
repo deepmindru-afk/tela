@@ -200,6 +200,128 @@
     margin-bottom: 0;
   }
 
+  /* M13.0 — GitHub-style blockquote callouts. Block-level chrome rendered by
+     calloutSchema.toDOM: outer host + non-editable header (icon + label) +
+     editable body. The host carries a `tela-callout` base class plus a
+     per-type modifier (e.g. `tela-callout-note`) that resolves all three
+     theme roles (bg, fg, border) from the --callout-*-{bg,fg,border} tokens.
+     Storybook stories under milkdown-callouts.stories.tsx render the same
+     class structure with Lucide React icons; both surfaces stay visually
+     consistent because the icon silhouettes match. Rules live outside the
+     `.ProseMirror` scope so the same chrome can be reused in Storybook
+     stories (which render the structure without a Milkdown editor mount). */
+  .tela-callout {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    border-left: var(--space-1) solid var(--callout-note-border);
+    background: var(--callout-note-bg);
+    color: var(--callout-note-fg);
+    padding: var(--space-3) var(--space-4);
+    margin: 0 0 var(--space-3);
+    border-radius: var(--radius-sm);
+  }
+  .tela-callout-note {
+    border-left-color: var(--callout-note-border);
+    background: var(--callout-note-bg);
+    color: var(--callout-note-fg);
+  }
+  .tela-callout-tip {
+    border-left-color: var(--callout-tip-border);
+    background: var(--callout-tip-bg);
+    color: var(--callout-tip-fg);
+  }
+  .tela-callout-important {
+    border-left-color: var(--callout-important-border);
+    background: var(--callout-important-bg);
+    color: var(--callout-important-fg);
+  }
+  .tela-callout-warning {
+    border-left-color: var(--callout-warning-border);
+    background: var(--callout-warning-bg);
+    color: var(--callout-warning-fg);
+  }
+  .tela-callout-caution {
+    border-left-color: var(--callout-caution-border);
+    background: var(--callout-caution-bg);
+    color: var(--callout-caution-fg);
+  }
+
+  .tela-callout-header {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    font-family: var(--font-sans);
+    font-size: var(--text-sm);
+    line-height: var(--leading-tight);
+    font-weight: 600;
+    user-select: none;
+  }
+
+  .tela-callout-icon {
+    display: inline-block;
+    width: var(--space-4);
+    height: var(--space-4);
+    flex-shrink: 0;
+    background-color: currentColor;
+    mask-repeat: no-repeat;
+    mask-position: center;
+    mask-size: contain;
+    -webkit-mask-repeat: no-repeat;
+    -webkit-mask-position: center;
+    -webkit-mask-size: contain;
+  }
+  /* Lucide icon silhouettes embedded as SVG data URIs (stroke=black so the
+     mask reads as solid alpha; the visible fill comes from the host's
+     `currentColor`, which inherits from --callout-{type}-fg). Each path set
+     mirrors the corresponding Lucide v1.16 icon: Info, Lightbulb, AlertCircle
+     (= CircleAlert), AlertTriangle (= TriangleAlert), OctagonAlert. */
+  .tela-callout-icon[data-callout-icon='note'] {
+    mask-image: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='10'/%3E%3Cpath d='M12 16v-4'/%3E%3Cpath d='M12 8h.01'/%3E%3C/svg%3E");
+    -webkit-mask-image: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='10'/%3E%3Cpath d='M12 16v-4'/%3E%3Cpath d='M12 8h.01'/%3E%3C/svg%3E");
+  }
+  .tela-callout-icon[data-callout-icon='tip'] {
+    mask-image: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5'/%3E%3Cpath d='M9 18h6'/%3E%3Cpath d='M10 22h4'/%3E%3C/svg%3E");
+    -webkit-mask-image: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5'/%3E%3Cpath d='M9 18h6'/%3E%3Cpath d='M10 22h4'/%3E%3C/svg%3E");
+  }
+  .tela-callout-icon[data-callout-icon='important'] {
+    mask-image: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='10'/%3E%3Cline x1='12' x2='12' y1='8' y2='12'/%3E%3Cline x1='12' x2='12.01' y1='16' y2='16'/%3E%3C/svg%3E");
+    -webkit-mask-image: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='10'/%3E%3Cline x1='12' x2='12' y1='8' y2='12'/%3E%3Cline x1='12' x2='12.01' y1='16' y2='16'/%3E%3C/svg%3E");
+  }
+  .tela-callout-icon[data-callout-icon='warning'] {
+    mask-image: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3'/%3E%3Cpath d='M12 9v4'/%3E%3Cpath d='M12 17h.01'/%3E%3C/svg%3E");
+    -webkit-mask-image: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3'/%3E%3Cpath d='M12 9v4'/%3E%3Cpath d='M12 17h.01'/%3E%3C/svg%3E");
+  }
+  .tela-callout-icon[data-callout-icon='caution'] {
+    mask-image: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 16h.01'/%3E%3Cpath d='M12 8v4'/%3E%3Cpath d='M15.312 2a2 2 0 0 1 1.414.586l4.688 4.688A2 2 0 0 1 22 8.688v6.624a2 2 0 0 1-.586 1.414l-4.688 4.688a2 2 0 0 1-1.414.586H8.688a2 2 0 0 1-1.414-.586l-4.688-4.688A2 2 0 0 1 2 15.312V8.688a2 2 0 0 1 .586-1.414l4.688-4.688A2 2 0 0 1 8.688 2z'/%3E%3C/svg%3E");
+    -webkit-mask-image: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 16h.01'/%3E%3Cpath d='M12 8v4'/%3E%3Cpath d='M15.312 2a2 2 0 0 1 1.414.586l4.688 4.688A2 2 0 0 1 22 8.688v6.624a2 2 0 0 1-.586 1.414l-4.688 4.688a2 2 0 0 1-1.414.586H8.688a2 2 0 0 1-1.414-.586l-4.688-4.688A2 2 0 0 1 2 15.312V8.688a2 2 0 0 1 .586-1.414l4.688-4.688A2 2 0 0 1 8.688 2z'/%3E%3C/svg%3E");
+  }
+
+  .tela-callout-label {
+    font-family: var(--font-sans);
+    font-size: var(--text-sm);
+    line-height: var(--leading-tight);
+    color: currentColor;
+    letter-spacing: 0.01em;
+  }
+
+  .tela-callout-body {
+    color: var(--text-primary);
+  }
+  .tela-callout-body > :first-child {
+    margin-top: 0;
+  }
+  .tela-callout-body > :last-child {
+    margin-bottom: 0;
+  }
+  /* Body paragraphs inherit the editor's relaxed line-height but stay
+     normal-weight even though the host's currentColor is the callout fg.
+     Without this override the body would tint to the callout fg (e.g. red
+     for caution), which would fight the prose. */
+  .tela-callout-body p {
+    color: var(--text-primary);
+  }
+
   /* Inline code */
   .tela-milkdown .ProseMirror :not(pre) > code {
     font-family: var(--font-mono);

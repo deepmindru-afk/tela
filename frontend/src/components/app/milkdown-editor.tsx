@@ -37,6 +37,11 @@ import { useLeaderElection } from '../../lib/collab/use-leader-election'
 import { slashPlugin, SlashView } from './milkdown-slash'
 import { wikilinkPlugin, WikilinkView } from './milkdown-wikilink'
 import {
+  calloutInputRule,
+  calloutSchema,
+  calloutsRemarkPlugin,
+} from './milkdown-callouts'
+import {
   WIKILINK_ALIVE_IDS_META,
   wikilinkAliveIdsCtx,
   wikilinkDecorationPlugin,
@@ -396,7 +401,18 @@ function MilkdownEditorInner({
       .use(wikilinkDecorationPlugin)
       .use(commentThreadsCtx)
       .use(commentAnchorCallbacksCtx)
-      .use(commentShowResolvedCtx),
+      .use(commentShowResolvedCtx)
+      // M13.0 — GitHub-style blockquote alert callouts. The remark plugin
+      // rewrites qualifying `> [!TYPE]` blockquotes into `callout` mdast
+      // nodes during parse; the schema's toMarkdown round-trips back to the
+      // same markdown shape on save; the input rule fires live as the user
+      // closes the marker so the chrome appears without waiting for a
+      // save+reload. Same registration in both collab and non-collab
+      // branches — the schema and remark hook live above prosePluginsCtx
+      // and don't depend on the Yjs branch.
+      .use(calloutsRemarkPlugin)
+      .use(calloutSchema)
+      .use(calloutInputRule),
   )
 
   useEffect(() => {

@@ -127,5 +127,29 @@
     --diff-del-fg: #991b1b;
     --diff-gutter-bg: #f3f4f6;
     --diff-gutter-fg: #6b7280;
+
+    /* M13.0 — GitHub-style blockquote callouts. Five callout types × three
+       theme-aware roles (bg = soft tinted surface; fg = header label + icon
+       silhouette colour; border = the 4px left rail). The base hue per type
+       maps to the GitHub spec: note=blue, tip=green, important=purple,
+       warning=amber, caution=red. Defaults below mirror the light palette
+       so an unthemed root renders reasonably; per-theme overrides live in
+       themes/*.css. Tints are intentionally low-saturation so a callout
+       sits with the surrounding prose instead of fighting it. */
+    --callout-note-bg: #eff6ff;
+    --callout-note-fg: #1d4ed8;
+    --callout-note-border: #60a5fa;
+    --callout-tip-bg: #ecfdf5;
+    --callout-tip-fg: #15803d;
+    --callout-tip-border: #4ade80;
+    --callout-important-bg: #f5f3ff;
+    --callout-important-fg: #6d28d9;
+    --callout-important-border: #a78bfa;
+    --callout-warning-bg: #fffbeb;
+    --callout-warning-fg: #b45309;
+    --callout-warning-border: #fbbf24;
+    --callout-caution-bg: #fef2f2;
+    --callout-caution-fg: #b91c1c;
+    --callout-caution-border: #f87171;
   }
 }

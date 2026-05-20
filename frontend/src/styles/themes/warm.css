@@ -50,5 +50,26 @@
     --diff-del-fg: #7a2a2a;
     --diff-gutter-bg: #ead9be;
     --diff-gutter-fg: #7a6a55;
+
+    /* M13.0 — warm-theme callout palette. Dusty, lower-chroma tints that
+       integrate with the cream surface (#fbf6ec). Hues track the GitHub
+       spec (note=blue, tip=green, important=purple, warning=amber,
+       caution=red) but desaturated so they sit with the warm palette
+       instead of fighting --accent (#b4543a). */
+    --callout-note-bg: #e6e8e3;
+    --callout-note-fg: #2c5f7a;
+    --callout-note-border: #6b94a8;
+    --callout-tip-bg: #e1e6c8;
+    --callout-tip-fg: #4a5e1f;
+    --callout-tip-border: #8aa356;
+    --callout-important-bg: #e8e0e6;
+    --callout-important-fg: #6e3f7a;
+    --callout-important-border: #9d72a8;
+    --callout-warning-bg: #f0e3c2;
+    --callout-warning-fg: #8a5a14;
+    --callout-warning-border: #c9963f;
+    --callout-caution-bg: #f0d6c2;
+    --callout-caution-fg: #8a2828;
+    --callout-caution-border: #c45a5a;
   }
 }

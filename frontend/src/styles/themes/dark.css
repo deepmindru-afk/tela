@@ -51,5 +51,26 @@
     --diff-del-fg: #fca5a5;
     --diff-gutter-bg: #1f1f27;
     --diff-gutter-fg: #6b7280;
+
+    /* M13.0 — dark-theme callout palette. Deep tinted backgrounds against
+       the near-black editor surface (#0f0f12); lighter fg/border so the
+       header label and 4px rail register without glowing. Each bg is the
+       same hue family as the light theme, dropped in luminance so the
+       callout reads as the same type across themes. */
+    --callout-note-bg: #0f1f3a;
+    --callout-note-fg: #93c5fd;
+    --callout-note-border: #3b82f6;
+    --callout-tip-bg: #0f2a1e;
+    --callout-tip-fg: #86efac;
+    --callout-tip-border: #22c55e;
+    --callout-important-bg: #1f1538;
+    --callout-important-fg: #c4b5fd;
+    --callout-important-border: #8b5cf6;
+    --callout-warning-bg: #2a1f0a;
+    --callout-warning-fg: #fcd34d;
+    --callout-warning-border: #f59e0b;
+    --callout-caution-bg: #2a1414;
+    --callout-caution-fg: #fca5a5;
+    --callout-caution-border: #ef4444;
   }
 }
