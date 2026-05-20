@@ -266,7 +266,7 @@ func Middleware(d *sql.DB, aw *AuditWriter) func(http.Handler) http.Handler {
 						StatusCode: sw.statusCode(),
 					})
 				}()
-				if !scopeAllowsMethod(k.Scope, r.Method) {
+				if !scopeAllowsRequest(k.Scope, r.Method, r.URL.Path) {
 					writeForbidden(sw, "api_key_scope", "api key scope does not permit this method")
 					return
 				}

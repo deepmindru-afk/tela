@@ -93,6 +93,12 @@ func registerRoutes(srv *Server, mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/share/{token}/page/{page_id}", srv.GetPublicSharePage)
 	mux.HandleFunc("GET /api/share/{token}/tree", srv.GetPublicShareTree)
 
+	// M17.A.1 Feedback submit-only channel. Session OR bearer (any scope —
+	// the bearer carve-out lives in auth.scopeAllowsRequest so the MCP
+	// `submit_feedback` tool can use a read-scope key). Write-only in v0: no
+	// list/get/patch/delete surface.
+	mux.HandleFunc("POST /api/feedback", srv.CreateFeedback)
+
 	mux.HandleFunc("GET /api/search", srv.Search)
 
 	// M16.A.5 server-side body-fuzzy search. Powers the MCP `search_bodies`

@@ -270,3 +270,26 @@ func scopeAllowsMethod(scope, method string) bool {
 	}
 	return false
 }
+
+// scopeAllowsRequest is the path-aware extension of scopeAllowsMethod. The
+// default policy (scopeAllowsMethod) is unchanged for every route except the
+// targeted carve-outs listed here. Used by Middleware in place of the bare
+// method check.
+//
+// Carve-outs:
+//
+//   - POST /api/feedback (M17.A.1) — submitting meta-feedback about Tela /
+//     tela-mcp themselves is allowed for every scope (including read).
+//     Rationale: the MCP `submit_feedback` tool is read-scope by design
+//     (feedback is observational; the lowest-trust keys must be able to
+//     report friction back to the developers).
+func scopeAllowsRequest(scope, method, path string) bool {
+	if method == http.MethodPost && path == "/api/feedback" {
+		switch scope {
+		case ScopeRead, ScopeWrite, ScopeAdmin:
+			return true
+		}
+		return false
+	}
+	return scopeAllowsMethod(scope, method)
+}
