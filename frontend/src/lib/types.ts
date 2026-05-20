@@ -122,6 +122,27 @@ export interface AdminUserRow {
   updated_at: string
 }
 
+// Three-rung scope ceiling on a personal access token. See
+// backend/internal/auth/api_key.go — `admin` implies write+read, `write`
+// implies read.
+export type ApiKeyScope = 'read' | 'write' | 'admin'
+
+// Row in GET /api/api_keys (M16.A.1). Mirrors backend's apiKeyDTO. `key` is
+// populated ONLY on the POST create response — list/get omit it. `space_id`
+// null means "all spaces"; otherwise the key is scoped to that single space.
+export interface ApiKeyRow {
+  id: number
+  name: string
+  key_prefix: string
+  scope: ApiKeyScope
+  space_id: number | null
+  last_used_at: string | null
+  expires_at: string | null
+  created_at: string
+  revoked_at: string | null
+  key?: string
+}
+
 export interface ApiErrorBody {
   error: string
   code: string

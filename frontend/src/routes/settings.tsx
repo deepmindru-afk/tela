@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { ImportSection } from '../components/app/ImportSection'
+import { SettingsApiKeysTab } from '../components/app/SettingsApiKeysTab'
 import { SettingsProfileTab } from '../components/app/SettingsProfileTab'
 import { SettingsUsersTab } from '../components/app/SettingsUsersTab'
 import { Button } from '../components/ui/button'
@@ -24,6 +25,12 @@ const IMPORT_TAB: SettingsTab = {
   render: () => <ImportSection />,
 }
 
+const API_KEYS_TAB: SettingsTab = {
+  id: 'api-keys',
+  label: 'API Keys',
+  render: () => <SettingsApiKeysTab />,
+}
+
 const USERS_TAB: SettingsTab = {
   id: 'users',
   label: 'Users',
@@ -32,10 +39,14 @@ const USERS_TAB: SettingsTab = {
 
 export function SettingsPage() {
   const me = useMe()
-  // The Users tab is gated on instance-admin; the array itself drops it for
-  // non-admins so /settings looks identical to today's Profile-only shell.
+  // The Users + API Keys tabs are gated on instance-admin; the array itself
+  // drops them for non-admins so /settings looks identical to today's
+  // Profile-only shell. The backend gates /api/api_keys on instance-admin
+  // too — mounting the tab for non-admins would just render a perpetual 403.
   const tabs = useMemo<SettingsTab[]>(() => {
-    if (me.data?.is_instance_admin) return [PROFILE_TAB, IMPORT_TAB, USERS_TAB]
+    if (me.data?.is_instance_admin) {
+      return [PROFILE_TAB, IMPORT_TAB, API_KEYS_TAB, USERS_TAB]
+    }
     return [PROFILE_TAB, IMPORT_TAB]
   }, [me.data?.is_instance_admin])
   const [activeId, setActiveId] = useState(tabs[0].id)
