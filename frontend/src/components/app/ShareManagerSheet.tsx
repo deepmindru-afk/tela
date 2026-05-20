@@ -38,8 +38,27 @@ export function ShareManagerSheet({
   const shares = (sharesQuery.data ?? []).filter((s) => !s.revoked_at)
 
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="flex flex-col">
+    // modal={false} — the share manager sits beside the editor; opening it
+    // mid-edit must not steal the caret or trap focus. Mirrors the M8
+    // CommentsPanel side-panel-Sheet pattern.
+    <Sheet open={open} onOpenChange={onOpenChange} modal={false}>
+      <SheetContent
+        side="right"
+        className="flex flex-col"
+        withOverlay={false}
+        // Don't auto-pull focus out of the editor on open — preserves the
+        // user's selection / caret position.
+        onOpenAutoFocus={(e) => e.preventDefault()}
+        // Radix dispatches `interactOutside` for both real pointer clicks
+        // AND focus-loss events from sibling floating layers (e.g. the
+        // kebab DropdownMenu inside a row). Allow real clicks outside to
+        // dismiss the sheet, but ignore Radix-dispatched focus loss so
+        // nested popovers don't immediately close it.
+        onInteractOutside={(e) => {
+          if (e.detail.originalEvent.type !== 'pointerdown')
+            e.preventDefault()
+        }}
+      >
         <SheetHeader>
           <SheetTitle>Share this page</SheetTitle>
           <SheetDescription>
