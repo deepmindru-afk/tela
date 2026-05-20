@@ -134,6 +134,7 @@ export function ShareReader({
             collabPageId={null}
             readOnly
             wikilinkMode="share"
+            pageId={pageId}
           />
         </Suspense>
       </div>

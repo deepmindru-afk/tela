@@ -47,6 +47,11 @@ import {
   detailsSummarySchema,
 } from './milkdown-collapsibles'
 import {
+  excalidrawRemarkPlugin,
+  excalidrawSchema,
+  pageIdCtx,
+} from './milkdown-excalidraw'
+import {
   WIKILINK_ALIVE_IDS_META,
   wikilinkAliveIdsCtx,
   wikilinkDecorationPlugin,
@@ -128,6 +133,12 @@ export interface MilkdownEditorProps {
   // wikilinks as broken; 'share' shows them as plain text so we don't leak
   // the existence of pages outside the share scope.
   wikilinkMode?: WikilinkDecorationMode
+  // M13.3a — page id carried into the excalidraw atom's toDOM so it can build
+  // the `/api/diagrams/{pageId}/{sceneHash}.png` URL. 0 = unset (placeholder
+  // URL would 404); PageView and ShareReader pass `page.id` so the URL is
+  // always real. Stable across the editor's lifetime — PageView keys the
+  // editor by page id, so a page switch unmounts/remounts.
+  pageId?: number
 }
 
 // Reconnecting banner copy.
@@ -151,6 +162,7 @@ function MilkdownEditorInner({
   onAnchorsResolved,
   showResolvedAnchors = false,
   wikilinkMode = 'edit',
+  pageId = 0,
 }: MilkdownEditorProps) {
   const pluginViewFactory = usePluginViewFactory()
 
@@ -306,6 +318,10 @@ function MilkdownEditorInner({
           })
         }
         ctx.set(wikilinkModeCtx.key, wikilinkMode)
+        // M13.3a — page id for excalidrawSchema.toDOM's PNG URL. Stable across
+        // the editor's lifetime (editor remounts on page change), so a single
+        // ctx.set at build time is sufficient — no useEffect needed.
+        ctx.set(pageIdCtx.key, pageId)
         ctx.set(imageAttr.key, () => ({ loading: 'lazy' }))
         // M12.1 — register only the curated grammar set (24 langs) on the
         // shared refractor/core singleton. The plugin's static import of
@@ -426,7 +442,17 @@ function MilkdownEditorInner({
       // round-trips back to the same raw HTML form.
       .use(collapsiblesRemarkPlugin)
       .use(detailsSummarySchema)
-      .use(detailsSchema),
+      .use(detailsSchema)
+      // M13.3a — Excalidraw view-mode renderer. The remark plugin walks the
+      // mdast for ```excalidraw fences, parses the JSON, validates the
+      // scene_hash, and rewrites the node to `excalidraw`. The schema
+      // materializes it as a ProseMirror atom node that renders an <img>
+      // pointing at the M13.2 PNG sidecar — zero Excalidraw runtime on the
+      // view path. The Edit Sheet (M13.3b / #113) opens on click in
+      // edit-mode and lazy-loads the Excalidraw library only then.
+      .use(pageIdCtx)
+      .use(excalidrawRemarkPlugin)
+      .use(excalidrawSchema),
   )
 
   useEffect(() => {

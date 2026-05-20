@@ -725,6 +725,7 @@ function PageEditor({ page, spaceId, draftRevId, onDeleted }: PageEditorProps) {
                 aliveWikilinkIds={aliveWikilinkIds}
                 collabPageId={null}
                 readOnly={false}
+                pageId={page.id}
               />
             </Suspense>
           )
@@ -748,6 +749,7 @@ function PageEditor({ page, spaceId, draftRevId, onDeleted }: PageEditorProps) {
               onAnchorClick={isViewer ? undefined : handleAnchorClick}
               onAnchorsResolved={isViewer ? undefined : handleAnchorsResolved}
               showResolvedAnchors={showResolvedComments}
+              pageId={page.id}
             />
           </Suspense>
         ) : (

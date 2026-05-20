@@ -380,6 +380,40 @@
     margin-bottom: 0;
   }
 
+  /* M13.3a — Excalidraw view-mode chrome. The atom node renders one of two
+     shapes via toDOM in milkdown-excalidraw.ts:
+       - Populated: <div.tela-excalidraw data-scene-hash="…"><img .../></div>
+       - Empty (fresh slash-insert, no PNG yet):
+         <div.tela-excalidraw.tela-excalidraw--empty>…</div>
+     Rules live outside the `.ProseMirror` scope so Storybook stories render
+     the same chrome without a Milkdown editor mount. */
+  .tela-excalidraw {
+    display: block;
+    margin: 0 0 var(--space-3);
+    padding: var(--space-2);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-md);
+    background: var(--surface-2);
+  }
+  .tela-excalidraw img {
+    display: block;
+    max-width: 100%;
+    height: auto;
+    margin: 0 auto;
+  }
+  .tela-excalidraw--empty {
+    color: var(--text-muted);
+    font-style: italic;
+    text-align: center;
+    padding: var(--space-4);
+  }
+  /* ProseMirror selection ring for the atom node. PM adds the
+     `ProseMirror-selectednode` class when the user clicks-to-select. */
+  .tela-milkdown .ProseMirror .tela-excalidraw.ProseMirror-selectednode {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+
   /* Inline code */
   .tela-milkdown .ProseMirror :not(pre) > code {
     font-family: var(--font-mono);
