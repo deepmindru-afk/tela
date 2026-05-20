@@ -57,6 +57,7 @@ A `tela://page/{id}` resource template is also registered, matching the wikilink
 | `delete_page`    | Delete a page. Backlinks from other pages are preserved with the last title. | write          |
 | `add_comment`    | Attach a root comment, anchored by a `{prefix, exact, suffix}` text triplet. | write          |
 | `import_markdown`| Walk a local directory, zip every `*.md` on the fly, bulk-import to a space. Pass `dry_run=true` to preview. 8 MiB total cap — split larger batches. | write          |
+| `submit_feedback`| Submit free-text feedback about Tela / `tela-mcp` itself (friction, bugs, missing capabilities). NOT for page content notes — use `add_comment` for those. | read           |
 
 ### Scopes and space restriction
 
@@ -70,9 +71,10 @@ A key may additionally be pinned to a single `space_id`. Cross-space requests re
 
 ## Compatibility
 
-| `tela-mcp` version | Tela backend           | Notes                                                |
-|--------------------|------------------------|------------------------------------------------------|
-| 0.1.x              | M16-AgentAPI and later | Requires `/api/version`, `/api/api_keys`, bearer middleware, and `/api/search/bodies` (all shipped together as M16). |
+| `tela-mcp` version | Tela backend                       | Notes                                                |
+|--------------------|------------------------------------|------------------------------------------------------|
+| 0.1.x              | M16-AgentAPI and later             | Requires `/api/version`, `/api/api_keys`, bearer middleware, and `/api/search/bodies` (all shipped together as M16). |
+| 0.2.x              | M16-AgentAPI + M17-Feedback and later | Adds `submit_feedback`, which requires `POST /api/feedback` (M17.A.1). |
 
 On startup the server fires a one-shot `GET /api/version` probe (advisory — never blocks tool calls) and prints a stderr warning when the backend reports a strictly-greater semver than the version this `tela-mcp` was built against. Non-semver values like `dev` or short git SHAs short-circuit with a "skipping compat check" line instead of erroring.
 

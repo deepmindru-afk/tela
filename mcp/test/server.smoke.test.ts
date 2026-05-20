@@ -128,6 +128,7 @@ describe.skipIf(!hasBuild)("stdio smoke", () => {
           "list_spaces",
           "search",
           "search_bodies",
+          "submit_feedback",
           "update_page",
         ].sort(),
       );

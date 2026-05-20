@@ -25,6 +25,7 @@ import { updatePage, updatePageInputSchema } from "./tools/update-page.js";
 import { deletePage, deletePageInputSchema } from "./tools/delete-page.js";
 import { addComment, addCommentInputSchema } from "./tools/add-comment.js";
 import { importMarkdown, importMarkdownInputSchema } from "./tools/import-markdown.js";
+import { submitFeedback, submitFeedbackInputSchema } from "./tools/submit-feedback.js";
 import { registerPageResource } from "./resources/page.js";
 
 function readPackageVersion(): string {
@@ -246,6 +247,22 @@ export function buildServer(client: TelaClient, version: string): McpServer {
     async (args) => {
       try {
         return ok(await importMarkdown(client, args));
+      } catch (err) {
+        return fail(err);
+      }
+    },
+  );
+
+  server.registerTool(
+    "submit_feedback",
+    {
+      description:
+        "Submit feedback about Tela or the tela-mcp server itself: friction, bugs, missing capabilities, ergonomic issues. NOT for page content notes — use add_comment for those. Free-text subject + body, no fixed categories.",
+      inputSchema: submitFeedbackInputSchema,
+    },
+    async (args) => {
+      try {
+        return ok(await submitFeedback(client, args));
       } catch (err) {
         return fail(err);
       }
