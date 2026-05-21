@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { ImportSection } from '../components/app/ImportSection'
+import { MiraImportSection } from '../components/app/MiraImportSection'
 import { SettingsApiKeysTab } from '../components/app/SettingsApiKeysTab'
 import { SettingsProfileTab } from '../components/app/SettingsProfileTab'
 import { SettingsUsersTab } from '../components/app/SettingsUsersTab'
@@ -22,7 +23,13 @@ const PROFILE_TAB: SettingsTab = {
 const IMPORT_TAB: SettingsTab = {
   id: 'import',
   label: 'Import',
-  render: () => <ImportSection />,
+  render: () => (
+    <>
+      <ImportSection />
+      <hr className="border-0 border-t border-[var(--border-subtle)]" />
+      <MiraImportSection />
+    </>
+  ),
 }
 
 const API_KEYS_TAB: SettingsTab = {
