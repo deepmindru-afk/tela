@@ -63,8 +63,9 @@ export const miraPasteRequestCtx = $ctx<
 // Tight match: a single mira page URL with no surrounding text and no
 // whitespace inside the URL. We trim the clipboard text first so a trailing
 // newline (common when copying from a browser's URL bar on some platforms)
-// doesn't disqualify the match.
-const MIRA_URL_RE = /^https?:\/\/mira\.cagdas\.io\/p\/\S+$/
+// doesn't disqualify the match. https-only matches the backend allowlist —
+// http:// would only round-trip through a 400 bad_request.
+const MIRA_URL_RE = /^https:\/\/mira\.cagdas\.io\/p\/\S+$/
 
 export function createMiraPastePlugin(ctx: Ctx): Plugin {
   return new Plugin({

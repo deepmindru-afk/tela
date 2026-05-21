@@ -21,6 +21,7 @@ import type { PageTreeNode } from '../../lib/types'
 import { cn } from '../../lib/utils'
 import { Button } from '../ui/button'
 import { CommandInlinePicker, type CommandItem } from '../ui/command'
+import { Field } from '../ui/field'
 import { Input } from '../ui/input'
 import { Select } from '../ui/select'
 import { ToggleGroup, ToggleGroupItem } from '../ui/toggle'
@@ -385,24 +386,3 @@ export function MiraImportSection() {
   )
 }
 
-function Field({
-  label,
-  htmlFor,
-  children,
-}: {
-  label: string
-  htmlFor?: string
-  children: React.ReactNode
-}) {
-  return (
-    <div className="flex flex-col gap-[var(--space-2)]">
-      <label
-        htmlFor={htmlFor}
-        className="text-[length:var(--text-sm)] font-medium text-[var(--text-primary)] font-[family-name:var(--font-sans)]"
-      >
-        {label}
-      </label>
-      {children}
-    </div>
-  )
-}

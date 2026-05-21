@@ -17,6 +17,7 @@ import {
   CommandInlinePicker,
   type CommandItem,
 } from '../ui/command'
+import { Field } from '../ui/field'
 import { Select } from '../ui/select'
 import { ToggleGroup, ToggleGroupItem } from '../ui/toggle'
 import { cn } from '../../lib/utils'
@@ -410,28 +411,6 @@ export function ImportSection() {
         />
       ) : null}
     </section>
-  )
-}
-
-function Field({
-  label,
-  htmlFor,
-  children,
-}: {
-  label: string
-  htmlFor?: string
-  children: React.ReactNode
-}) {
-  return (
-    <div className="flex flex-col gap-[var(--space-2)]">
-      <label
-        htmlFor={htmlFor}
-        className="text-[length:var(--text-sm)] font-medium text-[var(--text-primary)] font-[family-name:var(--font-sans)]"
-      >
-        {label}
-      </label>
-      {children}
-    </div>
   )
 }
 
