@@ -237,7 +237,16 @@ func parseAllowedMiraHosts() map[string]struct{} {
 // the body within the 1 MiB cap. Returns (body, 0, "", "") on success;
 // (nil, status, code, msg) on any failure (caller writes the error envelope).
 func fetchMiraSource(ctx context.Context, sourceURL string) ([]byte, int, string, string) {
-	client := &http.Client{Timeout: miraFetchTimeout}
+	// Disable redirect following: Go's default policy follows up to 10 hops
+	// without re-validating the host against the allowlist, so a 30x to a
+	// private/internal address would otherwise be followed blindly. Returning
+	// the redirect response as-is surfaces it through the non-2xx branch below.
+	client := &http.Client{
+		Timeout: miraFetchTimeout,
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			return http.ErrUseLastResponse
+		},
+	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, sourceURL, nil)
 	if err != nil {
 		return nil, http.StatusBadRequest, "bad_request", "could not build source_url request"

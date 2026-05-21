@@ -145,6 +145,26 @@ func TestImportMira_FullFlow(t *testing.T) {
 		}
 	})
 
+	t.Run("url_redirect_rejected", func(t *testing.T) {
+		// Defense-in-depth: a 30x from an allowlisted host MUST NOT be followed,
+		// since the redirect target's host isn't re-checked against the
+		// allowlist. fetchMiraSource sets CheckRedirect → ErrUseLastResponse so
+		// the redirect surfaces as a non-2xx, which the handler maps to 400.
+		mira := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Location", "https://internal.private:8443/secret")
+			w.WriteHeader(http.StatusFound)
+		}))
+		defer mira.Close()
+		host := mustHost(t, mira.URL)
+		t.Setenv("TELA_MIRA_ALLOWED_HOSTS", host)
+		trustTestTLS(t)
+		body := fmt.Sprintf(`{"source_url": %q}`, mira.URL)
+		resp, out := postImportMira(t, adminC, ts.URL, space, body)
+		if resp.StatusCode != http.StatusBadRequest || !strings.Contains(string(out), `"code":"bad_request"`) {
+			t.Fatalf("status=%d body=%s want 400 bad_request", resp.StatusCode, out)
+		}
+	})
+
 	t.Run("url_oversized_response", func(t *testing.T) {
 		big := strings.Repeat("a", (1<<20)+10)
 		mira := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
