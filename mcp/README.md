@@ -1,6 +1,6 @@
 # tela-mcp
 
-MCP (Model Context Protocol) server for [Tela](https://tela.cagdas.io). Exposes spaces (read + CRUD), pages, search, backlinks, page writes, comments, bulk markdown import, and feedback submission to MCP-capable clients (Claude Code, etc.) over stdio.
+MCP (Model Context Protocol) server for [Tela](https://tela.cagdas.io). Exposes spaces (read + CRUD), pages, search, backlinks, page writes, comments, bulk markdown import, mira-page import, and feedback submission to MCP-capable clients (Claude Code, etc.) over stdio.
 
 The server is a tiny TypeScript process: it bearer-auths against the Tela REST API using a personal access token and translates each MCP tool call into one HTTP request. No state is held client-side.
 
@@ -57,6 +57,7 @@ A `tela://page/{id}` resource template is also registered, matching the wikilink
 | `delete_page`    | Delete a page. Backlinks from other pages are preserved with the last title. | write          |
 | `add_comment`    | Attach a root comment, anchored by a `{prefix, exact, suffix}` text triplet. | write          |
 | `import_markdown`| Walk a local directory, zip every `*.md` on the fly, bulk-import to a space. Pass `dry_run=true` to preview. 8 MiB total cap — split larger batches. | write          |
+| `import_mira`    | Import a single [mira](https://mira.cagdas.io) page into a space via `source_url` (https-only host allowlist, fetched server-side) OR inline `payload` (raw block JSON). 1 MiB cap on both. | write          |
 | `create_space`   | Create a Tela space. `{name, slug?}` → returns the new row. Creator auto-becomes owner. | write          |
 | `update_space`   | Patch a space's `name` and/or `slug`. Owner role required within the space. | write          |
 | `delete_space`   | Delete a space AND all its pages, comments, revisions, share links. Irreversible cascade. Owner role required. | **admin**      |
@@ -78,6 +79,7 @@ A key may additionally be pinned to a single `space_id`. Cross-space requests re
 |--------------------|------------------------------------|------------------------------------------------------|
 | 0.1.x              | M16-AgentAPI and later             | Requires `/api/version`, `/api/api_keys`, bearer middleware, and `/api/search/bodies` (all shipped together as M16). |
 | 0.2.x              | M16-AgentAPI + M17-Feedback and later | Adds `submit_feedback`, which requires `POST /api/feedback` (M17.A.1). |
+| 0.3.x              | M16-AgentAPI + M17-Feedback + M18-MiraImport and later | Adds `import_mira`, which requires `POST /api/spaces/{id}/import-mira` (M18.A.3). |
 
 On startup the server fires a one-shot `GET /api/version` probe (advisory — never blocks tool calls) and prints a stderr warning when the backend reports a strictly-greater semver than the version this `tela-mcp` was built against. Non-semver values like `dev` or short git SHAs short-circuit with a "skipping compat check" line instead of erroring.
 

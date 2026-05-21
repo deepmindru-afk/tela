@@ -125,6 +125,7 @@ describe.skipIf(!hasBuild)("stdio smoke", () => {
           "delete_space",
           "get_page",
           "import_markdown",
+          "import_mira",
           "list_backlinks",
           "list_pages",
           "list_spaces",

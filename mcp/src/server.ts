@@ -25,6 +25,7 @@ import { updatePage, updatePageInputSchema } from "./tools/update-page.js";
 import { deletePage, deletePageInputSchema } from "./tools/delete-page.js";
 import { addComment, addCommentInputSchema } from "./tools/add-comment.js";
 import { importMarkdown, importMarkdownInputSchema } from "./tools/import-markdown.js";
+import { importMira, importMiraInputSchema } from "./tools/import-mira.js";
 import { submitFeedback, submitFeedbackInputSchema } from "./tools/submit-feedback.js";
 import { createSpace, createSpaceInputSchema } from "./tools/create-space.js";
 import { updateSpace, updateSpaceInputSchema } from "./tools/update-space.js";
@@ -250,6 +251,22 @@ export function buildServer(client: TelaClient, version: string): McpServer {
     async (args) => {
       try {
         return ok(await importMarkdown(client, args));
+      } catch (err) {
+        return fail(err);
+      }
+    },
+  );
+
+  server.registerTool(
+    "import_mira",
+    {
+      description:
+        "Import a single mira (mira.cagdas.io) page into a tela space. Provide either `source_url` (a `https://mira.cagdas.io/p/<slug>` link, fetched server-side) OR `payload` (the raw mira block JSON). The endpoint enforces an https-only host allowlist (default `mira.cagdas.io`), a 5s fetch timeout, and a 1 MiB cap on both request body and fetched response. Returns the created tela page wrapped as `{ page: ... }`. Use `parent_id` to nest under an existing page; omit for top-level.",
+      inputSchema: importMiraInputSchema,
+    },
+    async (args) => {
+      try {
+        return ok(await importMira(client, args));
       } catch (err) {
         return fail(err);
       }
