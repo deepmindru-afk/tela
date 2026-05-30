@@ -1,73 +1,34 @@
-# React + TypeScript + Vite
+# tela — frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+React 19 + TypeScript + Vite SPA for [tela](../README.md). Tailwind v4 + Radix + Milkdown editor + TanStack Query/Router + Orama + cmdk + Lucide + Storybook.
 
-Currently, two official plugins are available:
+## Dev
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
-
-## React Compiler
-
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+npm install
+npm run dev          # Vite dev server on :5173 (proxies /api → backend :8080)
+npm run storybook    # component dev surface on :6006
+npm run build        # production build
+npm run lint         # eslint
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+From the repo root, `make fe-dev` / `make storybook` wrap these, and `make dev` runs the frontend alongside the backend. The dev server proxies `/api` to the backend on `:8080` (see `vite.config.ts`); start the backend with `make be-dev`.
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+## Conventions (enforced — see [`../CLAUDE.md`](../CLAUDE.md))
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+- Design tokens in `src/styles/tokens.css`, semantic names only — never hardcode hex / raw px / radii.
+- Theming via CSS custom properties on `[data-theme="..."]`; `@layer tokens, base, components, utilities` ordering is locked.
+- Owned Radix + shadcn-style primitives in `src/components/ui/` only — no MUI/Chakra/Mantine/Ant/daisyUI. **Q8:** every new UI element uses an owned primitive (build it with a Storybook story first if missing).
+- Yjs may be imported only in `src/lib/collab/*` and the collab branch of `milkdown-editor.tsx`.
+- State is TanStack Query; routing is TanStack Router (the command palette is a `RouterProvider` sibling — use `router.navigate()`).
+
+## Layout
+
+- `src/components/{ui,app}` — primitives + composed components.
+- `src/lib` — `collab/` (Yjs transport), `comments/`, `queries/` (TanStack hooks), `milkdown-*` plugins + `milkdown-editor.tsx`.
+- `src/routes` — TanStack Router routes.
+- `src/styles` — tokens + theme layers.
+
+## Tests
+
+There is no unit-test harness yet (no jsdom / vitest config). Storybook is the current component verification surface.
