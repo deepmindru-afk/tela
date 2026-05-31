@@ -1,0 +1,11 @@
+# tela — https://tela.cagdas.io
+# The marketing landing is indexable. The app (auth-gated SPA) and the public
+# share/permalink pages are kept crawlable but noindex'd via X-Robots-Tag, so
+# crawlers see the directive (Disallow would hide it). AI crawlers are welcome —
+# tela is open-source and agent-native — they're covered by the * group below.
+
+User-agent: *
+Allow: /
+Disallow: /api/
+
+Sitemap: https://tela.cagdas.io/sitemap.xml

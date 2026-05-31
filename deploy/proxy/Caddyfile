@@ -9,58 +9,70 @@
 }
 
 :80 {
+	# HSTS — honored by browsers over the Cloudflare HTTPS edge that fronts this
+	# origin. Applies to every response (SEO/security baseline). No preload.
+	header Strict-Transport-Security "max-age=31536000"
+
+	# ── Backend: API + websockets + public page permalinks ──────────────────
+	# /api + /p are noindex: API is JSON, /p permalinks are owner-private by
+	# default (a leaked numeric id shouldn't be indexed; unfurl bots ignore the
+	# header so social cards still work).
 	handle /api/* {
+		header X-Robots-Tag "noindex"
 		reverse_proxy backend:8080
 	}
-
 	handle /ws/* {
 		reverse_proxy backend:8080
 	}
-
 	handle /p/* {
+		header X-Robots-Tag "noindex"
 		reverse_proxy backend:8080
 	}
 
-	# M15.5 PublicShare OG bot-gate: bot UAs hitting /share/* go to the
-	# backend (writes an OG envelope); real browsers fall through to the
-	# frontend SPA (M15.1 share-mode UI). The named matcher must precede
-	# the catch-all /share/* handle — Caddy resolves handles by first match.
-	#
-	# Mirror of botUASubstrings in backend/internal/api/public_share.go —
-	# keep in sync.
+	# M15.5 PublicShare OG bot-gate: bot UAs hitting /share/* go to the backend
+	# (writes an OG envelope); real browsers fall through to the frontend SPA
+	# (M15.1 share-mode UI). The named matcher must precede the catch-all
+	# /share/* handle — Caddy resolves handles by first match. Shares are
+	# noindex by default (token-scoped, privacy); the OG header still unfurls.
+	# Mirror of botUASubstrings in backend/internal/api/public_share.go — keep in sync.
 	@share_bots {
 		path /share/*
 		header_regexp User-Agent "(?i)(slackbot-linkexpanding|twitterbot|facebookexternalhit|discordbot|telegrambot|linkedinbot|whatsapp|bot/|bot\s)"
 	}
 	handle @share_bots {
+		header X-Robots-Tag "noindex"
 		reverse_proxy backend:8080
 	}
 	handle /share/* {
+		header X-Robots-Tag "noindex"
 		reverse_proxy frontend:80
 	}
 
-	# ── Marketing landing (standalone Astro static, served at the apex) ──────
-	# The landing (landing/dist, mounted read-only at /srv/landing) owns the
-	# apex "/" and its build assets under /_astro/*. Everything else falls
-	# through to the app SPA below. The app's own "/" route is CLIENT-SIDE only
-	# (TanStack Router redirects to the user's space in-browser), so a hard load
-	# of "/" lands on this marketing page while in-app navigation is unaffected.
-	# App build assets live under /assets/* (Vite), landing under /_astro/* —
-	# no collision. These handles MUST precede the catch-all (Caddy resolves
-	# handles in source order).
-	handle /_astro/* {
-		root * /srv/landing
-		file_server
-	}
-	@landing_apex path / /index.html
-	handle @landing_apex {
-		root * /srv/landing
-		rewrite * /index.html
-		file_server
-	}
-
-	# App SPA (everything not matched above: /login, /spaces/*, /settings, …).
+	# ── Marketing landing (standalone Astro static) + app SPA ───────────────
+	# The landing build (landing/dist, mounted read-only at /srv/landing) owns
+	# the apex "/", its /_astro/* assets, AND the SEO/root files it ships
+	# (robots.txt, sitemap.xml, llms.txt, llms-full.txt, og-image.png,
+	# manifest.webmanifest, apple-touch-icon.png, icon-*.png, favicon.svg).
+	# Any path that exists as a file in /srv/landing is served from the landing
+	# and stays indexable; everything else (/login, /spaces/*, /settings, the
+	# app's Vite /assets/*, …) falls through to the app SPA and is noindex'd.
+	# The app's own "/" route is CLIENT-SIDE only (TanStack Router redirects to
+	# the user's space in-browser), so only a hard load of "/" hits the landing.
 	handle {
-		reverse_proxy frontend:80
+		root * /srv/landing
+
+		@landing_file file {
+			try_files {path} {path}/index.html
+		}
+		handle @landing_file {
+			header /_astro/* Cache-Control "public, max-age=31536000, immutable"
+			file_server
+		}
+
+		# Everything else = the app SPA (auth-gated shell + share-mode UI): noindex.
+		handle {
+			header X-Robots-Tag "noindex"
+			reverse_proxy frontend:80
+		}
 	}
 }

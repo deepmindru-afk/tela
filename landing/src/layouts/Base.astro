@@ -10,6 +10,9 @@ const {
   title = 'tela — the team wiki your agents can write to',
   description = 'A self-hostable, markdown-native team wiki with a built-in MCP server, so AI agents read, write and search alongside your team. Live multiplayer editing, instant full-text search, one binary.',
 } = Astro.props;
+
+// Absolute OG image URL (Astro.site = https://tela.cagdas.io).
+const ogImage = new URL('/og-image.png', Astro.site).href;
 ---
 
 <!doctype html>
@@ -37,33 +40,64 @@ const {
     <meta name="description" content={description} />
     <link rel="canonical" href={Astro.url.href} />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="manifest" href="/manifest.webmanifest" />
 
     <meta name="theme-color" content="#11121a" media="(prefers-color-scheme: dark)" />
     <meta name="theme-color" content="#fbfbfe" media="(prefers-color-scheme: light)" />
 
     <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="tela" />
+    <meta property="og:locale" content="en_US" />
     <meta property="og:title" content={title} />
     <meta property="og:description" content={description} />
     <meta property="og:url" content={Astro.url.href} />
+    <meta property="og:image" content={ogImage} />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="tela — the wiki your agents can write to" />
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content={title} />
     <meta name="twitter:description" content={description} />
+    <meta name="twitter:image" content={ogImage} />
 
     <script type="application/ld+json" is:inline set:html={JSON.stringify({
       '@context': 'https://schema.org',
       '@graph': [
         {
           '@type': 'SoftwareApplication',
+          '@id': 'https://tela.cagdas.io/#software',
           name: 'tela',
           description: 'A self-hostable, markdown-native team wiki with a built-in MCP server, so AI agents read, write and search your docs as first-class teammates. Live multiplayer, SQLite full-text search, your data on your own server.',
           applicationCategory: 'DeveloperApplication',
           operatingSystem: 'Linux, macOS, Docker',
           url: 'https://tela.cagdas.io',
+          image: 'https://tela.cagdas.io/og-image.png',
           isAccessibleForFree: true,
+          license: 'https://github.com/zcag/tela/blob/main/LICENSE',
           offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' },
+          publisher: { '@id': 'https://tela.cagdas.io/#org' },
         },
-        { '@type': 'WebSite', name: 'tela', url: 'https://tela.cagdas.io' },
-        { '@type': 'Organization', name: 'tela', url: 'https://tela.cagdas.io', logo: 'https://tela.cagdas.io/favicon.svg' },
+        {
+          '@type': 'SoftwareSourceCode',
+          name: 'tela',
+          codeRepository: 'https://github.com/zcag/tela',
+          programmingLanguage: ['Go', 'TypeScript'],
+          runtimePlatform: 'Docker',
+          url: 'https://github.com/zcag/tela',
+        },
+        { '@type': 'WebSite', '@id': 'https://tela.cagdas.io/#website', name: 'tela', url: 'https://tela.cagdas.io', inLanguage: 'en', publisher: { '@id': 'https://tela.cagdas.io/#org' } },
+        {
+          '@type': 'Organization',
+          '@id': 'https://tela.cagdas.io/#org',
+          name: 'tela',
+          url: 'https://tela.cagdas.io',
+          logo: 'https://tela.cagdas.io/icon-512.png',
+          sameAs: [
+            'https://github.com/zcag/tela',
+            'https://www.npmjs.com/package/tela-mcp',
+          ],
+        },
       ],
     })} />
 

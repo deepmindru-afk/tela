@@ -1,0 +1,14 @@
+{
+  "name": "tela — the team wiki your agents can write to",
+  "short_name": "tela",
+  "description": "A self-hostable, markdown-native team wiki with a built-in MCP server.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#11121a",
+  "theme_color": "#11121a",
+  "icons": [
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/favicon.svg", "type": "image/svg+xml", "sizes": "any" }
+  ]
+}
