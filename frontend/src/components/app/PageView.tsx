@@ -9,6 +9,7 @@ import {
 } from 'react'
 import { Link, useNavigate, useSearch } from '@tanstack/react-router'
 import {
+  BookOpen,
   ChevronRight,
   FileText,
   History,
@@ -593,6 +594,21 @@ function PageEditor({ page, spaceId, draftRevId, onDeleted }: PageEditorProps) {
             <>
               <PresenceAvatars awareness={provider?.awareness ?? null} />
               <SaveIndicator status={status} />
+              <Button
+                asChild
+                variant="ghost"
+                size="sm"
+                aria-label="Read"
+                className="h-[var(--space-8)] px-[var(--space-3)]"
+              >
+                <Link
+                  to="/read/$spaceId/$pageId"
+                  params={{ spaceId, pageId: page.id }}
+                >
+                  <BookOpen width={16} height={16} />
+                  <span>Read</span>
+                </Link>
+              </Button>
               {roleResolved && !isViewer ? (
                 <Button
                   asChild

@@ -17,6 +17,20 @@
     --leading-normal: 1.5;
     --leading-relaxed: 1.7;
 
+    /* Reading-optimized serif, used only by reading mode (#3) when the reader
+       typeface preference is "serif". System serif stack — no webfont weight,
+       prefers the high-quality faces shipped on each OS. */
+    --font-serif: ui-serif, 'Iowan Old Style', 'Palatino Linotype', Palatino,
+      'Charter', Georgia, Cambria, 'Times New Roman', serif;
+
+    /* Reading mode (#3) — component-tier tokens; the reader is the sole
+       consumer. The reader column measure + base leading; per-size font
+       scaling is applied via [data-reading-size] in reader.css. ~44rem holds
+       ~68–72 characters at the medium step — the classic readable measure. */
+    --reading-measure: 44rem;
+    --reading-leading: 1.75;
+    --reading-leading-tight: 1.3;
+
     /* All radii derive from --radius-md so a single edit reshapes every
        primitive (Button, Input, Card, Dialog, Tooltip, Toggle). */
     --radius-md: 8px;

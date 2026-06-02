@@ -1,0 +1,337 @@
+/* Reading mode (#3). A full-bleed, chrome-free, read-only view of a page.
+   The body still renders through the same MilkdownEditor (.tela-milkdown) as
+   the editor + share reader, so all rich content is free; this file only
+   (1) elevates the prose typography for reading, (2) lays out the reader
+   chrome (top bar, progress, TOC rail, article column), and (3) defines the
+   print stylesheet that doubles as "Save as PDF".
+
+   All sizing scales off a single per-reader custom property
+   (--reading-font-size) so the S/M/L preference moves the whole scale; prose
+   children are sized in `em` relative to the article font-size. */
+@layer components {
+  .tela-reader {
+    /* Medium (default). [data-reading-size] overrides below. */
+    --reading-font-size: 1.1875rem;
+    --reading-font-family: var(--font-sans);
+
+    display: flex;
+    flex-direction: column;
+    height: 100dvh;
+    min-height: 0;
+    background: var(--surface-1);
+    color: var(--text-primary);
+  }
+  .tela-reader[data-reading-size='s'] {
+    --reading-font-size: 1.0625rem;
+  }
+  .tela-reader[data-reading-size='l'] {
+    --reading-font-size: 1.3125rem;
+  }
+  .tela-reader[data-reading-font='serif'] {
+    --reading-font-family: var(--font-serif);
+  }
+
+  /* Reading-progress bar — fixed sliver at the very top, scaled on the X axis
+     via a CSS var the component updates on scroll. Compositor-only. */
+  .reader-progress {
+    position: fixed;
+    inset: 0 0 auto 0;
+    height: 2px;
+    z-index: 30;
+    transform-origin: left;
+    transform: scaleX(var(--reader-progress, 0));
+    background: var(--accent);
+    will-change: transform;
+  }
+
+  /* Top bar — sticky, translucent, calm. Holds close + title on the left,
+     reader controls on the right. */
+  .reader-topbar {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-4);
+    padding: var(--space-3) var(--space-5);
+    border-bottom: 1px solid transparent;
+    background: color-mix(in srgb, var(--surface-1) 82%, transparent);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    transition: border-color var(--duration-base) var(--ease-out);
+  }
+  .reader-topbar[data-scrolled='true'] {
+    border-bottom-color: var(--border-subtle);
+  }
+  .reader-topbar-left {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    min-width: 0;
+  }
+  .reader-topbar-title {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-family: var(--font-sans);
+    font-size: var(--text-sm);
+    color: var(--text-muted);
+  }
+  .reader-topbar-right {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    flex-shrink: 0;
+  }
+
+  /* Scroll container — the reader's own scroll context (TOC scroll-spy +
+     progress read from it). */
+  .reader-scroll {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+
+  /* Centered layout. Single column by default; on wide viewports a sticky TOC
+     rail joins to the left and the [rail | article] pair is centered. */
+  .reader-grid {
+    margin: 0 auto;
+    max-width: 76rem;
+    padding: var(--space-8) var(--space-6) calc(var(--space-8) * 3);
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+  }
+  @media (min-width: 80rem) {
+    .reader-grid {
+      grid-template-columns: 15rem minmax(0, var(--reading-measure));
+      justify-content: center;
+      column-gap: var(--space-8);
+      align-items: start;
+    }
+  }
+
+  .reader-article {
+    width: 100%;
+    max-width: var(--reading-measure);
+    margin: 0 auto;
+    min-width: 0;
+  }
+
+  /* Page title + meta. */
+  .reader-title {
+    margin: 0 0 var(--space-3);
+    font-family: var(--reading-font-family);
+    font-size: calc(var(--reading-font-size) * 2.1);
+    line-height: var(--reading-leading-tight);
+    font-weight: 600;
+    letter-spacing: -0.015em;
+    color: var(--text-primary);
+  }
+  .reader-meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-2);
+    margin: 0 0 var(--space-7);
+    padding-bottom: var(--space-5);
+    border-bottom: 1px solid var(--border-subtle);
+    font-family: var(--font-sans);
+    font-size: var(--text-sm);
+    color: var(--text-muted);
+  }
+  .reader-meta-dot {
+    width: 3px;
+    height: 3px;
+    border-radius: 50%;
+    background: var(--border-strong);
+  }
+
+  /* Prose elevation. Override the .tela-milkdown editor scale for reading:
+     bigger optical size, generous leading, em-relative headings so one knob
+     (--reading-font-size) moves everything. */
+  .tela-reader .tela-milkdown,
+  .tela-reader .tela-milkdown [data-milkdown-root] {
+    min-height: 0;
+  }
+  .tela-reader .tela-milkdown .ProseMirror {
+    padding: 0;
+    font-family: var(--reading-font-family);
+    font-size: var(--reading-font-size);
+    line-height: var(--reading-leading);
+  }
+  .tela-reader .tela-milkdown .ProseMirror p {
+    font-size: 1em;
+    line-height: var(--reading-leading);
+    margin: 0 0 1.15em;
+  }
+  .tela-reader .tela-milkdown .ProseMirror h1,
+  .tela-reader .tela-milkdown .ProseMirror h2,
+  .tela-reader .tela-milkdown .ProseMirror h3,
+  .tela-reader .tela-milkdown .ProseMirror h4 {
+    font-family: var(--reading-font-family);
+    line-height: var(--reading-leading-tight);
+    letter-spacing: -0.01em;
+  }
+  .tela-reader .tela-milkdown .ProseMirror h1 {
+    font-size: 1.8em;
+    margin: 1.6em 0 0.5em;
+  }
+  .tela-reader .tela-milkdown .ProseMirror h2 {
+    font-size: 1.45em;
+    margin: 1.5em 0 0.5em;
+    padding-bottom: 0.2em;
+    border-bottom: 1px solid var(--border-subtle);
+  }
+  .tela-reader .tela-milkdown .ProseMirror h3 {
+    font-size: 1.2em;
+    margin: 1.4em 0 0.4em;
+  }
+  .tela-reader .tela-milkdown .ProseMirror h4 {
+    font-size: 1.05em;
+    margin: 1.3em 0 0.4em;
+  }
+  .tela-reader .tela-milkdown .ProseMirror li {
+    line-height: var(--reading-leading);
+    margin: 0.3em 0;
+  }
+  .tela-reader .tela-milkdown .ProseMirror blockquote {
+    font-size: 1em;
+    margin: 0 0 1.15em;
+  }
+  /* Heading scroll target — clear the sticky top bar when jumped to from TOC. */
+  .tela-reader .reader-heading {
+    scroll-margin-top: calc(var(--space-8) + var(--space-4));
+  }
+
+  /* Table of contents — sticky rail, hidden until there's room for it. */
+  .reader-toc {
+    display: none;
+  }
+  @media (min-width: 80rem) {
+    .reader-toc {
+      display: block;
+      position: sticky;
+      top: var(--space-8);
+      max-height: calc(100dvh - var(--space-8) * 2);
+      overflow-y: auto;
+      padding-right: var(--space-3);
+    }
+  }
+  .reader-toc-label {
+    margin: 0 0 var(--space-3);
+    font-family: var(--font-sans);
+    font-size: var(--text-xs);
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+  }
+  .reader-toc-list {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    border-left: 1px solid var(--border-subtle);
+  }
+  .reader-toc-link {
+    display: block;
+    width: 100%;
+    text-align: left;
+    border: 0;
+    background: transparent;
+    cursor: pointer;
+    margin-left: -1px;
+    padding: var(--space-1) var(--space-3);
+    border-left: 2px solid transparent;
+    font-family: var(--font-sans);
+    font-size: var(--text-sm);
+    line-height: var(--leading-normal);
+    color: var(--text-muted);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    transition:
+      color var(--duration-fast) var(--ease-out),
+      border-color var(--duration-fast) var(--ease-out);
+  }
+  .reader-toc-link[data-level='3'] {
+    padding-left: var(--space-6);
+    font-size: var(--text-xs);
+  }
+  .reader-toc-link:hover {
+    color: var(--text-primary);
+  }
+  .reader-toc-link[data-active='true'] {
+    color: var(--text-primary);
+    border-left-color: var(--accent);
+  }
+
+  /* Reader-preferences popover body (rendered inside the owned DropdownMenu).
+     Groups of ToggleGroups, each with a small label. */
+  .reader-prefs {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+    padding: var(--space-2);
+    min-width: 14rem;
+  }
+  .reader-prefs-group {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+  }
+  .reader-prefs-label {
+    font-family: var(--font-sans);
+    font-size: var(--text-xs);
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+  }
+
+  /* Respect reduced motion — disable the smooth-scroll the TOC requests and
+     the progress transform transition (transform itself is fine instantly). */
+  @media (prefers-reduced-motion: reduce) {
+    .reader-scroll {
+      scroll-behavior: auto;
+    }
+  }
+
+  /* Print — the cheap, real "Save as PDF". Strip all chrome, drop to a single
+     full-width article, force a light palette so a dark-theme reader still
+     prints clean black-on-white. */
+  @media print {
+    .reader-progress,
+    .reader-topbar,
+    .reader-toc {
+      display: none !important;
+    }
+    .tela-reader {
+      height: auto;
+      color-scheme: light;
+      /* Force the light palette regardless of the active theme. */
+      --surface-1: #ffffff;
+      --surface-2: #f7f7f8;
+      --text-primary: #16161a;
+      --text-muted: #5b5b66;
+      --border-subtle: #e4e4e9;
+      --border-strong: #c8c8d0;
+    }
+    .reader-scroll {
+      overflow: visible;
+    }
+    .reader-grid {
+      display: block;
+      max-width: none;
+      padding: 0;
+    }
+    .reader-article {
+      max-width: none;
+    }
+  }
+}

@@ -391,10 +391,35 @@ const shareDescendantRoute = createRoute({
   ),
 })
 
+// Reading mode (#3). Authenticated, but a child of `rootRoute` (NOT
+// appLayoutRoute) so the reader renders full-bleed without the sidebar/header
+// shell. Reuses the same ensureMe gate as the app layout — an unauthenticated
+// visitor is bounced to /login with a `next` back to the reader URL.
+const readRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/read/$spaceId/$pageId',
+  parseParams: (raw) => ({
+    spaceId: Number(raw.spaceId),
+    pageId: Number(raw.pageId),
+  }),
+  stringifyParams: (params) => ({
+    spaceId: String(params.spaceId),
+    pageId: String(params.pageId),
+  }),
+  beforeLoad: async ({ location }) => {
+    const user = await ensureMe()
+    if (user) return
+    const here = (location.href || '/').replace(window.location.origin, '')
+    throw redirect({ to: '/login', search: { next: here } })
+  },
+  component: lazyRouteComponent(() => import('./read'), 'ReadRoute'),
+})
+
 const routeTree = rootRoute.addChildren([
   loginRoute,
   shareRootRoute,
   shareDescendantRoute,
+  readRoute,
   appLayoutRoute.addChildren([
     indexRoute,
     settingsRoute,
