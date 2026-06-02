@@ -5,6 +5,7 @@ import {
   createRouter,
   isRedirect,
   lazyRouteComponent,
+  Link,
   Outlet,
   redirect,
   useNavigate,
@@ -86,7 +87,13 @@ const appLayoutRoute = createRoute({
         <div className="flex-1 flex flex-col min-w-0">
           <header className="flex items-center justify-between px-[var(--space-6)] py-[var(--space-3)] border-b border-[var(--border-subtle)] shrink-0">
             <h1 className="m-0 text-[length:var(--text-lg)] leading-[var(--leading-tight)] font-[family-name:var(--font-sans)]">
-              tela
+              <Link
+                to="/"
+                aria-label="tela home"
+                className="inline-block rounded-[var(--radius-xs)] text-[var(--text-primary)] no-underline transition-opacity duration-[var(--duration-fast)] hover:opacity-70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+              >
+                tela
+              </Link>
             </h1>
             <ThemeSwitcher />
           </header>
