@@ -309,14 +309,23 @@ function MilkdownEditorInner({
   const [collabStatus, setCollabStatus] = useState<TelaProviderStatus>(
     () => collabRef.current?.provider.getStatus() ?? 'connected',
   )
+  // Whether we've ever reached 'connected'. The reconnect banner is only for a
+  // *dropped* connection — the initial connect on every page open is normal and
+  // fast, and flashing "Reconnecting…" there made every navigation feel broken.
+  const [hasConnected, setHasConnected] = useState(false)
   useEffect(() => {
     const collab = collabRef.current
     if (!collab) return
     // Re-read status on attach so we don't miss a transition that happened
     // between useState init and effect mount (race-prone for fast localhost
     // connections where ws.onopen + sync-init can land before paint).
-    setCollabStatus(collab.provider.getStatus())
-    return collab.provider.onStatus(setCollabStatus)
+    const initial = collab.provider.getStatus()
+    if (initial === 'connected') setHasConnected(true)
+    setCollabStatus(initial)
+    return collab.provider.onStatus((s) => {
+      if (s === 'connected') setHasConnected(true)
+      setCollabStatus(s)
+    })
   }, [])
 
   // M7.4 — hand the provider up to PageView so the header presence avatars and
@@ -737,8 +746,13 @@ function MilkdownEditorInner({
     }
   }, [])
 
+  // Only after a real drop (we were connected, now we're not) — never during
+  // the initial connect on page open.
   const showReconnectBanner =
-    !readOnly && collabRef.current != null && collabStatus !== 'connected'
+    !readOnly &&
+    collabRef.current != null &&
+    collabStatus !== 'connected' &&
+    hasConnected
 
   return (
     <div className={cn('tela-milkdown', className)} aria-label={ariaLabel}>
