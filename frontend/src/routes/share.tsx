@@ -1,5 +1,5 @@
 import { useEffect, useMemo } from 'react'
-import { useNavigate, useParams } from '@tanstack/react-router'
+import { useParams } from '@tanstack/react-router'
 import { ShareError, useShareRoot, useSharePage, useShareTree } from '../lib/queries/share'
 import { pageSlug } from '../lib/slug'
 import { ShareLayout } from '../components/app/ShareLayout'
@@ -91,9 +91,8 @@ function useInScopePageIds(
 export function ShareRootRoute() {
   // Route-agnostic: rendered by both /share/$token and the slugged
   // /share/$token/$slug, so read params loosely.
-  const params = useParams({ strict: false }) as { token: string; slug?: string }
+  const params = useParams({ strict: false }) as { token: string }
   const token = params.token
-  const navigate = useNavigate()
   const rootQuery = useShareRoot(token)
   // The "in-scope" id set drives wikilink scoping. When the share is
   // single-page, the set is just the root id (the root page is always in
@@ -109,25 +108,24 @@ export function ShareRootRoute() {
     return set
   }, [inScopeFromTree, rootQuery.data])
 
-  // Canonicalise the share URL to /share/{token}/{slug} once the page title is
-  // known (and on title change). The token is canonical, so a bare or stale
-  // slug always still resolved — this just prettifies the address bar.
-  const currentSlug = typeof params.slug === 'string' ? params.slug : ''
+  // Canonicalise the share URL to /share/{token}/{slug} once the title is known
+  // (and on rename). history.replaceState rather than router navigation, so a
+  // slug change never re-matches routes / remounts the reader. The token is
+  // canonical; this only prettifies the address bar.
   const rootTitle = rootQuery.data?.page.title ?? ''
   useEffect(() => {
     if (!rootQuery.data) return
-    const desired = pageSlug(rootTitle)
-    if (desired === currentSlug) return
-    if (desired) {
-      void navigate({
-        to: '/share/$token/$slug',
-        params: { token, slug: desired },
-        replace: true,
-      })
-    } else if (currentSlug) {
-      void navigate({ to: '/share/$token', params: { token }, replace: true })
+    const slug = pageSlug(rootTitle)
+    const base = `/share/${token}`
+    const desiredPath = slug ? `${base}/${slug}` : base
+    if (window.location.pathname !== desiredPath) {
+      window.history.replaceState(
+        window.history.state,
+        '',
+        desiredPath + window.location.search + window.location.hash,
+      )
     }
-  }, [rootQuery.data, rootTitle, currentSlug, token, navigate])
+  }, [rootQuery.data, rootTitle, token])
 
   if (rootQuery.isLoading) return <ShareLoading />
 

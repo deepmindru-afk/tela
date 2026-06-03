@@ -7,12 +7,14 @@ import {
   useRef,
   useState,
 } from 'react'
-import { Link, useNavigate, useParams, useSearch } from '@tanstack/react-router'
+import { Link, useNavigate, useSearch } from '@tanstack/react-router'
 import {
   BookOpen,
+  Check,
   ChevronRight,
   FileText,
   History,
+  Link2,
   MessageSquare,
   Plus,
   Trash2,
@@ -68,6 +70,12 @@ import {
 import { Input } from '../ui/input'
 import { SaveIndicator, type SaveStatus } from '../ui/save-indicator'
 import { VisibilityBadge } from '../ui/visibility-badge'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '../ui/dropdown-menu'
 import { cn } from '../../lib/utils'
 import { BacklinksSection } from './BacklinksSection'
 import { DownloadPdfButton } from './DownloadPdfButton'
@@ -115,40 +123,34 @@ interface PageViewProps {
 export function PageView({ spaceId, pageId }: PageViewProps) {
   const page = usePage(pageId)
   const navigate = useNavigate()
-  // Route-agnostic reads: PageView renders under both /pages/$pageId and the
-  // slugged /pages/$pageId/$slug, so we can't pin `from` to one route.
-  const params = useParams({ strict: false }) as { slug?: string }
+  // Route-agnostic: PageView renders under both /pages/$pageId and the slugged
+  // /pages/$pageId/$slug, so read search loosely rather than pinning `from`.
   const search = useSearch({ strict: false }) as { draft?: number }
   // M9.3 — soft-draft mode is opted into via `?draft=$revId`.
   const draftRevId = typeof search.draft === 'number' ? search.draft : undefined
 
-  // Confluence-style canonical URL: once the persisted title is known, replace
-  // the address bar with /pages/{id}/{slug} (or bare /pages/{id} when the title
-  // yields no slug). Keyed on the saved title, so it also updates on rename.
-  // The page id is canonical, so a stale/absent slug always still resolved.
-  const currentSlug = typeof params.slug === 'string' ? params.slug : ''
+  // Confluence-style canonical URL: keep the address bar at /pages/{id}/{slug}
+  // (or bare /pages/{id} when the title yields no slug), refreshing on rename.
+  // We use history.replaceState rather than the router so a slug change never
+  // re-matches routes — navigating bare↔slug would swap route components and
+  // remount the editor, stealing focus mid-rename. The id is canonical, so the
+  // router still resolves whatever URL it actually matched; this only prettifies
+  // the address bar. (No popstate is fired, so TanStack ignores it.)
   const persistedTitle = page.data?.title ?? ''
   const inThisSpace = page.data?.space_id === spaceId
   useEffect(() => {
     if (!page.data || !inThisSpace) return
-    const desired = pageSlug(persistedTitle)
-    if (desired === currentSlug) return
-    if (desired) {
-      void navigate({
-        to: '/spaces/$spaceId/pages/$pageId/$slug',
-        params: { spaceId, pageId, slug: desired },
-        replace: true,
-        search: (prev) => prev,
-      })
-    } else if (currentSlug) {
-      void navigate({
-        to: '/spaces/$spaceId/pages/$pageId',
-        params: { spaceId, pageId },
-        replace: true,
-        search: (prev) => prev,
-      })
+    const slug = pageSlug(persistedTitle)
+    const base = `/spaces/${spaceId}/pages/${pageId}`
+    const desiredPath = slug ? `${base}/${slug}` : base
+    if (window.location.pathname !== desiredPath) {
+      window.history.replaceState(
+        window.history.state,
+        '',
+        desiredPath + window.location.search + window.location.hash,
+      )
     }
-  }, [page.data, inThisSpace, persistedTitle, currentSlug, spaceId, pageId, navigate])
+  }, [page.data, inThisSpace, persistedTitle, spaceId, pageId])
 
   // 404 / wrong-space handling
   if (page.isError) {
@@ -174,6 +176,58 @@ export function PageView({ spaceId, pageId }: PageViewProps) {
         void navigate({ to: '/spaces/$spaceId', params: { spaceId } })
       }
     />
+  )
+}
+
+// CopyLinkMenu — grabs a link to the current page: the pretty permalink
+// (/p/{id}/{slug}) or the bare short link (/p/{id}, tela's tiny-link
+// equivalent). Both resolve via the canonical id and survive rename. Built off
+// window.location.origin so the copied host matches where the user is browsing.
+function CopyLinkMenu({ pageId, title }: { pageId: number; title: string }) {
+  const [copied, setCopied] = useState(false)
+  const origin = window.location.origin
+  const slug = pageSlug(title)
+  const pretty = slug ? `${origin}/p/${pageId}/${slug}` : `${origin}/p/${pageId}`
+  const short = `${origin}/p/${pageId}`
+
+  async function copy(url: string) {
+    if (!navigator.clipboard?.writeText) return
+    try {
+      await navigator.clipboard.writeText(url)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 1500)
+    } catch {
+      // best-effort
+    }
+  }
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          aria-label="Copy link to page"
+          className="h-[var(--space-8)] px-[var(--space-3)]"
+        >
+          {copied ? (
+            <Check width={16} height={16} />
+          ) : (
+            <Link2 width={16} height={16} />
+          )}
+          <span>{copied ? 'Copied!' : 'Copy link'}</span>
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        <DropdownMenuItem onSelect={() => void copy(pretty)}>
+          Copy link
+        </DropdownMenuItem>
+        <DropdownMenuItem onSelect={() => void copy(short)}>
+          Copy short link
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   )
 }
 
@@ -681,6 +735,11 @@ function PageEditor({ page, spaceId, draftRevId, onDeleted }: PageEditorProps) {
                   every member (viewers included) so anyone can tell at a glance
                   whether the page is exposed; editors click it to open the
                   share manager, viewers see it as a static status chip. */}
+              {/* Copy link to this page — pretty /p/{id}/{slug} or the bare
+                  /p/{id} short link. Available to every member. */}
+              {roleResolved ? (
+                <CopyLinkMenu pageId={page.id} title={page.title} />
+              ) : null}
               {roleResolved && !isViewer ? (
                 <Button
                   type="button"
