@@ -10,6 +10,7 @@ import {
 } from '@milkdown/kit/core'
 import { commonmark, imageAttr } from '@milkdown/kit/preset/commonmark'
 import { gfm } from '@milkdown/kit/preset/gfm'
+import { block } from '@milkdown/kit/plugin/block'
 import { history } from '@milkdown/kit/plugin/history'
 import { clipboard } from '@milkdown/kit/plugin/clipboard'
 import { listener, listenerCtx } from '@milkdown/kit/plugin/listener'
@@ -37,6 +38,7 @@ import { cursorBuilder, selectionBuilder } from '../../lib/collab/cursor-builder
 import { useLeaderElection } from '../../lib/collab/use-leader-election'
 import { slashPlugin, SlashView } from './milkdown-slash'
 import { bubblePlugin, BubbleToolbarView } from './milkdown-bubble-toolbar'
+import { BlockHandleView } from './milkdown-block-handle'
 import { taskCheckboxPlugin } from './milkdown-task-list'
 import { wikilinkPlugin, WikilinkView } from './milkdown-wikilink'
 import {
@@ -408,6 +410,15 @@ function MilkdownEditorInner({
           ctx.set(wikilinkPlugin.key, {
             view: pluginViewFactory({ component: WikilinkView }),
           })
+          // Block drag-handle + add-block gutter. The `block` plugin (added to
+          // the .use() chain) supplies the drag service; BlockHandleView owns
+          // the gutter DOM + the BlockProvider. Mounted as its own PM plugin
+          // view since `block` has no view slot of its own. Self-gates on
+          // view.editable, so it stays inert in viewer mode.
+          const blockHandle = new Plugin({
+            view: pluginViewFactory({ component: BlockHandleView }),
+          })
+          ctx.update(prosePluginsCtx, (existing) => [...existing, blockHandle])
         }
         ctx.set(wikilinkModeCtx.key, wikilinkMode)
         // M13.4 — share-mode + viewer-mode render collapsibles CLOSED by
@@ -554,6 +565,9 @@ function MilkdownEditorInner({
       // this adds the click-to-toggle on the CSS checkbox. See
       // milkdown-task-list.ts.
       .use(taskCheckboxPlugin)
+      // Block drag-handle service (the gutter view is mounted as a PM plugin
+      // view in the config block above). Self-gates on view.editable.
+      .use(block)
       .use(history)
       .use(clipboard)
       .use(listener)

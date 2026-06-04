@@ -720,6 +720,84 @@
     min-width: 18rem;
   }
 
+  /* Block drag-handle gutter. BlockProvider positions this (fixed strategy)
+     to the left of the hovered block and makes it a drag source; data-show
+     toggles visibility. Two compact, muted icon buttons (+ / grip). */
+  .tela-block-handle {
+    position: fixed;
+    z-index: 40;
+    display: none;
+    align-items: center;
+    gap: 1px;
+    padding: 0;
+  }
+  .tela-block-handle[data-show='true'] {
+    display: flex;
+  }
+  .tela-block-handle-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: var(--space-5);
+    height: var(--space-6);
+    padding: 0;
+    background: transparent;
+    border: none;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    color: var(--text-muted);
+    transition:
+      background-color var(--duration-fast) var(--ease-out),
+      color var(--duration-fast) var(--ease-out);
+  }
+  .tela-block-handle-btn:hover {
+    background: var(--surface-2);
+    color: var(--text-primary);
+  }
+  .tela-block-handle-grip {
+    cursor: grab;
+  }
+  .tela-block-handle-grip:active {
+    cursor: grabbing;
+  }
+
+  /* Block-action menu (opened by clicking the grip). Same floating-card family
+     as the slash menu; positioned fixed at JS-computed coords. */
+  .tela-block-menu {
+    position: fixed;
+    z-index: 50;
+    min-width: 10rem;
+    background: var(--surface-1);
+    color: var(--text-primary);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-md);
+    padding: var(--space-1);
+    box-shadow: 0 10px 30px -8px
+      color-mix(in srgb, var(--text-primary) 25%, transparent);
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+  }
+  .tela-block-menu-item {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: var(--space-2) var(--space-3);
+    background: transparent;
+    border: none;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    text-align: left;
+    color: var(--text-primary);
+    font-family: var(--font-sans);
+    font-size: var(--text-sm);
+    line-height: var(--leading-tight);
+    transition: background-color var(--duration-fast) var(--ease-out);
+  }
+  .tela-block-menu-item:hover {
+    background: var(--surface-2);
+  }
+
   /* M18.B.2 — mira paste-hook popover. Positioned via JS (left/top set as
      inline styles by the React component); the slash menu and this popover
      share the same fixed-floating-card aesthetic so they read as one family
