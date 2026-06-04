@@ -1,13 +1,21 @@
 import { useState } from 'react'
 import { useNavigate } from '@tanstack/react-router'
-import { MoreHorizontal, Plus, RotateCw, UsersRound } from 'lucide-react'
+import {
+  Building2,
+  Lock,
+  MoreHorizontal,
+  Plus,
+  RotateCw,
+  Users,
+  UsersRound,
+} from 'lucide-react'
 import { ApiError } from '../../lib/api'
 import {
   useDeleteSpace,
   useSpaces,
   useUpdateSpace,
 } from '../../lib/queries/spaces'
-import type { Space } from '../../lib/types'
+import type { Space, SpacePrincipal } from '../../lib/types'
 import { Button } from '../ui/button'
 import { Card, CardBody, CardFooter } from '../ui/card'
 import {
@@ -28,7 +36,7 @@ import {
 } from '../ui/dropdown-menu'
 import { Input } from '../ui/input'
 import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip'
-import { useSpaceMembers } from '../../lib/queries/members'
+import { useSpaceAccess } from '../../lib/queries/space-grants'
 import { cn } from '../../lib/utils'
 import { NewSpaceDialog } from './NewSpaceDialog'
 import { ShareSpaceDialog } from './ShareSpaceDialog'
@@ -156,45 +164,44 @@ function SpaceRow({ space, active, onSelect }: SpaceRowProps) {
         active && 'bg-[var(--surface-3)]',
       )}
     >
-      <button
-        type="button"
-        onClick={onSelect}
-        className={cn(
-          'flex-1 min-w-0 text-left',
-          'py-[var(--space-2)]',
-          'font-[family-name:var(--font-sans)] text-[length:var(--text-sm)] leading-[var(--leading-tight)]',
-          'text-[var(--text-primary)] bg-transparent border-0 cursor-pointer outline-none',
-          'truncate',
-          active && 'text-[var(--accent)] font-medium',
-        )}
-      >
-        {space.name || <span className="text-[var(--text-muted)]">Untitled space</span>}
-      </button>
+      <div className="flex-1 min-w-0 flex flex-col py-[var(--space-1)]">
+        <button
+          type="button"
+          onClick={onSelect}
+          className={cn(
+            'min-w-0 text-left truncate',
+            'font-[family-name:var(--font-sans)] text-[length:var(--text-sm)] leading-[var(--leading-tight)]',
+            'text-[var(--text-primary)] bg-transparent border-0 cursor-pointer outline-none',
+            active && 'text-[var(--accent)] font-medium',
+          )}
+        >
+          {space.name || (
+            <span className="text-[var(--text-muted)]">Untitled space</span>
+          )}
+        </button>
 
-      {/* Access signal: a member-count chip on shared spaces (>1 member).
-          Solo/Personal spaces show nothing. Hover → who can access; click →
-          manage members. Muted + compact so the row stays calm. */}
-      {(space.member_count ?? 0) > 1 ? (
+        {/* Access line: who/what can reach this space, at a glance. Click →
+            manage access; hover → the full resolved who/what. Fires the access
+            query lazily (only when the tooltip opens). */}
         <Tooltip>
           <TooltipTrigger asChild>
             <button
               type="button"
-              aria-label={`${space.member_count} members — manage access`}
+              aria-label={`${accessAriaLabel(space)} — manage access`}
               onClick={(e) => {
                 e.stopPropagation()
                 setShareOpen(true)
               }}
-              className="inline-flex items-center gap-[2px] shrink-0 h-[var(--space-6)] px-[var(--space-1)] rounded-[var(--radius-xs)] text-[length:var(--text-xs)] text-[var(--text-muted)] bg-transparent border-0 cursor-pointer outline-none hover:text-[var(--text-primary)] focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+              className="mt-[1px] min-w-0 w-fit max-w-full text-left bg-transparent border-0 p-0 cursor-pointer outline-none rounded-[var(--radius-xs)] focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
             >
-              <UsersRound width={13} height={13} aria-hidden />
-              {space.member_count}
+              <AccessSummary space={space} />
             </button>
           </TooltipTrigger>
           <TooltipContent side="right">
-            <SpaceMembersPeek spaceId={space.id} />
+            <SpaceAccessPeek space={space} />
           </TooltipContent>
         </Tooltip>
-      ) : null}
+      </div>
 
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
@@ -202,7 +209,7 @@ function SpaceRow({ space, active, onSelect }: SpaceRowProps) {
             variant="ghost"
             size="sm"
             aria-label={`Actions for ${space.name || 'space'}`}
-            className="h-[var(--space-7)] w-[var(--space-7)] p-0 opacity-0 group-hover:opacity-100 data-[state=open]:opacity-100 focus-visible:opacity-100"
+            className="shrink-0 h-[var(--space-7)] w-[var(--space-7)] p-0 opacity-0 group-hover:opacity-100 data-[state=open]:opacity-100 focus-visible:opacity-100"
           >
             <MoreHorizontal width={14} height={14} />
           </Button>
@@ -238,33 +245,149 @@ function SpaceRow({ space, active, onSelect }: SpaceRowProps) {
   )
 }
 
-// SpaceMembersPeek — the count chip's hover content: who can access this space
-// and their roles. Rendered only when the tooltip opens, so the members query
-// fires lazily (not for every shared space up front).
-function SpaceMembersPeek({ spaceId }: { spaceId: number }) {
-  const members = useSpaceMembers(spaceId)
-  if (members.isLoading) {
-    return <span className="text-[var(--text-muted)]">Loading…</span>
-  }
-  const list = members.data ?? []
-  if (list.length === 0) {
-    return <span className="text-[var(--text-muted)]">No members</span>
-  }
+// isPrivateSpace — reachable only by you (not the personal home, no shares).
+function isPrivateSpace(space: Space): boolean {
   return (
-    <div className="flex flex-col gap-[2px] max-w-[15rem]">
-      {list.map((m) => (
-        <div
-          key={m.user_id}
-          className="flex items-center justify-between gap-[var(--space-3)]"
-        >
-          <span className="truncate">{m.username}</span>
-          <span className="shrink-0 text-[var(--text-muted)] capitalize">
-            {m.role}
-          </span>
-        </div>
+    !space.is_personal &&
+    (space.member_count ?? 0) <= 1 &&
+    (space.principals?.length ?? 0) === 0
+  )
+}
+
+function accessAriaLabel(space: Space): string {
+  if (space.is_personal) return 'Personal space, only you'
+  if (isPrivateSpace(space)) return 'Private, only you'
+  const people = space.member_count ?? 0
+  const shared = (space.principals ?? []).map((p) => p.name).join(', ')
+  return `${people} ${people === 1 ? 'person' : 'people'}${shared ? `, shared with ${shared}` : ''}`
+}
+
+// AccessSummary — the compact access line under a space name. Personal / Private
+// collapse to a lock; shared spaces show the effective people count plus the
+// orgs/groups it's shared with (first two, then +N).
+function AccessSummary({ space }: { space: Space }) {
+  const baseChip =
+    'inline-flex items-center gap-[3px] min-w-0 text-[length:var(--text-xs)] leading-none text-[var(--text-muted)] group-hover:text-[var(--text-secondary)]'
+
+  if (space.is_personal) {
+    return (
+      <span className={baseChip}>
+        <Lock width={11} height={11} aria-hidden />
+        <span>Personal</span>
+      </span>
+    )
+  }
+  if (isPrivateSpace(space)) {
+    return (
+      <span className={baseChip}>
+        <Lock width={11} height={11} aria-hidden />
+        <span>Private</span>
+      </span>
+    )
+  }
+
+  const principals = space.principals ?? []
+  const shown = principals.slice(0, 2)
+  const overflow = principals.length - shown.length
+
+  return (
+    <span className="flex items-center gap-[var(--space-1)] min-w-0">
+      <span className={cn(baseChip, 'shrink-0')}>
+        <UsersRound width={11} height={11} aria-hidden />
+        <span>{space.member_count ?? 0}</span>
+      </span>
+      {shown.map((p) => (
+        <PrincipalChip key={`${p.kind}:${p.name}`} principal={p} />
       ))}
+      {overflow > 0 ? (
+        <span className="shrink-0 text-[length:var(--text-xs)] leading-none text-[var(--text-muted)]">
+          +{overflow}
+        </span>
+      ) : null}
+    </span>
+  )
+}
+
+function PrincipalChip({ principal }: { principal: SpacePrincipal }) {
+  const Icon = principal.kind === 'group' ? Users : Building2
+  return (
+    <span className="inline-flex items-center gap-[3px] min-w-0 max-w-[7rem] rounded-[var(--radius-xs)] bg-[var(--surface-2)] group-hover:bg-[var(--surface-3)] px-[var(--space-1)] py-[1px] text-[length:var(--text-xs)] leading-none text-[var(--text-secondary)]">
+      <Icon width={10} height={10} aria-hidden className="shrink-0" />
+      <span className="truncate">{principal.name}</span>
+    </span>
+  )
+}
+
+// SpaceAccessPeek — the access line's hover content: the orgs/groups the space
+// is shared with, then everyone who can actually open it with their effective
+// role and how they reach it (direct / via <org-or-group>). Resolved lazily.
+function SpaceAccessPeek({ space }: { space: Space }) {
+  const access = useSpaceAccess(space.id)
+  const principals = space.principals ?? []
+
+  if (space.is_personal || isPrivateSpace(space)) {
+    return (
+      <span className="text-[var(--text-muted)]">
+        {space.is_personal ? 'Your personal space' : 'Private'} — only you
+      </span>
+    )
+  }
+
+  return (
+    <div className="flex flex-col gap-[var(--space-2)] max-w-[16rem]">
+      {principals.length > 0 ? (
+        <div className="flex flex-col gap-[2px]">
+          <span className="text-[length:var(--text-xs)] uppercase tracking-wider text-[var(--text-muted)]">
+            Shared with
+          </span>
+          {principals.map((p) => (
+            <span key={`${p.kind}:${p.name}`} className="flex items-center gap-[var(--space-1)]">
+              {p.kind === 'group' ? (
+                <Users width={11} height={11} aria-hidden />
+              ) : (
+                <Building2 width={11} height={11} aria-hidden />
+              )}
+              <span className="truncate">{p.name}</span>
+              <span className="text-[var(--text-muted)]">
+                {p.kind === 'group' ? 'group' : 'org'}
+              </span>
+            </span>
+          ))}
+        </div>
+      ) : null}
+
+      <div className="flex flex-col gap-[2px]">
+        <span className="text-[length:var(--text-xs)] uppercase tracking-wider text-[var(--text-muted)]">
+          {access.data ? `People (${access.data.length})` : 'People'}
+        </span>
+        {access.isLoading ? (
+          <span className="text-[var(--text-muted)]">Loading…</span>
+        ) : (
+          (access.data ?? []).slice(0, 8).map((p) => (
+            <div key={p.user_id} className="flex items-center justify-between gap-[var(--space-3)]">
+              <span className="truncate">{p.username}</span>
+              <span className="shrink-0 text-[var(--text-muted)] capitalize">
+                {p.effective_role}
+                {peekVia(p.sources) ? ` · ${peekVia(p.sources)}` : ''}
+              </span>
+            </div>
+          ))
+        )}
+        {(access.data?.length ?? 0) > 8 ? (
+          <span className="text-[var(--text-muted)]">
+            +{(access.data?.length ?? 0) - 8} more
+          </span>
+        ) : null}
+      </div>
     </div>
   )
+}
+
+// peekVia — compact provenance for the tooltip: "direct" or "via Acme".
+function peekVia(sources: { kind: string; name?: string }[]): string {
+  if (sources.some((s) => s.kind === 'direct')) return 'direct'
+  const name = sources.find((s) => s.kind !== 'direct' && s.name)?.name
+  return name ? `via ${name}` : ''
 }
 
 interface RenameSpaceDialogProps {

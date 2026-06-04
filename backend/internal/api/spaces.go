@@ -31,11 +31,23 @@ var (
 	slugNormalizeRe = regexp.MustCompile(`[^a-z0-9]+`)
 )
 
-// spaceListItem is the sidebar row shape: a space plus how many members can
-// access it. The frontend shows a count chip on shared spaces (member_count > 1).
+// spacePrincipal is one org/group a space is shared with, for the sidebar
+// access summary.
+type spacePrincipal struct {
+	Kind string `json:"kind"` // "org" | "group"
+	Name string `json:"name"`
+}
+
+// spaceListItem is the sidebar row shape: a space plus a compact access summary
+// so the row can show who/what can reach it at a glance. MemberCount is the
+// effective distinct-user count (direct ∪ via org/group); IsPersonal flags the
+// auto-provisioned personal home; Principals lists the orgs/groups it's shared
+// with.
 type spaceListItem struct {
 	models.Space
-	MemberCount int `json:"member_count"`
+	MemberCount int              `json:"member_count"`
+	IsPersonal  bool             `json:"is_personal"`
+	Principals  []spacePrincipal `json:"principals"`
 }
 
 type spaceCreateRequest struct {
@@ -55,7 +67,8 @@ func (s *Server) ListSpaces(w http.ResponseWriter, r *http.Request) {
 	}
 	rows, err := s.DB.QueryContext(r.Context(), `
 		SELECT s.id, s.name, s.slug, s.created_at, s.updated_at,
-		       (SELECT COUNT(DISTINCT user_id) FROM space_access a WHERE a.space_id = s.id) AS member_count
+		       (SELECT COUNT(DISTINCT user_id) FROM space_access a WHERE a.space_id = s.id) AS member_count,
+		       (s.personal_user_id IS NOT NULL) AS is_personal
 		  FROM spaces s
 		  JOIN (SELECT DISTINCT space_id FROM space_access WHERE user_id = ?) sa ON sa.space_id = s.id
 		 ORDER BY s.name ASC`, u.ID)
@@ -66,16 +79,31 @@ func (s *Server) ListSpaces(w http.ResponseWriter, r *http.Request) {
 	defer rows.Close()
 
 	spaces := []spaceListItem{}
+	byID := map[int64]*spaceListItem{}
 	for rows.Next() {
-		var it spaceListItem
-		if err := rows.Scan(&it.ID, &it.Name, &it.Slug, &it.CreatedAt, &it.UpdatedAt, &it.MemberCount); err != nil {
+		var (
+			it       spaceListItem
+			personal int
+		)
+		if err := rows.Scan(&it.ID, &it.Name, &it.Slug, &it.CreatedAt, &it.UpdatedAt, &it.MemberCount, &personal); err != nil {
 			writeError(w, http.StatusInternalServerError, "internal", "scan space row failed")
 			return
 		}
+		it.IsPersonal = personal == 1
+		it.Principals = []spacePrincipal{}
 		spaces = append(spaces, it)
 	}
 	if err := rows.Err(); err != nil {
 		writeError(w, http.StatusInternalServerError, "internal", "iterate spaces failed")
+		return
+	}
+	for i := range spaces {
+		byID[spaces[i].ID] = &spaces[i]
+	}
+
+	// Attach the org/group grants for these spaces in one query (no N+1).
+	if err := attachSpacePrincipals(r.Context(), s.DB, byID); err != nil {
+		writeError(w, http.StatusInternalServerError, "internal", "load space sharing failed")
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"spaces": spaces})
@@ -304,6 +332,45 @@ func (s *Server) DeleteSpace(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// attachSpacePrincipals fills each space's Principals with the orgs/groups it's
+// shared with, in one query over all the listed space ids.
+func attachSpacePrincipals(ctx context.Context, db *sql.DB, byID map[int64]*spaceListItem) error {
+	if len(byID) == 0 {
+		return nil
+	}
+	ids := make([]any, 0, len(byID))
+	ph := make([]string, 0, len(byID))
+	for id := range byID {
+		ids = append(ids, id)
+		ph = append(ph, "?")
+	}
+	rows, err := db.QueryContext(ctx, `
+		SELECT sg.space_id, sg.principal_kind, COALESCE(o.name, g.name)
+		  FROM space_grants sg
+		  LEFT JOIN orgs o   ON sg.principal_kind = 'org'   AND o.id = sg.principal_id
+		  LEFT JOIN groups g ON sg.principal_kind = 'group' AND g.id = sg.principal_id
+		 WHERE sg.space_id IN (`+strings.Join(ph, ",")+`)
+		 ORDER BY sg.principal_kind ASC, COALESCE(o.name, g.name) ASC`, ids...)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var (
+			spaceID int64
+			kind    string
+			name    sql.NullString
+		)
+		if err := rows.Scan(&spaceID, &kind, &name); err != nil {
+			return err
+		}
+		if it := byID[spaceID]; it != nil && name.Valid {
+			it.Principals = append(it.Principals, spacePrincipal{Kind: kind, Name: name.String})
+		}
+	}
+	return rows.Err()
 }
 
 func selectSpaceByID(ctx context.Context, db *sql.DB, id int64) (models.Space, error) {

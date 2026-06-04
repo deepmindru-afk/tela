@@ -27,7 +27,8 @@ export default defineConfig({
   server: {
     proxy: {
       '/api': {
-        target: 'http://localhost:8080',
+        // Override with TELA_PROXY_TARGET for an isolated dev/verify backend.
+        target: process.env.TELA_PROXY_TARGET ?? 'http://localhost:8080',
         changeOrigin: false,
       },
     },

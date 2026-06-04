@@ -3,15 +3,26 @@
 // as strings on the wire and parse with `parseSqliteTs` so they aren't interpreted as
 // local time. See memory.md known pitfall.
 
+// One org/group a space is shared with — the "what" in the sidebar access
+// summary. Mirrors backend's spacePrincipal.
+export interface SpacePrincipal {
+  kind: 'org' | 'group'
+  name: string
+}
+
 export interface Space {
   id: number
   name: string
   slug: string
   created_at: string
   updated_at: string
-  // Number of members with access. Present on the spaces list (sidebar shows a
-  // count chip when > 1); optional elsewhere.
+  // Access summary — present on the spaces list (sidebar), optional elsewhere.
+  // member_count is the effective distinct-user count (direct ∪ via org/group);
+  // is_personal flags the auto-provisioned personal home; principals are the
+  // orgs/groups the space is shared with.
   member_count?: number
+  is_personal?: boolean
+  principals?: SpacePrincipal[]
 }
 
 // Resolved public-link exposure of a page (backend exposure.go). Read-only,
