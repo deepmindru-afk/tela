@@ -671,6 +671,55 @@
     color: var(--text-muted);
   }
 
+  /* Selection bubble-toolbar. Same fixed-floating-card family as the slash
+     menu; positioned above the selection via JS (left/top inline). A compact
+     horizontal row of icon buttons for inline marks + link. */
+  .tela-bubble-toolbar {
+    position: fixed;
+    z-index: 50;
+    display: none;
+    align-items: center;
+    gap: 1px;
+    background: var(--surface-1);
+    color: var(--text-primary);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-md);
+    padding: var(--space-1);
+    box-shadow: 0 10px 30px -8px
+      color-mix(in srgb, var(--text-primary) 25%, transparent);
+    outline: none;
+  }
+  .tela-bubble-toolbar[data-show='true'] {
+    display: flex;
+  }
+  .tela-bubble-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: var(--space-7);
+    height: var(--space-7);
+    padding: 0;
+    background: transparent;
+    border: none;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    color: var(--text-primary);
+    font-size: var(--text-sm);
+    transition:
+      background-color var(--duration-fast) var(--ease-out),
+      color var(--duration-fast) var(--ease-out);
+  }
+  .tela-bubble-btn:hover {
+    background: var(--surface-2);
+  }
+  .tela-bubble-btn[data-active='true'] {
+    background: var(--surface-2);
+    color: var(--accent);
+  }
+  .tela-bubble-link-input {
+    min-width: 18rem;
+  }
+
   /* M18.B.2 — mira paste-hook popover. Positioned via JS (left/top set as
      inline styles by the React component); the slash menu and this popover
      share the same fixed-floating-card aesthetic so they read as one family

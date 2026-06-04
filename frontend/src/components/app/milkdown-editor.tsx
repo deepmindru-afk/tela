@@ -36,6 +36,7 @@ import { decodeSyncInit } from '../../lib/collab/encode'
 import { cursorBuilder, selectionBuilder } from '../../lib/collab/cursor-builder'
 import { useLeaderElection } from '../../lib/collab/use-leader-election'
 import { slashPlugin, SlashView } from './milkdown-slash'
+import { bubblePlugin, BubbleToolbarView } from './milkdown-bubble-toolbar'
 import { taskCheckboxPlugin } from './milkdown-task-list'
 import { wikilinkPlugin, WikilinkView } from './milkdown-wikilink'
 import {
@@ -401,6 +402,9 @@ function MilkdownEditorInner({
           ctx.set(slashPlugin.key, {
             view: pluginViewFactory({ component: SlashView }),
           })
+          ctx.set(bubblePlugin.key, {
+            view: pluginViewFactory({ component: BubbleToolbarView }),
+          })
           ctx.set(wikilinkPlugin.key, {
             view: pluginViewFactory({ component: WikilinkView }),
           })
@@ -555,6 +559,7 @@ function MilkdownEditorInner({
       .use(listener)
       .use(prism)
       .use(slashPlugin)
+      .use(bubblePlugin)
       .use(wikilinkPlugin)
       .use(wikilinkAliveIdsCtx)
       .use(wikilinkModeCtx)
