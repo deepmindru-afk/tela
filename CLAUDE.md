@@ -49,7 +49,8 @@ SQLite is created + migrated on first backend start (no migrate step). Backend c
 
 ## Gotchas (learned the hard way — full list in docs/architecture.md)
 
-- **Commit ≠ deploy:** pushing does not deploy — `make up` does. Prod can silently keep running the old binary after a merge. After any backend deploy, `curl -s https://tela.cagdas.io/api/version` and compare `commit` to `git rev-parse --short HEAD`; if mismatch, `make up` then re-probe. Don't claim "live-verified" before this.
+- **Prod runs on `archer`** at `~/proj/tela` (deploy/.env lives there, not in dev checkouts). Deploy = `ssh archer`, `cd ~/proj/tela`, `git pull`, `make up`. `tela.cagdas.io` → Cloudflare → archer:8780.
+- **Commit ≠ deploy:** pushing does not deploy — `make up` (on archer) does. Prod can silently keep running the old binary after a merge. After any backend deploy, `curl -s https://tela.cagdas.io/api/version` and compare `commit` to `git rev-parse --short HEAD`; if mismatch, `make up` then re-probe. Don't claim "live-verified" before this.
 - **Secrets must be set and stable:** missing `TELA_API_KEY_SECRET`/`TELA_SHARE_SECRET` silently defaults to blank (compose only warns) → forgeable tokens. Rotating either invalidates outstanding PATs / share cookies. Diff `deploy/.env` against `.env.example` after any refresh.
 - **Public-path bypass:** `auth.IsPublicPath` is a `HasPrefix` check over `/share/`, `/p/`, `/api/share/`, `/api/diagrams/`. Any new route under these prefixes bypasses session middleware — it MUST self-authenticate.
 - **XFF / rate-limit:** Caddy is the only trusted upstream (`trusted_proxies static private_ranges`); backend reads the **rightmost** XFF hop, not leftmost.
