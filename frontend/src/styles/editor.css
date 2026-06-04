@@ -720,6 +720,57 @@
     min-width: 18rem;
   }
 
+  /* Kanban board (:::kanban). Columns laid out horizontally; cards are the
+     list items, draggable between columns. */
+  .tela-milkdown .ProseMirror .tela-kanban {
+    display: flex;
+    gap: var(--space-3);
+    align-items: flex-start;
+    margin: var(--space-3) 0;
+    overflow-x: auto;
+    padding-bottom: var(--space-2);
+  }
+  .tela-milkdown .ProseMirror .tela-kanban-col {
+    flex: 0 0 16rem;
+    min-width: 14rem;
+    background: var(--surface-2);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-md);
+    padding: var(--space-2);
+  }
+  .tela-milkdown .ProseMirror .tela-kanban-col-header {
+    margin-bottom: var(--space-1);
+  }
+  .tela-milkdown .ProseMirror .tela-kanban-col-title {
+    width: 100%;
+    background: transparent;
+    border: none;
+    padding: var(--space-1);
+    font-family: var(--font-sans);
+    font-size: var(--text-sm);
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+  .tela-milkdown .ProseMirror .tela-kanban-col-title:focus {
+    outline: none;
+    background: var(--surface-1);
+    border-radius: var(--radius-sm);
+  }
+  .tela-milkdown .ProseMirror .tela-kanban-col-body > ul {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .tela-milkdown .ProseMirror .tela-kanban-col-body > ul > li {
+    list-style: none;
+    margin: 0 0 var(--space-2);
+    padding: var(--space-2);
+    background: var(--surface-1);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-sm);
+    cursor: grab;
+  }
+
   /* Tabs (:::tabs). Strip of tab buttons over the active panel; inactive
      panels are hidden by the nodeView (display:none). */
   .tela-milkdown .ProseMirror .tela-tabs {

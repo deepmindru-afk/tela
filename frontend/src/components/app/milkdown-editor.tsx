@@ -57,6 +57,11 @@ import {
 import { mermaidPlugin } from './milkdown-mermaid'
 import { directiveRemarkPlugin } from './milkdown-directives'
 import { tabSchema, tabsNodeView, tabsSchema } from './milkdown-tabs'
+import {
+  kanbanColumnSchema,
+  kanbanNodeViews,
+  kanbanSchema,
+} from './milkdown-kanban'
 import { wikilinkPlugin, WikilinkView } from './milkdown-wikilink'
 import {
   calloutInputRule,
@@ -631,6 +636,10 @@ function MilkdownEditorInner({
       .use(tabSchema)
       .use(tabsSchema)
       .use(tabsNodeView)
+      // Kanban board, also on the directive foundation.
+      .use(kanbanColumnSchema)
+      .use(kanbanSchema)
+      .use(kanbanNodeViews)
       .use(history)
       .use(clipboard)
       .use(listener)

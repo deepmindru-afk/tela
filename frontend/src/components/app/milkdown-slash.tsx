@@ -21,6 +21,7 @@ import { insertMathBlock } from './milkdown-math'
 import { TEMPLATES, insertTemplate } from './milkdown-templates'
 import { insertMermaid } from './milkdown-mermaid'
 import { insertTabs } from './milkdown-tabs'
+import { insertKanban } from './milkdown-kanban'
 
 export const slashPlugin = slashFactory('tela-slash')
 
@@ -138,6 +139,13 @@ const ALL_COMMANDS: SlashCommand[] = [
     hint: 'Tabbed sections',
     keywords: ['tabs', 'tab', 'tabbed', 'sections'],
     run: insertTabs,
+  },
+  {
+    id: 'kanban',
+    label: 'Kanban board',
+    hint: 'Columns of draggable cards',
+    keywords: ['kanban', 'board', 'columns', 'cards', 'todo'],
+    run: insertKanban,
   },
   {
     id: 'date',
