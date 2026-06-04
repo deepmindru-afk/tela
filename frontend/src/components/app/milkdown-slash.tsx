@@ -18,6 +18,7 @@ import { COLLAPSIBLE_DEFAULT_SUMMARY } from './milkdown-collapsibles'
 import { insertExcalidraw } from './milkdown-excalidraw'
 import { insertTaskList } from './milkdown-task-list'
 import { insertMathBlock } from './milkdown-math'
+import { TEMPLATES, insertTemplate } from './milkdown-templates'
 
 export const slashPlugin = slashFactory('tela-slash')
 
@@ -122,6 +123,16 @@ const ALL_COMMANDS: SlashCommand[] = [
     keywords: ['math', 'equation', 'latex', 'katex', 'formula', 'tex'],
     run: insertMathBlock,
   },
+  // Built-in templates (markdown snippets). See milkdown-templates.ts.
+  ...TEMPLATES.map(
+    (t): SlashCommand => ({
+      id: t.id,
+      label: t.label,
+      hint: 'Template',
+      keywords: t.keywords,
+      run: (ctx) => insertTemplate(ctx, t.markdown),
+    }),
+  ),
 ]
 
 interface SlashState {
