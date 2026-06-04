@@ -37,7 +37,9 @@ make storybook  # component dev surface
 make up         # full docker stack on :8780 (prod-like; needs deploy/.env)
 ```
 
-SQLite is created + migrated on first backend start (no migrate step). Backend config is env-driven (`TELA_PUBLIC_BASE_URL`, `TELA_SHARE_SECRET`, `TELA_API_KEY_SECRET`, `TELA_ADMIN_USERNAME/PASSWORD`, `TELA_MIRA_ALLOWED_HOSTS`); see `deploy/.env.example`.
+SQLite is created + migrated on first backend start (no migrate step). Backend config is env-driven (`TELA_PUBLIC_BASE_URL`, `TELA_SHARE_SECRET`, `TELA_API_KEY_SECRET`, `TELA_ADMIN_USERNAME/PASSWORD/EMAIL`, `TELA_SMTP_*`, `TELA_MIRA_ALLOWED_HOSTS`); see `deploy/.env.example`.
+
+**Auth is email-first** (`internal/api/auth_register.go`, `internal/mailer`): open self-registration (`POST /api/auth/register`) → email confirmation (`verify-email`, signs the user in) → login by **email or username** (`Login` accepts `identifier`; an account with an unconfirmed email is blocked with `403 email_unverified`). Password reset via `request-password-reset` / `reset-password` (always-202 on request, no enumeration). Email goes through a provider-agnostic SMTP `mailer.Mailer`; with `TELA_SMTP_HOST` unset it falls back to logging the link (dev/first-boot). `users.email` is nullable — legacy/bootstrap username-only rows skip the email gate. Tokens (`email_tokens`) are stored hashed; the raw token lives only in the link. Verify/reset emails are branded HTML (inline hex, not tokens — email clients can't do OKLCH/CSS-vars).
 
 ## Tests
 

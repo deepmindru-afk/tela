@@ -19,6 +19,18 @@ services:
       # generation skips the CDN entirely.
       TELA_GOTENBERG_URL:        ${TELA_GOTENBERG_URL:-http://gotenberg:3000}
       TELA_PDF_RENDER_BASE_URL:  ${TELA_PDF_RENDER_BASE_URL:-http://proxy}
+      # Bootstrap admin (first boot only; TELA_ADMIN_EMAIL also backfills later).
+      TELA_ADMIN_USERNAME:  ${TELA_ADMIN_USERNAME:-}
+      TELA_ADMIN_PASSWORD:  ${TELA_ADMIN_PASSWORD:-}
+      TELA_ADMIN_EMAIL:     ${TELA_ADMIN_EMAIL:-}
+      # Transactional email (self-registration confirm + password reset).
+      # Unset TELA_SMTP_HOST → emails are logged, not sent.
+      TELA_SMTP_HOST:      ${TELA_SMTP_HOST:-}
+      TELA_SMTP_PORT:      ${TELA_SMTP_PORT:-}
+      TELA_SMTP_TLS:       ${TELA_SMTP_TLS:-}
+      TELA_SMTP_USERNAME:  ${TELA_SMTP_USERNAME:-}
+      TELA_SMTP_PASSWORD:  ${TELA_SMTP_PASSWORD:-}
+      TELA_SMTP_FROM:      ${TELA_SMTP_FROM:-}
     expose:
       - "8080"
     volumes:
