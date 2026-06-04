@@ -7,10 +7,19 @@ import { spaceKeys } from './spaces'
 export interface AuthUser {
   id: number
   username: string
+  email: string | null
+  email_verified: boolean
   is_instance_admin: boolean
 }
 
 export interface LoginInput {
+  // Email or username.
+  identifier: string
+  password: string
+}
+
+export interface RegisterInput {
+  email: string
   username: string
   password: string
 }
@@ -56,6 +65,78 @@ export function useLogin() {
       // Seed the me cache so AppLayout's beforeLoad doesn't issue an extra
       // round-trip on the post-login redirect.
       qc.setQueryData(authKeys.me(), user)
+    },
+  })
+}
+
+// Self-registration. 201 with the unconfirmed account's email; the user must
+// follow the verification link before they can sign in. 409 → email/username
+// taken.
+export function useRegister() {
+  return useMutation({
+    mutationFn: async (input: RegisterInput) => {
+      const { email } = await api<{ ok: true; email: string }>(
+        '/api/auth/register',
+        { method: 'POST', body: JSON.stringify(input) },
+      )
+      return email
+    },
+  })
+}
+
+// Confirm an email via the token from the link. On success the backend signs
+// the user in (sets the session cookie) and returns the user, so we seed the
+// me cache and land straight in the app.
+export function useVerifyEmail() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (token: string) => {
+      const { user } = await api<{ user: AuthUser }>('/api/auth/verify-email', {
+        method: 'POST',
+        body: JSON.stringify({ token }),
+      })
+      return user
+    },
+    onSuccess: (user) => {
+      qc.setQueryData(authKeys.me(), user)
+    },
+  })
+}
+
+// Re-send a confirmation link. Always resolves (the backend returns 202
+// regardless of whether the address exists), so the UI can show a single
+// neutral "if that account exists, we've sent a link" message.
+export function useResendVerification() {
+  return useMutation({
+    mutationFn: async (email: string) => {
+      await api<{ ok: true }>('/api/auth/resend-verification', {
+        method: 'POST',
+        body: JSON.stringify({ email }),
+      })
+    },
+  })
+}
+
+// Request a password-reset link. Always 202 (no account enumeration).
+export function useRequestPasswordReset() {
+  return useMutation({
+    mutationFn: async (email: string) => {
+      await api<{ ok: true }>('/api/auth/request-password-reset', {
+        method: 'POST',
+        body: JSON.stringify({ email }),
+      })
+    },
+  })
+}
+
+// Set a new password from a reset token. 400 → invalid/expired link.
+export function useResetPassword() {
+  return useMutation({
+    mutationFn: async (input: { token: string; password: string }) => {
+      await api<{ ok: true }>('/api/auth/reset-password', {
+        method: 'POST',
+        body: JSON.stringify(input),
+      })
     },
   })
 }

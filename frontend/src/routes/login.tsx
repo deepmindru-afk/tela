@@ -1,9 +1,10 @@
 import { useState } from 'react'
-import { useNavigate, useSearch } from '@tanstack/react-router'
+import { Link, useNavigate, useSearch } from '@tanstack/react-router'
 import { ApiError } from '../lib/api'
 import {
   sanitizeNextPath,
   useLogin,
+  useResendVerification,
 } from '../lib/queries/auth'
 import { Button } from '../components/ui/button'
 import {
@@ -14,32 +15,41 @@ import {
   CardTitle,
 } from '../components/ui/card'
 import { Input } from '../components/ui/input'
-import { ThemeSwitcher } from '../components/ThemeSwitcher'
+import { AuthShell, AuthField, AuthFooterLink } from '../components/app/AuthShell'
 
 export function LoginPage() {
-  const [username, setUsername] = useState('')
+  const [identifier, setIdentifier] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
+  // When login fails because the account's email isn't confirmed, we surface a
+  // dedicated "resend" affordance instead of the generic error.
+  const [unverified, setUnverified] = useState(false)
+  const [resent, setResent] = useState(false)
   const login = useLogin()
+  const resend = useResendVerification()
   const navigate = useNavigate()
   const search = useSearch({ from: '/login' }) as { next?: string }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    const u = username.trim()
-    if (!u || !password) {
-      setError('Username and password are required.')
+    const id = identifier.trim()
+    if (!id || !password) {
+      setError('Email or username and password are required.')
       return
     }
     setError(null)
+    setUnverified(false)
+    setResent(false)
     try {
-      await login.mutateAsync({ username: u, password })
+      await login.mutateAsync({ identifier: id, password })
       const next = sanitizeNextPath(search.next) ?? '/'
       // Cast: `next` is an in-app path validated by sanitizeNextPath; the
       // router's typed route tree doesn't know it as a literal.
       void navigate({ to: next as never })
     } catch (err) {
-      if (err instanceof ApiError && err.status === 401) {
+      if (err instanceof ApiError && err.code === 'email_unverified') {
+        setUnverified(true)
+      } else if (err instanceof ApiError && err.status === 401) {
         setError('Invalid credentials.')
       } else if (err instanceof ApiError) {
         setError(err.message)
@@ -49,84 +59,119 @@ export function LoginPage() {
     }
   }
 
-  const submitDisabled = login.isPending
+  async function handleResend() {
+    try {
+      await resend.mutateAsync(identifier.trim())
+      setResent(true)
+    } catch {
+      setResent(true) // endpoint is always-202; treat any outcome as "sent"
+    }
+  }
 
   return (
-    <div className="min-h-dvh flex flex-col bg-[var(--surface-1)] text-[var(--text-primary)]">
-      <header className="flex items-center justify-between px-[var(--space-6)] py-[var(--space-3)] border-b border-[var(--border-subtle)] shrink-0">
-        <h1 className="m-0 text-[length:var(--text-lg)] leading-[var(--leading-tight)] font-[family-name:var(--font-sans)]">
-          tela
-        </h1>
-        <ThemeSwitcher />
-      </header>
-      <main className="flex-1 flex items-center justify-center p-[var(--space-7)]">
-        <Card className="w-full max-w-[24rem]">
-          <CardHeader>
-            <CardTitle className="text-[length:var(--text-2xl)]">
-              Sign in
-            </CardTitle>
-            <CardDescription>
-              Enter your tela account credentials.
-            </CardDescription>
-          </CardHeader>
-          <CardBody>
-            <form
-              onSubmit={handleSubmit}
-              className="flex flex-col gap-[var(--space-4)]"
-              noValidate
+    <AuthShell>
+      <Card className="w-full max-w-[24rem]">
+        <CardHeader>
+          <CardTitle className="text-[length:var(--text-2xl)]">
+            Sign in
+          </CardTitle>
+          <CardDescription>
+            Enter your tela account credentials.
+          </CardDescription>
+        </CardHeader>
+        <CardBody>
+          <form
+            onSubmit={handleSubmit}
+            className="flex flex-col gap-[var(--space-4)]"
+            noValidate
+          >
+            <AuthField id="login-identifier" label="Email or username">
+              <Input
+                id="login-identifier"
+                autoFocus
+                autoComplete="username"
+                value={identifier}
+                onChange={(e) => setIdentifier(e.target.value)}
+                aria-invalid={error != null}
+              />
+            </AuthField>
+            <AuthField
+              id="login-password"
+              label="Password"
+              labelSlot={
+                <Link
+                  to="/forgot-password"
+                  className="text-[length:var(--text-sm)] text-[var(--text-muted)] no-underline hover:text-[var(--text-primary)] hover:underline"
+                >
+                  Forgot password?
+                </Link>
+              }
             >
-              <div className="flex flex-col gap-[var(--space-2)]">
-                <label
-                  htmlFor="login-username"
-                  className="text-[length:var(--text-sm)] text-[var(--text-muted)]"
-                >
-                  Username
-                </label>
-                <Input
-                  id="login-username"
-                  autoFocus
-                  autoComplete="username"
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                  aria-invalid={error != null}
-                />
-              </div>
-              <div className="flex flex-col gap-[var(--space-2)]">
-                <label
-                  htmlFor="login-password"
-                  className="text-[length:var(--text-sm)] text-[var(--text-muted)]"
-                >
-                  Password
-                </label>
-                <Input
-                  id="login-password"
-                  type="password"
-                  autoComplete="current-password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  aria-invalid={error != null}
-                />
-              </div>
-              {error ? (
-                <p
-                  role="alert"
-                  className="m-0 text-[length:var(--text-sm)] text-[var(--danger)]"
-                >
-                  {error}
-                </p>
-              ) : null}
-              <Button
-                type="submit"
-                variant="primary"
-                size="lg"
-                disabled={submitDisabled}
+              <Input
+                id="login-password"
+                type="password"
+                autoComplete="current-password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                aria-invalid={error != null}
+              />
+            </AuthField>
+            {unverified ? (
+              <div
+                role="alert"
+                className="flex flex-col gap-[var(--space-2)] text-[length:var(--text-sm)] text-[var(--text-muted)]"
               >
-                {login.isPending ? 'Signing in…' : 'Sign in'}
-              </Button>
-            </form>
-          </CardBody>
-        </Card>
-      </main>
-    </div>
+                {resent ? (
+                  <p className="m-0">
+                    If that account needs confirming, a new link is on its way.
+                  </p>
+                ) : (
+                  <>
+                    <p className="m-0 text-[var(--danger)]">
+                      Confirm your email before signing in.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => void handleResend()}
+                      disabled={resend.isPending}
+                      className="self-start bg-transparent border-none p-0 text-[var(--accent)] underline cursor-pointer disabled:opacity-60"
+                    >
+                      {resend.isPending
+                        ? 'Sending…'
+                        : 'Resend confirmation email'}
+                    </button>
+                  </>
+                )}
+              </div>
+            ) : null}
+            {error ? (
+              <p
+                role="alert"
+                className="m-0 text-[length:var(--text-sm)] text-[var(--danger)]"
+              >
+                {error}
+              </p>
+            ) : null}
+            <Button
+              type="submit"
+              variant="primary"
+              size="lg"
+              disabled={login.isPending}
+            >
+              {login.isPending ? 'Signing in…' : 'Sign in'}
+            </Button>
+          </form>
+          <AuthFooterLink>
+            New to tela?{' '}
+            <Link
+              to="/register"
+              className="text-[var(--accent)] no-underline hover:underline"
+            >
+              Create an account
+            </Link>
+          </AuthFooterLink>
+        </CardBody>
+      </Card>
+    </AuthShell>
   )
 }

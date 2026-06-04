@@ -38,6 +38,10 @@ import { api, ApiError } from '../lib/api'
 import { clearLastPage, readLastPage, writeLastPage } from '../lib/lastPage'
 import { useCreatePage, usePages } from '../lib/queries/pages'
 import { LoginPage } from './login'
+import { RegisterPage } from './register'
+import { VerifyEmailPage } from './verify-email'
+import { ForgotPasswordPage } from './forgot-password'
+import { ResetPasswordPage } from './reset-password'
 import { SettingsPage } from './settings'
 import type { Page, PageTreeNode, Space } from '../lib/types'
 
@@ -126,6 +130,47 @@ const loginRoute = createRoute({
     throw redirect({ to: next as never })
   },
   component: LoginPage,
+})
+
+// Self-registration. Like /login, an already-authenticated visitor is bounced
+// to the app rather than shown the signup form.
+const registerRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/register',
+  beforeLoad: async () => {
+    const user = await ensureMe()
+    if (user) throw redirect({ to: '/' })
+  },
+  component: RegisterPage,
+})
+
+// Email confirmation landing. Reads `?token=` and confirms on mount; no auth
+// gate (the token is the authorization).
+const verifyEmailRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/verify-email',
+  validateSearch: (search: Record<string, unknown>): { token?: string } =>
+    typeof search.token === 'string' ? { token: search.token } : {},
+  component: VerifyEmailPage,
+})
+
+const forgotPasswordRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/forgot-password',
+  beforeLoad: async () => {
+    const user = await ensureMe()
+    if (user) throw redirect({ to: '/' })
+  },
+  component: ForgotPasswordPage,
+})
+
+// Password-reset landing. Reads `?token=`; no auth gate (the token authorizes).
+const resetPasswordRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/reset-password',
+  validateSearch: (search: Record<string, unknown>): { token?: string } =>
+    typeof search.token === 'string' ? { token: search.token } : {},
+  component: ResetPasswordPage,
 })
 
 async function ensureSpaces(): Promise<Space[]> {
@@ -463,6 +508,10 @@ const printRoute = createRoute({
 
 const routeTree = rootRoute.addChildren([
   loginRoute,
+  registerRoute,
+  verifyEmailRoute,
+  forgotPasswordRoute,
+  resetPasswordRoute,
   shareRootRoute,
   shareSlugRoute,
   shareDescendantRoute,

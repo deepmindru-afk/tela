@@ -140,7 +140,8 @@ function UserRow({ row, isSelf }: { row: AdminUserRow; isSelf: boolean }) {
           {isSelf ? <Badge variant="muted">You</Badge> : null}
         </div>
         <span className="text-[length:var(--text-xs)] text-[var(--text-muted)] font-[family-name:var(--font-sans)]">
-          Created {localDateFromSqlite(row.created_at)}
+          {row.email ? `${row.email} · ` : ''}Created{' '}
+          {localDateFromSqlite(row.created_at)}
         </span>
         {rowError ? (
           <span
@@ -204,6 +205,7 @@ function CreateUserDialog({
   onOpenChange: (next: boolean) => void
 }) {
   const [username, setUsername] = useState('')
+  const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [makeAdmin, setMakeAdmin] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -211,6 +213,7 @@ function CreateUserDialog({
 
   function reset() {
     setUsername('')
+    setEmail('')
     setPassword('')
     setMakeAdmin(false)
     setError(null)
@@ -233,16 +236,18 @@ function CreateUserDialog({
       return
     }
     setError(null)
+    const trimmedEmail = email.trim()
     try {
       await createUser.mutateAsync({
         username: trimmedUsername,
+        ...(trimmedEmail ? { email: trimmedEmail } : {}),
         password,
         is_instance_admin: makeAdmin,
       })
       handleClose(false)
     } catch (err) {
       if (err instanceof ApiError && err.status === 409) {
-        setError('Username already taken.')
+        setError('That username or email is already taken.')
       } else if (err instanceof ApiError) {
         setError(err.message)
       } else {
@@ -278,6 +283,22 @@ function CreateUserDialog({
               autoComplete="off"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
+              aria-invalid={error != null}
+            />
+          </div>
+          <div className="flex flex-col gap-[var(--space-2)]">
+            <label
+              htmlFor="new-user-email"
+              className="text-[length:var(--text-sm)] text-[var(--text-muted)]"
+            >
+              Email <span className="text-[var(--text-muted)]">(optional)</span>
+            </label>
+            <Input
+              id="new-user-email"
+              type="email"
+              autoComplete="off"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
               aria-invalid={error != null}
             />
           </div>

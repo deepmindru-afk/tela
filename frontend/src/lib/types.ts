@@ -136,6 +136,8 @@ export interface SpaceMember {
 export interface AdminUserRow {
   id: number
   username: string
+  email: string | null
+  email_verified: boolean
   is_instance_admin: boolean
   is_active: boolean
   created_at: string

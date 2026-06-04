@@ -27,6 +27,9 @@ export function useAdminUsers() {
 
 export interface CreateAdminUserInput {
   username: string
+  // Optional. Admin-created accounts with an email are treated as
+  // pre-confirmed (no verification email is sent).
+  email?: string
   password: string
   is_instance_admin?: boolean
 }
