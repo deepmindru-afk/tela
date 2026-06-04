@@ -82,6 +82,7 @@ import {
   type MiraPasteRequest,
 } from './milkdown-mira-paste'
 import { MiraPastePopover } from './milkdown-mira-paste-popover'
+import { createImageUploadPlugin } from './milkdown-image-upload'
 import { useQueryClient } from '@tanstack/react-query'
 import { pageKeys } from '../../lib/queries/pages'
 import { navigateToPage } from '../../lib/pageHitItem'
@@ -271,6 +272,11 @@ function MilkdownEditorInner({
     !readOnly &&
     pageId > 0 &&
     spaceId != null
+
+  // Image-upload paste/drop. Editable, non-share, page-known (space id not
+  // needed — the upload route is page-scoped). Same gating shape as mira paste.
+  const imageUploadEnabled =
+    wikilinkMode !== 'share' && !readOnly && pageId > 0
 
   // M13.5 (#116) — modifier-click wikilink follow. Resolve pageId → space_id
   // via the cross-space allFlat cache (populated by useAllPages, refreshed
@@ -517,6 +523,15 @@ function MilkdownEditorInner({
         if (miraPasteEnabled) {
           const miraPaste = createMiraPastePlugin(ctx)
           ctx.update(prosePluginsCtx, (existing) => [miraPaste, ...existing])
+        }
+
+        // Image paste/drop → upload → ![](url). Prepended so it intercepts
+        // image files before the default clipboard handler turns them into
+        // nothing. Image files and mira/URL pastes are disjoint clipboard
+        // payloads, so ordering against the mira hook above is immaterial.
+        if (imageUploadEnabled) {
+          const imageUpload = createImageUploadPlugin(pageId)
+          ctx.update(prosePluginsCtx, (existing) => [imageUpload, ...existing])
         }
 
         // M7.2: bind y-prosemirror's sync + undo plugins when collab is
