@@ -16,7 +16,15 @@ import {
   updateLinkCommand,
 } from '@milkdown/kit/preset/commonmark'
 import { toggleStrikethroughCommand } from '@milkdown/kit/preset/gfm'
-import { Bold, Code, Italic, Link as LinkIcon, Strikethrough } from 'lucide-react'
+import { toggleHighlightCommand } from './milkdown-highlight'
+import {
+  Bold,
+  Code,
+  Highlighter,
+  Italic,
+  Link as LinkIcon,
+  Strikethrough,
+} from 'lucide-react'
 import { Input } from '../ui/input'
 import { cn } from '../../lib/utils'
 
@@ -38,6 +46,7 @@ interface ActiveMarks {
   emphasis: boolean
   inlineCode: boolean
   strike: boolean
+  highlight: boolean
   link: boolean
 }
 
@@ -46,6 +55,7 @@ const NO_MARKS: ActiveMarks = {
   emphasis: false,
   inlineCode: false,
   strike: false,
+  highlight: false,
   link: false,
 }
 
@@ -62,6 +72,7 @@ function computeActive(state: EditorState): ActiveMarks {
     emphasis: rangeHasMark(state, 'emphasis'),
     inlineCode: rangeHasMark(state, 'inlineCode'),
     strike: rangeHasMark(state, 'strike_through'),
+    highlight: rangeHasMark(state, 'highlight'),
     link: rangeHasMark(state, 'link'),
   }
 }
@@ -72,6 +83,7 @@ function sameActive(a: ActiveMarks, b: ActiveMarks): boolean {
     a.emphasis === b.emphasis &&
     a.inlineCode === b.inlineCode &&
     a.strike === b.strike &&
+    a.highlight === b.highlight &&
     a.link === b.link
   )
 }
@@ -268,6 +280,13 @@ export function BubbleToolbarView() {
             onClick={() => toggleMark(toggleInlineCodeCommand.key)}
           >
             <Code size="1em" strokeWidth={2.5} aria-hidden />
+          </BubbleButton>
+          <BubbleButton
+            label="Highlight"
+            active={active.highlight}
+            onClick={() => toggleMark(toggleHighlightCommand.key)}
+          >
+            <Highlighter size="1em" strokeWidth={2.5} aria-hidden />
           </BubbleButton>
           <BubbleButton label="Link" active={active.link} onClick={openLinkMode}>
             <LinkIcon size="1em" strokeWidth={2.5} aria-hidden />

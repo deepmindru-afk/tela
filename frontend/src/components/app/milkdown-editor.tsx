@@ -48,6 +48,12 @@ import {
   mathNodeViews,
   mathRemarkPlugin,
 } from './milkdown-math'
+import {
+  highlightInputRule,
+  highlightRemarkPlugin,
+  highlightSchema,
+  toggleHighlightCommand,
+} from './milkdown-highlight'
 import { wikilinkPlugin, WikilinkView } from './milkdown-wikilink'
 import {
   calloutInputRule,
@@ -610,6 +616,11 @@ function MilkdownEditorInner({
       .use(mathNodeViews)
       .use(mathInlineInputRule)
       .use(mathBlockInputRule)
+      // Highlight mark: ==text== ⇄ <mark>. See milkdown-highlight.ts.
+      .use(highlightRemarkPlugin)
+      .use(highlightSchema)
+      .use(highlightInputRule)
+      .use(toggleHighlightCommand)
       .use(history)
       .use(clipboard)
       .use(listener)

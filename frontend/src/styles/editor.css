@@ -720,6 +720,15 @@
     min-width: 18rem;
   }
 
+  /* Highlight mark (==text==). Theme-aware translucent wash off the warning
+     (amber) token — works over light + dark surfaces without a new token. */
+  .tela-milkdown .ProseMirror mark.tela-highlight {
+    background: color-mix(in srgb, var(--warning) 30%, transparent);
+    color: inherit;
+    border-radius: var(--radius-xs);
+    padding: 0 0.1em;
+  }
+
   /* Math / LaTeX nodes. KaTeX supplies the glyph styling via its own
      stylesheet (imported in main.tsx); these rules handle block layout, the
      click-to-edit field, and the empty-equation placeholder. */
