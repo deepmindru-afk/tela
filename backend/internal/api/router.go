@@ -144,12 +144,6 @@ func registerRoutes(srv *Server, mux *http.ServeMux) {
 	// invocation. Session OR bearer-`read`; member of space_id required.
 	mux.HandleFunc("GET /api/search/bodies", srv.SearchBodies)
 
-	// Semantic-retrieval (RAG) layer — internal/rag. Self-contained; 503 unless
-	// TELA_RAG_EMBED_URL is configured. search = hybrid chunk retrieval,
-	// reindex = chunk+embed a whole space.
-	mux.HandleFunc("GET /api/rag/search", srv.RAGSearch)
-	mux.HandleFunc("POST /api/rag/reindex", srv.RAGReindex)
-
 	mux.HandleFunc("GET /api/admin/users", srv.ListAdminUsers)
 	mux.HandleFunc("POST /api/admin/users", srv.CreateAdminUser)
 	mux.HandleFunc("PATCH /api/admin/users/{id}", srv.PatchAdminUser)
