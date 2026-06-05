@@ -60,8 +60,11 @@ func registerRoutes(srv *Server, mux *http.ServeMux) {
 	// WorkOS Standalone "OAuth Bridge" Login URI (Phase 5b). WorkOS redirects the
 	// user here with ?external_auth_id during the Connect flow; we authenticate
 	// against tela's own session, then complete via the WorkOS API. Public (it
-	// self-authenticates, bouncing through /login when there's no session).
+	// self-authenticates, bouncing through /login when there's no session). GET
+	// renders an explicit consent page; completion is the CSRF-protected POST
+	// (prevents account-linking CSRF on a bare GET against an ambient session).
 	mux.HandleFunc("GET /oauth/workos/login", srv.WorkOSLogin)
+	mux.HandleFunc("POST /oauth/workos/login", srv.WorkOSLoginComplete)
 
 	mux.HandleFunc("POST /api/auth/login", srv.Login)
 	mux.HandleFunc("POST /api/auth/logout", srv.Logout)

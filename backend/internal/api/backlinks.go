@@ -68,15 +68,33 @@ func (s *Server) backlinksCore(ctx context.Context, u *auth.User, k *auth.APIKey
 		return nil, ae
 	}
 
-	rows, err := s.DB.QueryContext(ctx, `
-		SELECT p.id, p.space_id, s.name, p.title, p.body
-		  FROM page_links l
-		  JOIN pages p ON p.id = l.source_id
-		  JOIN spaces s ON s.id = p.space_id
-		  JOIN (SELECT DISTINCT space_id FROM space_access WHERE user_id = $1) sm ON sm.space_id = p.space_id
-		 WHERE l.target_id = $2
-		 ORDER BY s.name ASC, p.title ASC`, u.ID, pageID)
-	if err != nil {
+	// A space-pinned bearer key is a strict ceiling: only list source pages in its
+	// own space, else the result leaks titles/snippets of linking pages in OTHER
+	// spaces the underlying user belongs to (mirrors searchCore's pin).
+	var (
+		rows *sql.Rows
+		err2 error
+	)
+	if k != nil && k.SpaceID != nil {
+		rows, err2 = s.DB.QueryContext(ctx, `
+			SELECT p.id, p.space_id, s.name, p.title, p.body
+			  FROM page_links l
+			  JOIN pages p ON p.id = l.source_id
+			  JOIN spaces s ON s.id = p.space_id
+			  JOIN (SELECT DISTINCT space_id FROM space_access WHERE user_id = $1) sm ON sm.space_id = p.space_id
+			 WHERE l.target_id = $2 AND p.space_id = $3
+			 ORDER BY s.name ASC, p.title ASC`, u.ID, pageID, *k.SpaceID)
+	} else {
+		rows, err2 = s.DB.QueryContext(ctx, `
+			SELECT p.id, p.space_id, s.name, p.title, p.body
+			  FROM page_links l
+			  JOIN pages p ON p.id = l.source_id
+			  JOIN spaces s ON s.id = p.space_id
+			  JOIN (SELECT DISTINCT space_id FROM space_access WHERE user_id = $1) sm ON sm.space_id = p.space_id
+			 WHERE l.target_id = $2
+			 ORDER BY s.name ASC, p.title ASC`, u.ID, pageID)
+	}
+	if err2 != nil {
 		return nil, &apiErr{http.StatusInternalServerError, "internal", "list backlinks failed"}
 	}
 	defer rows.Close()

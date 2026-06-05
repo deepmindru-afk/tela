@@ -7,9 +7,12 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"io"
 	"math/big"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
+	"regexp"
 	"strconv"
 	"strings"
 	"testing"
@@ -224,17 +227,59 @@ func TestMCP_OAuthLoginBridge(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	cookie := &http.Cookie{Name: auth.CookieName, Value: sid}
+
+	// GET (authed) → renders the consent page, does NOT auto-complete (no call to
+	// the WorkOS API yet) — defeats the account-linking CSRF on a bare GET.
 	req, _ := http.NewRequest(http.MethodGet, ts.URL+"/oauth/workos/login?external_auth_id=eid456", nil)
-	req.AddCookie(&http.Cookie{Name: auth.CookieName, Value: sid})
+	req.AddCookie(cookie)
 	r3, err := noRedir.Do(req)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if r3.StatusCode != http.StatusFound {
-		t.Fatalf("authed: want 302, got %d", r3.StatusCode)
+	if r3.StatusCode != http.StatusOK {
+		t.Fatalf("authed GET: want 200 consent page, got %d", r3.StatusCode)
 	}
-	if loc := r3.Header.Get("Location"); loc != "https://authkit.example/oauth2/consent?x=1" {
-		t.Fatalf("authed redirect Location: %q", loc)
+	page, _ := io.ReadAll(r3.Body)
+	r3.Body.Close()
+	if gotBody != nil {
+		t.Fatalf("GET should not have called the WorkOS completion API")
+	}
+	m := regexp.MustCompile(`name="csrf" value="([^"]+)"`).FindSubmatch(page)
+	if m == nil {
+		t.Fatalf("consent page missing csrf token: %s", page)
+	}
+	csrf := string(m[1])
+
+	postForm := func(form url.Values) *http.Response {
+		pr, _ := http.NewRequest(http.MethodPost, ts.URL+"/oauth/workos/login", strings.NewReader(form.Encode()))
+		pr.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		pr.AddCookie(cookie)
+		resp, err := noRedir.Do(pr)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return resp
+	}
+
+	// POST without (or wrong) CSRF → 403, no completion.
+	bad := postForm(url.Values{"external_auth_id": {"eid456"}, "csrf": {"wrong"}})
+	bad.Body.Close()
+	if bad.StatusCode != http.StatusForbidden {
+		t.Fatalf("POST bad csrf: want 403, got %d", bad.StatusCode)
+	}
+	if gotBody != nil {
+		t.Fatalf("bad-csrf POST should not complete")
+	}
+
+	// POST with the valid CSRF → completes → 302 to redirect_uri.
+	ok := postForm(url.Values{"external_auth_id": {"eid456"}, "csrf": {csrf}})
+	ok.Body.Close()
+	if ok.StatusCode != http.StatusFound {
+		t.Fatalf("POST good csrf: want 302, got %d", ok.StatusCode)
+	}
+	if loc := ok.Header.Get("Location"); loc != "https://authkit.example/oauth2/consent?x=1" {
+		t.Fatalf("complete redirect Location: %q", loc)
 	}
 	usr, _ := gotBody["user"].(map[string]any)
 	if usr["id"] != strconv.FormatInt(uid, 10) || usr["email"] != "alice@example.com" {

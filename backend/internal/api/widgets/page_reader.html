@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Tela page</title>
+<style>
+  :root {
+    --fg: #1a1a1a; --muted: #6b7280; --bg: #ffffff; --border: #e5e7eb;
+    --accent: #4f46e5; --code-bg: #f3f4f6;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --fg: #e5e7eb; --muted: #9ca3af; --bg: #111317; --border: #2a2f3a;
+            --accent: #818cf8; --code-bg: #1c2027; }
+  }
+  html[data-theme="dark"] {
+    --fg: #e5e7eb; --muted: #9ca3af; --bg: #111317; --border: #2a2f3a;
+    --accent: #818cf8; --code-bg: #1c2027;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; color: var(--fg); background: var(--bg);
+    font: 15px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  .card { padding: 18px 20px; max-width: 760px; }
+  .head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px;
+          border-bottom: 1px solid var(--border); padding-bottom: 10px; margin-bottom: 14px; }
+  h1.title { font-size: 20px; font-weight: 650; margin: 0; line-height: 1.3; }
+  a.open { color: var(--accent); text-decoration: none; font-size: 13px; white-space: nowrap; }
+  a.open:hover { text-decoration: underline; }
+  .body { word-wrap: break-word; }
+  .body h1 { font-size: 19px; } .body h2 { font-size: 17px; } .body h3 { font-size: 15px; }
+  .body h1, .body h2, .body h3, .body h4 { font-weight: 650; margin: 18px 0 8px; line-height: 1.3; }
+  .body p { margin: 10px 0; } .body ul, .body ol { margin: 10px 0; padding-left: 22px; }
+  .body li { margin: 3px 0; }
+  .body a { color: var(--accent); }
+  .body code { background: var(--code-bg); border-radius: 4px; padding: 1px 5px; font-size: 90%;
+               font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+  .body pre { background: var(--code-bg); border-radius: 8px; padding: 12px 14px; overflow-x: auto; }
+  .body pre code { background: none; padding: 0; }
+  .body blockquote { margin: 10px 0; padding: 2px 14px; border-left: 3px solid var(--border); color: var(--muted); }
+  .body hr { border: none; border-top: 1px solid var(--border); margin: 18px 0; }
+  .empty { color: var(--muted); font-style: italic; }
+</style>
+</head>
+<body>
+  <div class="card">
+    <div class="head">
+      <h1 class="title" id="title"></h1>
+      <a class="open" id="open" rel="noopener" style="display:none">Open in tela →</a>
+    </div>
+    <div class="body" id="body"></div>
+  </div>
+
+<script type="module">
+  // ---- safe minimal markdown renderer ------------------------------------
+  // Escape ALL html first, then apply a known-safe subset. Because we only ever
+  // inject tags we generate (never raw user html), this is XSS-safe even though
+  // the body is sandboxed user content.
+  const esc = (s) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+  function inline(s) {
+    // s is already html-escaped.
+    s = s.replace(/`([^`]+)`/g, (_, c) => `<code>${c}</code>`);
+    s = s.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
+    s = s.replace(/(^|[^*])\*([^*\n]+)\*/g, "$1<em>$2</em>");
+    // [text](url) — only http(s)/relative; reject javascript: etc.
+    s = s.replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, (m, t, u) =>
+      /^(https?:\/\/|\/|tela:\/\/)/i.test(u) ? `<a href="${u}" rel="noopener">${t}</a>` : m);
+    return s;
+  }
+
+  function renderMarkdown(md) {
+    if (!md || !md.trim()) return '<p class="empty">This page is empty.</p>';
+    const lines = esc(md).split(/\r?\n/);
+    let out = "", i = 0, para = [];
+    const flush = () => { if (para.length) { out += `<p>${inline(para.join(" "))}</p>`; para = []; } };
+    while (i < lines.length) {
+      const ln = lines[i];
+      let m;
+      if (/^```/.test(ln)) {                                   // fenced code
+        flush(); i++; let code = [];
+        while (i < lines.length && !/^```/.test(lines[i])) { code.push(lines[i]); i++; }
+        i++; out += `<pre><code>${code.join("\n")}</code></pre>`; continue;
+      }
+      if ((m = ln.match(/^(#{1,4})\s+(.*)$/))) {               // heading
+        flush(); out += `<h${m[1].length}>${inline(m[2])}</h${m[1].length}>`; i++; continue;
+      }
+      if (/^\s*([-*])\s+/.test(ln)) {                          // ul
+        flush(); out += "<ul>";
+        while (i < lines.length && /^\s*([-*])\s+/.test(lines[i])) {
+          out += `<li>${inline(lines[i].replace(/^\s*[-*]\s+/, ""))}</li>`; i++;
+        }
+        out += "</ul>"; continue;
+      }
+      if (/^\s*\d+\.\s+/.test(ln)) {                           // ol
+        flush(); out += "<ol>";
+        while (i < lines.length && /^\s*\d+\.\s+/.test(lines[i])) {
+          out += `<li>${inline(lines[i].replace(/^\s*\d+\.\s+/, ""))}</li>`; i++;
+        }
+        out += "</ol>"; continue;
+      }
+      if (/^\s*>\s?/.test(ln)) {                               // blockquote
+        flush(); out += `<blockquote>${inline(ln.replace(/^\s*>\s?/, ""))}</blockquote>`; i++; continue;
+      }
+      if (/^\s*([-*_]\s*){3,}$/.test(ln)) { flush(); out += "<hr>"; i++; continue; } // hr
+      if (ln.trim() === "") { flush(); i++; continue; }        // blank
+      para.push(ln); i++;
+    }
+    flush();
+    return out;
+  }
+
+  // ---- render + host bridge ----------------------------------------------
+  let openHref = null;
+  function applyTheme(theme) {
+    if (theme === "dark" || theme === "light") document.documentElement.dataset.theme = theme;
+  }
+  function render(data) {
+    data = data || {};
+    document.getElementById("title").textContent = data.title || "Untitled";
+    document.getElementById("body").innerHTML = renderMarkdown(data.body_markdown || data.body || "");
+    const url = data.url || "";
+    const a = document.getElementById("open");
+    if (/^https?:\/\//i.test(url)) { openHref = url; a.href = url; a.style.display = ""; }
+    else { a.style.display = "none"; openHref = null; }
+  }
+
+  if (window.openai) {
+    // ── ChatGPT (Apps SDK) ──
+    const paint = () => { applyTheme(window.openai.theme); render(window.openai.toolOutput || {}); };
+    // globals may not be present at first paint — try, then subscribe + poll.
+    paint();
+    window.addEventListener("openai:set_globals", (e) => {
+      const g = e.detail && e.detail.globals;
+      if (g && ("toolOutput" in g || "theme" in g)) paint();
+    });
+    let tries = 0;
+    const t = setInterval(() => { if (window.openai.toolOutput || ++tries > 40) { clearInterval(t); paint(); } }, 250);
+    document.getElementById("open").addEventListener("click", (e) => {
+      if (openHref && window.openai.openExternal) { e.preventDefault(); window.openai.openExternal({ href: openHref }); }
+    });
+  } else {
+    // ── MCP Apps standard (Claude / Goose / VS Code) ──
+    try {
+      const { App } = await import("https://esm.sh/@modelcontextprotocol/ext-apps");
+      const app = new App({ name: "tela-page-reader", version: "1.0.0" });
+      app.ontoolresult = (p) => render((p && p.structuredContent) || {});
+      await app.connect();
+      document.getElementById("open").addEventListener("click", (e) => {
+        if (openHref && app.openLink) { e.preventDefault(); app.openLink({ url: openHref }); }
+      });
+    } catch (err) {
+      document.getElementById("body").innerHTML = '<p class="empty">Could not connect to the host.</p>';
+    }
+  }
+</script>
+</body>
+</html>

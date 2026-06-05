@@ -689,6 +689,11 @@ func (s *Server) movePageCore(ctx context.Context, u *auth.User, k *auth.APIKey,
 	if !mv.SpaceIDSet && !mv.ParentIDSet && !mv.PositionSet {
 		return models.Page{}, &apiErr{http.StatusBadRequest, "no_fields", "at least one of space_id, parent_id, position must be provided"}
 	}
+	// Guard here (not just in the REST parser) so the MCP path can't reach the
+	// slice math below with a negative position and panic (newSiblingIDs[:insertAt]).
+	if mv.PositionSet && mv.NewPosition < 0 {
+		return models.Page{}, &apiErr{http.StatusBadRequest, "invalid_position", "position must be a non-negative integer"}
+	}
 
 	tx, err := s.DB.BeginTx(ctx, nil)
 	if err != nil {

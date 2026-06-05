@@ -3,9 +3,14 @@ package api
 import (
 	"bytes"
 	"context"
+	"crypto/hmac"
+	"crypto/sha256"
+	"crypto/subtle"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"html"
 	"io"
 	"log"
 	"net/http"
@@ -167,13 +172,15 @@ func (s *Server) ServePRM(w http.ResponseWriter, r *http.Request) {
 	s.oauth.prmHandler.ServeHTTP(w, r)
 }
 
-// WorkOSLogin is the Standalone "OAuth Bridge" Login URI (5b): WorkOS sends the
-// user here with ?external_auth_id=… during the Connect flow. We authenticate
-// the user against tela's OWN session (bouncing through /login if they're not
-// signed in), then call WorkOS's completion API which stamps the token's `sub`
-// with the tela user id — so tela keeps owning identity, no user migration. On
-// auth.IsPublicPath: it self-authenticates (unauthenticated → redirect to login,
-// not 401).
+// WorkOSLogin (GET) is the Standalone "OAuth Bridge" Login URI (5b): WorkOS
+// sends the user here with ?external_auth_id=… during the Connect flow. It
+// authenticates against tela's OWN session (bouncing through /login if not
+// signed in) and then renders an explicit consent page. It does NOT complete the
+// flow on the GET — completion happens only on the CSRF-protected POST to
+// WorkOSLoginComplete. This prevents login/account-linking CSRF: a bare GET with
+// an attacker-supplied external_auth_id can't silently bind a victim's session
+// to the attacker's pending connector authorization. On auth.IsPublicPath: it
+// self-authenticates (unauthenticated → redirect to login, not 401).
 func (s *Server) WorkOSLogin(w http.ResponseWriter, r *http.Request) {
 	if s.oauth == nil {
 		http.NotFound(w, r)
@@ -185,12 +192,49 @@ func (s *Server) WorkOSLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	c, _ := r.Cookie(auth.CookieName)
 	u := s.sessionUser(r)
-	if u == nil {
+	if u == nil || c == nil {
 		// Not signed in → bounce through tela's own login, returning here after
 		// (the SPA hard-redirects to this backend path on success).
 		ret := "/oauth/workos/login?external_auth_id=" + url.QueryEscape(externalAuthID)
 		http.Redirect(w, r, "/login?next="+url.QueryEscape(ret), http.StatusFound)
+		return
+	}
+	if u.Email == "" {
+		http.Error(w, "your tela account has no email address; cannot connect via OAuth", http.StatusBadRequest)
+		return
+	}
+	renderWorkOSConsent(w, u, externalAuthID, s.workosBridgeCSRF(c.Value, externalAuthID))
+}
+
+// WorkOSLoginComplete (POST) finishes the bridge after the user explicitly
+// confirms on the consent page. It re-checks the session and a CSRF token bound
+// to that session + external_auth_id (so the POST can't be forged), then calls
+// the WorkOS completion API and redirects to the returned redirect_uri.
+func (s *Server) WorkOSLoginComplete(w http.ResponseWriter, r *http.Request) {
+	if s.oauth == nil {
+		http.NotFound(w, r)
+		return
+	}
+	if err := r.ParseForm(); err != nil {
+		writeError(w, http.StatusBadRequest, "bad_request", "could not parse form")
+		return
+	}
+	externalAuthID := r.PostFormValue("external_auth_id")
+	if externalAuthID == "" {
+		writeError(w, http.StatusBadRequest, "bad_request", "external_auth_id is required")
+		return
+	}
+	c, _ := r.Cookie(auth.CookieName)
+	u := s.sessionUser(r)
+	if u == nil || c == nil {
+		writeError(w, http.StatusUnauthorized, "unauthorized", "session required")
+		return
+	}
+	expected := s.workosBridgeCSRF(c.Value, externalAuthID)
+	if subtle.ConstantTimeCompare([]byte(r.PostFormValue("csrf")), []byte(expected)) != 1 {
+		writeError(w, http.StatusForbidden, "forbidden", "invalid or expired confirmation")
 		return
 	}
 	if u.Email == "" {
@@ -206,6 +250,43 @@ func (s *Server) WorkOSLogin(w http.ResponseWriter, r *http.Request) {
 	}
 	http.Redirect(w, r, redirectURI, http.StatusFound)
 }
+
+// workosBridgeCSRF is an HMAC over (session cookie value + external_auth_id),
+// keyed by the server's share secret. An attacker can't forge it without the
+// victim's HttpOnly session value and the secret, so it ties the consent POST to
+// the exact session + pending authorization shown on the GET consent page.
+func (s *Server) workosBridgeCSRF(sessionValue, externalAuthID string) string {
+	mac := hmac.New(sha256.New, s.shareSecret)
+	mac.Write([]byte("workos-bridge\x00" + sessionValue + "\x00" + externalAuthID))
+	return base64.RawURLEncoding.EncodeToString(mac.Sum(nil))
+}
+
+// renderWorkOSConsent writes the explicit "connect your tela account" page whose
+// only action is a same-origin POST carrying the CSRF token.
+func renderWorkOSConsent(w http.ResponseWriter, u *auth.User, externalAuthID, csrf string) {
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.Header().Set("Cache-Control", "no-store")
+	_, _ = fmt.Fprintf(w, workosConsentHTML,
+		html.EscapeString(u.Email), html.EscapeString(externalAuthID), html.EscapeString(csrf))
+}
+
+const workosConsentHTML = `<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1"><title>Connect to tela</title>
+<style>body{font:15px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+background:#f6f7f9;color:#1a1a1a;display:flex;min-height:100vh;align-items:center;justify-content:center;margin:0}
+.card{background:#fff;border:1px solid #e5e7eb;border-radius:14px;padding:28px 30px;max-width:420px;
+box-shadow:0 1px 3px rgba(0,0,0,.06)}h1{font-size:19px;margin:0 0 10px}p{color:#4b5563;margin:8px 0}
+.who{font-weight:600;color:#1a1a1a}button{margin-top:18px;width:100%%;padding:11px;border:none;border-radius:9px;
+background:#4f46e5;color:#fff;font-size:15px;font-weight:600;cursor:pointer}button:hover{background:#4338ca}
+.muted{font-size:13px;color:#9ca3af;margin-top:14px}</style></head><body>
+<div class="card"><h1>Connect to tela</h1>
+<p>An application is requesting access to your tela account as <span class="who">%s</span>.</p>
+<p>It will be able to read and edit the spaces and pages you can access. Only continue if you started this from the app.</p>
+<form method="post" action="/oauth/workos/login">
+<input type="hidden" name="external_auth_id" value="%s">
+<input type="hidden" name="csrf" value="%s">
+<button type="submit">Connect tela account</button></form>
+<p class="muted">If you didn't initiate this, close this page.</p></div></body></html>`
 
 // sessionUser resolves the tela user from the session cookie, or nil when there
 // is no valid session. Used by the public-path WorkOS bridge to self-authenticate.
