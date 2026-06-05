@@ -8,6 +8,7 @@ import {
   useState,
 } from 'react'
 import { Link, useNavigate, useParams, useSearch } from '@tanstack/react-router'
+import { useQueryClient } from '@tanstack/react-query'
 import {
   BookOpen,
   ChevronRight,
@@ -43,6 +44,7 @@ const ShareManagerSheet = lazy(() =>
   import('./ShareManagerSheet').then((m) => ({ default: m.ShareManagerSheet })),
 )
 import {
+  prefetchPage,
   useAllPages,
   useCreatePage,
   useDeletePage,
@@ -983,6 +985,7 @@ function ChildPagesSection({
   bodyIsEmpty,
 }: ChildPagesSectionProps) {
   const navigate = useNavigate()
+  const qc = useQueryClient()
   const tree = usePages({ spaceId, tree: true })
   const createPage = useCreatePage()
   const nodes = (tree.data as PageTreeNode[] | undefined) ?? []
@@ -1042,6 +1045,8 @@ function ChildPagesSection({
             <li key={child.id} className="m-0 p-0 list-none">
               <button
                 type="button"
+                onMouseEnter={() => prefetchPage(qc, child.id)}
+                onFocus={() => prefetchPage(qc, child.id)}
                 onClick={() =>
                   void navigate({
                     to: '/spaces/$spaceId/pages/$pageId/{-$slug}',

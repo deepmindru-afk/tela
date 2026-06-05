@@ -23,6 +23,6 @@ export function useUsers() {
       const { users } = await api<{ users: MentionUser[] }>('/api/users')
       return users
     },
-    staleTime: 60_000,
+    // Inherits the global SWR staleTime — a mention directory tolerates it.
   })
 }

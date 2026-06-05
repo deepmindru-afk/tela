@@ -37,7 +37,7 @@ export function useFreshness() {
     queryKey: freshnessKeys.summary(),
     queryFn: () =>
       api<{ enabled: boolean; spaces: SpaceFreshness[] }>('/api/rag/freshness'),
-    staleTime: 15_000,
+    staleTime: 60_000,
   })
 }
 
@@ -50,7 +50,7 @@ export function useSpaceFreshness(spaceId: number | null | undefined) {
         `/api/rag/freshness?space_id=${spaceId}`,
       ),
     enabled: spaceId != null,
-    staleTime: 15_000,
+    staleTime: 60_000,
   })
 }
 

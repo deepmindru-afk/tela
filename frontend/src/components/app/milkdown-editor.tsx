@@ -822,6 +822,9 @@ function MilkdownEditorInner({
         if (!res.ok || cancelled) return
         const buf = new Uint8Array(await res.arrayBuffer())
         if (cancelled || buf.byteLength === 0) return
+        // The fetch can resolve mid-unmount; applying into a destroyed doc
+        // dispatches a transaction into a half-disposed editor.
+        if (collab.provider.isDestroyed()) return
         const { snapshot, updates } = decodeSyncInit(buf)
         if (snapshot) Y.applyUpdate(collab.doc, snapshot, collab.provider)
         for (const u of updates) Y.applyUpdate(collab.doc, u, collab.provider)
@@ -870,13 +873,24 @@ function MilkdownEditorInner({
 
   // Teardown: close ws + cancel reconnect + dispose Y.Doc on unmount. Without
   // this, tabbing between pages would leak rooms and reconnect timers.
+  //
+  // Ordering matters. @milkdown/react's editor.destroy() is async and chains
+  // its plugin cleanup through microtasks — including the y-prosemirror ySync
+  // binding's unobserve of the XmlFragment. Destroying the Y.Doc synchronously
+  // here (the old behaviour) fires that still-attached observer, which
+  // dispatches a transaction into an editor whose Milkdown ctx is mid-teardown
+  // → "Context editorState not found", thrown on every page switch.
+  // provider.destroy() runs synchronously (stops the ws + reconnect + outbound
+  // updates), but doc.destroy() is deferred to a macrotask so the editor's
+  // microtask-chained teardown — and thus the ySync unobserve — completes
+  // first. The doc has no other references by then, so this can't leak.
   useEffect(() => {
     return () => {
       const collab = collabRef.current
       if (!collab) return
-      collab.provider.destroy()
-      collab.doc.destroy()
       collabRef.current = null
+      collab.provider.destroy()
+      setTimeout(() => collab.doc.destroy(), 0)
     }
   }, [])
 

@@ -1,5 +1,10 @@
 import { useEffect } from 'react'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import {
+  useMutation,
+  useQuery,
+  useQueryClient,
+  type QueryClient,
+} from '@tanstack/react-query'
 import { api } from '../api'
 import { emitPageMutation, subscribeToPageMutation } from '../pageMutationEvent'
 import type {
@@ -93,7 +98,7 @@ export function useAllPages() {
       const { pages } = await api<{ pages: PageListItem[] }>('/api/pages/all')
       return pages
     },
-    staleTime: 60_000,
+    // Inherits the global SWR staleTime; bus-invalidated on any page mutation.
   })
 }
 
@@ -119,23 +124,36 @@ export function useBacklinks(pageId: number | null | undefined) {
       return backlinks
     },
     enabled: pageId != null,
-    staleTime: 60_000,
+    // Inherits the global SWR staleTime; bus-invalidated on any page mutation.
   })
+}
+
+// GET returns exposure as a sibling (models.Page can't carry it); fold it onto
+// the page object so consumers read `page.exposure` uniformly with the
+// tree/list rows. Shared by usePage and prefetchPage.
+async function fetchPageDetail(id: number): Promise<Page & { exposure: PageExposure | null }> {
+  const { page, exposure } = await api<{ page: Page; exposure?: PageExposure }>(
+    `/api/pages/${id}`,
+  )
+  return { ...page, exposure: exposure ?? null }
 }
 
 export function usePage(id: number | null | undefined) {
   return useQuery({
     queryKey: id != null ? pageKeys.detail(id) : pageKeys.detail(-1),
-    queryFn: async () => {
-      // GET returns exposure as a sibling (models.Page can't carry it); fold it
-      // onto the page object so consumers read `page.exposure` uniformly with
-      // the tree/list rows.
-      const { page, exposure } = await api<{ page: Page; exposure?: PageExposure }>(
-        `/api/pages/${id}`,
-      )
-      return { ...page, exposure: exposure ?? null }
-    },
+    queryFn: () => fetchPageDetail(id as number),
     enabled: id != null,
+  })
+}
+
+// Warm the page-detail cache ahead of navigation (sidebar/child-link hover).
+// Given the ~240ms origin round-trip, fetching on intent rather than on click
+// hides the page body's load latency. Honors the global staleTime, so it no-ops
+// if the page was viewed recently.
+export function prefetchPage(qc: QueryClient, id: number): void {
+  void qc.prefetchQuery({
+    queryKey: pageKeys.detail(id),
+    queryFn: () => fetchPageDetail(id),
   })
 }
 

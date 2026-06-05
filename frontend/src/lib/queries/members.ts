@@ -21,7 +21,8 @@ export function useSpaceMembers(spaceId: number | null | undefined) {
       return members
     },
     enabled: spaceId != null,
-    staleTime: 30_000,
+    // Inherits the global SWR staleTime; membership is invalidated by the
+    // add/update/remove-member mutations, so a longer window is safe.
   })
 }
 

@@ -8,7 +8,9 @@ import {
   RotateCw,
 } from 'lucide-react'
 import { ApiError } from '../../lib/api'
+import { useQueryClient } from '@tanstack/react-query'
 import {
+  prefetchPage,
   useCreatePage,
   useDeletePage,
   usePages,
@@ -243,6 +245,7 @@ function PageNode({
   staleStatus,
 }: PageNodeProps) {
   const navigate = useNavigate()
+  const qc = useQueryClient()
   const createPage = useCreatePage()
   const [renameOpen, setRenameOpen] = useState(false)
   const [moveOpen, setMoveOpen] = useState(false)
@@ -319,6 +322,8 @@ function PageNode({
         <button
           type="button"
           aria-current={active ? 'page' : undefined}
+          onMouseEnter={() => prefetchPage(qc, node.id)}
+          onFocus={() => prefetchPage(qc, node.id)}
           onClick={() =>
             void navigate({
               to: '/spaces/$spaceId/pages/$pageId/{-$slug}',

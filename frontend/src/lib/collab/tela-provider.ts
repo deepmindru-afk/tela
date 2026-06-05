@@ -145,6 +145,16 @@ export class TelaProvider {
     return this.status
   }
 
+  // True once destroy() has run. Callers that apply Yjs updates from async
+  // paths (the instant-paint REST fetch) check this before touching the doc:
+  // applying an update fires the y-prosemirror ySync observer, which dispatches
+  // a transaction into the ProseMirror view — and during navigation teardown
+  // the editor's Milkdown ctx may already be disposed ("Context editorState not
+  // found"). Bailing here keeps stray updates out of a dying editor.
+  isDestroyed(): boolean {
+    return this.destroyed
+  }
+
   onStatus(fn: StatusListener): () => void {
     this.statusListeners.add(fn)
     return () => {
@@ -258,6 +268,10 @@ export class TelaProvider {
   }
 
   private onMessage(ev: MessageEvent): void {
+    // A frame already queued on the event loop can still reach us after
+    // destroy() nulled the handler; never apply Yjs updates into a torn-down
+    // doc (see isDestroyed for why that throws in the editor).
+    if (this.destroyed) return
     if (!(ev.data instanceof ArrayBuffer)) return
     const frame = new Uint8Array(ev.data)
     if (frame.byteLength < 1) return
