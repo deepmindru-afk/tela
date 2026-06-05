@@ -475,3 +475,15 @@ include the chat prompt in screenshots — OpenAI overlays the "example user mes
 **Screenshots to capture (1–4 PNG, ~706px wide, no prompt in frame):** (a) page-reader
 widget showing a rendered page, (b) search-results cards, (c) a `create_page`
 confirmation. Crop to the app response only.
+
+---
+
+## ⚠️ LIVE-FORM FINDING (2026-06-06): Demo Recording is REQUIRED + form state
+
+Drove the actual `platform.openai.com/apps-manage` editor (app "Tela", draft `asdk_app_6a22ce5f…`). Findings from the live form:
+
+- **App Info section — FILLED & saved as draft:** logo (centered `icon-512.png`), name `Tela`, subtitle `Wiki your agents read & write` (≤30), description, **category Productivity**, developer `Cagdas Salur`, website `tela.cagdas.io`, support `tela@cagdas.io`, privacy `/privacy`, terms `/terms`. App-Commerce box left unchecked (no purchases).
+- 🔴 **`Demo Recording URL` is REQUIRED and GATES the whole flow** — you cannot reach the MCP Server / Testing / Global / Submit sections without it. (Our research had this as "SECONDARY/unverified" — now CONFIRMED mandatory.) It wants an **MP4 demonstrating tela in ChatGPT (Developer Mode), covering main use cases + tools across web/iOS/Android.** This is a Cagdas task — record + host the video, paste the URL.
+- Sections after App Info (MCP Server, Testing, Global, Submit) are gated behind it — couldn't inspect them yet.
+- Still pending account-side (will surface in Global/Submit): org identity verification, $5 billing, non-EU residency project, api.apps.write.
+- The draft persists in the dashboard — resume anytime via ChatGPT Apps → Tela → Edit.
