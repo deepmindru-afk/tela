@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"strconv"
+	"strings"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
@@ -96,6 +98,16 @@ func (s *Server) registerMCPTools(server *mcp.Server) {
 		Description: "Fetch one chunk's full section text by chunk_id (from semantic_search). Middle granularity between a search snippet and get_page.",
 		Annotations: readOnly,
 	}, s.mcpReadChunk)
+
+	// `search` (above) + `fetch` are the ChatGPT Deep Research / company-knowledge
+	// compatibility pair (read-only, fixed names/shapes). `search` already returns
+	// id/title/text/url per result; `fetch` returns a page's full text by that id.
+	mcp.AddTool(server, &mcp.Tool{
+		Name:        "fetch",
+		Title:       "Fetch document",
+		Description: "Fetch a tela page's full text by id (id comes from a search result). The ChatGPT Deep Research 'fetch' tool.",
+		Annotations: readOnly,
+	}, s.mcpFetch)
 
 	// ---- write tools (gate on write/admin scope via mcpRequireWrite) ----
 
@@ -446,6 +458,42 @@ func (s *Server) mcpReadChunk(ctx context.Context, req *mcp.CallToolRequest, in 
 		return mcpErr(&apiErr{500, "internal", "read chunk failed"}), readChunkOut{}, nil
 	}
 	return nil, readChunkOut{Chunk: *chunk}, nil
+}
+
+// ---- fetch (ChatGPT Deep Research) ---------------------------------------
+
+type fetchIn struct {
+	ID string `json:"id" jsonschema:"page id, as returned by search results"`
+}
+
+type fetchOut struct {
+	ID       string         `json:"id"`
+	Title    string         `json:"title"`
+	Text     string         `json:"text"`
+	URL      string         `json:"url"`
+	Metadata map[string]any `json:"metadata"`
+}
+
+func (s *Server) mcpFetch(ctx context.Context, req *mcp.CallToolRequest, in fetchIn) (*mcp.CallToolResult, fetchOut, error) {
+	u, k := mcpIdentity(req)
+	if u == nil {
+		return mcpUnauthErr(), fetchOut{}, nil
+	}
+	pid, err := strconv.ParseInt(strings.TrimSpace(in.ID), 10, 64)
+	if err != nil || pid <= 0 {
+		return mcpErr(&apiErr{400, "bad_request", "id must be a numeric page id"}), fetchOut{}, nil
+	}
+	p, ae := s.getPageCore(ctx, u, k, pid)
+	if ae != nil {
+		return mcpErr(ae), fetchOut{}, nil
+	}
+	return nil, fetchOut{
+		ID:       in.ID,
+		Title:    p.Title,
+		Text:     p.Body,
+		URL:      mcpPageURL(p),
+		Metadata: map[string]any{"space_id": p.SpaceID},
+	}, nil
 }
 
 // ---- create_page ---------------------------------------------------------

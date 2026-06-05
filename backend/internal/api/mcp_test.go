@@ -104,7 +104,7 @@ func TestMCP_SpikeListSpaces(t *testing.T) {
 	}
 	for _, want := range []string{
 		"list_spaces", "get_space", "list_pages", "get_page", "list_backlinks",
-		"search", "search_bodies", "semantic_search", "read_chunk",
+		"search", "search_bodies", "semantic_search", "read_chunk", "fetch",
 		"create_page", "update_page", "delete_page", "move_page", "add_comment",
 		"create_space", "update_space", "delete_space", "import_mira", "submit_feedback",
 	} {
@@ -249,6 +249,17 @@ func TestMCP_ReadTools(t *testing.T) {
 	mcpCallJSON(t, ctx, sess, "search", map[string]any{"query": "fox"}, &sr)
 	if len(sr.Results) != 1 || sr.Results[0].PageID != alphaID {
 		t.Fatalf("search fox: %+v", sr.Results)
+	}
+	// ChatGPT Deep-Research aliases present on each hit (id=string page id, text=snippet, url).
+	if sr.Results[0].ID != strconv.FormatInt(alphaID, 10) || sr.Results[0].Text == "" || sr.Results[0].URL == "" {
+		t.Fatalf("search hit missing ChatGPT id/text/url: %+v", sr.Results[0])
+	}
+
+	// fetch (Deep Research) → full page text by the search result's id.
+	var fo fetchOut
+	mcpCallJSON(t, ctx, sess, "fetch", map[string]any{"id": sr.Results[0].ID}, &fo)
+	if fo.Text != "the quick brown fox" || fo.Title != "Alpha" || fo.URL == "" {
+		t.Fatalf("fetch: %+v", fo)
 	}
 
 	// search_bodies within the space.

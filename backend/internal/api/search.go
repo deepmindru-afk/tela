@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/zcag/tela/backend/internal/auth"
@@ -30,6 +31,11 @@ type searchHit struct {
 	// URL is the human-shareable in-app link, used by the search-results widget
 	// (click-through) and as the ChatGPT search/fetch `url` field.
 	URL string `json:"url"`
+	// ID + Text are ChatGPT Deep-Research compatibility aliases: that connector
+	// drives `fetch` off result `id` and reads the snippet from `text`. They mirror
+	// PageID (as a string) and Snippet so one `search` tool serves both surfaces.
+	ID   string `json:"id"`
+	Text string `json:"text"`
 }
 
 // Search is the Tier-2 server-side full-text search behind the command palette.
@@ -135,6 +141,8 @@ func (s *Server) searchCore(ctx context.Context, u *auth.User, k *auth.APIKey, q
 			Snippet:    h.Snippet,
 			Breadcrumb: bc,
 			URL:        publicBaseURL() + pageAppPath(h.SpaceID, h.ID, h.Title),
+			ID:         strconv.FormatInt(h.ID, 10),
+			Text:       h.Snippet,
 		})
 	}
 	return results, nil
