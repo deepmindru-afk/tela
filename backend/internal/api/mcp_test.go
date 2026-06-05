@@ -554,8 +554,9 @@ func TestMCP_SpikeRejectsNoToken(t *testing.T) {
 }
 
 // TestMCP_Widgets verifies the MCP Apps widget surface: the ui:// resources are
-// advertised + serve HTML (both MIME variants), and get_page/search carry the
-// widget _meta that links them.
+// advertised + serve HTML (both MIME variants). The tool→widget _meta links are
+// temporarily disabled (blank-iframe render in Claude); re-add the get_page/search
+// _meta assertion when the rendering is verified and the links go back on.
 func TestMCP_Widgets(t *testing.T) {
 	ts, d := newWiredServer(t)
 	alice := seedUser(t, d, "alice", "alicepw12", false)
@@ -593,23 +594,5 @@ func TestMCP_Widgets(t *testing.T) {
 	}
 	if rr.Contents[0].MIMEType != "text/html+skybridge" {
 		t.Errorf("widget mime: %q", rr.Contents[0].MIMEType)
-	}
-
-	// get_page carries the widget link _meta.
-	tools, err := sess.ListTools(ctx, nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	var gp *mcp.Tool
-	for _, tl := range tools.Tools {
-		if tl.Name == "get_page" {
-			gp = tl
-		}
-	}
-	if gp == nil {
-		t.Fatal("get_page tool missing")
-	}
-	if gp.Meta["openai/outputTemplate"] != "ui://tela/page-reader/openai" {
-		t.Errorf("get_page _meta missing/incorrect outputTemplate: %v", gp.Meta)
 	}
 }

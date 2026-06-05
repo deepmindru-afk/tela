@@ -60,7 +60,9 @@ func (s *Server) registerMCPTools(server *mcp.Server) {
 		Title:       "Get page",
 		Description: "Full markdown body + metadata for a numeric page id.",
 		Annotations: readOnly,
-		Meta:        widgetToolMeta(uiPageReaderOpenAI, uiPageReaderMCPApp, "Renders the tela page as a reader card.", "Opening page…", "Page ready"),
+		// Widget _meta temporarily disabled — the MCP-Apps render path leaves a
+		// blank iframe in Claude (bridge bootstrap fails). Re-enable per host once
+		// the rendering is verified. See widgetToolMeta / mcp_widgets.go.
 	}, s.mcpGetPage)
 
 	mcp.AddTool(server, &mcp.Tool{
@@ -75,7 +77,7 @@ func (s *Server) registerMCPTools(server *mcp.Server) {
 		Title:       "Search",
 		Description: "Ranked full-text search over title + body, snippet-highlighted. Optional space_id narrows to one space.",
 		Annotations: readOnly,
-		Meta:        widgetToolMeta(uiSearchOpenAI, uiSearchMCPApp, "Renders search hits as a clickable result list.", "Searching…", "Results ready"),
+		// Widget _meta temporarily disabled — see get_page above / mcp_widgets.go.
 	}, s.mcpSearch)
 
 	mcp.AddTool(server, &mcp.Tool{
