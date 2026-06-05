@@ -28,6 +28,7 @@ import {
 import '../../lib/commands/starters'
 import { readLastPage } from '../../lib/lastPage'
 import { subscribeToOpenNewPage } from '../../lib/newPageEvent'
+import { subscribeToOpenPalette } from '../../lib/paletteEvent'
 import { NewPageDialog } from './NewPageDialog'
 import { readRecentPages, type RecentPage } from '../../lib/recentPages'
 import { useTier1TitleHits } from '../../lib/useTier1TitleHits'
@@ -176,6 +177,9 @@ export function AppCommandHost() {
     () => subscribeToOpenNewPage((opts) => openNewPage(opts)),
     [openNewPage],
   )
+
+  // Visible "Search" button (sidebar) → open the palette, same as ⌘K.
+  useEffect(() => subscribeToOpenPalette((mode) => openWith(mode)), [openWith])
 
   usePaletteShortcuts({
     onOpenPages: () => openWith('pages'),
@@ -337,6 +341,12 @@ export function AppCommandHost() {
     // group renders unlabelled-ish (the heading still draws unless the group
     // is dropped entirely).
     const groups: CommandItemGroup[] = []
+    // Smart (semantic) results lead — they surface meaning-matches the keyword
+    // tiers miss. They stream in on the debounce, so the instant keyword groups
+    // below settle first and Smart results slot in above them on arrival.
+    if (smartItems.length > 0) {
+      groups.push({ label: 'Smart results', items: smartItems })
+    }
     if (titleItems.length > 0) {
       groups.push({ label: 'Titles', items: titleItems })
     }
@@ -345,9 +355,6 @@ export function AppCommandHost() {
     }
     if (bodyItems.length > 0) {
       groups.push({ label: 'Body matches', items: bodyItems })
-    }
-    if (smartItems.length > 0) {
-      groups.push({ label: 'Smart results', items: smartItems })
     }
     return groups
   }, [trimmedQuery, recentsItems, titleItems, searchItems, bodyItems, smartItems])

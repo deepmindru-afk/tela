@@ -1,10 +1,11 @@
 import { useParams } from '@tanstack/react-router'
-import { FilePlus } from 'lucide-react'
+import { FilePlus, Search } from 'lucide-react'
 import { PagesTree } from './PagesTree'
 import { SpacesList } from './SpacesList'
 import { UserMenu } from './UserMenu'
 import { Button } from '../ui/button'
 import { emitOpenNewPage } from '../../lib/newPageEvent'
+import { emitOpenPalette } from '../../lib/paletteEvent'
 import { IS_MAC } from '../../lib/useGlobalShortcut'
 
 export function Sidebar() {
@@ -18,15 +19,33 @@ export function Sidebar() {
   const activePageId = typeof params.pageId === 'number' ? params.pageId : null
 
   const newPageShortcut = IS_MAC ? '⌘N' : 'Ctrl+N'
+  const searchShortcut = IS_MAC ? '⌘K' : 'Ctrl+K'
 
   return (
     <aside
       aria-label="Navigation"
       className="flex flex-col w-[var(--sidebar-width)] shrink-0 border-r border-[var(--border-subtle)] bg-[var(--surface-2)] overflow-hidden"
     >
-      <div className="px-[var(--space-3)] pt-[var(--space-4)]">
+      <div className="px-[var(--space-3)] pt-[var(--space-4)] flex flex-col gap-[var(--space-1)]">
         <Button
           variant="secondary"
+          size="sm"
+          className="w-full justify-start"
+          onClick={() => emitOpenPalette('pages')}
+          aria-label={`Search (${searchShortcut})`}
+          title={`Search (${searchShortcut})`}
+        >
+          <Search width={14} height={14} />
+          <span className="flex-1 text-left text-[var(--text-muted)]">Search…</span>
+          <kbd
+            aria-hidden
+            className="text-[length:var(--text-xs)] text-[var(--text-muted)] font-[family-name:var(--font-sans)]"
+          >
+            {searchShortcut}
+          </kbd>
+        </Button>
+        <Button
+          variant="ghost"
           size="sm"
           className="w-full justify-start"
           onClick={() => emitOpenNewPage()}
