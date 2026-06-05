@@ -34,54 +34,63 @@ func (s *Server) registerMCPTools(server *mcp.Server) {
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "list_spaces",
+		Title:       "List spaces",
 		Description: "List every space the API key can access (id, name, slug).",
 		Annotations: readOnly,
 	}, s.mcpListSpaces)
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "get_space",
+		Title:       "Get space",
 		Description: "Fetch a single space's metadata (id, name, slug) by id.",
 		Annotations: readOnly,
 	}, s.mcpGetSpace)
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "list_pages",
+		Title:       "List pages",
 		Description: "Flat page listing in a space. Optional parent_id for direct children (omit for top-level pages).",
 		Annotations: readOnly,
 	}, s.mcpListPages)
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "get_page",
+		Title:       "Get page",
 		Description: "Full markdown body + metadata for a numeric page id.",
 		Annotations: readOnly,
 	}, s.mcpGetPage)
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "list_backlinks",
+		Title:       "List backlinks",
 		Description: "Pages that link to the given page via [[wikilink]] / tela://page/{id}.",
 		Annotations: readOnly,
 	}, s.mcpListBacklinks)
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "search",
+		Title:       "Search",
 		Description: "Ranked full-text search over title + body, snippet-highlighted. Optional space_id narrows to one space.",
 		Annotations: readOnly,
 	}, s.mcpSearch)
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "search_bodies",
+		Title:       "Search page bodies",
 		Description: "Ranked full-text body search within one space (no snippets). Re-fetch full bodies via get_page.",
 		Annotations: readOnly,
 	}, s.mcpSearchBodies)
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "semantic_search",
+		Title:       "Semantic search",
 		Description: "Meaning-aware chunk search (vector + keyword, RRF). Returns ranked chunks with chunk_id + citations (page id + heading path). Requires a configured embedder.",
 		Annotations: readOnly,
 	}, s.mcpSemanticSearch)
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "read_chunk",
+		Title:       "Read chunk",
 		Description: "Fetch one chunk's full section text by chunk_id (from semantic_search). Middle granularity between a search snippet and get_page.",
 		Annotations: readOnly,
 	}, s.mcpReadChunk)
@@ -91,60 +100,70 @@ func (s *Server) registerMCPTools(server *mcp.Server) {
 	yes := true
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "create_page",
+		Title:       "Create page",
 		Description: "Create a page in a space (editor+). Body is markdown; tela://page/{id} links are indexed as backlinks.",
 		Annotations: &mcp.ToolAnnotations{},
 	}, s.mcpCreatePage)
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "update_page",
+		Title:       "Update page",
 		Description: "Patch a page's title and/or body (editor+). A body change auto-snapshots a revision.",
 		Annotations: &mcp.ToolAnnotations{IdempotentHint: true},
 	}, s.mcpUpdatePage)
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "delete_page",
+		Title:       "Delete page",
 		Description: "Delete a page (editor+). Backlinks from other pages are preserved with the last-known title.",
 		Annotations: &mcp.ToolAnnotations{DestructiveHint: &yes},
 	}, s.mcpDeletePage)
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "move_page",
+		Title:       "Move page",
 		Description: "Move a page: reparent (parent_id), detach to top-level (make_root), reorder (position), and/or relocate to another space (space_id). Editor+ in both source and target space. Provide at least one of space_id / parent_id / make_root / position.",
 		Annotations: &mcp.ToolAnnotations{},
 	}, s.mcpMovePage)
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "add_comment",
+		Title:       "Add comment",
 		Description: "Attach a root comment to a page, anchored by a {prefix, exact, suffix} text triplet (editor+).",
 		Annotations: &mcp.ToolAnnotations{},
 	}, s.mcpAddComment)
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "create_space",
+		Title:       "Create space",
 		Description: "Create a space. The caller becomes its owner. slug is derived from name when omitted.",
 		Annotations: &mcp.ToolAnnotations{},
 	}, s.mcpCreateSpace)
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "update_space",
+		Title:       "Update space",
 		Description: "Patch a space's name and/or slug (editor+).",
 		Annotations: &mcp.ToolAnnotations{IdempotentHint: true},
 	}, s.mcpUpdateSpace)
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "delete_space",
+		Title:       "Delete space",
 		Description: "Delete a space AND all its pages, comments, revisions and share links. Owner only. Irreversible.",
 		Annotations: &mcp.ToolAnnotations{DestructiveHint: &yes},
 	}, s.mcpDeleteSpace)
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "import_mira",
+		Title:       "Import mira page",
 		Description: "Import a single mira page into a space as a new page (editor+). Provide source_url (https, allowlisted host, fetched server-side) OR an inline payload (raw mira block JSON) — exactly one. A password-protected source returns an unlock link.",
 		Annotations: &mcp.ToolAnnotations{OpenWorldHint: &yes},
 	}, s.mcpImportMira)
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "submit_feedback",
+		Title:       "Submit feedback",
 		Description: "Submit free-text feedback about tela / tela-mcp itself (friction, bugs, missing capabilities). NOT for page content — use add_comment for that.",
 		Annotations: &mcp.ToolAnnotations{},
 	}, s.mcpSubmitFeedback)

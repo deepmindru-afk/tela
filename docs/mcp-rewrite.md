@@ -569,10 +569,7 @@ pagination + interactive widgets (MCP Apps).** Prompts, completions, elicitation
 sampling = skip (see Phase 3). Ranked by impact ÷ effort:
 
 **Tier 1 (do first, low effort):**
-- ⬜ **Tool titles + annotation audit** — every tool needs a `Title` (Claude
-  directory requires it) + correct `ReadOnlyHint`/`DestructiveHint`/`IdempotentHint`;
-  confirm NO tool mixes read+write (Claude auto-rejects mixed). Ours are clean;
-  just add titles.
+- ✅ **Tool titles + annotation audit** — all 19 tools now carry a `Title`; read/write are cleanly separated (no mixed tool); regression-guarded in tests.
 - ⬜ **ChatGPT `search` + `fetch` aliases** — exact OpenAI shape unlocks Deep
   Research / "company knowledge": `search(query)→{results:[{id,title,url}]}`,
   `fetch(id)→{id,title,text,url,metadata}`. Thin wrappers over searchCore +
@@ -583,9 +580,7 @@ sampling = skip (see Phase 3). Ranked by impact ÷ effort:
   Bigger build → its own phase.
 
 **Tier 2:**
-- ⬜ **Server branding** — `Implementation{Name, Title, Version}`; logo/favicon/
-  tagline/websiteUrl for the connector card. Claude takes most branding from the
-  submission form, but set serverInfo cleanly.
+- ✅ **Server branding** — `Implementation{Name:tela, Title:Tela, Version, WebsiteURL, Icons:[favicon.svg]}`, website+icon derived from `publicBaseURL()` (self-host-friendly).
 - ⬜ **Pagination** — research says implement it (both hosts + token budget reward
   it); cursor on list_pages/search/search_bodies/semantic_search. Also truncate
   big responses (Claude Code truncates tool output at 25k tokens).

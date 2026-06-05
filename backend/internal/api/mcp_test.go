@@ -87,6 +87,15 @@ func TestMCP_SpikeListSpaces(t *testing.T) {
 	if found.OutputSchema == nil {
 		t.Errorf("list_spaces has no output schema")
 	}
+	// Every tool needs a Title (Claude directory eligibility) and annotations.
+	for _, tl := range tools.Tools {
+		if tl.Title == "" {
+			t.Errorf("tool %q has no Title", tl.Name)
+		}
+		if tl.Annotations == nil {
+			t.Errorf("tool %q has no Annotations", tl.Name)
+		}
+	}
 
 	// tools/call returns alice's space (and only hers) as structured output.
 	res, err := session.CallTool(ctx, &mcp.CallToolParams{Name: "list_spaces"})

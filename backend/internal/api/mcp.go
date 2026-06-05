@@ -45,10 +45,17 @@ func (s *Server) MCPHandler() http.Handler {
 }
 
 // newMCPServer constructs the MCP server and registers the tool + resource
-// surface. Capabilities (tools / resources / completions) are inferred by the
-// SDK from what's registered.
+// surface. Capabilities (tools / resources) are inferred by the SDK from what's
+// registered. The Implementation carries display branding (title, website, icon)
+// for the host's connector card — website/icon are derived from the public base
+// URL so self-hosters get their own.
 func (s *Server) newMCPServer() *mcp.Server {
-	server := mcp.NewServer(&mcp.Implementation{Name: mcpServerName, Version: Version}, nil)
+	impl := &mcp.Implementation{Name: mcpServerName, Title: "Tela", Version: Version}
+	if base := publicBaseURL(); base != "" {
+		impl.WebsiteURL = base
+		impl.Icons = []mcp.Icon{{Source: base + "/favicon.svg", MIMEType: "image/svg+xml", Sizes: []string{"any"}}}
+	}
+	server := mcp.NewServer(impl, nil)
 	s.registerMCPTools(server)
 	s.registerMCPResources(server)
 	return server
