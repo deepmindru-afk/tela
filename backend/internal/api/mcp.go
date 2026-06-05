@@ -2,6 +2,8 @@ package api
 
 import (
 	"context"
+	_ "embed"
+	"encoding/base64"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -13,6 +15,9 @@ import (
 
 	"github.com/zcag/tela/backend/internal/auth"
 )
+
+//go:embed widgets/mcp_icon.svg
+var mcpIconSVG []byte
 
 // mcpServerName is the MCP server identity reported to clients on initialize.
 const mcpServerName = "tela"
@@ -66,8 +71,15 @@ func (s *Server) newMCPServer() *mcp.Server {
 	impl := &mcp.Implementation{Name: mcpServerName, Title: "Tela", Version: Version}
 	if base := publicBaseURL(); base != "" {
 		impl.WebsiteURL = base
-		impl.Icons = []mcp.Icon{{Source: base + "/favicon.svg", MIMEType: "image/svg+xml", Sizes: []string{"any"}}}
 	}
+	// Full-bleed square icon as a data URI — the favicon has baked-in rounded
+	// corners (rx=56) that render as white corners once a host applies its own
+	// rounding mask; this fills the square edge-to-edge so the mask is clean.
+	impl.Icons = []mcp.Icon{{
+		Source:   "data:image/svg+xml;base64," + base64.StdEncoding.EncodeToString(mcpIconSVG),
+		MIMEType: "image/svg+xml",
+		Sizes:    []string{"any"},
+	}}
 	server := mcp.NewServer(impl, nil)
 	s.registerMCPTools(server)
 	s.registerMCPResources(server)
