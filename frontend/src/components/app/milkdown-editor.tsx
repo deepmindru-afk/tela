@@ -871,26 +871,27 @@ function MilkdownEditorInner({
     return () => dom.removeEventListener('click', onClick)
   }, [loading, get])
 
-  // Teardown: close ws + cancel reconnect + dispose Y.Doc on unmount. Without
-  // this, tabbing between pages would leak rooms and reconnect timers.
+  // Teardown: close ws + cancel reconnect on unmount. Without this, tabbing
+  // between pages would leak rooms and reconnect timers.
   //
-  // Ordering matters. @milkdown/react's editor.destroy() is async and chains
-  // its plugin cleanup through microtasks — including the y-prosemirror ySync
-  // binding's unobserve of the XmlFragment. Destroying the Y.Doc synchronously
-  // here (the old behaviour) fires that still-attached observer, which
-  // dispatches a transaction into an editor whose Milkdown ctx is mid-teardown
-  // → "Context editorState not found", thrown on every page switch.
-  // provider.destroy() runs synchronously (stops the ws + reconnect + outbound
-  // updates), but doc.destroy() is deferred to a macrotask so the editor's
-  // microtask-chained teardown — and thus the ySync unobserve — completes
-  // first. The doc has no other references by then, so this can't leak.
+  // We deliberately do NOT call collab.doc.destroy(). @milkdown/react's
+  // editor.destroy() is async and tears down across more than a microtask
+  // tick — including the y-prosemirror ySync binding's unobserve of the
+  // XmlFragment. Destroying the Y.Doc while that observer is still attached
+  // makes it dispatch a transaction into an editor whose Milkdown ctx is
+  // already half-removed → "Context editorState not found", thrown on every
+  // page switch (neither a synchronous destroy nor a setTimeout(0)-deferred
+  // one reliably lands after the async editor teardown). Skipping the destroy
+  // removes the only thing that mutates the fragment during teardown, so the
+  // observer never fires. provider.destroy() already stops the ws, reconnect
+  // timer, awareness and outbound doc updates; once collabRef is nulled the
+  // doc + provider have no remaining references and are garbage-collected.
   useEffect(() => {
     return () => {
       const collab = collabRef.current
       if (!collab) return
       collabRef.current = null
       collab.provider.destroy()
-      setTimeout(() => collab.doc.destroy(), 0)
     }
   }, [])
 
