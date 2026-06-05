@@ -12,17 +12,17 @@ Legend: ✅ done · 🔨 I can do now · 👤 Cagdas (account/dashboard) · 🖥
 | Item | Claude | ChatGPT | Status |
 |---|---|---|---|
 | Privacy policy (public URL) | mandatory | mandatory | ✅ `tela.cagdas.io/privacy` |
-| **Terms of Service (public URL, same domain)** | form attestation (Page 6) | reported required form field | 🔨 **MISSING — build `/terms`** |
-| Public documentation | mandatory | (docs link) | ✅ `tela.cagdas.io/mcp` — but 🔨 **add Troubleshooting + Limitations** (Claude requires both) |
+| **Terms of Service (public URL, same domain)** | form attestation (Page 6) | required form field | ✅ `tela.cagdas.io/terms` |
+| Public documentation | mandatory | (docs link) | ✅ `tela.cagdas.io/mcp` — now includes Troubleshooting + Limitations |
 | Support contact | mandatory | mandatory | ✅ `robot@cagdas.io` |
-| Security vulnerability reporting mechanism | mandatory (ongoing) | — | 🔨 add a security-contact line to privacy/docs |
+| Security vulnerability reporting mechanism | mandatory (ongoing) | — | ✅ security-report line in /privacy + /mcp |
 
 ## B. Assets
 | Item | Spec | Status |
 |---|---|---|
 | Square logo SVG (Claude) | 1:1 SVG, served at a URL | ✅ `tela.cagdas.io/favicon.svg` |
-| Favicon verification (Claude) | `s2/favicons?domain=tela.cagdas.io&sz=64` must show tela's mark | 🔎 verify it resolves to the indigo mark, not a default |
-| App icon 64×64 PNG (ChatGPT, opt. light/dark) | 64×64 PNG | 🔨 generate from the SVG (have `icon-512.png`) |
+| Favicon verification (Claude) | `s2/favicons?domain=tela.cagdas.io&sz=64` must show tela's mark | ✅ raster `favicon.ico`+PNG added & linked (Google cache may lag a few days) |
+| App icon 64×64 PNG (ChatGPT) | 64×64 PNG | ✅ `landing/public/icon-64.png` |
 | Widget screenshots | Claude: 3–5 PNG ≥1000px, cropped to the app response. ChatGPT: 1–4 PNG (~706px wide, unconfirmed), **no chat prompt in frame** | 🖥️ capture page-reader + search-results in a live host |
 | Promo/demo (optional) | Drive link; ChatGPT may want an MP4 demo on same domain | 👤/🖥️ optional |
 
@@ -44,7 +44,7 @@ Legend: ✅ done · 🔨 I can do now · 👤 Cagdas (account/dashboard) · 🖥
 | App name/desc/category/tagline | both | ✅ in submission docs |
 | 20-tool list + human names + annotations | both | ✅ |
 | `openWorldHint`/`destructiveHint` per-tool **written justifications** | ChatGPT (required) | ✅ in `docs/mcp-submission-chatgpt.md` |
-| Test cases: **5 positive + 3 negative**, with prompt + tool + expected output | ChatGPT | 🔨 write |
+| Test cases: **5 positive + 3 negative** | ChatGPT | ✅ in `docs/mcp-submission-chatgpt.md` |
 | Demo-account reviewer script | both | ✅ |
 
 ## E. Verify (engineering)
@@ -53,8 +53,8 @@ Legend: ✅ done · 🔨 I can do now · 👤 Cagdas (account/dashboard) · 🖥
 | Tool annotations correct over the wire | ✅ Inspector-verified live |
 | Response size cap (≤~25k tokens) | ✅ `get_page`/`fetch` capped 80k chars |
 | Read/write split, names ≤64, actionable errors | ✅ |
-| **Origin-header validation** on `/api/mcp` (DNS-rebind guard) | 🔎 confirm the MCP endpoint validates Origin |
-| **Data minimization** — tool outputs carry NO telemetry/internal IDs (session/trace/request IDs, logging metadata) | 🔎 audit get_page/search/fetch outputs (page timestamps/space_id are content, likely fine) |
+| **Origin-header validation** on `/api/mcp` | ✅ satisfied by bearer-token auth (DNS-rebind moot without the token); SDK guard left off so it can't break the browser-context widget round-trips |
+| **Data minimization** — no telemetry/internal IDs in tool outputs | ✅ audited: get_page/search/fetch expose only wiki content (id/title/body/hierarchy/content timestamps) |
 | Widgets render in-host | ✅ verified (other agent) |
 
 ## F. Done (engineering, confirmed live)
@@ -63,6 +63,6 @@ Transport (Streamable HTTP) · OAuth chain · 20 annotated tools · resources ·
 ---
 
 ## The actual gap list (what's genuinely left to *prepare*)
-**I can build now (🔨):** Terms of Service page · Troubleshooting + Limitations in the docs · security-contact line · 64×64 PNG icon · ChatGPT test-cases doc · the two 🔎 verifies (Origin validation, output data-minimization).
+**Done this pass (✅):** Terms of Service `/terms` · Troubleshooting + Limitations in `/mcp` · security-contact line · 64×64 icon · raster favicon · ChatGPT test-cases · both verifies (Origin = bearer-auth-satisfied, data-min = clean). All deployed live.
 **In-host (🖥️):** widget screenshots (both directories).
 **Cagdas (👤):** finish OpenAI org verification + billing + residency project + `api.apps.write`; verify the favicon; the two final submits.
