@@ -1,5 +1,10 @@
 # MCP directory submission — master prep checklist
 
+> ✅ **CLAUDE SUBMITTED — 2026-06-06.** Confirmation page received ("Thank you for indicating your interest in being included in the Anthropic MCP Directory"). No duplicate (verified first-time on Page 6). Edit the existing response (don't resubmit) via:
+> `https://docs.google.com/forms/u/0/d/e/1FAIpQLSeafJF2NDI7oYx1r8o0ycivCSVLNq92Mpc1FPxMKSw1CzDkqA/viewform?usp=form_confirm&edit2=2_ABaOnuc4rtQ9ONh-MS-RuwIxvBxgxKf9p-4TFUItkQp5sXVyK3kTrArftGpnJNvxW-x2TMw`
+> Surfaces attested: Claude.ai web + Claude Desktop + Claude Code. Contact/support: tela@cagdas.io. Review has no SLA; escalation mcp-review@anthropic.com.
+
+
 Grounded in the **actual** submission surfaces + policies (researched 2026-06-05):
 - Claude form: the real 6-page Google Form behind `clau.de/mcp-directory-submission` (parsed from its own field data) + [Software Directory Policy](https://support.claude.com/en/articles/13145358-anthropic-software-directory-policy) + [review criteria](https://claude.com/docs/connectors/building/review-criteria) + [auth](https://www.claude.com/docs/connectors/building/authentication) + [IP ranges](https://platform.claude.com/docs/en/api/ip-addresses).
 - ChatGPT: [app-submission-guidelines](https://developers.openai.com/apps-sdk/app-submission-guidelines) + [deploy/submission](https://developers.openai.com/apps-sdk/deploy/submission) (via Wayback — OpenAI TLS-blocks this host) + dashboard form per secondary walkthroughs.
