@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"database/sql"
 	"errors"
 	"fmt"
@@ -10,6 +11,8 @@ import (
 	"strings"
 	"unicode"
 	"unicode/utf8"
+
+	"github.com/zcag/tela/backend/internal/auth"
 )
 
 const backlinksSnippetRadius = 60
@@ -39,34 +42,42 @@ func (s *Server) Backlinks(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-
-	var targetSpaceID int64
-	err := s.DB.QueryRowContext(r.Context(), `SELECT space_id FROM pages WHERE id = $1`, id).Scan(&targetSpaceID)
-	if errors.Is(err, sql.ErrNoRows) {
-		// Collapse missing-page to 403 so non-members cannot tell
-		// "exists in another space" from "truly gone".
-		writeError(w, http.StatusForbidden, "forbidden", "not a member")
+	k, _ := auth.APIKeyFromContext(r.Context())
+	out, ae := s.backlinksCore(r.Context(), u, k, id)
+	if ae != nil {
+		writeError(w, ae.Status, ae.Code, ae.Message)
 		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"backlinks": out})
+}
+
+// backlinksCore is the transport-agnostic core behind GET /api/pages/{id}/backlinks
+// and the MCP list_backlinks tool: pages linking TO pageID, filtered to spaces
+// the caller can access (no cross-membership title/snippet leakage). Missing
+// target page collapses to the same 403 a non-member sees.
+func (s *Server) backlinksCore(ctx context.Context, u *auth.User, k *auth.APIKey, pageID int64) ([]backlinkHit, *apiErr) {
+	var targetSpaceID int64
+	err := s.DB.QueryRowContext(ctx, `SELECT space_id FROM pages WHERE id = $1`, pageID).Scan(&targetSpaceID)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, &apiErr{http.StatusForbidden, "forbidden", "not a member"}
 	}
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "internal", "lookup page failed")
-		return
+		return nil, &apiErr{http.StatusInternalServerError, "internal", "lookup page failed"}
 	}
-	if _, ok := s.requireMembership(w, r, targetSpaceID); !ok {
-		return
+	if _, ae := s.membershipCore(ctx, u, k, targetSpaceID); ae != nil {
+		return nil, ae
 	}
 
-	rows, err := s.DB.QueryContext(r.Context(), `
+	rows, err := s.DB.QueryContext(ctx, `
 		SELECT p.id, p.space_id, s.name, p.title, p.body
 		  FROM page_links l
 		  JOIN pages p ON p.id = l.source_id
 		  JOIN spaces s ON s.id = p.space_id
 		  JOIN (SELECT DISTINCT space_id FROM space_access WHERE user_id = $1) sm ON sm.space_id = p.space_id
 		 WHERE l.target_id = $2
-		 ORDER BY s.name ASC, p.title ASC`, u.ID, id)
+		 ORDER BY s.name ASC, p.title ASC`, u.ID, pageID)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "internal", "list backlinks failed")
-		return
+		return nil, &apiErr{http.StatusInternalServerError, "internal", "list backlinks failed"}
 	}
 	defer rows.Close()
 
@@ -78,22 +89,19 @@ func (s *Server) Backlinks(w http.ResponseWriter, r *http.Request) {
 	for rows.Next() {
 		var it rowItem
 		if err := rows.Scan(&it.SourceID, &it.SpaceID, &it.SpaceName, &it.Title, &it.Body); err != nil {
-			writeError(w, http.StatusInternalServerError, "internal", "scan backlink row failed")
-			return
+			return nil, &apiErr{http.StatusInternalServerError, "internal", "scan backlink row failed"}
 		}
 		items = append(items, it)
 	}
 	if err := rows.Err(); err != nil {
-		writeError(w, http.StatusInternalServerError, "internal", "iterate backlinks failed")
-		return
+		return nil, &apiErr{http.StatusInternalServerError, "internal", "iterate backlinks failed"}
 	}
 
 	out := make([]backlinkHit, 0, len(items))
 	for _, it := range items {
-		bc, err := pageBreadcrumb(r.Context(), s.DB, it.SourceID)
+		bc, err := pageBreadcrumb(ctx, s.DB, it.SourceID)
 		if err != nil {
-			writeError(w, http.StatusInternalServerError, "internal", "build breadcrumb failed")
-			return
+			return nil, &apiErr{http.StatusInternalServerError, "internal", "build breadcrumb failed"}
 		}
 		out = append(out, backlinkHit{
 			PageID:     it.SourceID,
@@ -101,11 +109,10 @@ func (s *Server) Backlinks(w http.ResponseWriter, r *http.Request) {
 			SpaceName:  it.SpaceName,
 			Title:      it.Title,
 			Breadcrumb: bc,
-			Snippet:    buildBacklinkSnippet(it.Body, id),
+			Snippet:    buildBacklinkSnippet(it.Body, pageID),
 		})
 	}
-
-	writeJSON(w, http.StatusOK, map[string]any{"backlinks": out})
+	return out, nil
 }
 
 // wikilinkMarkdownRE matches `[display text](tela://page/{N})` — the exact

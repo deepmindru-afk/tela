@@ -1,11 +1,14 @@
 package api
 
 import (
+	"context"
 	"database/sql"
 	"errors"
 	"net/http"
 	"strconv"
 	"strings"
+
+	"github.com/zcag/tela/backend/internal/auth"
 )
 
 // M16.A.5 server-side body search, used by the MCP `search_bodies` tool.
@@ -45,20 +48,37 @@ func (s *Server) SearchBodies(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	rawQuery := strings.TrimSpace(q.Get("q"))
-	if rawQuery == "" {
-		writeError(w, http.StatusBadRequest, "invalid_query", "q is required")
-		return
-	}
-
-	// Limit clamps silently per the M16.A.5 contract — agents passing a wild
-	// limit shouldn't break their search loop, just get a reasonable result set.
-	limit := int64(searchBodiesDefaultLimit)
+	limit := 0
 	if raw := q.Get("limit"); raw != "" {
-		v, perr := strconv.ParseInt(raw, 10, 64)
-		if perr == nil && v > 0 {
+		if v, perr := strconv.Atoi(raw); perr == nil {
 			limit = v
 		}
+	}
+
+	u, ok := requireUser(w, r)
+	if !ok {
+		return
+	}
+	k, _ := auth.APIKeyFromContext(r.Context())
+	results, ae := s.searchBodiesCore(r.Context(), u, k, spaceID, q.Get("q"), limit)
+	if ae != nil {
+		writeError(w, ae.Status, ae.Code, ae.Message)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"results": results})
+}
+
+// searchBodiesCore is the transport-agnostic core behind GET /api/search/bodies
+// and the MCP search_bodies tool: ranked FTS within one space, viewer-OK. limit
+// clamps silently to [1,100] (≤0 → default 20) per the M16.A.5 contract so an
+// agent passing a wild limit gets a sane result set instead of an error.
+func (s *Server) searchBodiesCore(ctx context.Context, u *auth.User, k *auth.APIKey, spaceID int64, rawQuery string, limit int) ([]searchBodyHit, *apiErr) {
+	rawQuery = strings.TrimSpace(rawQuery)
+	if rawQuery == "" {
+		return nil, &apiErr{http.StatusBadRequest, "invalid_query", "q is required"}
+	}
+	if limit <= 0 {
+		limit = searchBodiesDefaultLimit
 	}
 	if limit < searchBodiesMinLimit {
 		limit = searchBodiesMinLimit
@@ -67,21 +87,17 @@ func (s *Server) SearchBodies(w http.ResponseWriter, r *http.Request) {
 		limit = searchBodiesMaxLimit
 	}
 
-	if err := verifySpaceExists(r.Context(), s.DB, spaceID); err != nil {
+	if err := verifySpaceExists(ctx, s.DB, spaceID); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			writeError(w, http.StatusNotFound, "space_not_found", "space not found")
-			return
+			return nil, &apiErr{http.StatusNotFound, "space_not_found", "space not found"}
 		}
-		writeError(w, http.StatusInternalServerError, "internal", "lookup space failed")
-		return
+		return nil, &apiErr{http.StatusInternalServerError, "internal", "lookup space failed"}
 	}
-	// requireMembership writes the 403 envelope on non-member or bearer-space
-	// mismatch and returns ok=false.
-	if _, ok := s.requireMembership(w, r, spaceID); !ok {
-		return
+	if _, ae := s.membershipCore(ctx, u, k, spaceID); ae != nil {
+		return nil, ae
 	}
 
-	rows, err := s.DB.QueryContext(r.Context(), `
+	rows, err := s.DB.QueryContext(ctx, `
 		SELECT p.id, p.title,
 		       ts_rank_cd(p.search_tsv, websearch_to_tsquery('english', $2)) AS score
 		  FROM pages p
@@ -90,8 +106,7 @@ func (s *Server) SearchBodies(w http.ResponseWriter, r *http.Request) {
 		 ORDER BY score DESC, p.updated_at DESC
 		 LIMIT $3`, spaceID, rawQuery, limit)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "internal", "search query failed")
-		return
+		return nil, &apiErr{http.StatusInternalServerError, "internal", "search query failed"}
 	}
 	defer rows.Close()
 
@@ -103,15 +118,12 @@ func (s *Server) SearchBodies(w http.ResponseWriter, r *http.Request) {
 			score float64
 		)
 		if err := rows.Scan(&id, &title, &score); err != nil {
-			writeError(w, http.StatusInternalServerError, "internal", "scan search row failed")
-			return
+			return nil, &apiErr{http.StatusInternalServerError, "internal", "scan search row failed"}
 		}
 		results = append(results, searchBodyHit{ID: id, Title: title, Score: score})
 	}
 	if err := rows.Err(); err != nil {
-		writeError(w, http.StatusInternalServerError, "internal", "iterate search rows failed")
-		return
+		return nil, &apiErr{http.StatusInternalServerError, "internal", "iterate search rows failed"}
 	}
-
-	writeJSON(w, http.StatusOK, map[string]any{"results": results})
+	return results, nil
 }

@@ -89,19 +89,46 @@ func (s *Server) requireMembership(w http.ResponseWriter, r *http.Request, space
 	if !ok {
 		return "", false
 	}
-	if !enforceAPIKeySpaceScope(w, r, spaceID) {
-		return "", false
-	}
-	role, err := spaceRole(r.Context(), s.DB, u.ID, spaceID)
-	if errors.Is(err, sql.ErrNoRows) {
-		writeError(w, http.StatusForbidden, "forbidden", "not a member")
-		return "", false
-	}
-	if err != nil {
-		writeError(w, http.StatusInternalServerError, "internal", "lookup membership failed")
+	k, _ := auth.APIKeyFromContext(r.Context())
+	role, ae := s.membershipCore(r.Context(), u, k, spaceID)
+	if ae != nil {
+		writeError(w, ae.Status, ae.Code, ae.Message)
 		return "", false
 	}
 	return role, true
+}
+
+// membershipCore is the transport-agnostic core behind requireMembership: it
+// resolves the caller's effective role on spaceID, enforcing the bearer
+// space-scope ceiling first. Returns the role or an *apiErr (403
+// api_key_space_scope / 403 forbidden / 500). Shared by the REST handlers and
+// the MCP tools so the gating is identical across both surfaces. k may be nil
+// (cookie-session callers); pass auth.APIKeyFromContext's result.
+func (s *Server) membershipCore(ctx context.Context, u *auth.User, k *auth.APIKey, spaceID int64) (string, *apiErr) {
+	if ae := apiKeySpaceScopeErr(k, spaceID); ae != nil {
+		return "", ae
+	}
+	role, err := spaceRole(ctx, s.DB, u.ID, spaceID)
+	if errors.Is(err, sql.ErrNoRows) {
+		return "", &apiErr{http.StatusForbidden, "forbidden", "not a member"}
+	}
+	if err != nil {
+		return "", &apiErr{http.StatusInternalServerError, "internal", "lookup membership failed"}
+	}
+	return role, nil
+}
+
+// apiKeySpaceScopeErr is the ctx-form of enforceAPIKeySpaceScope: returns the
+// api_key_space_scope *apiErr when a space-pinned bearer key targets a
+// different space, else nil. k may be nil. Shared by the extracted cores.
+func apiKeySpaceScopeErr(k *auth.APIKey, spaceID int64) *apiErr {
+	if k == nil || k.SpaceID == nil {
+		return nil
+	}
+	if *k.SpaceID != spaceID {
+		return &apiErr{http.StatusForbidden, "api_key_space_scope", "api key is restricted to a different space"}
+	}
+	return nil
 }
 
 // enforceAPIKeySpaceScope writes a 403 api_key_space_scope envelope and

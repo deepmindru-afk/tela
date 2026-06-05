@@ -42,21 +42,42 @@ func (s *Server) Search(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	q := strings.TrimSpace(r.URL.Query().Get("q"))
-	if q == "" {
-		writeJSON(w, http.StatusOK, map[string]any{"results": []searchHit{}})
+	k, _ := auth.APIKeyFromContext(r.Context())
+	results, ae := s.searchCore(r.Context(), u, k, r.URL.Query().Get("q"), nil, searchLimit)
+	if ae != nil {
+		writeError(w, ae.Status, ae.Code, ae.Message)
 		return
 	}
+	writeJSON(w, http.StatusOK, map[string]any{"results": results})
+}
 
-	// Bearer-mode with a space_id restriction narrows to that one space — without
-	// it we'd surface titles from any space the user is a member of, even though
-	// the bearer scope forbids opening them.
+// searchCore is the transport-agnostic core behind GET /api/search and the MCP
+// search tool: ranked FTS over the caller's accessible pages. spaceFilter
+// narrows to one space (the MCP tool's optional space_id); a space-pinned bearer
+// key overrides it to its own space. Empty query returns an empty slice (the
+// command palette calls this on every keystroke). limit ≤ 0 falls back to
+// searchLimit.
+func (s *Server) searchCore(ctx context.Context, u *auth.User, k *auth.APIKey, query string, spaceFilter *int64, limit int) ([]searchHit, *apiErr) {
+	query = strings.TrimSpace(query)
+	if query == "" {
+		return []searchHit{}, nil
+	}
+	if limit <= 0 {
+		limit = searchLimit
+	}
+	// A space-pinned bearer key is a strict ceiling: force its space regardless
+	// of any caller-provided filter (without it we'd surface titles from any
+	// space the user is a member of, even though the scope forbids opening them).
+	if k != nil && k.SpaceID != nil {
+		spaceFilter = k.SpaceID
+	}
+
 	var (
 		rows *sql.Rows
 		err  error
 	)
-	if k, isBearer := auth.APIKeyFromContext(r.Context()); isBearer && k.SpaceID != nil {
-		rows, err = s.DB.QueryContext(r.Context(), `
+	if spaceFilter != nil {
+		rows, err = s.DB.QueryContext(ctx, `
 			SELECT p.id, p.space_id, p.title,
 			       ts_headline('english', `+stripExcalidrawSQL+`,
 			                   websearch_to_tsquery('english', $3), $4) AS snippet
@@ -64,9 +85,9 @@ func (s *Server) Search(w http.ResponseWriter, r *http.Request) {
 			JOIN (SELECT DISTINCT space_id FROM space_access WHERE user_id = $1) sm ON sm.space_id = p.space_id
 			WHERE p.space_id = $2 AND p.search_tsv @@ websearch_to_tsquery('english', $3)
 			ORDER BY ts_rank_cd(p.search_tsv, websearch_to_tsquery('english', $3)) DESC, p.updated_at DESC
-			LIMIT $5`, u.ID, *k.SpaceID, q, headlineOpts, searchLimit)
+			LIMIT $5`, u.ID, *spaceFilter, query, headlineOpts, limit)
 	} else {
-		rows, err = s.DB.QueryContext(r.Context(), `
+		rows, err = s.DB.QueryContext(ctx, `
 			SELECT p.id, p.space_id, p.title,
 			       ts_headline('english', `+stripExcalidrawSQL+`,
 			                   websearch_to_tsquery('english', $2), $3) AS snippet
@@ -74,11 +95,10 @@ func (s *Server) Search(w http.ResponseWriter, r *http.Request) {
 			JOIN (SELECT DISTINCT space_id FROM space_access WHERE user_id = $1) sm ON sm.space_id = p.space_id
 			WHERE p.search_tsv @@ websearch_to_tsquery('english', $2)
 			ORDER BY ts_rank_cd(p.search_tsv, websearch_to_tsquery('english', $2)) DESC, p.updated_at DESC
-			LIMIT $4`, u.ID, q, headlineOpts, searchLimit)
+			LIMIT $4`, u.ID, query, headlineOpts, limit)
 	}
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "internal", "search query failed")
-		return
+		return nil, &apiErr{http.StatusInternalServerError, "internal", "search query failed"}
 	}
 	defer rows.Close()
 
@@ -91,22 +111,19 @@ func (s *Server) Search(w http.ResponseWriter, r *http.Request) {
 	for rows.Next() {
 		var h hitRow
 		if err := rows.Scan(&h.ID, &h.SpaceID, &h.Title, &h.Snippet); err != nil {
-			writeError(w, http.StatusInternalServerError, "internal", "scan search row failed")
-			return
+			return nil, &apiErr{http.StatusInternalServerError, "internal", "scan search row failed"}
 		}
 		hits = append(hits, h)
 	}
 	if err := rows.Err(); err != nil {
-		writeError(w, http.StatusInternalServerError, "internal", "iterate search rows failed")
-		return
+		return nil, &apiErr{http.StatusInternalServerError, "internal", "iterate search rows failed"}
 	}
 
 	results := make([]searchHit, 0, len(hits))
 	for _, h := range hits {
-		bc, err := pageBreadcrumb(r.Context(), s.DB, h.ID)
+		bc, err := pageBreadcrumb(ctx, s.DB, h.ID)
 		if err != nil {
-			writeError(w, http.StatusInternalServerError, "internal", "build breadcrumb failed")
-			return
+			return nil, &apiErr{http.StatusInternalServerError, "internal", "build breadcrumb failed"}
 		}
 		results = append(results, searchHit{
 			PageID:     h.ID,
@@ -116,8 +133,7 @@ func (s *Server) Search(w http.ResponseWriter, r *http.Request) {
 			Breadcrumb: bc,
 		})
 	}
-
-	writeJSON(w, http.StatusOK, map[string]any{"results": results})
+	return results, nil
 }
 
 // pageBreadcrumb returns ancestor titles for pageID, ordered root → immediate

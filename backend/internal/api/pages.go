@@ -95,27 +95,45 @@ func (s *Server) ListPages(w http.ResponseWriter, r *http.Request) {
 	parentIDStr := q.Get("parent_id")
 	parentIDPresent := q.Has("parent_id")
 
-	var rows *sql.Rows
-	switch {
-	case !parentIDPresent || parentIDStr == "" || parentIDStr == "null":
-		rows, err = s.DB.QueryContext(r.Context(),
-			`SELECT id, space_id, parent_id, title, body, position, created_at, updated_at
-			 FROM pages WHERE space_id = $1 AND parent_id IS NULL
-			 ORDER BY position ASC, id ASC`, spaceID)
-	default:
-		parentID, perr := strconv.ParseInt(parentIDStr, 10, 64)
-		if perr != nil || parentID <= 0 {
+	var parentID *int64
+	if parentIDPresent && parentIDStr != "" && parentIDStr != "null" {
+		pid, perr := strconv.ParseInt(parentIDStr, 10, 64)
+		if perr != nil || pid <= 0 {
 			writeError(w, http.StatusBadRequest, "invalid_query", "parent_id must be a positive integer or 'null'")
 			return
 		}
-		rows, err = s.DB.QueryContext(r.Context(),
-			`SELECT id, space_id, parent_id, title, body, position, created_at, updated_at
-			 FROM pages WHERE space_id = $1 AND parent_id = $2
-			 ORDER BY position ASC, id ASC`, spaceID, parentID)
+		parentID = &pid
 	}
+
+	out, err := listPagesFlat(r.Context(), s.DB, spaceID, parentID)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "internal", "list pages failed")
 		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"pages": out})
+}
+
+// listPagesFlat returns the direct children of parentID in spaceID (roots when
+// parentID is nil), each enriched with resolved exposure. Auth-free shared core
+// behind the flat branch of GET /api/pages and the MCP list_pages tool — the
+// caller must do space-exists + membership gating first (listPagesCore does for
+// the MCP path; ListPages does inline for both its tree and flat branches).
+func listPagesFlat(ctx context.Context, db *sql.DB, spaceID int64, parentID *int64) ([]pageWithExposure, error) {
+	var rows *sql.Rows
+	var err error
+	if parentID == nil {
+		rows, err = db.QueryContext(ctx,
+			`SELECT id, space_id, parent_id, title, body, position, created_at, updated_at
+			 FROM pages WHERE space_id = $1 AND parent_id IS NULL
+			 ORDER BY position ASC, id ASC`, spaceID)
+	} else {
+		rows, err = db.QueryContext(ctx,
+			`SELECT id, space_id, parent_id, title, body, position, created_at, updated_at
+			 FROM pages WHERE space_id = $1 AND parent_id = $2
+			 ORDER BY position ASC, id ASC`, spaceID, *parentID)
+	}
+	if err != nil {
+		return nil, err
 	}
 	defer rows.Close()
 
@@ -123,27 +141,43 @@ func (s *Server) ListPages(w http.ResponseWriter, r *http.Request) {
 	for rows.Next() {
 		p, err := scanPageFromRows(rows)
 		if err != nil {
-			writeError(w, http.StatusInternalServerError, "internal", "scan page row failed")
-			return
+			return nil, err
 		}
 		pages = append(pages, p)
 	}
 	if err := rows.Err(); err != nil {
-		writeError(w, http.StatusInternalServerError, "internal", "iterate pages failed")
-		return
+		return nil, err
 	}
 
-	exposures, err := resolveSpaceExposures(r.Context(), s.DB, spaceID)
+	exposures, err := resolveSpaceExposures(ctx, db, spaceID)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "internal", "resolve exposures failed")
-		return
+		return nil, err
 	}
 	out := make([]pageWithExposure, 0, len(pages))
 	for _, p := range pages {
 		e := exposures[p.ID]
 		out = append(out, pageWithExposure{Page: p, Exposure: &e})
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"pages": out})
+	return out, nil
+}
+
+// listPagesCore is the transport-agnostic core behind the MCP list_pages tool:
+// verify the space exists, gate on membership, then return the flat child list.
+// Mirrors the flat branch of ListPages with the same checks in the same order.
+func (s *Server) listPagesCore(ctx context.Context, u *auth.User, k *auth.APIKey, spaceID int64, parentID *int64) ([]pageWithExposure, *apiErr) {
+	if err := verifySpaceExists(ctx, s.DB, spaceID); errors.Is(err, sql.ErrNoRows) {
+		return nil, &apiErr{http.StatusNotFound, "space_not_found", "space not found"}
+	} else if err != nil {
+		return nil, &apiErr{http.StatusInternalServerError, "internal", "lookup space failed"}
+	}
+	if _, ae := s.membershipCore(ctx, u, k, spaceID); ae != nil {
+		return nil, ae
+	}
+	out, err := listPagesFlat(ctx, s.DB, spaceID, parentID)
+	if err != nil {
+		return nil, &apiErr{http.StatusInternalServerError, "internal", "list pages failed"}
+	}
+	return out, nil
 }
 
 // ListAllPages returns every page in every space the caller is a member of
@@ -350,18 +384,14 @@ func (s *Server) GetPage(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	p, err := selectPageByID(r.Context(), s.DB, id)
-	if errors.Is(err, sql.ErrNoRows) {
-		// Collapse missing-page to the same 403 a non-member would see, so
-		// callers cannot enumerate page ids across spaces they're not in.
-		writeError(w, http.StatusForbidden, "forbidden", "not a member")
+	u, ok := requireUser(w, r)
+	if !ok {
 		return
 	}
-	if err != nil {
-		writeError(w, http.StatusInternalServerError, "internal", "fetch page failed")
-		return
-	}
-	if _, ok := s.requireMembership(w, r, p.SpaceID); !ok {
+	k, _ := auth.APIKeyFromContext(r.Context())
+	p, ae := s.getPageCore(r.Context(), u, k, id)
+	if ae != nil {
+		writeError(w, ae.Status, ae.Code, ae.Message)
 		return
 	}
 	exp, err := resolvePageExposure(r.Context(), s.DB, p.ID, p.SpaceID)
@@ -370,6 +400,25 @@ func (s *Server) GetPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"page": p, "exposure": exp})
+}
+
+// getPageCore is the transport-agnostic core behind GET /api/pages/{id} and the
+// MCP get_page tool: fetch the page and gate on space membership. Missing page
+// collapses to the same 403 a non-member sees so ids can't be enumerated across
+// spaces. The REST route additionally resolves exposure (the MCP tool doesn't
+// need it).
+func (s *Server) getPageCore(ctx context.Context, u *auth.User, k *auth.APIKey, id int64) (models.Page, *apiErr) {
+	p, err := selectPageByID(ctx, s.DB, id)
+	if errors.Is(err, sql.ErrNoRows) {
+		return models.Page{}, &apiErr{http.StatusForbidden, "forbidden", "not a member"}
+	}
+	if err != nil {
+		return models.Page{}, &apiErr{http.StatusInternalServerError, "internal", "fetch page failed"}
+	}
+	if _, ae := s.membershipCore(ctx, u, k, p.SpaceID); ae != nil {
+		return models.Page{}, ae
+	}
+	return p, nil
 }
 
 func (s *Server) UpdatePage(w http.ResponseWriter, r *http.Request) {

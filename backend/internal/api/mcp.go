@@ -84,6 +84,20 @@ func mcpIdentity(req *mcp.CallToolRequest) (*auth.User, *auth.APIKey) {
 	return u, k
 }
 
+// mcpRequireWrite enforces, at the tool boundary, the write/admin-scope gate
+// that the HTTP method-scope middleware applies to mutating REST routes. The
+// MCP transport is mounted public (single POST endpoint carries read + write
+// tools), so the per-tool scope check moves here: a read-scope key calling a
+// write tool gets the same api_key_scope 403 it would get from the middleware.
+// Returns nil for write/admin keys (and for nil/session callers — not reachable
+// over MCP, but safe).
+func mcpRequireWrite(k *auth.APIKey) *apiErr {
+	if k == nil || k.Scope != auth.ScopeRead {
+		return nil
+	}
+	return &apiErr{http.StatusForbidden, "api_key_scope", "api key scope does not permit this method"}
+}
+
 // mcpErr maps a core *apiErr to a tool-error CallToolResult. The text payload
 // is the same {error, code, status} envelope the TS client surfaced, so agents
 // keyed on `code` keep working.

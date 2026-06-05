@@ -2,8 +2,11 @@ package api
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"net/http"
+	"net/http/httptest"
+	"strconv"
 	"testing"
 	"time"
 
@@ -105,6 +108,164 @@ func TestMCP_SpikeListSpaces(t *testing.T) {
 		t.Errorf("unexpected space: %+v", out.Spaces[0])
 	}
 	_ = bob
+}
+
+// mcpSession opens an authenticated MCP client session against ts using token.
+func mcpSession(t *testing.T, ctx context.Context, ts *httptest.Server, token string) *mcp.ClientSession {
+	t.Helper()
+	transport := &mcp.StreamableClientTransport{
+		Endpoint: ts.URL + "/api/mcp",
+		HTTPClient: &http.Client{
+			Transport: bearerRoundTripper{token: token, base: http.DefaultTransport},
+		},
+	}
+	client := mcp.NewClient(&mcp.Implementation{Name: "test", Version: "0"}, nil)
+	session, err := client.Connect(ctx, transport, nil)
+	if err != nil {
+		t.Fatalf("connect: %v", err)
+	}
+	t.Cleanup(func() { session.Close() })
+	return session
+}
+
+func seedReadKey(t *testing.T, d *sql.DB, uid int64, scope string) string {
+	t.Helper()
+	raw, prefix, _, err := auth.NewAPIKey(auth.LoadAPIKeySecret())
+	if err != nil {
+		t.Fatalf("new api key: %v", err)
+	}
+	hmacHex := auth.HMACAPIKey(auth.LoadAPIKeySecret(), raw)
+	if _, err := d.ExecContext(context.Background(), `
+		INSERT INTO api_keys (user_id, name, key_prefix, key_hmac, scope, space_id)
+		VALUES ($1, 'mcp', $2, $3, $4, NULL)`, uid, prefix, hmacHex, scope); err != nil {
+		t.Fatalf("seed key: %v", err)
+	}
+	return raw
+}
+
+func mcpCallJSON(t *testing.T, ctx context.Context, sess *mcp.ClientSession, name string, args map[string]any, out any) {
+	t.Helper()
+	res, err := sess.CallTool(ctx, &mcp.CallToolParams{Name: name, Arguments: args})
+	if err != nil {
+		t.Fatalf("call %s: %v", name, err)
+	}
+	if res.IsError {
+		t.Fatalf("%s returned tool error: %v", name, res.Content)
+	}
+	raw, _ := json.Marshal(res.StructuredContent)
+	if err := json.Unmarshal(raw, out); err != nil {
+		t.Fatalf("decode %s output %s: %v", name, raw, err)
+	}
+}
+
+// TestMCP_ReadTools exercises the Phase-1 read surface end-to-end over the MCP
+// transport: list_pages, get_page, search, search_bodies, list_backlinks. It
+// asserts results are space-scoped and that the typed structured output decodes.
+func TestMCP_ReadTools(t *testing.T) {
+	ts, d := newWiredServer(t)
+	alice := seedUser(t, d, "alice", "alicepw12", false)
+	space := seedSpace(t, d, "Docs", "docs", alice)
+	other := seedUser(t, d, "bob", "bobpw1234", false)
+	otherSpace := seedSpace(t, d, "Bob", "bob", other)
+
+	// alice's pages: a parent "Alpha" with body, and a child "Beta" linking to it.
+	var alphaID int64
+	if err := d.QueryRowContext(context.Background(),
+		`INSERT INTO pages (space_id, parent_id, title, body, position) VALUES ($1, NULL, 'Alpha', 'the quick brown fox', 0) RETURNING id`,
+		space).Scan(&alphaID); err != nil {
+		t.Fatalf("insert alpha: %v", err)
+	}
+	betaBody := "see [Alpha](tela://page/" + strconv.FormatInt(alphaID, 10) + ") for context"
+	var betaID int64
+	if err := d.QueryRowContext(context.Background(),
+		`INSERT INTO pages (space_id, parent_id, title, body, position) VALUES ($1, $2, 'Beta', $3, 0) RETURNING id`,
+		space, alphaID, betaBody).Scan(&betaID); err != nil {
+		t.Fatalf("insert beta: %v", err)
+	}
+	// page_links row so backlinks resolve (mirrors syncPageLinks on save).
+	if _, err := d.ExecContext(context.Background(),
+		`INSERT INTO page_links (source_id, target_id, last_known_title) VALUES ($1, $2, 'Alpha')`,
+		betaID, alphaID); err != nil {
+		t.Fatalf("insert page_link: %v", err)
+	}
+	_ = otherSpace
+
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+	sess := mcpSession(t, ctx, ts, seedReadKey(t, d, alice, auth.ScopeRead))
+
+	// list_pages top-level → just Alpha.
+	var lp listPagesOut
+	mcpCallJSON(t, ctx, sess, "list_pages", map[string]any{"space_id": space}, &lp)
+	if len(lp.Pages) != 1 || lp.Pages[0].Title != "Alpha" {
+		t.Fatalf("list_pages top-level: %+v", lp.Pages)
+	}
+	if lp.Pages[0].URL == "" {
+		t.Errorf("list_pages item missing url")
+	}
+
+	// list_pages with parent_id → just Beta.
+	var lpc listPagesOut
+	mcpCallJSON(t, ctx, sess, "list_pages", map[string]any{"space_id": space, "parent_id": alphaID}, &lpc)
+	if len(lpc.Pages) != 1 || lpc.Pages[0].Title != "Beta" {
+		t.Fatalf("list_pages child: %+v", lpc.Pages)
+	}
+
+	// get_page → full body + url.
+	var gp getPageOut
+	mcpCallJSON(t, ctx, sess, "get_page", map[string]any{"id": alphaID}, &gp)
+	if gp.Page.Body != "the quick brown fox" || gp.Page.URL == "" {
+		t.Fatalf("get_page: %+v", gp.Page)
+	}
+
+	// search → Alpha matches "fox".
+	var sr searchOut
+	mcpCallJSON(t, ctx, sess, "search", map[string]any{"query": "fox"}, &sr)
+	if len(sr.Results) != 1 || sr.Results[0].PageID != alphaID {
+		t.Fatalf("search fox: %+v", sr.Results)
+	}
+
+	// search_bodies within the space.
+	var sbr searchBodiesOut
+	mcpCallJSON(t, ctx, sess, "search_bodies", map[string]any{"query": "fox", "space_id": space}, &sbr)
+	if len(sbr.Results) != 1 || sbr.Results[0].ID != alphaID {
+		t.Fatalf("search_bodies: %+v", sbr.Results)
+	}
+
+	// list_backlinks → Beta links to Alpha.
+	var bl listBacklinksOut
+	mcpCallJSON(t, ctx, sess, "list_backlinks", map[string]any{"page_id": alphaID}, &bl)
+	if len(bl.Backlinks) != 1 || bl.Backlinks[0].PageID != betaID {
+		t.Fatalf("list_backlinks: %+v", bl.Backlinks)
+	}
+}
+
+// TestMCP_ReadToolCrossSpaceDenied asserts a read key cannot reach a space the
+// user isn't a member of (get_page collapses to the 403 "not a member").
+func TestMCP_ReadToolCrossSpaceDenied(t *testing.T) {
+	ts, d := newWiredServer(t)
+	alice := seedUser(t, d, "alice", "alicepw12", false)
+	seedSpace(t, d, "Alice", "alice", alice)
+	bob := seedUser(t, d, "bob", "bobpw1234", false)
+	bobSpace := seedSpace(t, d, "Bob", "bob", bob)
+	var bobPage int64
+	if err := d.QueryRowContext(context.Background(),
+		`INSERT INTO pages (space_id, parent_id, title, body, position) VALUES ($1, NULL, 'Secret', 'x', 0) RETURNING id`,
+		bobSpace).Scan(&bobPage); err != nil {
+		t.Fatalf("insert: %v", err)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+	sess := mcpSession(t, ctx, ts, seedReadKey(t, d, alice, auth.ScopeRead))
+
+	res, err := sess.CallTool(ctx, &mcp.CallToolParams{Name: "get_page", Arguments: map[string]any{"id": bobPage}})
+	if err != nil {
+		t.Fatalf("call get_page: %v", err)
+	}
+	if !res.IsError {
+		t.Fatalf("expected get_page on another user's space to be a tool error")
+	}
 }
 
 // TestMCP_SpikeRejectsNoToken asserts the transport refuses an unauthenticated
