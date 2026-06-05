@@ -462,3 +462,60 @@ same `RequireBearerToken` seam via its `ResourceMetadataURL` option (PRM /
 - Official Go SDK `examples/` + `auth`/`oauthex` packages — the Go-native
   starting point (no canonical Go remote+OAuth reference as polished as the TS
   ones yet).
+
+---
+
+## 12. Remaining-work checklist (living — keep updated)
+
+Status of the full-functionality surface. ✅ done · ⬜ todo · 🟡 partial · ❌ won't-do.
+
+### Phase 0 — transport ✅ (on main)
+- ✅ Streamable-HTTP server at `/api/mcp`, official go-sdk v1.6.1
+- ✅ Bearer verifier over tela PATs; identity via `req.GetExtra().TokenInfo`
+- ✅ `apiErr` shared error type; `/api/mcp` on `IsPublicPath`; `mcpRequireWrite`
+
+### Phase 1 — tool parity 🟡 (16/18 on main)
+- ✅ Reads (8): list_spaces, list_pages, get_page, list_backlinks, search, search_bodies, semantic_search, read_chunk
+- ✅ Writes (8): create_page, update_page, delete_page, add_comment, create_space, update_space, delete_space, submit_feedback
+- ✅ All via shared `xCore` funcs (REST + MCP); typed output schemas; annotations; per-tool scope
+- ✅ Write cores enqueue `rag.QueueReindex` (so MCP writes reindex too)
+- ⬜ **import_mira** — extract `importMiraCore`; keep SSRF allowlist + https-only + no-redirects; source_url XOR inline payload (payload as typed arg, not MaxBytesReader)
+- ⬜ **import_markdown** — REDESIGN for remote: `local_path` is meaningless on the server. Options: accept inline `{path, content}[]` array, or a base64 zip arg. Decide shape, then core + tool. (Until then, the tool is absent — flag in docs.)
+- ⬜ Consider exposing **move_page** (REST `MovePage` exists; old TS MCP omitted it) and **get_space** — decide if agents need them
+
+### Phase 2 — resources + links (NEXT)
+- ⬜ `tela://page/{id}` resource template (read → markdown `# title\n\nbody`); re-parse `{id}` from `req.Params.URI` (SDK doesn't parse template vars); gate on membership; `ResourceNotFoundError`/403-collapse
+- ⬜ Resource links in tool results: get_page, search, semantic_search, create_page return `&mcp.ResourceLink{URI, Name, MIMEType}` alongside structured output
+- ⬜ (optional) `tela://space/{id}` resource
+- ❌ `resources/list_changed` on page mutations — NOT applicable: template is static, SDK only fires list_changed on Add/Remove of SDK objects, not data changes. Skip.
+- ❌ Resource subscriptions — low host support, high state cost. Skip.
+
+### Phase 3 — prompts + completions + elicitation
+- ⬜ Prompts: `summarize-space`, `draft-page`, `release-notes`, `find-and-cite` (server.AddPrompt; args are `map[string]string`)
+- ⬜ Completions: single `ServerOptions.CompletionHandler`; branch on `Ref`/`Argument.Name` for space names, page titles, chunk ids
+- ⬜ Elicitation (selective): disambiguate space when omitted + user in multiple; confirm `delete_space` cascade. Requires stateful session; degrade gracefully
+
+### Phase 4 — collapse the npm package
+- ⬜ Convert `tela-mcp` to a thin stdio↔HTTP proxy (no tool logic) OR deprecate in favor of `--transport http`
+- ⬜ Delete the TS 18-tool implementation + its unit/smoke/integration suites
+- ⬜ Update `mcp/README.md` + `docs/` to point at the HTTP endpoint
+- ⬜ Decide: publish proxy as a new major, or sunset the package
+
+### Phase 5 — OAuth (Connect button, hosted instance)
+- ⬜ RFC 9728 Protected Resource Metadata at `/.well-known/oauth-protected-resource`
+- ⬜ `WWW-Authenticate` on 401 — wire `RequireBearerTokenOptions.ResourceMetadataURL` (seam already in `MCPHandler`)
+- ⬜ Delegate AS (WorkOS/Stytch) on the hosted instance; make MCP host/AS configurable in settings for self-hosters; PAT-bearer stays the universal baseline
+- ⬜ DECIDE AS provider (WorkOS vs Stytch vs self-run Hydra) — open
+
+### Phase 6 — MCP Apps widgets
+- ⬜ VERIFY Apps-SDK `_meta` key names against live OpenAI docs before coding
+- ⬜ Widget bundles (standalone sandboxed iframes): rendered page preview, search-results cards, diff/version view
+- ⬜ `ui://` resources + `_meta` (`openai/outputTemplate`; `text/html+skybridge` for ChatGPT)
+
+### Cross-cutting / polish (for "complete" parity)
+- ⬜ **Audit logging gap** — `/api/mcp` is on `IsPublicPath`, so it bypasses `auth.Middleware`'s `AuditWriter`; MCP tool calls currently emit NO `api_key_audit` rows. Add audit emission in the verifier/handler or per-tool to restore parity with REST-via-PAT.
+- ⬜ Pagination (cursor + `next_cursor`) on `list_*` / `search*` tools (SDK paginates `*/list`; tool results are ours to paginate)
+- ⬜ Progress notifications on long ops (import, reindex) via `req.Session.NotifyProgress`
+- ⬜ MCP protocol drift test: assert `tools/list` schemas (extend the e2e tests)
+- ⬜ Prod exposure hardening: `StreamableHTTPOptions` CrossOriginProtection/Origin allowlist; keep stateful (single-instance) — revisit EventStore/session store only if scaling horizontally
+- ✅ `last_used_at` stamping still works (verifier calls `LookupAPIKey`)
