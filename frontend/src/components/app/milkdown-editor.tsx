@@ -20,7 +20,7 @@ import {
   usePluginViewFactory,
 } from '@prosemirror-adapter/react'
 import { prism, prismConfig } from '@milkdown/plugin-prism'
-import { Plugin } from '@milkdown/kit/prose/state'
+import { Plugin, TextSelection } from '@milkdown/kit/prose/state'
 import type { EditorView } from '@milkdown/kit/prose/view'
 import * as Y from 'yjs'
 import {
@@ -711,7 +711,16 @@ function MilkdownEditorInner({
     didAutoFocusRef.current = true
     const editor = get()
     editor?.action((ctx) => {
-      ctx.get(editorViewCtx).focus()
+      const view = ctx.get(editorViewCtx)
+      // Anchor the caret to the document start before focusing. ProseMirror's
+      // focus() scrolls the current selection into view; on a long page the
+      // body-autofocus would otherwise land the view scrolled down with the
+      // title off-screen (the recurring "opens scrolled" bug). Forcing the
+      // selection to the start means focus scrolls to the top — preserving
+      // "open pages scrolled to the top" while still putting the cursor in the
+      // body for immediate typing.
+      view.dispatch(view.state.tr.setSelection(TextSelection.atStart(view.state.doc)))
+      view.focus()
     })
   }, [loading, autoFocus, get])
 
