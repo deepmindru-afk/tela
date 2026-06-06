@@ -7,16 +7,20 @@ interface Props {
   /** Longer copy for the social card; falls back to `description`. The meta
    *  description stays ≤~160 chars for SERP; og/twitter can run longer. */
   ogDescription?: string;
+  /** Per-page social-card image (absolute path under /public). Defaults to the
+   *  home card. */
+  ogImagePath?: string;
 }
 
 const {
   title = 'tela — the agent-native team wiki your AI reasons over',
   description = 'Open-source markdown team wiki with a built-in MCP server and semantic search — so Claude and ChatGPT read, write, and cite your docs. Hosted or self-hosted.',
   ogDescription = description,
+  ogImagePath = '/og-image.png',
 } = Astro.props;
 
 // Absolute OG image URL (Astro.site = https://tela.cagdas.io).
-const ogImage = new URL('/og-image.png', Astro.site).href;
+const ogImage = new URL(ogImagePath, Astro.site).href;
 ---
 
 <!doctype html>

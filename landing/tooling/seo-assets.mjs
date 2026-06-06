@@ -58,6 +58,26 @@ const OG_HTML = `<!doctype html><html><head><meta charset="utf-8">
   </div>
 </div></body></html>`;
 
+// Page-scoped card for /mcp — same chrome as the home card, MCP-focused copy.
+const OG_MCP_HTML = OG_HTML
+  .replace(
+    '<h1 class="headline">The wiki your agents can <span class="ink">write to.</span></h1>',
+    '<h1 class="headline">The MCP server for your <span class="ink">team wiki.</span></h1>',
+  )
+  .replace(
+    `<div class="pills">
+      <span class="pill">Markdown-native</span>
+      <span class="pill">Self-hosted</span>
+      <span class="pill">MCP built in</span>
+    </div>`,
+    `<div class="pills">
+      <span class="pill">20 tools</span>
+      <span class="pill">OAuth 2.1</span>
+      <span class="pill">Claude · ChatGPT</span>
+    </div>`,
+  )
+  .replace('<span class="url">tela.cagdas.io</span>', '<span class="url">tela.cagdas.io/mcp</span>');
+
 const icon = (s) => `<!doctype html><html><head><meta charset="utf-8"><style>
   *{margin:0;padding:0}html,body{width:${s}px;height:${s}px}
   .i{width:${s}px;height:${s}px;background:#4f46e5;overflow:hidden}
@@ -74,6 +94,16 @@ await p.waitForTimeout(400);
 await p.screenshot({ path: 'public/og-image.png', clip: { x: 0, y: 0, width: 1200, height: 630 } });
 await ctx.close();
 console.log('✓ og-image.png');
+
+// /mcp page card
+ctx = await browser.newContext({ viewport: { width: 1200, height: 630 }, deviceScaleFactor: 1 });
+p = await ctx.newPage();
+await p.setContent(OG_MCP_HTML, { waitUntil: 'networkidle' });
+await p.evaluate(async () => { if (document.fonts?.ready) await document.fonts.ready; });
+await p.waitForTimeout(400);
+await p.screenshot({ path: 'public/og-mcp.png', clip: { x: 0, y: 0, width: 1200, height: 630 } });
+await ctx.close();
+console.log('✓ og-mcp.png');
 
 for (const [s, name] of [[180, 'apple-touch-icon.png'], [192, 'icon-192.png'], [512, 'icon-512.png']]) {
   ctx = await browser.newContext({ viewport: { width: s, height: s }, deviceScaleFactor: 1 });
