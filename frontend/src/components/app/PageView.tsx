@@ -13,6 +13,7 @@ import {
   BookOpen,
   ChevronRight,
   FileDown,
+  FileQuestion,
   FileText,
   Hash,
   History,
@@ -21,6 +22,7 @@ import {
   MoreHorizontal,
   Plus,
   Trash2,
+  TriangleAlert,
 } from 'lucide-react'
 import type { EditorView } from '@milkdown/kit/prose/view'
 import { ApiError } from '../../lib/api'
@@ -55,6 +57,7 @@ import {
 import { useSpace } from '../../lib/queries/spaces'
 import type { Page, PageTreeNode } from '../../lib/types'
 import { Button } from '../ui/button'
+import { EmptyState } from '../ui/empty-state'
 import {
   Card,
   CardDescription,
@@ -1151,36 +1154,34 @@ function PageLoading() {
 
 function PageError({ onRetry }: { onRetry: () => void }) {
   return (
-    <div className="flex-1 flex items-center justify-center p-[var(--space-7)]">
-      <div className="flex flex-col items-center gap-[var(--space-3)] text-center">
-        <p className="m-0 text-[length:var(--text-base)] text-[var(--danger)]">
-          Couldn't load this page.
-        </p>
+    <EmptyState
+      icon={TriangleAlert}
+      tone="danger"
+      title="Couldn't load this page"
+      description="Something went wrong reaching the server. Try again."
+      actions={
         <Button variant="secondary" onClick={onRetry}>
           Retry
         </Button>
-      </div>
-    </div>
+      }
+    />
   )
 }
 
 function PageNotFound({ spaceId }: { spaceId: number }) {
   return (
-    <div className="flex-1 flex items-center justify-center p-[var(--space-7)]">
-      <div className="flex flex-col items-center gap-[var(--space-3)] text-center max-w-[28rem]">
-        <h2 className="m-0 text-[length:var(--text-xl)] leading-[var(--leading-tight)] font-[family-name:var(--font-sans)] text-[var(--text-primary)]">
-          Page not found
-        </h2>
-        <p className="m-0 text-[length:var(--text-sm)] text-[var(--text-muted)]">
-          The page may have been deleted or moved to another space.
-        </p>
+    <EmptyState
+      icon={FileQuestion}
+      title="Page not found"
+      description="The page may have been deleted or moved to another space."
+      actions={
         <Button asChild variant="secondary">
           <Link to="/spaces/$spaceId" params={{ spaceId }}>
             Back to space
           </Link>
         </Button>
-      </div>
-    </div>
+      }
+    />
   )
 }
 

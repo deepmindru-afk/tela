@@ -11,9 +11,10 @@ import {
   useNavigate,
   useParams,
 } from '@tanstack/react-router'
-import { FilePlus, Plus } from 'lucide-react'
+import { FilePlus, FileQuestion, Plus } from 'lucide-react'
 import { AppCommandHost } from '../components/app/AppCommandHost'
 import { BrandMark } from '../components/BrandMark'
+import { EmptyState } from '../components/ui/empty-state'
 import { NewSpaceDialog } from '../components/app/NewSpaceDialog'
 import { PageView } from '../components/app/PageView'
 import { Sidebar } from '../components/app/Sidebar'
@@ -66,18 +67,17 @@ const rootRoute = createRootRoute({
   },
   notFoundComponent: function NotFound() {
     return (
-      <div className="min-h-dvh flex flex-col items-center justify-center gap-[var(--space-4)] bg-[var(--surface-1)] text-[var(--text-primary)] p-[var(--space-7)] text-center">
-        <BrandMark size={48} />
-        <div className="flex flex-col gap-[var(--space-1)]">
-          <p className="m-0 text-[length:var(--text-2xl)] font-semibold">Page not found</p>
-          <p className="m-0 text-[var(--text-muted)]">
-            That page doesn’t exist or you don’t have access to it.
-          </p>
-        </div>
-        <Button asChild variant="primary" size="lg">
-          <Link to="/">Back to tela</Link>
-        </Button>
-      </div>
+      <EmptyState
+        fullScreen
+        icon={FileQuestion}
+        title="Page not found"
+        description="That page doesn’t exist or you don’t have access to it."
+        actions={
+          <Button asChild variant="primary" size="lg">
+            <Link to="/">Back to tela</Link>
+          </Button>
+        }
+      />
     )
   },
 })
