@@ -144,8 +144,13 @@ export function BlockHandleView() {
     }
   }, [loading, getEditor])
 
-  // Reposition on every view update (selection / doc / hovered block change).
+  // Reposition on view updates — but only while the handle is actually shown.
+  // It follows the hovered block (the block service shows + positions it on
+  // mousemove), so calling update() on every transaction while it's hidden is
+  // pure churn (dozens of redundant style writes per few seconds of typing).
   useEffect(() => {
+    const el = handleRef.current
+    if (el && el.dataset.show !== 'true') return
     providerRef.current?.update()
   })
 

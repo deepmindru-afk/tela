@@ -19,6 +19,7 @@ import { insertExcalidraw } from './milkdown-excalidraw'
 import { insertTaskList } from './milkdown-task-list'
 import { insertMathBlock } from './milkdown-math'
 import { TEMPLATES, insertTemplate } from './milkdown-templates'
+import { setPos, setShow } from './milkdown-floating'
 import { insertMermaid } from './milkdown-mermaid'
 import { insertTabs } from './milkdown-tabs'
 import { insertKanban } from './milkdown-kanban'
@@ -310,7 +311,7 @@ export function SlashView() {
     const next = readSlashState(view)
     const shouldShow = next != null && view.hasFocus() && view.editable
     if (!shouldShow) {
-      el.dataset.show = 'false'
+      setShow(el, false)
       setSlashState((prev) =>
         prev.visible ? { visible: false, query: '' } : prev,
       )
@@ -318,9 +319,8 @@ export function SlashView() {
     }
     const { from } = view.state.selection
     const coords = view.coordsAtPos(from)
-    el.style.left = `${coords.left}px`
-    el.style.top = `${coords.bottom + 4}px`
-    el.dataset.show = 'true'
+    setPos(el, coords.left, coords.bottom + 4)
+    setShow(el, true)
     setSlashState((prev) =>
       prev.visible && prev.query === next.query
         ? prev
@@ -345,8 +345,7 @@ export function SlashView() {
         left = vw - r.width - 4
       }
       left = Math.max(4, left)
-      el.style.top = `${top}px`
-      el.style.left = `${left}px`
+      setPos(el, left, top)
     })
     return () => cancelAnimationFrame(rafId)
   })
@@ -371,6 +370,11 @@ export function SlashView() {
   const runCommand = useCallback(
     (cmd: SlashCommand) => {
       if (loading) return
+      // Hide the menu immediately so it doesn't visibly reposition through the
+      // multi-step insert transaction before the trigger-clear hides it.
+      const el = ref.current
+      if (el) setShow(el, false)
+      setSlashState((prev) => (prev.visible ? { visible: false, query: '' } : prev))
       const editor = getEditor()
       editor?.action((ctx) => {
         clearSlashTrigger(ctx)

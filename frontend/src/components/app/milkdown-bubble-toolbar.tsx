@@ -26,6 +26,7 @@ import {
   Strikethrough,
 } from 'lucide-react'
 import { Input } from '../ui/input'
+import { setPos, setShow } from './milkdown-floating'
 import { cn } from '../../lib/utils'
 
 export const bubblePlugin = tooltipFactory('tela-bubble')
@@ -144,14 +145,14 @@ export function BubbleToolbarView() {
     const el = ref.current
     if (!el) return
     if (linkMode) {
-      el.dataset.show = 'true'
+      setShow(el, true)
       return
     }
     if (!shouldShow(view)) {
-      el.dataset.show = 'false'
+      setShow(el, false)
       return
     }
-    el.dataset.show = 'true'
+    setShow(el, true)
     setActive((prev) => {
       const next = computeActive(view.state)
       return sameActive(prev, next) ? prev : next
@@ -166,8 +167,7 @@ export function BubbleToolbarView() {
       return
     }
     const centerLeft = (start.left + end.left) / 2
-    el.style.left = `${centerLeft}px`
-    el.style.top = `${start.top}px`
+    setPos(el, centerLeft, start.top)
     // Re-measure after paint to sit fully above the selection, flip below when
     // there's no room, and clamp horizontally inside the viewport.
     const rafId = requestAnimationFrame(() => {
@@ -177,8 +177,7 @@ export function BubbleToolbarView() {
       if (top < 4) top = end.bottom + 8
       let left = centerLeft - r.width / 2
       left = Math.max(4, Math.min(left, vw - r.width - 4))
-      el.style.left = `${left}px`
-      el.style.top = `${top}px`
+      setPos(el, left, top)
     })
     return () => cancelAnimationFrame(rafId)
   })
