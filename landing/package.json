@@ -14,9 +14,10 @@
     "gate:a11y": "playwright test a11y",
     "gate:motion": "playwright test reduced-motion",
     "gate:lh": "lhci autorun --config=lighthouserc.cjs",
+    "gate:lh:mobile": "lhci autorun --config=lighthouserc.mobile.cjs",
     "gate:lh:showcase": "lhci autorun --config=lighthouserc.showcase.cjs",
     "gate:structural": "npm run gate:tokens && npm run gate:a11y && npm run gate:motion",
-    "gate": "npm run gate:structural && npm run gate:lh",
+    "gate": "npm run gate:structural && npm run gate:lh && npm run gate:lh:mobile",
     "gate:report": "playwright show-report .gate-report"
   },
   "dependencies": {
