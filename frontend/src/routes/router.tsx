@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import {
   createRootRoute,
   createRoute,
@@ -8,10 +8,11 @@ import {
   Link,
   Outlet,
   redirect,
+  useLocation,
   useNavigate,
   useParams,
 } from '@tanstack/react-router'
-import { FilePlus, FileQuestion, Plus } from 'lucide-react'
+import { FilePlus, FileQuestion, Menu, Plus } from 'lucide-react'
 import { AppCommandHost } from '../components/app/AppCommandHost'
 import { BrandMark } from '../components/BrandMark'
 import { EmptyState } from '../components/ui/empty-state'
@@ -102,12 +103,43 @@ const appLayoutRoute = createRoute({
     })
   },
   component: function AppLayout() {
+    const [sidebarOpen, setSidebarOpen] = useState(false)
+    const { pathname } = useLocation()
+    // Close the mobile drawer on navigation (e.g. tapping a page link).
+    useEffect(() => {
+      setSidebarOpen(false)
+    }, [pathname])
+    // Escape closes the drawer.
+    useEffect(() => {
+      if (!sidebarOpen) return
+      const onKey = (e: KeyboardEvent) => {
+        if (e.key === 'Escape') setSidebarOpen(false)
+      }
+      document.addEventListener('keydown', onKey)
+      return () => document.removeEventListener('keydown', onKey)
+    }, [sidebarOpen])
     return (
       <div className="h-dvh flex bg-[var(--surface-1)] text-[var(--text-primary)] overflow-hidden">
-        <Sidebar />
+        <Sidebar open={sidebarOpen} />
+        {sidebarOpen ? (
+          <button
+            type="button"
+            aria-label="Close navigation"
+            className="fixed inset-0 z-40 bg-black/40 md:hidden"
+            onClick={() => setSidebarOpen(false)}
+          />
+        ) : null}
         <div className="flex-1 flex flex-col min-w-0">
           <header className="flex items-center justify-between px-[var(--space-6)] py-[var(--space-3)] border-b border-[var(--border-subtle)] shrink-0">
-            <h1 className="m-0 text-[length:var(--text-lg)] leading-[var(--leading-tight)] font-[family-name:var(--font-sans)]">
+            <h1 className="m-0 flex items-center gap-[var(--space-2)] text-[length:var(--text-lg)] leading-[var(--leading-tight)] font-[family-name:var(--font-sans)]">
+              <button
+                type="button"
+                aria-label="Open navigation"
+                className="md:hidden inline-flex items-center justify-center rounded-[var(--radius-xs)] p-[var(--space-1)] text-[var(--text-muted)] hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+                onClick={() => setSidebarOpen(true)}
+              >
+                <Menu size="1.1em" aria-hidden />
+              </button>
               <Link
                 to="/"
                 aria-label="tela home"

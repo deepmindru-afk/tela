@@ -8,8 +8,9 @@ import { Button } from '../ui/button'
 import { emitOpenNewPage } from '../../lib/newPageEvent'
 import { emitOpenPalette } from '../../lib/paletteEvent'
 import { IS_MAC } from '../../lib/useGlobalShortcut'
+import { cn } from '../../lib/utils'
 
-export function Sidebar() {
+export function Sidebar({ open = false }: { open?: boolean }) {
   // Read both params loosely — sidebar lives in the root layout, so we may be
   // anywhere in the tree (index, space, or page route).
   const params = useParams({ strict: false }) as {
@@ -25,7 +26,13 @@ export function Sidebar() {
   return (
     <aside
       aria-label="Navigation"
-      className="flex flex-col w-[var(--sidebar-width)] shrink-0 border-r border-[var(--border-subtle)] bg-[var(--surface-2)] overflow-hidden"
+      className={cn(
+        'flex flex-col w-[var(--sidebar-width)] shrink-0 border-r border-[var(--border-subtle)] bg-[var(--surface-2)] overflow-hidden',
+        // Mobile: a fixed slide-in drawer toggled by the header hamburger.
+        // Desktop (md+): static, in-flow, always visible — unchanged.
+        'fixed inset-y-0 left-0 z-50 transition-transform duration-200 ease-out md:static md:z-auto md:translate-x-0',
+        open ? 'translate-x-0' : '-translate-x-full',
+      )}
     >
       <div className="px-[var(--space-3)] pt-[var(--space-4)] flex flex-col gap-[var(--space-1)]">
         <Link
