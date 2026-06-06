@@ -11,7 +11,7 @@
 :80 {
 	# HSTS — honored by browsers over the Cloudflare HTTPS edge that fronts this
 	# origin. Applies to every response (SEO/security baseline). No preload.
-	header Strict-Transport-Security "max-age=31536000"
+	header Strict-Transport-Security "max-age=31536000; includeSubDomains"
 
 	# ── Backend: API + websockets + public page permalinks ──────────────────
 	# /api + /p are noindex: API is JSON, /p permalinks are owner-private by
@@ -122,6 +122,10 @@
 		}
 		handle @landing_file {
 			header /_astro/* Cache-Control "public, max-age=31536000, immutable"
+			# HTML shell must revalidate so a redeploy/edit is picked up at once
+			# (the fingerprinted /_astro assets above stay immutable).
+			@landing_html path / /mcp /mcp/ /privacy /privacy/ /terms /terms/
+			header @landing_html Cache-Control "no-cache"
 			file_server
 		}
 
