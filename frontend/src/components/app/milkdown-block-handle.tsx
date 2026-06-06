@@ -136,6 +136,16 @@ export function BlockHandleView() {
       // doesn't depend on a positioned offsetParent (mirrors the slash menu).
       floatingUIOptions: { strategy: 'fixed' },
       getOffset: () => 4,
+      // Anchor the handle to the editor's LEFT content edge — one consistent
+      // gutter for every block. Milkdown otherwise anchors to the hovered
+      // block's own left, which for indented list items lands on top of the
+      // bullet marker. We keep the block's vertical extent, only override left.
+      getPosition: ({ active, editorDom }) => {
+        const block = (active.el as HTMLElement).getBoundingClientRect()
+        const ed = editorDom.getBoundingClientRect()
+        const padLeft = parseFloat(getComputedStyle(editorDom).paddingLeft) || 0
+        return new DOMRect(ed.left + padLeft, block.top, 0, block.height)
+      },
     })
     providerRef.current = provider
     return () => {
