@@ -99,13 +99,28 @@ func (s *Server) ApplyFileSync(
 		}
 	}
 
+	// Stamp the on-disk name the client actually used so the page is served back
+	// at exactly that path — the create round-trips on rclone's post-PUT read-back
+	// (no 404→retry→duplicate-storm), and the name survives later retitles. nil
+	// when the path has no stem (defensive); then it falls back to slugify(title).
 	p, ae := s.createPageCore(ctx, u, k, pageCreateRequest{
 		SpaceID: spaceID, ParentID: parentID, Title: title, Body: d.Body, Props: props,
+		Filename: fileStemPtr(filename),
 	})
 	if ae != nil {
 		return models.Page{}, "", ae
 	}
 	return p, syncCreated, nil
+}
+
+// fileStemPtr returns the filename without its .md extension as a *string for the
+// pages.filename stamp, or nil when empty (→ name falls back to slugify(title)).
+func fileStemPtr(filename string) *string {
+	stem := strings.TrimSuffix(filename, ".md")
+	if stem == "" {
+		return nil
+	}
+	return &stem
 }
 
 // applySyncResurrect brings a soft-deleted page back when a re-synced file
@@ -338,7 +353,7 @@ func (s *Server) findSiblingByFilename(ctx context.Context, spaceID int64, paren
 		rows *sql.Rows
 		err  error
 	)
-	const cols = `id, space_id, parent_id, title, body, position, props, created_at, updated_at`
+	const cols = `id, space_id, parent_id, title, body, position, props, created_at, updated_at, filename`
 	if parentID == nil {
 		rows, err = s.DB.QueryContext(ctx,
 			`SELECT `+cols+` FROM pages

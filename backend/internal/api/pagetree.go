@@ -16,6 +16,19 @@ import (
 // is what guarantees `export.zip` and the live WebDAV surface lay bytes out the
 // same way — a file pulled over rclone round-trips to the same page.
 
+// pageFileBase is a page's on-disk name base (pre-dedup): the sync client's
+// stamped filename when set, else slugify(title). This is what decouples the
+// /dav/ filename from the title — a stamped page keeps its name across retitles,
+// and a sync-created page is served back at exactly the name the client PUT (so
+// rclone's post-PUT read-back succeeds instead of 404→retry→duplicate). The URL
+// slug is separate (pagemd.Encode, always title-derived).
+func pageFileBase(p models.Page) string {
+	if p.Filename != nil && *p.Filename != "" {
+		return *p.Filename
+	}
+	return mdSlugOr(p.Title, fmt.Sprintf("page-%d", p.ID))
+}
+
 // siblingSlugs assigns each page in a sibling group its on-disk filename slug
 // (without the .md extension), deduplicating collisions deterministically with
 // -2, -3… in the slice's order. The slice MUST already be in stable sibling
@@ -25,7 +38,7 @@ func siblingSlugs(siblings []models.Page) map[int64]string {
 	used := make(map[string]bool, len(siblings))
 	out := make(map[int64]string, len(siblings))
 	for _, p := range siblings {
-		base := mdSlugOr(p.Title, fmt.Sprintf("page-%d", p.ID))
+		base := pageFileBase(p)
 		slug := base
 		for n := 2; used[slug]; n++ {
 			slug = fmt.Sprintf("%s-%d", base, n)

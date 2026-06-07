@@ -38,6 +38,11 @@ type Page struct {
 	Props     map[string]any `json:"props,omitempty"`
 	CreatedAt string         `json:"created_at"`
 	UpdatedAt string         `json:"updated_at"`
+	// Filename is the stable on-disk name a sync client (WebDAV/rclone) gave this
+	// page, stamped server-side on sync-create. nil → the /dav/ name falls back to
+	// slugify(title). Governs only the sync surface's filename, never the URL slug.
+	// Server-internal (sync plumbing), so kept out of the REST/JSON shape.
+	Filename *string `json:"-"`
 }
 
 // Comment is the wire shape for an M8 comment row. Roots have ParentID==nil

@@ -25,6 +25,9 @@ type pageCreateRequest struct {
 	Title    string         `json:"title"`
 	Body     string         `json:"body"`
 	Props    map[string]any `json:"props"`
+	// Filename pins the page's stable /dav/ on-disk name (sync-create only; the
+	// REST/MCP create paths leave it nil → name falls back to slugify(title)).
+	Filename *string `json:"-"`
 }
 
 // pageUpdateRequest patches a page. A nil field is left unchanged; a non-nil
@@ -142,12 +145,12 @@ func listPagesFlat(ctx context.Context, db *sql.DB, spaceID int64, parentID *int
 	var err error
 	if parentID == nil {
 		rows, err = db.QueryContext(ctx,
-			`SELECT id, space_id, parent_id, title, body, position, props, created_at, updated_at
+			`SELECT id, space_id, parent_id, title, body, position, props, created_at, updated_at, filename
 			 FROM pages WHERE space_id = $1 AND parent_id IS NULL AND deleted_at IS NULL
 			 ORDER BY position ASC, id ASC`, spaceID)
 	} else {
 		rows, err = db.QueryContext(ctx,
-			`SELECT id, space_id, parent_id, title, body, position, props, created_at, updated_at
+			`SELECT id, space_id, parent_id, title, body, position, props, created_at, updated_at, filename
 			 FROM pages WHERE space_id = $1 AND parent_id = $2 AND deleted_at IS NULL
 			 ORDER BY position ASC, id ASC`, spaceID, *parentID)
 	}
@@ -422,8 +425,8 @@ func (s *Server) createPageCore(ctx context.Context, u *auth.User, k *auth.APIKe
 
 	var id int64
 	if err := tx.QueryRowContext(ctx,
-		`INSERT INTO pages(space_id, parent_id, title, body, position, props) VALUES ($1, $2, $3, $4, $5, $6::jsonb) RETURNING id`,
-		req.SpaceID, nullableInt64(req.ParentID), title, body, position, propsJSON(props)).Scan(&id); err != nil {
+		`INSERT INTO pages(space_id, parent_id, title, body, position, props, filename) VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7) RETURNING id`,
+		req.SpaceID, nullableInt64(req.ParentID), title, body, position, propsJSON(props), nullableFilename(req.Filename)).Scan(&id); err != nil {
 		return models.Page{}, &apiErr{http.StatusInternalServerError, "internal", "create page failed"}
 	}
 	if err := syncPageLinks(ctx, tx, id, body); err != nil {
@@ -1077,7 +1080,7 @@ func (s *Server) applyMoveTx(ctx context.Context, tx *sql.Tx, u *auth.User, k *a
 
 func buildPageTree(ctx context.Context, db *sql.DB, spaceID int64) ([]*pageNode, error) {
 	rows, err := db.QueryContext(ctx,
-		`SELECT id, space_id, parent_id, title, body, position, props, created_at, updated_at
+		`SELECT id, space_id, parent_id, title, body, position, props, created_at, updated_at, filename
 		 FROM pages WHERE space_id = $1 AND deleted_at IS NULL
 		 ORDER BY position ASC, id ASC`, spaceID)
 	if err != nil {
@@ -1134,14 +1137,14 @@ func buildPageTree(ctx context.Context, db *sql.DB, spaceID int64) ([]*pageNode,
 // selectPageByIDIncludingDeleted for the resurrect path.
 func selectPageByID(ctx context.Context, db *sql.DB, id int64) (models.Page, error) {
 	row := db.QueryRowContext(ctx,
-		`SELECT id, space_id, parent_id, title, body, position, props, created_at, updated_at
+		`SELECT id, space_id, parent_id, title, body, position, props, created_at, updated_at, filename
 		 FROM pages WHERE id = $1 AND deleted_at IS NULL`, id)
 	return scanPageFromRow(row)
 }
 
 func selectPageByIDTx(ctx context.Context, tx *sql.Tx, id int64) (models.Page, error) {
 	row := tx.QueryRowContext(ctx,
-		`SELECT id, space_id, parent_id, title, body, position, props, created_at, updated_at
+		`SELECT id, space_id, parent_id, title, body, position, props, created_at, updated_at, filename
 		 FROM pages WHERE id = $1 AND deleted_at IS NULL`, id)
 	return scanPageFromRow(row)
 }
@@ -1162,12 +1165,16 @@ func scanPageInto(r rowScanner) (models.Page, error) {
 	var p models.Page
 	var parentID sql.NullInt64
 	var propsRaw []byte
-	if err := r.Scan(&p.ID, &p.SpaceID, &parentID, &p.Title, &p.Body, &p.Position, &propsRaw, &p.CreatedAt, &p.UpdatedAt); err != nil {
+	var filename sql.NullString
+	if err := r.Scan(&p.ID, &p.SpaceID, &parentID, &p.Title, &p.Body, &p.Position, &propsRaw, &p.CreatedAt, &p.UpdatedAt, &filename); err != nil {
 		return p, err
 	}
 	if parentID.Valid {
 		v := parentID.Int64
 		p.ParentID = &v
+	}
+	if filename.Valid {
+		p.Filename = &filename.String
 	}
 	p.Props = map[string]any{}
 	if len(propsRaw) > 0 {
@@ -1301,6 +1308,15 @@ func parentIDPtrEqual(a, b *int64) bool {
 
 func nullableInt64(p *int64) any {
 	if p == nil {
+		return nil
+	}
+	return *p
+}
+
+// nullableFilename binds the sync filename stamp: NULL for an unset/empty value
+// (the page then falls back to slugify(title) for its /dav/ name).
+func nullableFilename(p *string) any {
+	if p == nil || *p == "" {
 		return nil
 	}
 	return *p

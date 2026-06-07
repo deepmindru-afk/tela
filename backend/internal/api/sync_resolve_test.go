@@ -69,6 +69,62 @@ func TestApplyFileSync_CreateThenIdempotent(t *testing.T) {
 	}
 }
 
+// livePageCount is the storm detector: a duplicate-create bug shows up as more
+// live pages than the test created.
+func livePageCount(t *testing.T, d *sql.DB, spaceID int64) int {
+	t.Helper()
+	var n int
+	if err := d.QueryRowContext(context.Background(),
+		`SELECT count(*) FROM pages WHERE space_id = $1 AND deleted_at IS NULL`, spaceID).Scan(&n); err != nil {
+		t.Fatalf("count pages: %v", err)
+	}
+	return n
+}
+
+// A brand-new file whose name does NOT match slugify(title) must (1) be served
+// back at the name the client PUT — so rclone's post-PUT read-back hits 200
+// instead of 404 — and (2) bind, not duplicate, on an id-less retry. Pre-fix the
+// server stored it under the title-slug, the read-back 404'd, and every retry
+// minted another page (the duplicate storm reproduced live on the mount).
+func TestApplyFileSync_CreateFilenameMismatchNoStorm(t *testing.T) {
+	s, u, space := syncFixture(t)
+	ctx := context.Background()
+
+	// filename stem "svc-smoke-test" vs title-slug "service-smoke-test".
+	content := []byte("---\ntitle: Service Smoke Test\n---\n\nmounted, writing works\n")
+	p, act, ae := s.ApplyFileSync(ctx, u, nil, space, nil, "svc-smoke-test.md", content)
+	if ae != nil {
+		t.Fatalf("create: %+v", ae)
+	}
+	if act != syncCreated || p.Title != "Service Smoke Test" {
+		t.Fatalf("create wrong: act=%q title=%q", act, p.Title)
+	}
+	// Stamped with, and served at, the PUT name — not the title-slug.
+	if p.Filename == nil || *p.Filename != "svc-smoke-test" {
+		t.Fatalf("filename stamp = %v, want \"svc-smoke-test\"", p.Filename)
+	}
+	tree, err := newSpaceTree(ctx, s.DB, space)
+	if err != nil {
+		t.Fatalf("tree: %v", err)
+	}
+	if got := tree.slug[p.ID]; got != "svc-smoke-test" {
+		t.Fatalf("on-disk name = %q, want \"svc-smoke-test\" (title-slug \"service-smoke-test\" would 404 the read-back)", got)
+	}
+
+	// The retry the storm rode on: the SAME id-less file again must bind to the
+	// existing page (by stamped filename), never create a second one.
+	_, act2, ae := s.ApplyFileSync(ctx, u, nil, space, nil, "svc-smoke-test.md", content)
+	if ae != nil {
+		t.Fatalf("retry: %+v", ae)
+	}
+	if act2 == syncCreated {
+		t.Fatalf("retry created a DUPLICATE (storm); action = %q", act2)
+	}
+	if n := livePageCount(t, s.DB, space); n != 1 {
+		t.Fatalf("space has %d live pages, want 1 (duplicate storm)", n)
+	}
+}
+
 func TestApplyFileSync_UpdateBindsById(t *testing.T) {
 	s, u, space := syncFixture(t)
 	ctx := context.Background()

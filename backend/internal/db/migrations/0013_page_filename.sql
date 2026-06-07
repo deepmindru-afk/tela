@@ -1,0 +1,17 @@
+-- 0013_page_filename.sql — stable WebDAV sync filename (sync §9).
+--
+-- A sync client (rclone) names a page on disk by slugify(title) today. That has
+-- two problems: (a) retitling a page renames the file underneath the client, and
+-- (b) when the client's filename != slugify(title), rclone's post-PUT read-back
+-- looks for the name it PUT, gets the title-slug name instead → 404 → "upload
+-- failed" → retry, and each id-less retry mints another page (a duplicate storm).
+--
+-- This nullable column records the filename the client actually used, stamped
+-- server-side on sync-create from the PUT path (ApplyFileSync). The /dav/ on-disk
+-- name becomes `filename ?? slugify(title)`, so it is stable and title-independent
+-- and the create round-trips on the first try. NULL → fall back to slugify(title),
+-- so app-created pages and already-synced vaults are unaffected.
+--
+-- This governs ONLY the sync surface's filename. The URL slug stays title-derived
+-- (pagemd.Encode) — slug follows the title; filename does not.
+ALTER TABLE pages ADD COLUMN filename TEXT;
