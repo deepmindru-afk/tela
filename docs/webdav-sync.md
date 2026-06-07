@@ -76,8 +76,12 @@ file. The two never collide (different namespaces, keyed differently).
   attachments", not a Dropbox replacement. An oversized PUT **fails loudly**
   (it is not silently dropped). OS/editor junk (`.DS_Store`, `._*`, `*.swp`,
   `*.tmp`, `Thumbs.db`) is still accept-and-dropped.
-- **No app UI yet.** Files round-trip over sync but aren't surfaced in the web
-  app — that's a later, separate phase.
+- **Surfaced as page attachments.** A file synced into a page's folder shows up
+  in that page's **Attachments** strip (below the title, reader + editor) — no
+  body edit. It's served at the public, content-addressed `/api/files/{space}/{hash}`
+  (images inline, everything else forced-download). Drag/paste a file into the
+  editor to upload + embed inline (images as `![]()`, others as a `:::file` card);
+  image uploads share this same store. See `docs/attachments.md`.
 
 ### Conflict handling — server-side 3-way merge
 
