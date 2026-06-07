@@ -18,7 +18,9 @@ type syncConnResp struct {
 	Rclone struct {
 		RemotePath          string `json:"remote_path"`
 		ConfigCreateCommand string `json:"config_create_command"`
-		SyncCommand         string `json:"sync_command"`
+		MountCommand        string `json:"mount_command"`
+		ServiceName         string `json:"service_name"`
+		SystemdUnit         string `json:"systemd_unit"`
 	} `json:"rclone"`
 }
 
@@ -46,11 +48,17 @@ func TestSyncConnections_CreateListRevoke(t *testing.T) {
 	if !strings.Contains(got.Rclone.ConfigCreateCommand, got.Connection.Key) {
 		t.Fatalf("config command missing the key:\n%s", got.Rclone.ConfigCreateCommand)
 	}
-	if !strings.Contains(got.Rclone.SyncCommand, "bisync") || !strings.Contains(got.Rclone.SyncCommand, "--ignore-size") {
-		t.Fatalf("two-way sync command should be a bisync with --ignore-size:\n%s", got.Rclone.SyncCommand)
+	if !strings.Contains(got.Rclone.MountCommand, "rclone mount") || !strings.Contains(got.Rclone.MountCommand, "--ignore-size") {
+		t.Fatalf("mount command should be `rclone mount … --ignore-size`:\n%s", got.Rclone.MountCommand)
 	}
 	if !strings.HasSuffix(got.Rclone.RemotePath, ":engineering") {
 		t.Fatalf("remote path not scoped to the space slug: %q", got.Rclone.RemotePath)
+	}
+	if got.Rclone.ServiceName != "tela-engineering" {
+		t.Fatalf("service name = %q, want tela-engineering", got.Rclone.ServiceName)
+	}
+	if !strings.Contains(got.Rclone.SystemdUnit, "ExecStart=/usr/bin/rclone mount "+got.Rclone.RemotePath) {
+		t.Fatalf("systemd unit missing the mount ExecStart:\n%s", got.Rclone.SystemdUnit)
 	}
 
 	// Read-only, whole-workspace connection.
@@ -64,8 +72,11 @@ func TestSyncConnections_CreateListRevoke(t *testing.T) {
 	if ro.Rclone.RemotePath != "tela:" {
 		t.Fatalf("workspace remote path = %q, want tela:", ro.Rclone.RemotePath)
 	}
-	if strings.Contains(ro.Rclone.SyncCommand, "bisync") {
-		t.Fatalf("read-only should be a one-way pull, not bisync:\n%s", ro.Rclone.SyncCommand)
+	if ro.Rclone.ServiceName != "tela-vault" {
+		t.Fatalf("workspace service name = %q, want tela-vault", ro.Rclone.ServiceName)
+	}
+	if !strings.Contains(ro.Rclone.MountCommand, "--read-only") {
+		t.Fatalf("read-only connection should mount --read-only:\n%s", ro.Rclone.MountCommand)
 	}
 
 	// Pinning to a space the user can't access is refused.

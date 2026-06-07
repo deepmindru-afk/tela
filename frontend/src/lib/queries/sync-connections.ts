@@ -20,14 +20,14 @@ export interface RcloneSetup {
   webdav_url: string
   remote_name: string
   remote_path: string
-  // The concrete folder the files land in (e.g. ~/tela or ~/tela/<slug>).
+  // The concrete folder the vault is mounted at (e.g. ~/tela or ~/tela/<slug>).
   local_dir: string
   config_create_command: string // step 1, run once
-  first_sync_command: string // step 2: make the dir + baseline sync
-  sync_command: string // step 3: sync again on demand (bisync, or a one-way pull when read-only)
-  schedule_example: string // step 4: a crontab line to keep it automatic
+  mount_command: string // step 2: foreground mount to try it
+  service_name: string // the systemd unit name
+  systemd_unit: string // step 3: the .service file contents
+  systemd_install: string // step 3: enable + start it
   read_only: boolean
-  excludes: string
 }
 
 export interface SyncConnectionCreated {

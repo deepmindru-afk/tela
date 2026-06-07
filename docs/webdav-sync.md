@@ -113,15 +113,55 @@ rclone bisync tela:engineering ./engineering \
 `--max-delete` is a safety rail (refuse a run that would delete an anomalous
 fraction of files); `--check-access` aborts if a side looks empty/unmounted.
 
-### Mount (read-friendly)
+### Mount as an always-on folder (recommended)
+
+A live `rclone mount` is the simplest "always there" setup — the vault shows up
+as a normal folder; edits go straight up (the server merges), server-side
+changes appear after `--dir-cache-time`. This is what **Settings → Sync**
+generates (including a ready systemd user service).
 
 ```bash
-rclone mount tela: ~/tela --vfs-cache-mode full --dir-cache-time 10s
+rclone mount tela: ~/tela \
+  --vfs-cache-mode full --dir-cache-time 10s --vfs-write-back 2s --ignore-size
 ```
 
-WebDAV has no change-notification, so reads are polling-bound — lower
-`--dir-cache-time` for fresher reads at the cost of more PROPFINDs. Sub-second
-end-to-end is the job of the future push-based engine, not rclone.
+`--ignore-size` is **required** (same reason as above — tela rewrites frontmatter
+on write); leave modtime ON (don't pass `--no-modtime`) so server-side edits are
+detected via `getlastmodified` (← `updated_at`). `--vfs-cache-mode full` gives a
+real local cache so editors and offline reads work. New files you create get
+their `id:` frontmatter on the next refresh. WebDAV has no change-notification,
+so lower `--dir-cache-time` for fresher reads at the cost of more PROPFINDs.
+
+Make it permanent with a **systemd user service** (mounts on login, restarts on
+failure) — `~/.config/systemd/user/tela-vault.service`:
+
+```ini
+[Unit]
+Description=tela vault — rclone mount of tela:
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStartPre=/usr/bin/mkdir -p %h/tela
+ExecStartPre=-/usr/bin/fusermount3 -uz %h/tela
+ExecStart=/usr/bin/rclone mount tela: %h/tela --vfs-cache-mode full --dir-cache-time 10s --vfs-write-back 2s --ignore-size
+ExecStop=/usr/bin/fusermount3 -uz %h/tela
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=default.target
+```
+
+```bash
+systemctl --user daemon-reload && systemctl --user enable --now tela-vault.service
+```
+
+(macOS: a launchd agent; Windows: rclone + WinFsp as a service.) Prefer real
+local files synced periodically instead of a live mount? Use the **bisync**
+recipe above on a cron / systemd timer. Sub-second end-to-end is the job of the
+future push-based engine, not rclone.
 
 ### Excludes (`tela-excludes.txt`)
 

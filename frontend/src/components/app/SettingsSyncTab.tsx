@@ -41,7 +41,7 @@ export function SettingsSyncTab() {
     >
       <header className="flex flex-col gap-[var(--space-1)]" id="settings-sync">
         <p className="m-0 text-[length:var(--text-sm)] text-[var(--text-muted)] leading-[var(--leading-relaxed)]">
-          Two-way sync your spaces to local markdown files with{' '}
+          Mount your spaces as a local folder with{' '}
           <a
             href="https://rclone.org"
             target="_blank"
@@ -50,9 +50,9 @@ export function SettingsSyncTab() {
           >
             rclone
           </a>{' '}
-          (or any WebDAV client). Connect a vault below — it mints a sync token
-          and shows you the exact commands to run. Edits merge on the server, so
-          editing in the app and on disk at once is safe.
+          and edit them as plain markdown in any app. Connect a vault below — it
+          mints a sync token and walks you through the setup. Edits merge on the
+          server, so editing in the app and on disk at once is safe.
         </p>
       </header>
 
@@ -390,11 +390,11 @@ function SetupDialog({ created, onOpenChange }: SetupDialogProps) {
     <Dialog open={created != null} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Vault connected — finish in your terminal</DialogTitle>
+          <DialogTitle>Vault connected — mount it as a folder</DialogTitle>
           <DialogDescription>
-            Open a terminal and paste each command below, in order. (You'll need
-            rclone installed.) The first command carries your access token and is
-            shown only now.
+            rclone presents tela as a normal folder you open with any app; edits
+            sync automatically. Paste each command into a terminal, in order.
+            (You'll need rclone installed.)
           </DialogDescription>
         </DialogHeader>
         {rclone ? (
@@ -413,11 +413,11 @@ function SetupDialog({ created, onOpenChange }: SetupDialogProps) {
                 className="shrink-0 text-[var(--text-muted)]"
               />
               <span className="text-[length:var(--text-xs)] text-[var(--text-primary)] font-[family-name:var(--font-sans)]">
-                Your files will live in{' '}
+                Your vault appears at{' '}
                 <code className="font-[family-name:var(--font-mono)]">
                   {rclone.local_dir}
                 </code>{' '}
-                — open them with any editor.
+                — open it with any editor.
               </span>
             </div>
 
@@ -445,44 +445,41 @@ function SetupDialog({ created, onOpenChange }: SetupDialogProps) {
               </div>
             </Step>
 
-            <Step
-              n={2}
-              title={
-                rclone.read_only
-                  ? 'Download your files'
-                  : 'Download your files & turn on syncing'
-              }
-            >
+            <Step n={2} title="Mount it (try it now)">
               <p className="m-0 text-[length:var(--text-xs)] text-[var(--text-muted)] font-[family-name:var(--font-sans)] leading-[var(--leading-relaxed)]">
-                Creates{' '}
+                Your vault shows up at{' '}
                 <code className="font-[family-name:var(--font-mono)]">
                   {rclone.local_dir}
-                </code>{' '}
-                and runs the first sync — this can take a minute.
+                </code>
+                . Edit files with any app — changes sync both ways
+                {rclone.read_only ? ' (read-only)' : ''}. Press Ctrl-C to
+                unmount.
               </p>
-              <CommandBlock command={rclone.first_sync_command} />
+              <CommandBlock command={rclone.mount_command} />
             </Step>
 
-            <Step n={3} title="Sync again whenever you want">
-              <p className="m-0 text-[length:var(--text-xs)] text-[var(--text-muted)] font-[family-name:var(--font-sans)]">
-                {rclone.read_only
-                  ? 'Re-run to pull the latest from tela.'
-                  : 'Pushes your local edits up and pulls other changes down.'}
-              </p>
-              <CommandBlock command={rclone.sync_command} />
-            </Step>
-
-            <Step n={4} title="Keep it synced automatically (optional)">
+            <Step n={3} title="Keep it mounted (Linux · systemd)">
               <p className="m-0 text-[length:var(--text-xs)] text-[var(--text-muted)] font-[family-name:var(--font-sans)] leading-[var(--leading-relaxed)]">
-                rclone syncs when you run it — it doesn't run in the background.
-                On macOS/Linux, run{' '}
+                So the vault mounts on login and restarts if it drops. Save this
+                as{' '}
                 <code className="font-[family-name:var(--font-mono)]">
-                  crontab -e
-                </code>{' '}
-                and add this line to sync every 5 minutes (on Windows, use Task
-                Scheduler):
+                  ~/.config/systemd/user/{rclone.service_name}.service
+                </code>
+                :
               </p>
-              <CommandBlock command={rclone.schedule_example} />
+              <CommandBlock command={rclone.systemd_unit} />
+              <p className="m-0 text-[length:var(--text-xs)] text-[var(--text-muted)] font-[family-name:var(--font-sans)]">
+                Then turn it on:
+              </p>
+              <CommandBlock command={rclone.systemd_install} />
+              <p className="m-0 text-[length:var(--text-xs)] text-[var(--text-muted)] font-[family-name:var(--font-sans)] leading-[var(--leading-relaxed)]">
+                Check it with{' '}
+                <code className="font-[family-name:var(--font-mono)]">
+                  systemctl --user status {rclone.service_name}
+                </code>
+                . On macOS/Windows, or to keep real local files instead of a live
+                mount, see the sync docs.
+              </p>
             </Step>
 
             <DialogFooter>

@@ -31,15 +31,15 @@ type rcloneSetup struct {
 	WebdavURL  string `json:"webdav_url"`
 	RemoteName string `json:"remote_name"`
 	RemotePath string `json:"remote_path"`
-	// LocalDir is the concrete folder the files land in (~-anchored, so the user
-	// always knows WHERE), e.g. ~/tela or ~/tela/<slug>.
+	// LocalDir is the concrete folder the vault is mounted at (~-anchored, so the
+	// user always knows WHERE), e.g. ~/tela or ~/tela/<slug>.
 	LocalDir            string `json:"local_dir"`
 	ConfigCreateCommand string `json:"config_create_command"` // step 1, run once
-	FirstSyncCommand    string `json:"first_sync_command"`    // step 2: make the dir + baseline sync
-	SyncCommand         string `json:"sync_command"`          // step 3: sync again on demand
-	ScheduleExample     string `json:"schedule_example"`      // step 4: a crontab line to keep it automatic
+	MountCommand        string `json:"mount_command"`         // step 2: foreground mount to try it
+	ServiceName         string `json:"service_name"`          // the systemd unit name
+	SystemdUnit         string `json:"systemd_unit"`          // step 3: the .service file contents
+	SystemdInstall      string `json:"systemd_install"`       // step 3: enable + start it
 	ReadOnly            bool   `json:"read_only"`
-	Excludes            string `json:"excludes"`
 }
 
 // CreateSyncConnection — POST /api/sync/connections. Any authenticated user mints
@@ -164,42 +164,73 @@ func buildRcloneSetup(user, spaceSlug, rawKey string, readOnly bool) rcloneSetup
 	url := strings.TrimRight(publicBaseURL(), "/") + "/dav/"
 	const remote = "tela"
 	remotePath := remote + ":"
-	localDir := "~/tela"
+	localRel := "tela" // relative to $HOME
+	service := "tela-vault"
 	if spaceSlug != "" {
 		remotePath = remote + ":" + spaceSlug
-		localDir = "~/tela/" + spaceSlug
+		localRel = "tela/" + spaceSlug
+		service = "tela-" + spaceSlug
 	}
+	localDir := "~/" + localRel
 	if user == "" {
 		user = "you@example.com"
 	}
 	configCreate := fmt.Sprintf("rclone config create %s webdav url=%s vendor=other user=%s pass=%s", remote, url, user, rawKey)
 
-	// Read-only → a one-way pull (the token can't write, so bisync would 403 going
-	// up). Two-way → bisync with --ignore-size (tela renders frontmatter + merges
-	// on write, so rclone must not size-check; see docs/webdav-sync.md). First run
-	// makes the folder and (for two-way) establishes the bisync baseline; the
-	// ongoing command drops --resync. rclone runs on demand — the schedule line is
-	// how you make "always synced" real.
-	var firstSync, syncCmd string
+	// The vault is mounted (rclone mount), not bidirectionally synced: edits go
+	// straight up via PUT (the server merges), server-side changes appear after
+	// --dir-cache-time. Required flags, verified against tela's WebDAV:
+	//   --ignore-size : tela renders frontmatter on write, so the stored bytes
+	//                   differ from what was uploaded; without this the VFS
+	//                   declares "corrupted on transfer" and retries forever.
+	//                   (modtime stays on — getlastmodified=updated_at — so
+	//                   server→local change detection still works.)
+	//   --vfs-cache-mode full : real local cache, so editors and offline reads work.
+	// Read-only tokens add --read-only.
+	roFlag := ""
 	if readOnly {
-		pull := fmt.Sprintf("rclone sync %s %s --create-empty-src-dirs", remotePath, localDir)
-		firstSync = fmt.Sprintf("mkdir -p %s && %s", localDir, pull)
-		syncCmd = pull
-	} else {
-		syncCmd = fmt.Sprintf("rclone bisync %s %s --ignore-size", localDir, remotePath)
-		firstSync = fmt.Sprintf("mkdir -p %s && rclone bisync %s %s --resync --ignore-size", localDir, localDir, remotePath)
+		roFlag = " --read-only"
 	}
+	mountFlags := "--vfs-cache-mode full --dir-cache-time 10s --vfs-write-back 2s --ignore-size" + roFlag
+	mountCmd := fmt.Sprintf("rclone mount %s %s %s", remotePath, localDir, mountFlags)
+
+	// systemd USER service — mounts on login, restarts if it drops (the pattern
+	// for an always-available cloud folder). %h is systemd's user-home specifier
+	// (the unit can't carry a real path; it's generated server-side).
+	unit := strings.NewReplacer(
+		"{remote}", remotePath,
+		"{rel}", localRel,
+		"{flags}", mountFlags,
+	).Replace(`[Unit]
+Description=tela vault — rclone mount of {remote}
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStartPre=/usr/bin/mkdir -p %h/{rel}
+ExecStartPre=-/usr/bin/fusermount3 -uz %h/{rel}
+ExecStart=/usr/bin/rclone mount {remote} %h/{rel} {flags}
+ExecStop=/usr/bin/fusermount3 -uz %h/{rel}
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=default.target
+`)
+	install := fmt.Sprintf("systemctl --user daemon-reload\nsystemctl --user enable --now %s.service", service)
+
 	return rcloneSetup{
 		WebdavURL:           url,
 		RemoteName:          remote,
 		RemotePath:          remotePath,
 		LocalDir:            localDir,
 		ConfigCreateCommand: configCreate,
-		FirstSyncCommand:    firstSync,
-		SyncCommand:         syncCmd,
-		ScheduleExample:     "*/5 * * * * " + syncCmd,
+		MountCommand:        mountCmd,
+		ServiceName:         service,
+		SystemdUnit:         unit,
+		SystemdInstall:      install,
 		ReadOnly:            readOnly,
-		Excludes:            ".DS_Store\n._*\n*.swp\n*.tmp\n~$*\nThumbs.db\n.git/**\n.obsidian/**",
 	}
 }
 
