@@ -770,6 +770,7 @@ function PageEditor({ page, spaceId, draftRevId, onDeleted }: PageEditorProps) {
             <>
               <PresenceAvatars awareness={provider?.awareness ?? null} />
               <SaveIndicator status={status} />
+              <PageProperties props={page.props} />
               {/* Frequent actions stay on the bar; the rest live in the "•••"
                   menu (PageActionsMenu) to keep the header uncluttered. */}
               {roleResolved && !isViewer ? (
@@ -885,8 +886,6 @@ function PageEditor({ page, spaceId, draftRevId, onDeleted }: PageEditorProps) {
             'focus-visible:border-[var(--border-subtle)]',
           )}
         />
-
-        <PageProperties props={page.props} />
 
         {isDraftMode ? (
           draftRevisionQuery.isError ? (
