@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"log"
 	"net/http"
 	"regexp"
 	"strconv"
@@ -133,7 +134,44 @@ func (s *Server) CreateSpace(w http.ResponseWriter, r *http.Request) {
 		writeError(w, ae.Status, ae.Code, ae.Message)
 		return
 	}
+	// Best-effort: seed a starter page so the new space isn't an empty void.
+	// Never blocks creation — a failed seed is logged and the space still ships.
+	// Done in the HTTP handler (not createSpaceCore) so the MCP create_space
+	// tool and direct-core callers stay seed-free.
+	s.seedWelcomePage(r.Context(), u, sp)
 	writeJSON(w, http.StatusCreated, map[string]any{"space": sp})
+}
+
+// seedWelcomePage drops a starter "Welcome" page into a just-created space when
+// seeding is enabled (see Server.seedWelcome). Best-effort: it reuses
+// createPageCore (so the page is indexed and link-synced like any other), and a
+// failure is logged, never surfaced — the space is already committed.
+func (s *Server) seedWelcomePage(ctx context.Context, u *auth.User, sp models.Space) {
+	if !s.seedWelcome {
+		return
+	}
+	if _, ae := s.createPageCore(ctx, u, nil, pageCreateRequest{
+		SpaceID: sp.ID,
+		Title:   "Welcome to " + sp.Name,
+		Body:    welcomePageBody(sp.Name),
+	}); ae != nil {
+		log.Printf("seed welcome page for space %d: %s", sp.ID, ae.Message)
+	}
+}
+
+// welcomePageBody is the starter page's markdown. Intentionally short and
+// practical — a few orienting lines plus how to invite the team — so it reads as
+// a helpful nudge, not filler to delete.
+func welcomePageBody(spaceName string) string {
+	return "This is the home of **" + spaceName + "**. A space is a tree of markdown pages your team writes and edits together.\n\n" +
+		"## Getting started\n\n" +
+		"- Press **Ctrl/⌘ N** to create a page, or use the **New page** button in the sidebar.\n" +
+		"- Link pages with `[[Page Title]]` — backlinks and the graph build themselves.\n" +
+		"- Star a page to pin it to your sidebar and home dashboard.\n" +
+		"- Share a page publicly from its visibility menu when you need a link.\n\n" +
+		"## Invite your team\n\n" +
+		"Open a space's **members** to add teammates, or share the whole space with an organization so everyone joins at once.\n\n" +
+		"Delete this page whenever you're ready — it won't be missed.\n"
 }
 
 // createSpaceCore is the transport-agnostic core behind POST /api/spaces and the

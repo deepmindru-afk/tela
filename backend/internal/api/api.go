@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"database/sql"
+	"os"
 
 	"github.com/zcag/tela/backend/internal/auth"
 	"github.com/zcag/tela/backend/internal/mailer"
@@ -45,6 +46,13 @@ type Server struct {
 	// acceptance + Protected Resource Metadata). nil = disabled (PAT-only),
 	// unless TELA_WORKOS_ISSUER is set. Tests inject a configured one.
 	oauth *mcpOAuth
+
+	// seedWelcome controls whether POST /api/spaces seeds a starter "Welcome"
+	// page into a freshly created space (so a new team doesn't land in an empty
+	// void). On by default; the test package disables it via
+	// TELA_DISABLE_WELCOME_SEED so space-creation tests keep asserting on exact
+	// page sets.
+	seedWelcome bool
 }
 
 func New(db *sql.DB) *Server {
@@ -58,6 +66,7 @@ func New(db *sql.DB) *Server {
 		authLimiter:  newAuthRateLimiter(),
 		rag:          rag.NewService(db, rag.ConfigFromEnv()),
 		oauth:        loadMCPOAuth(context.Background()),
+		seedWelcome:  os.Getenv("TELA_DISABLE_WELCOME_SEED") == "",
 	}
 	// Sweep stale share-rate-limit buckets every shareRateWindow so the
 	// limiter map cannot grow unbounded under adversarial load. Tied to
