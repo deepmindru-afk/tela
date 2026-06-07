@@ -139,11 +139,46 @@ Everything else, stored verbatim in `props`, queryable and round-tripped.
   **The system block is always emitted, even when the bag is empty** (consistent,
   round-trip-portable). `space`/`parent`/`position` are **not** emitted.
 
-## Versioning
+### The body invariant (every ingress)
 
-`page_revisions` (today `title + body` only) gains a `props` column, so a
-property-only edit is versioned and shows in history/diff. Without it, property
-changes would be invisible to history.
+**Frontmatter never lives in `pages.body` — at any ingress, not just import.**
+`createPageCore`/`updatePageCore` reuse `StripFrontmatter` on the incoming `body`
+exactly like import does (and like `stripLeadingTitleH1` already strips a leading
+H1). This is the *lower-debt* choice: the parser already exists, and it removes
+the path-asymmetry where the same markdown stored via import vs API would land
+differently. Precedence when a request carries both:
+
+> **explicit `props` field > frontmatter found in `body` > existing props.**
+> An explicit `props` field is authoritative; otherwise frontmatter in the body
+> is absorbed; the stored body is always pure prose.
+
+### Detection & parse rules (locked)
+
+- **Frontmatter = "parses to a YAML mapping," else it is not frontmatter.** Only
+  strip/store when the delimited block `yaml.v3`-parses to an *object*. This one
+  rule prevents malformed YAML from crashing import AND stops a legitimate leading
+  `---` thematic break (`---\nsome text\n---`) from being mis-eaten.
+- **JSON-safe coercion (accepted normalization).** Parsed YAML is coerced to
+  JSON-safe (string keys) before storage. Value-faithful, not byte-faithful:
+  YAML timestamps normalize to RFC3339 (`due: 2026-01-01` → `2026-01-01T00:00:00Z`)
+  and numbers to JSON numbers. Known wrinkle, consistent with the canonical-emit
+  decision.
+
+### Update semantics — Replace (PUT)
+
+`update_page(props=…)` **replaces the whole bag**, mirroring how `title`/`body`
+already overwrite in `updatePageCore`. No null-sentinel/merge convention. The
+update guard (today "at least one of title, body") is relaxed to allow a
+**props-only** update. A targeted `set_prop`/patch verb is a clean future add, not
+a v1 semantics change.
+
+## Versioning — capture on snapshot
+
+`page_revisions` (today `title + body` only) gains a `props` column. There is a
+single revision write point (`page_revisions.go` `insertPageRevision`, the manual
+snapshot path). Props are **captured whenever a snapshot is taken** — a
+props-only edit does not itself force a new revision. This is the honest v1 scope;
+"snapshot on every props edit" is deferred.
 
 ## Product-wide change map
 
@@ -152,10 +187,26 @@ changes would be invisible to history.
 | **Schema** | `0005_page_props.sql`: `pages.props` + GIN; `page_revisions.props`. |
 | **Import** (`mdimport/frontmatter.go`, `markdown.go`, `import_mira.go`) | `StripFrontmatter` → full `yaml.v3` parse returning `(body, props)`; title still seeds via existing precedence; persist `props`. |
 | **Emit** (new helper) | `EmitFrontmatter(page)` — emit-only set (`id`/`title`/`slug`/`link`/`created`/`updated`) from columns + bag, canonical order; always emits the system block. |
-| **Model / CRUD** (`models.go`, `pages.go`) | `Page.Props`; create/update accept props; revision writes capture props. |
-| **MCP** (`mcp_tools.go`) | `get_page`/`create_page`/`update_page` carry props; `list_pages` gains containment filtering (`props @>`). The agent payoff. |
+| **Model / CRUD** (`models.go`, `pages.go`) | `Page.Props`; create/update accept props (Replace) + absorb body frontmatter (invariant); props-only guard; revision writes capture props. Only `selectPageByID`/`selectPageByIDTx` scan the full model — the other ~13 `FROM pages` reads are narrow and untouched. |
+| **MCP** (`mcp_tools.go`) | `get_page`/`create_page`/`update_page` carry props; `list_pages` gains containment filtering (`props @>`). The agent payoff. Rides the REST cores — no duplicate logic. |
 | **Egress** | Optional frontmatter-on flag in MCP `get_page`/`fetch`; a real `.md` export does not exist yet (open question). |
 | **Graph / FTS / FE panel** | Deferred (Phase 3); seams left. |
+
+## Implementation gotchas (verified against the code)
+
+- **`yaml.v3` is a transitive dep, not direct** — `go get gopkg.in/yaml.v3` to
+  promote it in `go.mod` before importing.
+- **pgx JSONB binding** (per the CLAUDE.md pgx-strictness gotcha): write props as a
+  **JSON string with `::jsonb`**, not `[]byte` (pgx encodes `[]byte` as `bytea` →
+  type error). Read via `[]byte` + `json.Unmarshal`.
+- **`StripFrontmatter` signature change** 2-return → 3-return
+  `(body, title, props)`; the `insertPage` closure (`markdown.go:313`) + 3 call
+  sites thread `props`. **Index/README pages:** the README's props attach to the
+  dir-index page, but dir-basename still wins for the *title*.
+- **Test fallout:** `frontmatter_test.go`, `markdown_test.go`, import tests. The
+  locked behaviors must still pass — dir-name title override, title precedence,
+  frontmatter-stripped-from-body, `(2)/(3)` dedupe.
+- **mira import** carries no frontmatter (JSON→markdown); it just gets `'{}'`.
 
 ## Phasing
 
