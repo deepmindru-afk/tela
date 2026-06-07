@@ -12,6 +12,9 @@ export interface GraphNode {
   space_id: number
   space_name: string
   title: string
+  updated_at: string
+  // Count of outgoing wikilinks whose target no longer exists.
+  broken: number
 }
 
 export interface GraphLink {

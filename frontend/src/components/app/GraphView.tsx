@@ -1,10 +1,11 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useSearch } from '@tanstack/react-router'
-import { Search, X } from 'lucide-react'
+import { Crosshair, Maximize2, Search, X } from 'lucide-react'
 import {
   buildSpacePalette,
   useGraph,
   type GraphLink,
+  type GraphNode,
 } from '../../lib/queries/graph'
 import { navigateToPage } from '../../lib/pageHitItem'
 import { Button } from '../ui/button'
@@ -15,13 +16,8 @@ interface GraphSearchParams {
   space?: number
 }
 
-// BFS the (undirected) graph from a seed to a hop depth — powers focus mode,
-// where the graph is scoped to a page's neighborhood instead of the whole set.
-function neighborhood(
-  seed: number,
-  links: GraphLink[],
-  depth: number,
-): Set<number> {
+// BFS the (undirected) graph from a seed to a hop depth — powers focus mode.
+function neighborhood(seed: number, links: GraphLink[], depth: number): Set<number> {
   const adj = new Map<number, number[]>()
   for (const l of links) {
     ;(adj.get(l.source) ?? adj.set(l.source, []).get(l.source)!).push(l.target)
@@ -31,14 +27,12 @@ function neighborhood(
   let frontier = [seed]
   for (let i = 0; i < depth; i++) {
     const next: number[] = []
-    for (const id of frontier) {
-      for (const nb of adj.get(id) ?? []) {
+    for (const id of frontier)
+      for (const nb of adj.get(id) ?? [])
         if (!seen.has(nb)) {
           seen.add(nb)
           next.push(nb)
         }
-      }
-    }
     frontier = next
   }
   return seen
@@ -51,17 +45,40 @@ export function GraphRoute() {
 
   const [showLinks, setShowLinks] = useState(true)
   const [showTree, setShowTree] = useState(true)
+  const [recency, setRecency] = useState(false)
   const [orphansOnly, setOrphansOnly] = useState(false)
   const [query, setQuery] = useState('')
+  const [hiddenSpaces, setHiddenSpaces] = useState<Set<number>>(new Set())
+  const [showStats, setShowStats] = useState(false)
+  const [fitNonce, setFitNonce] = useState(0)
+  // Refit whenever the focus target changes or Fit is pressed.
+  const fitSignal = `${focus ?? 'all'}:${fitNonce}`
 
   const allNodes = useMemo(() => graph.data?.nodes ?? [], [graph.data])
   const allLinks = useMemo(() => graph.data?.links ?? [], [graph.data])
   const palette = useMemo(() => buildSpacePalette(allNodes), [allNodes])
 
-  // Displayed node set: focus neighborhood (2 hops) and/or orphans-only.
+  // Esc clears search → focus → (nothing).
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return
+      if (query) setQuery('')
+      else if (focus != null)
+        navigate({ to: '/graph', search: (s) => ({ ...s, focus: undefined }) })
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [query, focus, navigate])
+
   const { nodes, links } = useMemo(() => {
     let keep = new Set(allNodes.map((n) => n.id))
     if (focus != null) keep = neighborhood(focus, allLinks, 2)
+    keep = new Set(
+      [...keep].filter((id) => {
+        const n = allNodes.find((x) => x.id === id)
+        return n != null && !hiddenSpaces.has(n.space_id)
+      }),
+    )
     if (orphansOnly) {
       const connected = new Set<number>()
       for (const l of allLinks) {
@@ -73,20 +90,27 @@ export function GraphRoute() {
     const ns = allNodes.filter((n) => keep.has(n.id))
     const ls = allLinks.filter((l) => keep.has(l.source) && keep.has(l.target))
     return { nodes: ns, links: ls }
-  }, [allNodes, allLinks, focus, orphansOnly])
+  }, [allNodes, allLinks, focus, orphansOnly, hiddenSpaces])
 
   const matchedIds = useMemo(() => {
     const q = query.trim().toLowerCase()
     if (!q) return null
-    return new Set(
-      nodes.filter((n) => n.title.toLowerCase().includes(q)).map((n) => n.id),
-    )
+    return new Set(nodes.filter((n) => n.title.toLowerCase().includes(q)).map((n) => n.id))
   }, [nodes, query])
+
+  const stats = useMemo(() => computeStats(nodes, links), [nodes, links])
 
   const onNavigate = (id: number) => {
     const n = allNodes.find((x) => x.id === id)
     if (n) navigateToPage(n.space_id, id)
   }
+  const toggleSpace = (id: number) =>
+    setHiddenSpaces((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
 
   return (
     <div className="flex h-full flex-col">
@@ -99,7 +123,9 @@ export function GraphRoute() {
           <Button
             variant="secondary"
             size="sm"
-            onClick={() => navigate({ to: '/graph', search: (s) => ({ ...s, focus: undefined }) })}
+            onClick={() =>
+              navigate({ to: '/graph', search: (s) => ({ ...s, focus: undefined }) })
+            }
           >
             <X width={14} height={14} />
             Focused — show all
@@ -128,18 +154,35 @@ export function GraphRoute() {
         <ToggleChip active={showTree} onClick={() => setShowTree((v) => !v)}>
           Hierarchy
         </ToggleChip>
+        <ToggleChip active={recency} onClick={() => setRecency((v) => !v)}>
+          Recency
+        </ToggleChip>
         <ToggleChip active={orphansOnly} onClick={() => setOrphansOnly((v) => !v)}>
           Orphans
         </ToggleChip>
+        <ToggleChip active={showStats} onClick={() => setShowStats((v) => !v)}>
+          Stats
+        </ToggleChip>
+        <Button
+          variant="ghost"
+          size="sm"
+          aria-label="Fit graph to view"
+          title="Fit to view"
+          onClick={() => setFitNonce((n) => n + 1)}
+        >
+          <Maximize2 width={14} height={14} />
+        </Button>
       </div>
 
-      {/* Canvas + legend */}
+      {/* Canvas + overlays */}
       <div className="relative min-h-0 flex-1">
         {graph.isLoading ? (
           <CenterNote>Loading graph…</CenterNote>
         ) : nodes.length === 0 ? (
           <CenterNote>
-            {orphansOnly ? 'No orphan pages — everything is linked.' : 'No pages to graph yet.'}
+            {orphansOnly
+              ? 'No orphan pages — everything is linked.'
+              : 'No pages to graph yet.'}
           </CenterNote>
         ) : (
           <PageGraph
@@ -147,30 +190,140 @@ export function GraphRoute() {
             links={links}
             showLinks={showLinks}
             showTree={showTree}
+            recency={recency}
             currentId={focus ?? null}
             matchedIds={matchedIds}
             onNavigate={onNavigate}
+            fitSignal={fitSignal}
           />
         )}
 
+        {/* Legend — click a space to show/hide it. */}
         {palette.length > 1 ? (
-          <div className="absolute bottom-[var(--space-3)] left-[var(--space-3)] flex max-w-[16rem] flex-col gap-[var(--space-1)] rounded-[var(--radius-md)] border border-[var(--border-subtle)] bg-[var(--surface-1)]/90 p-[var(--space-2)] backdrop-blur">
-            {palette.map((p) => (
-              <div
-                key={p.spaceId}
-                className="flex items-center gap-[var(--space-2)] text-[length:var(--text-xs)] text-[var(--text-muted)]"
-              >
-                <span
-                  className="inline-block h-[var(--space-2)] w-[var(--space-2)] rounded-full"
-                  style={{ background: `var(${p.varName})` }}
-                  aria-hidden
-                />
-                <span className="truncate">{p.spaceName}</span>
-              </div>
-            ))}
+          <div className="absolute bottom-[var(--space-3)] left-[var(--space-3)] flex max-w-[16rem] flex-col gap-px rounded-[var(--radius-md)] border border-[var(--border-subtle)] bg-[color-mix(in_srgb,var(--surface-1)_90%,transparent)] p-[var(--space-1)] backdrop-blur">
+            {palette.map((p) => {
+              const hidden = hiddenSpaces.has(p.spaceId)
+              return (
+                <button
+                  key={p.spaceId}
+                  type="button"
+                  onClick={() => toggleSpace(p.spaceId)}
+                  aria-pressed={!hidden}
+                  className="flex items-center gap-[var(--space-2)] rounded-[var(--radius-sm)] px-[var(--space-2)] py-[var(--space-1)] text-left text-[length:var(--text-xs)] text-[var(--text-muted)] hover:bg-[var(--surface-2)]"
+                  style={{ opacity: hidden ? 0.4 : 1 }}
+                >
+                  <span
+                    className="inline-block h-[var(--space-2)] w-[var(--space-2)] shrink-0 rounded-full"
+                    style={{ background: `var(${p.varName})` }}
+                    aria-hidden
+                  />
+                  <span className="truncate">{p.spaceName}</span>
+                </button>
+              )
+            })}
           </div>
         ) : null}
+
+        {showStats ? (
+          <StatsPanel stats={stats} onNavigate={onNavigate} onClose={() => setShowStats(false)} />
+        ) : null}
       </div>
+    </div>
+  )
+}
+
+interface Stats {
+  hubs: { id: number; title: string; deg: number }[]
+  recent: { id: number; title: string }[]
+  orphanCount: number
+  brokenCount: number
+}
+
+function computeStats(nodes: GraphNode[], links: GraphLink[]): Stats {
+  const deg = new Map<number, number>()
+  const connected = new Set<number>()
+  for (const l of links) {
+    deg.set(l.source, (deg.get(l.source) ?? 0) + 1)
+    deg.set(l.target, (deg.get(l.target) ?? 0) + 1)
+    connected.add(l.source)
+    connected.add(l.target)
+  }
+  const hubs = [...nodes]
+    .map((n) => ({ id: n.id, title: n.title || 'Untitled', deg: deg.get(n.id) ?? 0 }))
+    .sort((a, b) => b.deg - a.deg)
+    .slice(0, 6)
+  const recent = [...nodes]
+    .sort((a, b) => (a.updated_at < b.updated_at ? 1 : -1))
+    .slice(0, 6)
+    .map((n) => ({ id: n.id, title: n.title || 'Untitled' }))
+  return {
+    hubs,
+    recent,
+    orphanCount: nodes.filter((n) => !connected.has(n.id)).length,
+    brokenCount: nodes.filter((n) => n.broken > 0).length,
+  }
+}
+
+function StatsPanel({
+  stats,
+  onNavigate,
+  onClose,
+}: {
+  stats: Stats
+  onNavigate: (id: number) => void
+  onClose: () => void
+}) {
+  return (
+    <div className="absolute right-[var(--space-3)] top-[var(--space-3)] flex w-[15rem] flex-col gap-[var(--space-3)] rounded-[var(--radius-md)] border border-[var(--border-subtle)] bg-[color-mix(in_srgb,var(--surface-1)_92%,transparent)] p-[var(--space-3)] backdrop-blur">
+      <div className="flex items-center justify-between">
+        <span className="text-[length:var(--text-sm)] font-medium text-[var(--text-primary)]">
+          Stats
+        </span>
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="Close stats"
+          className="text-[var(--text-muted)] hover:text-[var(--text-primary)]"
+        >
+          <X width={14} height={14} />
+        </button>
+      </div>
+      <div className="flex gap-[var(--space-3)] text-[length:var(--text-xs)] text-[var(--text-muted)]">
+        <span>{stats.orphanCount} orphans</span>
+        <span>{stats.brokenCount} with broken links</span>
+      </div>
+      <StatList label="Most connected" rows={stats.hubs.map((h) => ({ id: h.id, title: h.title, meta: `${h.deg}` }))} onNavigate={onNavigate} />
+      <StatList label="Recently updated" rows={stats.recent.map((r) => ({ id: r.id, title: r.title }))} onNavigate={onNavigate} />
+    </div>
+  )
+}
+
+function StatList({
+  label,
+  rows,
+  onNavigate,
+}: {
+  label: string
+  rows: { id: number; title: string; meta?: string }[]
+  onNavigate: (id: number) => void
+}) {
+  return (
+    <div className="flex flex-col gap-[var(--space-1)]">
+      <span className="text-[length:var(--text-xs)] font-medium uppercase tracking-wide text-[var(--text-muted)]">
+        {label}
+      </span>
+      {rows.map((r) => (
+        <button
+          key={r.id}
+          type="button"
+          onClick={() => onNavigate(r.id)}
+          className="flex items-center gap-[var(--space-2)] rounded-[var(--radius-sm)] px-[var(--space-1)] py-px text-left text-[length:var(--text-xs)] text-[var(--text-primary)] hover:bg-[var(--surface-2)]"
+        >
+          <Crosshair width={11} height={11} className="shrink-0 text-[var(--text-muted)]" aria-hidden />
+          <span className="flex-1 truncate">{r.title}</span>
+          {r.meta ? <span className="text-[var(--text-muted)]">{r.meta}</span> : null}
+        </button>
+      ))}
     </div>
   )
 }
