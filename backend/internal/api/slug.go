@@ -36,6 +36,12 @@ func pageAppPath(spaceID, id int64, title string) string {
 	return base
 }
 
+// publicSpacePath returns the no-login public front-page route for a space:
+// /public/spaces/{spaceID} — the blog index.
+func publicSpacePath(spaceID int64) string {
+	return "/public/spaces/" + strconv.FormatInt(spaceID, 10)
+}
+
 // publicReaderPath returns the no-login public reader SPA route for a page in a
 // public space: /public/spaces/{spaceID}/pages/{id}/{slug}. Mirrors pageAppPath
 // under the /public prefix; the reader fetches the /api/public/ data.

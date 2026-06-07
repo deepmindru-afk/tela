@@ -257,6 +257,13 @@ func IsPublicPath(p string) bool {
 	if strings.HasPrefix(p, "/share/") {
 		return true
 	}
+	// Crawler-facing SEO/social surfaces for public spaces. Caddy bot-gates
+	// /public/* and /u/* — only crawler UAs reach the backend here (humans get
+	// the SPA), and these handlers emit OG HTML + JSON-LD self-authenticating on
+	// the space/user being public (api/public_og.go). Read-only.
+	if strings.HasPrefix(p, "/public/") || strings.HasPrefix(p, "/u/") {
+		return true
+	}
 	return strings.HasPrefix(p, "/p/")
 }
 

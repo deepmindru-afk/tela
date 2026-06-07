@@ -172,6 +172,17 @@ func registerRoutes(srv *Server, mux *http.ServeMux) {
 	// /api/ routes). See public_spaces.go + docs/public-spaces.md.
 	mux.HandleFunc("GET /api/public/spaces/{id}", srv.GetPublicSpace)
 	mux.HandleFunc("GET /api/public/spaces/{id}/tree", srv.GetPublicSpaceTree)
+	mux.HandleFunc("GET /api/public/spaces/{id}/feed.xml", srv.GetPublicSpaceFeed)
+	mux.HandleFunc("GET /api/public/spaces/{id}/og.png", srv.HandlePublicSpaceOGImage)
+	mux.HandleFunc("GET /api/public/users/{username}/og.png", srv.HandlePublicUserOGImage)
+	mux.HandleFunc("GET /api/public/sitemap.xml", srv.HandlePublicSitemap)
+	// Crawler-facing OG/JSON-LD surfaces — Caddy bot-gates /public/* and /u/* to
+	// these (humans get the SPA); on auth.IsPublicPath, self-authenticating on
+	// the space/user being public. See api/public_og.go.
+	mux.HandleFunc("GET /public/spaces/{id}", srv.HandlePublicSpaceOG)
+	mux.HandleFunc("GET /public/spaces/{id}/pages/{page_id}", srv.HandlePublicReaderOG)
+	mux.HandleFunc("GET /public/spaces/{id}/pages/{page_id}/{slug}", srv.HandlePublicReaderOG)
+	mux.HandleFunc("GET /u/{username}", srv.HandlePublicUserOG)
 	mux.HandleFunc("GET /api/public/spaces/{id}/pages/{page_id}", srv.GetPublicSpacePage)
 	mux.HandleFunc("GET /api/public/spaces/{id}/pages/{page_id}/md", srv.ExportPublicSpacePageMarkdown)
 	// Public user home page (/u/{handle}) data: a user's public spaces + posts.

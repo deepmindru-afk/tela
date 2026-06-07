@@ -98,6 +98,33 @@
 		reverse_proxy frontend:80
 	}
 
+	# ── Public blog surfaces: indexable + social unfurls ────────────────────
+	# Public spaces (/public/*) and author homes (/u/*) are meant for the open
+	# web, so — unlike the rest of the app SPA — they are NOT noindex'd. Bot UAs
+	# get server-rendered OG/JSON-LD from the backend (api/public_og.go); humans
+	# get the SPA, which sets its own per-page <title>/description/canonical.
+	# The named matcher must precede the plain /public + /u handles (first match
+	# wins). Mirror of botUASubstrings in backend/internal/api/public_share.go.
+	@public_bots {
+		path /public/* /u/*
+		header_regexp User-Agent "(?i)(slackbot-linkexpanding|twitterbot|facebookexternalhit|facebookcatalog|discordbot|telegrambot|linkedinbot|whatsapp|mastodon|cardyb|slack-imgproxy|pinterest|bot/|bot\s)"
+	}
+	handle @public_bots {
+		reverse_proxy backend:8080
+	}
+	handle /public/* {
+		reverse_proxy frontend:80
+	}
+	handle /u/* {
+		reverse_proxy frontend:80
+	}
+
+	# Public sitemap (backend-generated from public spaces/pages/author-homes).
+	handle /sitemap-public.xml {
+		rewrite * /api/public/sitemap.xml
+		reverse_proxy backend:8080
+	}
+
 	# ── Returning user: hard load of "/" → app, not the landing ─────────────
 	# A user who types the bare domain while signed in should land in the app,
 	# not the marketing page. Caddy can't VALIDATE the tela_session cookie

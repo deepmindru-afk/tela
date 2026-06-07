@@ -1,0 +1,433 @@
+package api
+
+import (
+	"database/sql"
+	"encoding/json"
+	"encoding/xml"
+	"errors"
+	"fmt"
+	"html"
+	"net/http"
+	"net/url"
+	"strconv"
+	"time"
+
+	"github.com/zcag/tela/backend/internal/models"
+)
+
+// Crawler-facing surfaces for the public blog. Caddy routes BOT user-agents on
+// /public/* and /u/* to these handlers (humans get the SPA); they emit a small
+// HTML document with title / description / canonical / OpenGraph / Twitter +
+// JSON-LD so the public space front page, reader pages, and author home index
+// and unfurl. Read-only; each self-authenticates by requiring the space (or the
+// user's spaces) be public. Mirrors the /share OG bot-gate pattern.
+//
+// Public-space pages carry a RICH body excerpt in og:description — unlike the
+// /p/{id} permalink (title-only for privacy), the body here is genuinely public.
+
+// ogDoc is the rendered crawler document. JSONLD is pre-marshalled JSON embedded
+// verbatim in a <script type="application/ld+json"> block (json.Marshal escapes
+// <,>,& so it is safe inside the element).
+type ogDoc struct {
+	Title        string
+	Description  string
+	CanonicalURL string
+	ImageURL     string
+	OGType       string // website | article | profile
+	FeedURL      string // optional rss alternate
+	JSONLD       string // optional ld+json
+}
+
+func writeOGDoc(w http.ResponseWriter, d ogDoc) {
+	feed := ""
+	if d.FeedURL != "" {
+		feed = fmt.Sprintf("\n  <link rel=\"alternate\" type=\"application/rss+xml\" href=%q>", html.EscapeString(d.FeedURL))
+	}
+	jsonld := ""
+	if d.JSONLD != "" {
+		jsonld = "\n  <script type=\"application/ld+json\">" + d.JSONLD + "</script>"
+	}
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.Header().Set("Cache-Control", "public, max-age=300")
+	w.WriteHeader(http.StatusOK)
+	fmt.Fprintf(w, `<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>%s</title>
+  <meta name="description" content="%s">
+  <link rel="canonical" href="%s">
+  <meta property="og:site_name" content="tela">
+  <meta property="og:title" content="%s">
+  <meta property="og:description" content="%s">
+  <meta property="og:image" content="%s">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:url" content="%s">
+  <meta property="og:type" content="%s">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="%s">
+  <meta name="twitter:description" content="%s">
+  <meta name="twitter:image" content="%s">%s%s
+</head>
+<body></body>
+</html>`,
+		html.EscapeString(d.Title), html.EscapeString(d.Description), html.EscapeString(d.CanonicalURL),
+		html.EscapeString(d.Title), html.EscapeString(d.Description), html.EscapeString(d.ImageURL),
+		html.EscapeString(d.CanonicalURL), html.EscapeString(d.OGType),
+		html.EscapeString(d.Title), html.EscapeString(d.Description), html.EscapeString(d.ImageURL),
+		feed, jsonld,
+	)
+}
+
+func jsonLD(v any) string {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return ""
+	}
+	return string(b)
+}
+
+// telaTimeToRFC3339 converts a tela TEXT timestamp to RFC3339 (for schema.org
+// date fields). Empty on parse failure.
+func telaTimeToRFC3339(s string) string {
+	t, err := time.Parse("2006-01-02 15:04:05", s)
+	if err != nil {
+		return ""
+	}
+	return t.UTC().Format(time.RFC3339)
+}
+
+type ogPostRow struct {
+	id      int64
+	title   string
+	created string
+}
+
+func (s *Server) topLevelPosts(r *http.Request, spaceID int64, limit int) []ogPostRow {
+	rows, err := s.DB.QueryContext(r.Context(),
+		`SELECT id, title, created_at
+		   FROM pages
+		  WHERE space_id = $1 AND parent_id IS NULL AND deleted_at IS NULL
+		  ORDER BY created_at DESC, id DESC
+		  LIMIT $2`, spaceID, limit)
+	if err != nil {
+		return nil
+	}
+	defer rows.Close()
+	var out []ogPostRow
+	for rows.Next() {
+		var p ogPostRow
+		if rows.Scan(&p.id, &p.title, &p.created) == nil {
+			out = append(out, p)
+		}
+	}
+	return out
+}
+
+func (s *Server) spaceOwnerHandle(r *http.Request, spaceID int64) string {
+	var h string
+	_ = s.DB.QueryRowContext(r.Context(),
+		`SELECT u.username FROM space_members m JOIN users u ON u.id = m.user_id
+		  WHERE m.space_id = $1 AND m.role = 'owner' ORDER BY m.user_id ASC LIMIT 1`, spaceID).Scan(&h)
+	return h
+}
+
+// loadPublicSpaceForOG loads a space only when it is public, writing an HTML 404
+// otherwise (crawler-friendly — no JSON envelope).
+func (s *Server) loadPublicSpaceForOG(w http.ResponseWriter, r *http.Request) (models.Space, bool) {
+	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil {
+		writeNotFoundHTML(w)
+		return models.Space{}, false
+	}
+	sp, err := selectSpaceByID(r.Context(), s.DB, id)
+	if errors.Is(err, sql.ErrNoRows) || (err == nil && sp.Visibility != spaceVisibilityPublic) {
+		writeNotFoundHTML(w)
+		return models.Space{}, false
+	}
+	if err != nil {
+		writeInternalHTML(w)
+		return models.Space{}, false
+	}
+	return sp, true
+}
+
+// HandlePublicSpaceOG — GET /public/spaces/{id} (bot UAs). Blog front-page card.
+func (s *Server) HandlePublicSpaceOG(w http.ResponseWriter, r *http.Request) {
+	sp, ok := s.loadPublicSpaceForOG(w, r)
+	if !ok {
+		return
+	}
+	base := publicBaseURL()
+	canonical := base + publicSpacePath(sp.ID)
+	owner := s.spaceOwnerHandle(r, sp.ID)
+	desc := sp.Description
+	if desc == "" {
+		desc = "A blog on tela."
+	}
+
+	ld := map[string]any{
+		"@context": "https://schema.org", "@type": "Blog",
+		"name": sp.Name, "description": sp.Description, "url": canonical,
+	}
+	if owner != "" {
+		ld["author"] = map[string]any{"@type": "Person", "name": owner, "url": base + "/u/" + owner}
+	}
+	if posts := s.topLevelPosts(r, sp.ID, 20); len(posts) > 0 {
+		bp := make([]map[string]any, 0, len(posts))
+		for _, p := range posts {
+			bp = append(bp, map[string]any{
+				"@type": "BlogPosting", "headline": p.title,
+				"url":           base + publicReaderPath(sp.ID, p.id, p.title),
+				"datePublished": telaTimeToRFC3339(p.created),
+			})
+		}
+		ld["blogPost"] = bp
+	}
+
+	writeOGDoc(w, ogDoc{
+		Title:        sp.Name + " — tela",
+		Description:  runeTruncate(desc, 200),
+		CanonicalURL: canonical,
+		ImageURL:     base + "/api/public/spaces/" + strconv.FormatInt(sp.ID, 10) + "/og.png",
+		OGType:       "website",
+		FeedURL:      base + "/api/public/spaces/" + strconv.FormatInt(sp.ID, 10) + "/feed.xml",
+		JSONLD:       jsonLD(ld),
+	})
+}
+
+// HandlePublicReaderOG — GET /public/spaces/{id}/pages/{page_id}[/{slug}] (bots).
+func (s *Server) HandlePublicReaderOG(w http.ResponseWriter, r *http.Request) {
+	sp, ok := s.loadPublicSpaceForOG(w, r)
+	if !ok {
+		return
+	}
+	pageID, err := strconv.ParseInt(r.PathValue("page_id"), 10, 64)
+	if err != nil {
+		writeNotFoundHTML(w)
+		return
+	}
+	page, err := selectPageByID(r.Context(), s.DB, pageID)
+	if errors.Is(err, sql.ErrNoRows) || (err == nil && page.SpaceID != sp.ID) {
+		writeNotFoundHTML(w)
+		return
+	}
+	if err != nil {
+		writeInternalHTML(w)
+		return
+	}
+
+	base := publicBaseURL()
+	canonical := base + publicReaderPath(sp.ID, pageID, page.Title)
+	imageURL := base + fmt.Sprintf("/p/%d/og.png", pageID)
+	desc := postExcerpt(page.Body, page.Props, 200)
+	owner := s.spaceOwnerHandle(r, sp.ID)
+
+	ld := map[string]any{
+		"@context": "https://schema.org", "@type": "BlogPosting",
+		"headline": page.Title, "description": desc, "url": canonical,
+		"mainEntityOfPage": canonical, "image": imageURL,
+		"datePublished": telaTimeToRFC3339(page.CreatedAt),
+		"dateModified":  telaTimeToRFC3339(page.UpdatedAt),
+		"isPartOf":      map[string]any{"@type": "Blog", "name": sp.Name, "url": base + publicSpacePath(sp.ID)},
+	}
+	if owner != "" {
+		ld["author"] = map[string]any{"@type": "Person", "name": owner, "url": base + "/u/" + owner}
+	}
+
+	writeOGDoc(w, ogDoc{
+		Title:        page.Title + " — " + sp.Name,
+		Description:  runeTruncate(desc, 200),
+		CanonicalURL: canonical,
+		ImageURL:     imageURL,
+		OGType:       "article",
+		JSONLD:       jsonLD(ld),
+	})
+}
+
+// HandlePublicUserOG — GET /u/{username} (bots). Author home card. 404 unless the
+// user exists and has at least one public space.
+func (s *Server) HandlePublicUserOG(w http.ResponseWriter, r *http.Request) {
+	username := r.PathValue("username")
+	if username == "" {
+		writeNotFoundHTML(w)
+		return
+	}
+	var name, bio string
+	err := s.DB.QueryRowContext(r.Context(),
+		`SELECT username, bio FROM users WHERE LOWER(username) = LOWER($1)`, username).Scan(&name, &bio)
+	if errors.Is(err, sql.ErrNoRows) {
+		writeNotFoundHTML(w)
+		return
+	}
+	if err != nil {
+		writeInternalHTML(w)
+		return
+	}
+	var hasPublic bool
+	_ = s.DB.QueryRowContext(r.Context(),
+		`SELECT EXISTS(
+		   SELECT 1 FROM spaces sp
+		     JOIN space_members m ON m.space_id = sp.id
+		    WHERE m.user_id = (SELECT id FROM users WHERE LOWER(username) = LOWER($1))
+		      AND sp.visibility = 'public')`, name).Scan(&hasPublic)
+	if !hasPublic {
+		writeNotFoundHTML(w)
+		return
+	}
+
+	base := publicBaseURL()
+	canonical := base + "/u/" + name
+	desc := bio
+	if desc == "" {
+		desc = name + " on tela"
+	}
+	ld := map[string]any{
+		"@context": "https://schema.org", "@type": "ProfilePage", "url": canonical,
+		"mainEntity": map[string]any{"@type": "Person", "name": name, "url": canonical, "description": bio},
+	}
+	writeOGDoc(w, ogDoc{
+		Title:        name + " — tela",
+		Description:  runeTruncate(desc, 200),
+		CanonicalURL: canonical,
+		ImageURL:     base + "/api/public/users/" + url.PathEscape(name) + "/og.png",
+		OGType:       "profile",
+		JSONLD:       jsonLD(ld),
+	})
+}
+
+// HandlePublicSpaceOGImage — GET /api/public/spaces/{id}/og.png. A title card for
+// the blog front page (reuses the share/permalink OG renderer).
+func (s *Server) HandlePublicSpaceOGImage(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	sp, err := selectSpaceByID(r.Context(), s.DB, id)
+	if errors.Is(err, sql.ErrNoRows) || (err == nil && sp.Visibility != spaceVisibilityPublic) {
+		http.NotFound(w, r)
+		return
+	}
+	if err != nil {
+		http.Error(w, "error", http.StatusInternalServerError)
+		return
+	}
+	sub := sp.Description
+	if sub == "" {
+		sub = "A blog on tela"
+	}
+	writeOGImagePNG(w, sp.Name, runeTruncate(sub, 70))
+}
+
+// HandlePublicUserOGImage — GET /api/public/users/{username}/og.png.
+func (s *Server) HandlePublicUserOGImage(w http.ResponseWriter, r *http.Request) {
+	username := r.PathValue("username")
+	var name, bio string
+	err := s.DB.QueryRowContext(r.Context(),
+		`SELECT username, bio FROM users WHERE LOWER(username) = LOWER($1)`, username).Scan(&name, &bio)
+	if errors.Is(err, sql.ErrNoRows) {
+		http.NotFound(w, r)
+		return
+	}
+	if err != nil {
+		http.Error(w, "error", http.StatusInternalServerError)
+		return
+	}
+	sub := bio
+	if sub == "" {
+		sub = "on tela"
+	}
+	writeOGImagePNG(w, name, runeTruncate(sub, 70))
+}
+
+func writeOGImagePNG(w http.ResponseWriter, title, subtitle string) {
+	png, err := renderOGImage(title, subtitle)
+	if err != nil {
+		http.Error(w, "render failed", http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "image/png")
+	w.Header().Set("Cache-Control", "public, max-age=300")
+	_, _ = w.Write(png)
+}
+
+// HandlePublicSitemap — GET /api/public/sitemap.xml (Caddy also serves it at
+// /sitemap-public.xml). Lists every public space front page, every public page's
+// reader URL, and the author home of every public-space owner.
+func (s *Server) HandlePublicSitemap(w http.ResponseWriter, r *http.Request) {
+	type urlEntry struct {
+		Loc     string `xml:"loc"`
+		LastMod string `xml:"lastmod,omitempty"`
+	}
+	type urlset struct {
+		XMLName xml.Name   `xml:"urlset"`
+		NS      string     `xml:"xmlns,attr"`
+		URLs    []urlEntry `xml:"url"`
+	}
+	base := publicBaseURL()
+	set := urlset{NS: "http://www.sitemaps.org/schemas/sitemap/0.9"}
+	ctx := r.Context()
+
+	// Public space front pages.
+	if rows, err := s.DB.QueryContext(ctx,
+		`SELECT id, updated_at FROM spaces WHERE visibility = 'public' ORDER BY id`); err == nil {
+		for rows.Next() {
+			var id int64
+			var upd string
+			if rows.Scan(&id, &upd) == nil {
+				set.URLs = append(set.URLs, urlEntry{Loc: base + publicSpacePath(id), LastMod: sitemapDate(upd)})
+			}
+		}
+		rows.Close()
+	}
+	// Pages in public spaces (reader URLs).
+	if rows, err := s.DB.QueryContext(ctx,
+		`SELECT p.id, p.title, p.space_id, p.updated_at
+		   FROM pages p JOIN spaces sp ON sp.id = p.space_id
+		  WHERE sp.visibility = 'public' AND p.deleted_at IS NULL
+		  ORDER BY p.space_id, p.id`); err == nil {
+		for rows.Next() {
+			var pid, sid int64
+			var title, upd string
+			if rows.Scan(&pid, &title, &sid, &upd) == nil {
+				set.URLs = append(set.URLs, urlEntry{Loc: base + publicReaderPath(sid, pid, title), LastMod: sitemapDate(upd)})
+			}
+		}
+		rows.Close()
+	}
+	// Author homes for owners of public spaces.
+	if rows, err := s.DB.QueryContext(ctx,
+		`SELECT DISTINCT u.username
+		   FROM users u JOIN space_members m ON m.user_id = u.id
+		   JOIN spaces sp ON sp.id = m.space_id
+		  WHERE sp.visibility = 'public' AND m.role = 'owner'
+		  ORDER BY u.username`); err == nil {
+		for rows.Next() {
+			var h string
+			if rows.Scan(&h) == nil {
+				set.URLs = append(set.URLs, urlEntry{Loc: base + "/u/" + h})
+			}
+		}
+		rows.Close()
+	}
+
+	out, err := xml.MarshalIndent(set, "", "  ")
+	if err != nil {
+		http.Error(w, "encode failed", http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/xml; charset=utf-8")
+	w.Header().Set("Cache-Control", "public, max-age=900")
+	_, _ = w.Write([]byte(xml.Header))
+	_, _ = w.Write(out)
+}
+
+// sitemapDate reduces a tela timestamp to a W3C date (YYYY-MM-DD) for <lastmod>.
+func sitemapDate(telaTs string) string {
+	if len(telaTs) >= 10 {
+		return telaTs[:10]
+	}
+	return ""
+}
