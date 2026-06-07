@@ -18,10 +18,11 @@ import (
 type syncAction string
 
 const (
-	syncUnchanged syncAction = "unchanged" // idempotent no-op: nothing differed
-	syncCreated   syncAction = "created"   // new page (a fresh id was assigned)
-	syncUpdated   syncAction = "updated"   // existing page, content changed in place
-	syncMoved     syncAction = "moved"     // existing page, reparented/relocated (± content)
+	syncUnchanged   syncAction = "unchanged"   // idempotent no-op: nothing differed
+	syncCreated     syncAction = "created"     // new page (a fresh id was assigned)
+	syncUpdated     syncAction = "updated"     // existing page, content changed in place
+	syncMoved       syncAction = "moved"       // existing page, reparented/relocated (± content)
+	syncResurrected syncAction = "resurrected" // a soft-deleted page brought back by its id
 )
 
 // ApplyFileSync is the id-aware, idempotent sync ingress: it resolves one
@@ -60,6 +61,12 @@ func (s *Server) ApplyFileSync(
 		if !errors.Is(err, sql.ErrNoRows) {
 			return models.Page{}, "", &apiErr{http.StatusInternalServerError, "internal", "lookup page failed"}
 		}
+		// Live miss — the id may belong to a soft-deleted page; a re-synced file
+		// resurrects it rather than minting a duplicate. handled=false means no
+		// trashed page owns this id either → a genuinely unknown id → create.
+		if p, act, handled, ae := s.applySyncResurrect(ctx, u, k, *d.ID, spaceID, parentID, title, d.Body, props); handled || ae != nil {
+			return p, act, ae
+		}
 	}
 
 	p, ae := s.createPageCore(ctx, u, k, pageCreateRequest{
@@ -69,6 +76,69 @@ func (s *Server) ApplyFileSync(
 		return models.Page{}, "", ae
 	}
 	return p, syncCreated, nil
+}
+
+// applySyncResurrect brings a soft-deleted page back when a re-synced file
+// carries its id (sync §6 — the resurrect edge). All in one tx: confirm the id
+// belongs to a trashed page, authorize edit on its space, clear deleted_at, then
+// apply the incoming content (+ move) via the shared primitives. handled=false
+// (no error) means no trashed page owns this id — the caller falls through to a
+// fresh create. A live-but-not-trashed race returns 409 (self-heals next cycle).
+func (s *Server) applySyncResurrect(
+	ctx context.Context, u *auth.User, k *auth.APIKey, id int64,
+	spaceID int64, parentID *int64, title, body string, props map[string]any,
+) (models.Page, syncAction, bool, *apiErr) {
+	tx, err := s.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return models.Page{}, "", true, &apiErr{http.StatusInternalServerError, "internal", "begin tx failed"}
+	}
+	defer tx.Rollback()
+
+	var curSpace int64
+	err = tx.QueryRowContext(ctx,
+		`SELECT space_id FROM pages WHERE id = $1 AND deleted_at IS NOT NULL`, id).Scan(&curSpace)
+	if errors.Is(err, sql.ErrNoRows) {
+		return models.Page{}, "", false, nil // not trashed → caller creates fresh
+	}
+	if err != nil {
+		return models.Page{}, "", true, &apiErr{http.StatusInternalServerError, "internal", "lookup trashed page failed"}
+	}
+	if ae := s.requireEditTx(ctx, tx, u, k, curSpace); ae != nil {
+		return models.Page{}, "", true, ae // auth fail → rollback leaves it trashed
+	}
+
+	if _, err := tx.ExecContext(ctx,
+		`UPDATE pages SET deleted_at = NULL, updated_at = tela_now() WHERE id = $1`, id); err != nil {
+		return models.Page{}, "", true, &apiErr{http.StatusInternalServerError, "internal", "resurrect failed"}
+	}
+	cur, err := selectPageByIDTx(ctx, tx, id) // now live (own write)
+	if err != nil {
+		return models.Page{}, "", true, &apiErr{http.StatusInternalServerError, "internal", "fetch resurrected page failed"}
+	}
+
+	req := pageUpdateRequest{Title: &title, Body: &body, Props: props}
+	if ae := validateUpdateReq(req); ae != nil {
+		return models.Page{}, "", true, ae
+	}
+	p, ae := applyUpdateTx(ctx, tx, id, req)
+	if ae != nil {
+		return models.Page{}, "", true, ae
+	}
+	if !syncPlacementSame(cur, spaceID, parentID) {
+		moved, ae := s.applyMoveTx(ctx, tx, u, k, p, syncMoveParams(cur, spaceID, parentID))
+		if ae != nil {
+			return models.Page{}, "", true, ae
+		}
+		p = moved
+	}
+	if err := tx.Commit(); err != nil {
+		return models.Page{}, "", true, &apiErr{http.StatusInternalServerError, "internal", "commit failed"}
+	}
+	// cur carries the page's pre-resurrect body, so afterPageWrite snapshots a
+	// revision + reindexes + resets the overlay whenever the returning content
+	// differs (DB-wins, like any sync write).
+	s.afterPageWrite(ctx, cur, p, true, true, u.ID, "sync")
+	return p, syncResurrected, true, nil
 }
 
 // applySyncBound applies an incoming file to the existing page it is bound to.

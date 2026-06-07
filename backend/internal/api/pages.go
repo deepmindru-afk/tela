@@ -143,12 +143,12 @@ func listPagesFlat(ctx context.Context, db *sql.DB, spaceID int64, parentID *int
 	if parentID == nil {
 		rows, err = db.QueryContext(ctx,
 			`SELECT id, space_id, parent_id, title, body, position, props, created_at, updated_at
-			 FROM pages WHERE space_id = $1 AND parent_id IS NULL
+			 FROM pages WHERE space_id = $1 AND parent_id IS NULL AND deleted_at IS NULL
 			 ORDER BY position ASC, id ASC`, spaceID)
 	} else {
 		rows, err = db.QueryContext(ctx,
 			`SELECT id, space_id, parent_id, title, body, position, props, created_at, updated_at
-			 FROM pages WHERE space_id = $1 AND parent_id = $2
+			 FROM pages WHERE space_id = $1 AND parent_id = $2 AND deleted_at IS NULL
 			 ORDER BY position ASC, id ASC`, spaceID, *parentID)
 	}
 	if err != nil {
@@ -222,7 +222,7 @@ func (s *Server) ListAllPages(w http.ResponseWriter, r *http.Request) {
 			  FROM pages p
 			  JOIN spaces s ON s.id = p.space_id
 			  JOIN (SELECT DISTINCT space_id FROM space_access WHERE user_id = $1) sm ON sm.space_id = p.space_id
-			 WHERE p.space_id = $2
+			 WHERE p.space_id = $2 AND p.deleted_at IS NULL
 			 ORDER BY s.name ASC, p.title ASC`, u.ID, *k.SpaceID)
 	} else {
 		rows, err = s.DB.QueryContext(r.Context(), `
@@ -230,6 +230,7 @@ func (s *Server) ListAllPages(w http.ResponseWriter, r *http.Request) {
 			  FROM pages p
 			  JOIN spaces s ON s.id = p.space_id
 			  JOIN (SELECT DISTINCT space_id FROM space_access WHERE user_id = $1) sm ON sm.space_id = p.space_id
+			 WHERE p.deleted_at IS NULL
 			 ORDER BY s.name ASC, p.title ASC`, u.ID)
 	}
 	if err != nil {
@@ -375,7 +376,7 @@ func (s *Server) createPageCore(ctx context.Context, u *auth.User, k *auth.APIKe
 	if req.ParentID != nil {
 		var parentSpaceID int64
 		err := tx.QueryRowContext(ctx,
-			`SELECT space_id FROM pages WHERE id = $1`, *req.ParentID).Scan(&parentSpaceID)
+			`SELECT space_id FROM pages WHERE id = $1 AND deleted_at IS NULL`, *req.ParentID).Scan(&parentSpaceID)
 		if errors.Is(err, sql.ErrNoRows) {
 			return models.Page{}, &apiErr{http.StatusBadRequest, "parent_not_found", "parent page does not exist"}
 		}
@@ -390,10 +391,10 @@ func (s *Server) createPageCore(ctx context.Context, u *auth.User, k *auth.APIKe
 	var maxPos sql.NullInt64
 	if req.ParentID == nil {
 		err = tx.QueryRowContext(ctx,
-			`SELECT MAX(position) FROM pages WHERE space_id = $1 AND parent_id IS NULL`, req.SpaceID).Scan(&maxPos)
+			`SELECT MAX(position) FROM pages WHERE space_id = $1 AND parent_id IS NULL AND deleted_at IS NULL`, req.SpaceID).Scan(&maxPos)
 	} else {
 		err = tx.QueryRowContext(ctx,
-			`SELECT MAX(position) FROM pages WHERE space_id = $1 AND parent_id = $2`, req.SpaceID, *req.ParentID).Scan(&maxPos)
+			`SELECT MAX(position) FROM pages WHERE space_id = $1 AND parent_id = $2 AND deleted_at IS NULL`, req.SpaceID, *req.ParentID).Scan(&maxPos)
 	}
 	if err != nil {
 		return models.Page{}, &apiErr{http.StatusInternalServerError, "internal", "compute position failed"}
@@ -709,7 +710,22 @@ func (s *Server) deletePageCore(ctx context.Context, u *auth.User, k *auth.APIKe
 		return &apiErr{http.StatusInternalServerError, "internal", "cache page_links titles failed"}
 	}
 
-	res, err := tx.ExecContext(ctx, `DELETE FROM pages WHERE id = $1`, id)
+	// Soft-delete: stamp deleted_at on the page AND its whole live subtree
+	// (the old hard DELETE relied on ON DELETE CASCADE to take the descendants;
+	// soft-delete must walk them itself). Trashed rows are then invisible to
+	// every read (all filter deleted_at IS NULL) and recoverable — a sync glitch
+	// can't destroy content, and a re-synced file can resurrect by id (sync §6).
+	// subtreeCTE re-walks parent_id (unaffected by deleted_at), so it resolves
+	// the same set before and after the stamp; reused for the cleanups below.
+	const subtreeCTE = `
+		WITH RECURSIVE subtree(id) AS (
+			SELECT id FROM pages WHERE id = $1
+			UNION ALL
+			SELECT p.id FROM pages p JOIN subtree s ON p.parent_id = s.id
+		)`
+	res, err := tx.ExecContext(ctx, subtreeCTE+`
+		UPDATE pages SET deleted_at = tela_now()
+		 WHERE id IN (SELECT id FROM subtree) AND deleted_at IS NULL`, id)
 	if err != nil {
 		return &apiErr{http.StatusInternalServerError, "internal", "delete page failed"}
 	}
@@ -721,10 +737,20 @@ func (s *Server) deletePageCore(ctx context.Context, u *auth.User, k *auth.APIKe
 		return &apiErr{http.StatusNotFound, "not_found", "page not found"}
 	}
 
-	// Explicitly clear outgoing rows for the deleted source — no FK / no
-	// triggers; nothing else would remove them.
-	if _, err := tx.ExecContext(ctx, `DELETE FROM page_links WHERE source_id = $1`, id); err != nil {
-		return &apiErr{http.StatusInternalServerError, "internal", "delete page_links source rows failed"}
+	// Hard-remove the subtree's dependents that must NOT survive a delete — the
+	// behaviour the old ON DELETE CASCADE gave us, now explicit:
+	//   - page_links: trashed pages stop contributing backlinks (resurrect
+	//     rebuilds them from the body via syncPageLinks).
+	//   - share_links: a deleted page must not stay publicly reachable.
+	//   - page_diagrams: derived render blobs served from a public path.
+	for _, stmt := range []string{
+		`DELETE FROM page_links WHERE source_id IN (SELECT id FROM subtree)`,
+		`DELETE FROM share_links WHERE page_id IN (SELECT id FROM subtree)`,
+		`DELETE FROM page_diagrams WHERE page_id IN (SELECT id FROM subtree)`,
+	} {
+		if _, err := tx.ExecContext(ctx, subtreeCTE+stmt, id); err != nil {
+			return &apiErr{http.StatusInternalServerError, "internal", "delete page dependents failed"}
+		}
 	}
 
 	if err := tx.Commit(); err != nil {
@@ -888,7 +914,7 @@ func (s *Server) applyMoveTx(ctx context.Context, tx *sql.Tx, u *auth.User, k *a
 	if targetParentID != nil {
 		var parentSpaceID int64
 		err := tx.QueryRowContext(ctx,
-			`SELECT space_id FROM pages WHERE id = $1`, *targetParentID).Scan(&parentSpaceID)
+			`SELECT space_id FROM pages WHERE id = $1 AND deleted_at IS NULL`, *targetParentID).Scan(&parentSpaceID)
 		if errors.Is(err, sql.ErrNoRows) {
 			return models.Page{}, &apiErr{http.StatusBadRequest, "parent_not_found", "parent page does not exist"}
 		}
@@ -964,7 +990,7 @@ func (s *Server) applyMoveTx(ctx context.Context, tx *sql.Tx, u *auth.User, k *a
 func buildPageTree(ctx context.Context, db *sql.DB, spaceID int64) ([]*pageNode, error) {
 	rows, err := db.QueryContext(ctx,
 		`SELECT id, space_id, parent_id, title, body, position, props, created_at, updated_at
-		 FROM pages WHERE space_id = $1
+		 FROM pages WHERE space_id = $1 AND deleted_at IS NULL
 		 ORDER BY position ASC, id ASC`, spaceID)
 	if err != nil {
 		return nil, err
@@ -1015,17 +1041,20 @@ func buildPageTree(ctx context.Context, db *sql.DB, spaceID int64) ([]*pageNode,
 	return roots, nil
 }
 
+// selectPageByID / selectPageByIDTx fetch a LIVE page (soft-deleted rows are
+// invisible — a trashed id reads as sql.ErrNoRows, i.e. not-found / 403). Use
+// selectPageByIDIncludingDeleted for the resurrect path.
 func selectPageByID(ctx context.Context, db *sql.DB, id int64) (models.Page, error) {
 	row := db.QueryRowContext(ctx,
 		`SELECT id, space_id, parent_id, title, body, position, props, created_at, updated_at
-		 FROM pages WHERE id = $1`, id)
+		 FROM pages WHERE id = $1 AND deleted_at IS NULL`, id)
 	return scanPageFromRow(row)
 }
 
 func selectPageByIDTx(ctx context.Context, tx *sql.Tx, id int64) (models.Page, error) {
 	row := tx.QueryRowContext(ctx,
 		`SELECT id, space_id, parent_id, title, body, position, props, created_at, updated_at
-		 FROM pages WHERE id = $1`, id)
+		 FROM pages WHERE id = $1 AND deleted_at IS NULL`, id)
 	return scanPageFromRow(row)
 }
 
@@ -1076,11 +1105,11 @@ func siblingIDsExcluding(ctx context.Context, tx *sql.Tx, spaceID int64, parentI
 	var err error
 	if parentID == nil {
 		rows, err = tx.QueryContext(ctx,
-			`SELECT id FROM pages WHERE space_id = $1 AND parent_id IS NULL AND id != $2
+			`SELECT id FROM pages WHERE space_id = $1 AND parent_id IS NULL AND id != $2 AND deleted_at IS NULL
 			 ORDER BY position ASC, id ASC`, spaceID, excludeID)
 	} else {
 		rows, err = tx.QueryContext(ctx,
-			`SELECT id FROM pages WHERE space_id = $1 AND parent_id = $2 AND id != $3
+			`SELECT id FROM pages WHERE space_id = $1 AND parent_id = $2 AND id != $3 AND deleted_at IS NULL
 			 ORDER BY position ASC, id ASC`, spaceID, *parentID, excludeID)
 	}
 	if err != nil {
@@ -1108,7 +1137,7 @@ func wouldCreateCycle(ctx context.Context, tx *sql.Tx, movingID, newParentID int
 			return true, nil
 		}
 		var pid sql.NullInt64
-		err := tx.QueryRowContext(ctx, `SELECT parent_id FROM pages WHERE id = $1`, cursor).Scan(&pid)
+		err := tx.QueryRowContext(ctx, `SELECT parent_id FROM pages WHERE id = $1 AND deleted_at IS NULL`, cursor).Scan(&pid)
 		if errors.Is(err, sql.ErrNoRows) {
 			return false, nil
 		}
@@ -1133,6 +1162,8 @@ func updateDescendantsSpaceID(ctx context.Context, tx *sql.Tx, rootID, newSpaceI
 			placeholders[i] = "$" + strconv.Itoa(i+1)
 			args[i] = fid
 		}
+		// No deleted_at filter on purpose: a trashed descendant must still ride
+		// the space move so a later resurrect lands it in the new space, not the old.
 		q := fmt.Sprintf(`SELECT id FROM pages WHERE parent_id IN (%s)`, strings.Join(placeholders, ","))
 		rows, err := tx.QueryContext(ctx, q, args...)
 		if err != nil {
@@ -1257,7 +1288,7 @@ func parseWikiTitleSlugs(body string) []string {
 func resolveWikiTitleSlugs(ctx context.Context, tx *sql.Tx, sourceID int64, slugs []string) ([]int64, error) {
 	rows, err := tx.QueryContext(ctx, `
 		SELECT id, title FROM pages
-		WHERE space_id = (SELECT space_id FROM pages WHERE id = $1)
+		WHERE space_id = (SELECT space_id FROM pages WHERE id = $1) AND deleted_at IS NULL
 		ORDER BY id ASC`, sourceID)
 	if err != nil {
 		return nil, fmt.Errorf("load space pages for wikilink resolution: %w", err)
@@ -1325,7 +1356,7 @@ func syncPageLinks(ctx context.Context, tx *sql.Tx, sourceID int64, body string)
 			continue
 		}
 		var title sql.NullString
-		err := tx.QueryRowContext(ctx, `SELECT title FROM pages WHERE id = $1`, tid).Scan(&title)
+		err := tx.QueryRowContext(ctx, `SELECT title FROM pages WHERE id = $1 AND deleted_at IS NULL`, tid).Scan(&title)
 		if err != nil && !errors.Is(err, sql.ErrNoRows) {
 			return fmt.Errorf("lookup target title: %w", err)
 		}

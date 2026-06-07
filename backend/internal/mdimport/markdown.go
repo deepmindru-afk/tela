@@ -233,10 +233,10 @@ func Import(
 		var err error
 		if parent == nil {
 			rows, err = tx.QueryContext(ctx,
-				`SELECT title FROM pages WHERE space_id = $1 AND parent_id IS NULL`, spaceID)
+				`SELECT title FROM pages WHERE space_id = $1 AND parent_id IS NULL AND deleted_at IS NULL`, spaceID)
 		} else {
 			rows, err = tx.QueryContext(ctx,
-				`SELECT title FROM pages WHERE space_id = $1 AND parent_id = $2`, spaceID, *parent)
+				`SELECT title FROM pages WHERE space_id = $1 AND parent_id = $2 AND deleted_at IS NULL`, spaceID, *parent)
 		}
 		if err != nil {
 			return fmt.Errorf("preload siblings: %w", err)
@@ -269,10 +269,10 @@ func Import(
 		var err error
 		if parent == nil {
 			err = tx.QueryRowContext(ctx,
-				`SELECT MAX(position) FROM pages WHERE space_id = $1 AND parent_id IS NULL`, spaceID).Scan(&maxPos)
+				`SELECT MAX(position) FROM pages WHERE space_id = $1 AND parent_id IS NULL AND deleted_at IS NULL`, spaceID).Scan(&maxPos)
 		} else {
 			err = tx.QueryRowContext(ctx,
-				`SELECT MAX(position) FROM pages WHERE space_id = $1 AND parent_id = $2`, spaceID, *parent).Scan(&maxPos)
+				`SELECT MAX(position) FROM pages WHERE space_id = $1 AND parent_id = $2 AND deleted_at IS NULL`, spaceID, *parent).Scan(&maxPos)
 		}
 		if err != nil {
 			return fmt.Errorf("preload position: %w", err)

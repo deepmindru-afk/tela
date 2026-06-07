@@ -82,7 +82,7 @@ func (s *Server) ExportSpaceMarkdownZip(w http.ResponseWriter, r *http.Request) 
 func loadSpacePages(ctx context.Context, db *sql.DB, spaceID int64) ([]models.Page, error) {
 	rows, err := db.QueryContext(ctx,
 		`SELECT id, space_id, parent_id, title, body, position, props, created_at, updated_at
-		   FROM pages WHERE space_id = $1 ORDER BY position ASC, id ASC`, spaceID)
+		   FROM pages WHERE space_id = $1 AND deleted_at IS NULL ORDER BY position ASC, id ASC`, spaceID)
 	if err != nil {
 		return nil, err
 	}
