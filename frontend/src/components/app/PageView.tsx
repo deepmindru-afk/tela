@@ -904,7 +904,10 @@ function PageEditor({ page, spaceId, draftRevId, onDeleted }: PageEditorProps) {
           placeholder="Untitled page"
           aria-label="Page title"
           className={cn(
-            'block w-full resize-none overflow-hidden bg-transparent',
+            // shrink-0: the title sits in a height-constrained flex column, and
+            // a textarea is a shrinkable flex item — without this, flex compresses
+            // it below its content and overflow-hidden clips the title to nothing.
+            'block w-full shrink-0 resize-none overflow-hidden bg-transparent',
             'rounded-[var(--radius-md)] border border-transparent outline-none',
             'px-[var(--space-2)] py-[var(--space-2)]',
             'text-[length:var(--text-3xl)] leading-[var(--leading-tight)] font-medium',
