@@ -45,6 +45,7 @@ type publicPageDTO struct {
 	Title     string         `json:"title"`
 	Body      string         `json:"body"`
 	Props     map[string]any `json:"props,omitempty"`
+	CreatedAt string         `json:"created_at"`
 	UpdatedAt string         `json:"updated_at"`
 }
 
@@ -192,6 +193,7 @@ func (s *Server) GetPublicSpacePage(w http.ResponseWriter, r *http.Request) {
 			Title:     page.Title,
 			Body:      page.Body,
 			Props:     page.Props,
+			CreatedAt: page.CreatedAt,
 			UpdatedAt: page.UpdatedAt,
 		},
 	})

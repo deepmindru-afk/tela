@@ -10,7 +10,10 @@ import {
 } from 'react'
 import { Type } from 'lucide-react'
 import type { EditorView } from '@milkdown/kit/prose/view'
-import { relativeTimeFromSqlite } from '../../lib/relativeTime'
+import {
+  relativeTimeFromSqlite,
+  postDateFromSqlite,
+} from '../../lib/relativeTime'
 import { useHeadMeta } from '../../lib/useHeadMeta'
 import { pageSlug } from '../../lib/slug'
 import {
@@ -181,6 +184,15 @@ export interface ReaderShellProps {
     image?: string
     feedHref?: string
   }
+  /** Blog-style article presentation (public reader). */
+  /** Hero cover image above the title (a post's `cover:`); omitted when unset. */
+  coverImage?: string
+  /** Byline node shown first in the cover meta, e.g. "by @author". */
+  byline?: ReactNode
+  /** Published date (tela ts). When set, the meta shows it instead of "Updated". */
+  publishedAt?: string
+  /** Rendered after the article body — e.g. previous/next post navigation. */
+  articleFooter?: ReactNode
 }
 
 // Set on the window once the reader has painted (fonts ready + a short settle so
@@ -212,6 +224,10 @@ export function ReaderShell({
   sourceLabel,
   enableLinkPreview,
   headMeta,
+  coverImage,
+  byline,
+  publishedAt,
+  articleFooter,
 }: ReaderShellProps) {
   // Preferences — text size + typeface, persisted; theme is global.
   const [size, setSize] = useState<ReaderSize>(() =>
@@ -561,11 +577,24 @@ export function ReaderShell({
               {enableLinkPreview ? (
                 <WikilinkHoverPreview containerRef={articleRef} />
               ) : null}
+              {coverImage ? (
+                <img className="reader-cover" src={coverImage} alt="" />
+              ) : null}
               <h1 className="reader-title">{title || 'Untitled'}</h1>
               <div className="reader-meta">
+                {byline ? (
+                  <>
+                    <span className="reader-meta-byline">{byline}</span>
+                    <span className="reader-meta-dot" aria-hidden />
+                  </>
+                ) : null}
                 <span>{minutes} min read</span>
                 <span className="reader-meta-dot" aria-hidden />
-                <span>Updated {relativeTimeFromSqlite(updatedAt)}</span>
+                {publishedAt ? (
+                  <span>{postDateFromSqlite(publishedAt)}</span>
+                ) : (
+                  <span>Updated {relativeTimeFromSqlite(updatedAt)}</span>
+                )}
                 {sourceLabel ? (
                   <>
                     <span className="reader-meta-dot" aria-hidden />
@@ -588,6 +617,7 @@ export function ReaderShell({
                   onViewReady={handleViewReady}
                 />
               </Suspense>
+              {articleFooter}
             </article>
           </div>
         </div>

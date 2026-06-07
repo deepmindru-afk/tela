@@ -41,6 +41,7 @@ export interface PublicPagePayload {
   title: string
   body: string
   props?: Record<string, unknown>
+  created_at: string
   updated_at: string
 }
 

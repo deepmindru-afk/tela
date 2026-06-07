@@ -18,6 +18,7 @@ interface PublicReaderViewProps {
   pageTitle: string
   pageBody: string
   pageProps?: Record<string, unknown>
+  createdAt: string
   updatedAt: string
 }
 
@@ -32,6 +33,7 @@ export function PublicReaderView({
   pageTitle,
   pageBody,
   pageProps,
+  createdAt,
   updatedAt,
 }: PublicReaderViewProps) {
   const navigate = useNavigate()
@@ -76,6 +78,56 @@ export function PublicReaderView({
 
   const showSidebar = pages.length > 1
 
+  // Hero cover only when the post actually sets one (props.cover) — no gradient
+  // fallback in the article, that's an index-card affordance.
+  const coverImage =
+    typeof pageProps?.cover === 'string' && pageProps.cover.trim()
+      ? pageProps.cover.trim()
+      : typeof pageProps?.image === 'string' && pageProps.image.trim()
+        ? pageProps.image.trim()
+        : undefined
+
+  // Byline → the space owner's author home.
+  const byline = space.owner_handle ? (
+    <>
+      by{' '}
+      <Link
+        to="/u/$username"
+        params={{ username: space.owner_handle }}
+        className="reader-meta-link"
+      >
+        @{space.owner_handle}
+      </Link>
+    </>
+  ) : undefined
+
+  // Previous/next among the space's top-level posts (the "posts"), in published
+  // order. Only shown when the current page is itself a top-level post.
+  const postNav = useMemo(() => {
+    const posts = pages
+      .filter((p) => p.parent_id == null)
+      .sort((a, b) => b.created_at.localeCompare(a.created_at))
+    const i = posts.findIndex((p) => p.id === pageId)
+    if (i === -1) return null
+    return { newer: posts[i - 1], older: posts[i + 1] } // newest-first order
+  }, [pages, pageId])
+
+  const articleFooter =
+    postNav && (postNav.newer || postNav.older) ? (
+      <nav className="reader-postnav" aria-label="More posts">
+        {postNav.older ? (
+          <PostNavLink spaceId={space.id} post={postNav.older} dir="older" />
+        ) : (
+          <span />
+        )}
+        {postNav.newer ? (
+          <PostNavLink spaceId={space.id} post={postNav.newer} dir="newer" />
+        ) : (
+          <span />
+        )}
+      </nav>
+    ) : undefined
+
   return (
     <ReaderShell
       pageId={pageId}
@@ -86,6 +138,10 @@ export function PublicReaderView({
       aliveWikilinkIds={inScopePageIds}
       wikilinkResolveIndex={wikilinkResolveIndex}
       onNavigateWikilink={onNavigateWikilink}
+      coverImage={coverImage}
+      byline={byline}
+      publishedAt={createdAt}
+      articleFooter={articleFooter}
       headMeta={{
         description: metaDescription,
         canonicalPath: window.location.pathname,
@@ -140,6 +196,30 @@ export function PublicReaderView({
 // PublicSpaceNav — a slim left rail listing the public space's pages, ordered by
 // position. Flat (no nesting) for v1; a curated space front page is a separate
 // roadmap item.
+// One end of the previous/next post navigation under an article.
+function PostNavLink({
+  spaceId,
+  post,
+  dir,
+}: {
+  spaceId: number
+  post: PublicPageNode
+  dir: 'older' | 'newer'
+}) {
+  return (
+    <Link
+      to="/public/spaces/$spaceId/pages/$pageId/{-$slug}"
+      params={{ spaceId, pageId: post.id, slug: pageSlug(post.title) || undefined }}
+      className={`reader-postnav-link reader-postnav-${dir}`}
+    >
+      <span className="reader-postnav-dir">
+        {dir === 'older' ? '← Older' : 'Newer →'}
+      </span>
+      <span className="reader-postnav-title">{post.title || 'Untitled'}</span>
+    </Link>
+  )
+}
+
 function PublicSpaceNav({
   spaceId,
   spaceName,

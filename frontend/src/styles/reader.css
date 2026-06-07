@@ -173,6 +173,82 @@
     white-space: nowrap;
     max-width: 22rem;
   }
+  .reader-meta-byline {
+    font-weight: 500;
+    color: var(--text-primary);
+  }
+  .reader-meta-link {
+    color: var(--text-primary);
+    text-decoration: none;
+  }
+  .reader-meta-link:hover {
+    color: var(--accent);
+  }
+
+  /* Hero cover, shown only when a post sets `cover:` in frontmatter. */
+  .reader-cover {
+    display: block;
+    width: 100%;
+    max-height: 22rem;
+    object-fit: cover;
+    border-radius: var(--radius-lg);
+    margin: 0 0 var(--space-6);
+    background: var(--surface-2);
+  }
+
+  /* Previous / next post navigation under a blog article. */
+  .reader-postnav {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-4);
+    margin-top: calc(var(--space-8) * 1.5);
+    padding-top: var(--space-6);
+    border-top: 1px solid var(--border-subtle);
+  }
+  .reader-postnav-link {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+    padding: var(--space-4);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-md);
+    text-decoration: none;
+    transition:
+      border-color var(--duration-fast) var(--ease-out),
+      background-color var(--duration-fast) var(--ease-out);
+  }
+  .reader-postnav-link:hover {
+    border-color: var(--border-strong);
+    background: var(--surface-2);
+  }
+  .reader-postnav-newer {
+    text-align: right;
+    align-items: flex-end;
+  }
+  .reader-postnav-dir {
+    font-family: var(--font-sans);
+    font-size: var(--text-xs);
+    color: var(--text-muted);
+  }
+  .reader-postnav-title {
+    font-family: var(--font-sans);
+    font-size: var(--text-base);
+    font-weight: 600;
+    line-height: var(--leading-tight);
+    color: var(--text-primary);
+  }
+  .reader-postnav-link:hover .reader-postnav-title {
+    color: var(--accent);
+  }
+  @media (max-width: 36rem) {
+    .reader-postnav {
+      grid-template-columns: 1fr;
+    }
+    .reader-postnav-newer {
+      text-align: left;
+      align-items: flex-start;
+    }
+  }
 
   /* Prose elevation. Override the .tela-milkdown editor scale for reading:
      bigger optical size, generous leading, em-relative headings so one knob

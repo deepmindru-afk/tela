@@ -150,6 +150,7 @@ export function PublicReaderRoute() {
       pageTitle={pageQuery.data.page.title}
       pageBody={pageQuery.data.page.body}
       pageProps={pageQuery.data.page.props}
+      createdAt={pageQuery.data.page.created_at}
       updatedAt={pageQuery.data.page.updated_at}
     />
   )
