@@ -62,10 +62,37 @@ ALTER TABLE page_revisions ADD COLUMN props JSONB NOT NULL DEFAULT '{}';
 ## Reserved-key policy (the actual spec)
 
 Frontmatter is **not** a greenfield bag — several conventional keys map onto
-things tela already owns. Every key falls into one of three tiers:
+things tela already owns. Model every key along two axes: does it come **IN**
+from frontmatter, and does it go **OUT** to frontmatter?
+
+| key | accepted IN? | written OUT? | source of truth |
+|---|---|---|---|
+| `id` | no | yes | `pages.id` |
+| `slug` | no | yes | derived `pageSlug(title)` |
+| `link` / URL | no | yes | derived `id` + title |
+| `created` | no | yes | `created_at` column |
+| `updated` | no | yes | `updated_at` column |
+| `title` | seed-only (import precedence; never via the bag) | yes | `title` column |
+| `space`, `parent`, `position` | no | **no (for now)** | columns |
+| `published`/`draft`/`tags`/`*` | yes (bag) | yes (bag) | the bag |
+
+The **emit-only set** — `id`, `slug`, `link`, `created`, `updated` — only ever
+flows *out*: never accepted as input, always (re)written from the source of truth
+when we generate frontmatter text. `title` is the near-exception (emitted from
+the column; its only input path is the import title-precedence seed).
+
+> **Silent-drop rule (the consistency guarantee).** If inbound frontmatter
+> contains *any* reserved key (`id`, `slug`, `created`, `title`-as-bag-key, …) it
+> is **silently dropped** — not stored, not errored. It isn't authoritative and
+> will be regenerated on emit. So importing a file with `id: 999` or a hand-edited
+> `slug:` is safe: the value is discarded in, the real one written back out. The
+> reserved-key list is a **fixed namespace**; everything outside it is free-form.
+
+The three tiers below are these same keys grouped by ownership.
 
 ### Tier 1 — column-derived
-`title`, `created`/`date`, `updated`/`modified`, `slug`, `link`/canonical URL.
+`title`, `created`/`date`, `updated`/`modified`, `slug`, `link`/canonical URL,
+`id`.
 
 - **Source of truth is a tela column** (`title`, `created_at`, `updated_at`) or a
   pure derivation (`slug` = `pageSlug(title)` from `slug.go`; `link` =
@@ -82,11 +109,12 @@ things tela already owns. Every key falls into one of three tiers:
 > db → frontmatter-text conversion.
 
 ### Tier 2 — column-owned, ignored from frontmatter
-`position`, `parent`.
+`position`, `parent`, `space`.
 
-Tree and ordering come from tela (the import flatten / README-as-index rules and
-`MAX(position)+1`). Frontmatter cannot drive them. Not stored, not emitted as
-authoritative.
+Tree, ordering, and space come from tela (the import flatten / README-as-index
+rules and `MAX(position)+1`). Frontmatter cannot drive them. **Not accepted in,
+and not emitted out for now** (decision: keep the emitted block lean; revisit if
+portability needs them).
 
 ### Tier 3 — free-form bag
 Everything else, stored verbatim in `props`, queryable and round-tripped.
@@ -101,11 +129,15 @@ Everything else, stored verbatim in `props`, queryable and round-tripped.
 
 ## Two operations
 
-- **import (frontmatter-text → db):** `yaml.v3` parse → drop Tier 1 & Tier 2
-  keys → store the remainder in `props`. Title seeds via existing precedence.
-- **emit (db → frontmatter-text):** synthesize Tier 1 keys from columns + splice
-  the `props` bag → canonical YAML block (key order: `title`, then alphabetical),
-  prepended to the body. This is where `slug`/`link` "fill in".
+- **import (frontmatter-text → db):** `yaml.v3` parse → silent-drop every
+  reserved key (Tier 1 & Tier 2) → store the remainder in `props`. Title seeds via
+  existing precedence.
+- **emit (db → frontmatter-text):** synthesize the emit-only set + `title` from
+  columns (`id`, `title`, `slug`, `link`, `created`, `updated`) + splice the
+  `props` bag → canonical YAML block (key order: system keys first, then bag keys
+  alphabetical), prepended to the body. This is where `slug`/`link` "fill in".
+  **The system block is always emitted, even when the bag is empty** (consistent,
+  round-trip-portable). `space`/`parent`/`position` are **not** emitted.
 
 ## Versioning
 
@@ -119,7 +151,7 @@ changes would be invisible to history.
 |---|---|
 | **Schema** | `0005_page_props.sql`: `pages.props` + GIN; `page_revisions.props`. |
 | **Import** (`mdimport/frontmatter.go`, `markdown.go`, `import_mira.go`) | `StripFrontmatter` → full `yaml.v3` parse returning `(body, props)`; title still seeds via existing precedence; persist `props`. |
-| **Emit** (new helper) | `EmitFrontmatter(page)` — Tier 1 from columns + bag, canonical order. |
+| **Emit** (new helper) | `EmitFrontmatter(page)` — emit-only set (`id`/`title`/`slug`/`link`/`created`/`updated`) from columns + bag, canonical order; always emits the system block. |
 | **Model / CRUD** (`models.go`, `pages.go`) | `Page.Props`; create/update accept props; revision writes capture props. |
 | **MCP** (`mcp_tools.go`) | `get_page`/`create_page`/`update_page` carry props; `list_pages` gains containment filtering (`props @>`). The agent payoff. |
 | **Egress** | Optional frontmatter-on flag in MCP `get_page`/`fetch`; a real `.md` export does not exist yet (open question). |
