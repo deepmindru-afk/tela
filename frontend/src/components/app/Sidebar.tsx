@@ -1,7 +1,8 @@
 import { Link, useParams } from '@tanstack/react-router'
-import { FilePlus, Search, Share2 } from 'lucide-react'
+import { FilePlus, Home, Search, Share2 } from 'lucide-react'
 import { PagesTree } from './PagesTree'
 import { SpacesList } from './SpacesList'
+import { FavoritesSidebarSection } from './FavoritesSidebarSection'
 import { UserMenu } from './UserMenu'
 import { BrandMark } from '../BrandMark'
 import { Button } from '../ui/button'
@@ -43,6 +44,17 @@ export function Sidebar({ open = false }: { open?: boolean }) {
           <BrandMark size={20} />
           tela
         </Link>
+        <Button
+          asChild
+          variant="ghost"
+          size="sm"
+          className="w-full justify-start"
+        >
+          <Link to="/home" aria-label="Home" title="Home">
+            <Home width={14} height={14} />
+            <span className="flex-1 text-left">Home</span>
+          </Link>
+        </Button>
         <Button
           variant="secondary"
           size="sm"
@@ -89,6 +101,7 @@ export function Sidebar({ open = false }: { open?: boolean }) {
           </Link>
         </Button>
       </div>
+      <FavoritesSidebarSection activePageId={activePageId} />
       <SpacesList activeSpaceId={activeSpaceId} />
       {activeSpaceId != null ? (
         <PagesTree spaceId={activeSpaceId} activePageId={activePageId} />

@@ -328,6 +328,18 @@ const quickNotesRoute = createRoute({
   component: () => null,
 })
 
+// Home dashboard — the landing surface (recent changes, favorites, recently
+// visited). Lazy so its feed queries + widget chrome stay off the main chunk
+// until the user navigates here from the sidebar.
+const homeRoute = createRoute({
+  getParentRoute: () => appLayoutRoute,
+  path: '/home',
+  component: lazyRouteComponent(
+    () => import('../components/app/HomeView'),
+    'HomeRoute',
+  ),
+})
+
 // Cross-space "Shared" audit view (docs/visibility-model.md). Lazy so its
 // share-audit query + row chrome stay off the main chunk until visited.
 const sharedRoute = createRoute({
@@ -611,6 +623,7 @@ const routeTree = rootRoute.addChildren([
   printRoute,
   appLayoutRoute.addChildren([
     indexRoute,
+    homeRoute,
     quickNotesRoute,
     settingsRoute,
     sharedRoute,

@@ -41,6 +41,7 @@ import { PageProperties } from './PageProperties'
 import { LocalGraphCard } from './LocalGraphCard'
 import { LocalGraphPanel } from './LocalGraphPanel'
 import { PresenceAvatars } from './presence-avatars'
+import { FavoriteStar } from './FavoriteStar'
 import { WikilinkHoverPreview } from './wikilink-hover-preview'
 
 // ShareManagerSheet only opens when an editor+ clicks the header Share button;
@@ -770,6 +771,7 @@ function PageEditor({ page, spaceId, draftRevId, onDeleted }: PageEditorProps) {
             <>
               <PresenceAvatars awareness={provider?.awareness ?? null} />
               <SaveIndicator status={status} />
+              {roleResolved ? <FavoriteStar pageId={page.id} /> : null}
               <PageProperties props={page.props} />
               {/* Frequent actions stay on the bar; the rest live in the "•••"
                   menu (PageActionsMenu) to keep the header uncluttered. */}

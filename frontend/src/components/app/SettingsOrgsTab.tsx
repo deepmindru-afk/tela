@@ -1,6 +1,8 @@
 import { useState } from 'react'
-import { Building2, Globe, MoreHorizontal, Trash2, UserPlus, Users } from 'lucide-react'
+import { Building2, Globe, History, MoreHorizontal, Trash2, UserPlus, Users } from 'lucide-react'
 import { ApiError } from '../../lib/api'
+import { useOrgAudit } from '../../lib/queries/org-audit'
+import { AuditRow } from './SettingsAuditTab'
 import {
   useAddOrgMember,
   useCreateOrg,
@@ -196,6 +198,8 @@ function ManageOrgDialog({
           <AddOrgMemberForm orgId={org.id} />
 
           <GroupsSection org={org} />
+
+          <OrgActivitySection orgId={open ? org.id : null} />
         </div>
 
         <DialogFooter>
@@ -936,6 +940,40 @@ function DomainsSection({ orgs }: { orgs: Org[] }) {
           </p>
         ) : null}
       </form>
+    </div>
+  )
+}
+
+// Org-scoped access history — who added whom, what was shared, which domains
+// were mapped — for THIS org only. Backed by the org-admin-gated
+// /api/orgs/{id}/audit; reuses AuditRow from the instance-wide audit tab.
+function OrgActivitySection({ orgId }: { orgId: number | null }) {
+  const audit = useOrgAudit(orgId)
+  return (
+    <div className="flex flex-col gap-[var(--space-2)] pt-[var(--space-3)] border-t border-[var(--border-subtle)]">
+      <span className="flex items-center gap-[var(--space-2)] text-[length:var(--text-xs)] uppercase tracking-wider text-[var(--text-muted)] font-[family-name:var(--font-sans)]">
+        <History width={12} height={12} />
+        Recent activity
+      </span>
+      {audit.isLoading ? (
+        <p className="m-0 text-[length:var(--text-sm)] text-[var(--text-muted)]">
+          Loading activity…
+        </p>
+      ) : audit.isError ? (
+        <p role="alert" className="m-0 text-[length:var(--text-sm)] text-[var(--danger)]">
+          Couldn't load activity.
+        </p>
+      ) : audit.data && audit.data.length > 0 ? (
+        <ul className="m-0 p-0 list-none flex flex-col gap-[var(--space-1)]">
+          {audit.data.map((e) => (
+            <AuditRow key={e.id} entry={e} />
+          ))}
+        </ul>
+      ) : (
+        <p className="m-0 text-[length:var(--text-sm)] text-[var(--text-muted)]">
+          No changes recorded yet.
+        </p>
+      )}
     </div>
   )
 }

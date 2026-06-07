@@ -54,7 +54,7 @@ export function SettingsAuditTab() {
   )
 }
 
-function AuditRow({ entry }: { entry: AccessAuditEntry }) {
+export function AuditRow({ entry }: { entry: AccessAuditEntry }) {
   const label = ACTION_LABEL[entry.action] ?? entry.action
   const actor = entry.actor_username ?? 'system'
   return (
