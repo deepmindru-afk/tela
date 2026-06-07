@@ -11,6 +11,7 @@ import (
 const (
 	pageResourceScheme  = "tela://page/"
 	spaceResourceScheme = "tela://space/"
+	authoringGuideURI   = "tela://authoring-guide"
 )
 
 // registerMCPResources wires the resource surface: templates that round-trip the
@@ -19,6 +20,18 @@ const (
 // — spaces hold many pages, so there is no resources/list explosion; the host
 // resolves a concrete id on demand.
 func (s *Server) registerMCPResources(server *mcp.Server) {
+	// Static authoring guide — the rich block palette + a worked example, so a
+	// host (or agent) can pull the full syntax on demand. Generated from the
+	// editor's block manifest (mcp_authoring.go); auth is enforced by the MCP
+	// transport, and the guide is non-sensitive, so no per-space gating.
+	server.AddResource(&mcp.Resource{
+		Name:        "authoring-guide",
+		Title:       "Tela authoring guide",
+		Description: "How to write rich tela pages: callouts, tabs, kanban, embeds, diagrams, math, footnotes, and more — exact syntax with a worked example.",
+		URI:         authoringGuideURI,
+		MIMEType:    "text/markdown",
+	}, s.mcpReadAuthoringGuide)
+
 	server.AddResourceTemplate(&mcp.ResourceTemplate{
 		Name:        "page",
 		Title:       "Tela page",
@@ -34,6 +47,19 @@ func (s *Server) registerMCPResources(server *mcp.Server) {
 		URITemplate: spaceResourceScheme + "{id}",
 		MIMEType:    "text/markdown",
 	}, s.mcpReadSpaceResource)
+}
+
+// mcpReadAuthoringGuide serves tela://authoring-guide — the generated block
+// palette guide with a worked example. Static content; no identity gate beyond
+// the transport's bearer auth.
+func (s *Server) mcpReadAuthoringGuide(_ context.Context, req *mcp.ReadResourceRequest) (*mcp.ReadResourceResult, error) {
+	return &mcp.ReadResourceResult{
+		Contents: []*mcp.ResourceContents{{
+			URI:      req.Params.URI,
+			MIMEType: "text/markdown",
+			Text:     authoringGuideMarkdown(true),
+		}},
+	}, nil
 }
 
 // pageResourceURI is the canonical resource URI for a page id.

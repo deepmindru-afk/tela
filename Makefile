@@ -119,9 +119,21 @@ be-dev: dev-db
 	cd backend && TELA_DATABASE_URL="$(DEV_DATABASE_URL)" go run ./cmd/tela
 
 # Backend unit/integration tests against a real Postgres (the testdb harness
-# clones a fresh throwaway database per test). Boots dev-db first.
-test: dev-db
+# clones a fresh throwaway database per test). Boots dev-db first. Runs the
+# blocks-manifest gate first so a stale agent guide / uncovered block fails CI.
+test: blocks-gate dev-db
 	cd backend && TELA_TEST_DATABASE_URL="$(TEST_DATABASE_URL)" go test ./...
+
+# ── Block authoring manifest (editor slash menu + agent guide source) ───────
+# Source of truth: frontend/src/components/app/blocks-manifest.json. blocks-gen
+# regenerates the go:embed copy the backend renders into the MCP authoring
+# guide; blocks-gate verifies it's in sync AND that every renderer plugin is
+# covered (a new block can't ship invisible to agents).
+blocks-gen:
+	node scripts/blocks-manifest.mjs --write
+
+blocks-gate:
+	node scripts/blocks-manifest.mjs --check
 
 # Stop + remove the local dev/test Postgres (and its data).
 dev-db-clean:

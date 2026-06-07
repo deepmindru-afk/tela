@@ -15,6 +15,7 @@ import {
 } from '@milkdown/kit/preset/commonmark'
 import { insertTableCommand } from '@milkdown/kit/preset/gfm'
 import { COLLAPSIBLE_DEFAULT_SUMMARY } from './milkdown-collapsibles'
+import { insertCallout } from './milkdown-callouts'
 import { insertExcalidraw } from './milkdown-excalidraw'
 import { insertTaskList } from './milkdown-task-list'
 import { insertMathBlock } from './milkdown-math'
@@ -25,6 +26,7 @@ import { insertTabs } from './milkdown-tabs'
 import { insertKanban } from './milkdown-kanban'
 import { insertPullquote } from './milkdown-pullquote'
 import { insertEmbed } from './milkdown-embed'
+import { SLASH_BLOCKS } from './blocks-manifest'
 
 export const slashPlugin = slashFactory('tela-slash')
 
@@ -36,147 +38,67 @@ interface SlashCommand {
   run: (ctx: Ctx) => void
 }
 
+// Behaviour, keyed by manifest block id. The labels/hints/keywords/ordering all
+// live in blocks-manifest.json (the source of truth shared with the agent
+// authoring guide); this map only supplies the imperative insert per id, so a
+// new block needs an entry in both. The integrity check below fails loudly in
+// dev if the two ever drift.
+const RUN: Record<string, (ctx: Ctx) => void> = {
+  h1: (ctx) => ctx.get(commandsCtx).call(wrapInHeadingCommand.key, 1),
+  h2: (ctx) => ctx.get(commandsCtx).call(wrapInHeadingCommand.key, 2),
+  h3: (ctx) => ctx.get(commandsCtx).call(wrapInHeadingCommand.key, 3),
+  'bullet-list': (ctx) => ctx.get(commandsCtx).call(wrapInBulletListCommand.key),
+  'ordered-list': (ctx) => ctx.get(commandsCtx).call(wrapInOrderedListCommand.key),
+  'task-list': insertTaskList,
+  quote: (ctx) => ctx.get(commandsCtx).call(wrapInBlockquoteCommand.key),
+  'pull-quote': insertPullquote,
+  callout: insertCallout,
+  collapsible: insertCollapsible,
+  excalidraw: insertExcalidraw,
+  code: (ctx) => ctx.get(commandsCtx).call(createCodeBlockCommand.key),
+  divider: (ctx) => ctx.get(commandsCtx).call(insertHrCommand.key),
+  table: (ctx) =>
+    ctx.get(commandsCtx).call(insertTableCommand.key, { row: 3, col: 2 }),
+  equation: insertMathBlock,
+  mermaid: insertMermaid,
+  embed: insertEmbed,
+  tabs: insertTabs,
+  kanban: insertKanban,
+  date: (ctx) => {
+    const view = ctx.get(editorViewCtx)
+    // YYYY-MM-DD, matching the project's date convention.
+    const today = new Date().toISOString().slice(0, 10)
+    view.dispatch(view.state.tr.insertText(today))
+    view.focus()
+  },
+}
+
+// Fail fast in dev if the manifest's slash blocks and this behaviour map drift:
+// every slash block needs a `run`, and no `run` should reference a block the
+// manifest doesn't mark slash-insertable.
+if (import.meta.env?.DEV) {
+  const ids = new Set(SLASH_BLOCKS.map((b) => b.id))
+  const missing = SLASH_BLOCKS.filter((b) => !RUN[b.id]).map((b) => b.id)
+  const orphan = Object.keys(RUN).filter((id) => !ids.has(id))
+  if (missing.length || orphan.length) {
+    throw new Error(
+      `slash menu / blocks-manifest drift — missing run: [${missing}], orphan run: [${orphan}]`,
+    )
+  }
+}
+
 const ALL_COMMANDS: SlashCommand[] = [
-  {
-    id: 'h1',
-    label: 'Heading 1',
-    hint: 'Large section heading',
-    keywords: ['h1', 'heading 1', 'heading', 'title'],
-    run: (ctx) => ctx.get(commandsCtx).call(wrapInHeadingCommand.key, 1),
-  },
-  {
-    id: 'h2',
-    label: 'Heading 2',
-    hint: 'Medium section heading',
-    keywords: ['h2', 'heading 2', 'heading', 'subtitle'],
-    run: (ctx) => ctx.get(commandsCtx).call(wrapInHeadingCommand.key, 2),
-  },
-  {
-    id: 'h3',
-    label: 'Heading 3',
-    hint: 'Small section heading',
-    keywords: ['h3', 'heading 3', 'heading'],
-    run: (ctx) => ctx.get(commandsCtx).call(wrapInHeadingCommand.key, 3),
-  },
-  {
-    id: 'bullet-list',
-    label: 'Bulleted list',
-    hint: 'Unordered list',
-    keywords: ['bullet', 'unordered', 'list', 'ul'],
-    run: (ctx) => ctx.get(commandsCtx).call(wrapInBulletListCommand.key),
-  },
-  {
-    id: 'ordered-list',
-    label: 'Numbered list',
-    hint: 'Ordered list',
-    keywords: ['numbered', 'ordered', 'list', 'ol'],
-    run: (ctx) => ctx.get(commandsCtx).call(wrapInOrderedListCommand.key),
-  },
-  {
-    id: 'task-list',
-    label: 'To-do list',
-    hint: 'Checkbox / task list',
-    keywords: ['todo', 'to-do', 'task', 'checkbox', 'checklist', 'check'],
-    run: insertTaskList,
-  },
-  {
-    id: 'quote',
-    label: 'Quote',
-    hint: 'Block quote',
-    keywords: ['quote', 'blockquote'],
-    run: (ctx) => ctx.get(commandsCtx).call(wrapInBlockquoteCommand.key),
-  },
-  {
-    id: 'pull-quote',
-    label: 'Pull quote',
-    hint: 'Elevated quote with attribution',
-    keywords: ['pullquote', 'pull quote', 'quote', 'epigraph', 'citation'],
-    run: insertPullquote,
-  },
-  {
-    id: 'collapsible',
-    label: 'Collapsible',
-    hint: 'Toggleable details block',
-    keywords: ['collapsible', 'details', 'toggle', 'disclosure', 'expand'],
-    run: insertCollapsible,
-  },
-  {
-    id: 'excalidraw',
-    label: 'Excalidraw',
-    hint: 'Hand-drawn diagram',
-    keywords: ['excalidraw', 'diagram', 'drawing', 'sketch', 'whiteboard'],
-    run: insertExcalidraw,
-  },
-  {
-    id: 'code',
-    label: 'Code block',
-    hint: 'Syntax-highlighted code',
-    keywords: ['code', 'codeblock', 'pre'],
-    run: (ctx) => ctx.get(commandsCtx).call(createCodeBlockCommand.key),
-  },
-  {
-    id: 'divider',
-    label: 'Divider',
-    hint: 'Horizontal rule',
-    keywords: ['hr', 'divider', 'separator', 'rule'],
-    run: (ctx) => ctx.get(commandsCtx).call(insertHrCommand.key),
-  },
-  {
-    id: 'table',
-    label: 'Table',
-    hint: '3 rows x 2 cols',
-    keywords: ['table', 'grid'],
-    run: (ctx) =>
-      ctx.get(commandsCtx).call(insertTableCommand.key, { row: 3, col: 2 }),
-  },
-  {
-    id: 'equation',
-    label: 'Equation',
-    hint: 'Block math (LaTeX)',
-    keywords: ['math', 'equation', 'latex', 'katex', 'formula', 'tex'],
-    run: insertMathBlock,
-  },
-  {
-    id: 'mermaid',
-    label: 'Mermaid diagram',
-    hint: 'Diagram from text',
-    keywords: ['mermaid', 'diagram', 'flowchart', 'graph', 'sequence'],
-    run: insertMermaid,
-  },
-  {
-    id: 'embed',
-    label: 'Embed',
-    hint: 'YouTube, Vimeo, Loom, or a link',
-    keywords: ['embed', 'video', 'youtube', 'vimeo', 'loom', 'iframe'],
-    run: insertEmbed,
-  },
-  {
-    id: 'tabs',
-    label: 'Tabs',
-    hint: 'Tabbed sections',
-    keywords: ['tabs', 'tab', 'tabbed', 'sections'],
-    run: insertTabs,
-  },
-  {
-    id: 'kanban',
-    label: 'Kanban board',
-    hint: 'Columns of draggable cards',
-    keywords: ['kanban', 'board', 'columns', 'cards', 'todo'],
-    run: insertKanban,
-  },
-  {
-    id: 'date',
-    label: 'Date',
-    hint: "Insert today's date",
-    keywords: ['date', 'today', 'now'],
-    run: (ctx) => {
-      const view = ctx.get(editorViewCtx)
-      // YYYY-MM-DD, matching the project's date convention.
-      const today = new Date().toISOString().slice(0, 10)
-      view.dispatch(view.state.tr.insertText(today))
-      view.focus()
-    },
-  },
+  // Block items projected from the manifest (labels/hints/keywords/order live
+  // there); RUN supplies the insert behaviour per id.
+  ...SLASH_BLOCKS.map(
+    (b): SlashCommand => ({
+      id: b.id,
+      label: b.label,
+      hint: b.hint,
+      keywords: b.keywords,
+      run: RUN[b.id],
+    }),
+  ),
   // Built-in templates (markdown snippets). See milkdown-templates.ts.
   ...TEMPLATES.map(
     (t): SlashCommand => ({

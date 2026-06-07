@@ -1,6 +1,8 @@
 import { $inputRule, $nodeSchema, $remark } from '@milkdown/kit/utils'
+import { editorViewCtx } from '@milkdown/kit/core'
 import { InputRule } from '@milkdown/kit/prose/inputrules'
 import { TextSelection } from '@milkdown/kit/prose/state'
+import type { Ctx } from '@milkdown/ctx'
 
 // M13.0 — GitHub-style blockquote alert callouts. Five GitHub-standard types
 // (`> [!NOTE] / [!TIP] / [!IMPORTANT] / [!WARNING] / [!CAUTION]`) parse into a
@@ -238,6 +240,32 @@ export const calloutSchema = $nodeSchema('callout', () => ({
     },
   },
 }))
+
+// Insert a fresh empty callout (default type `note`) at the cursor and land the
+// caret inside its body paragraph — the slash-menu entry point, mirroring what
+// the input rule produces when a user types `> [!NOTE]`. Replaces the selection
+// so it behaves like the other block inserts.
+export function insertCallout(ctx: Ctx) {
+  const view = ctx.get(editorViewCtx)
+  const { state } = view
+  const calloutType = state.schema.nodes.callout
+  const paragraphType = state.schema.nodes.paragraph
+  if (!calloutType || !paragraphType) return
+  const callout = calloutType.create({ type: 'note' }, paragraphType.create())
+  const tr = state.tr.replaceSelectionWith(callout)
+  // Find the inserted callout (last one whose body is an empty paragraph) and
+  // place the caret inside it: callout open (+1) + paragraph open (+1).
+  let targetPos = -1
+  tr.doc.descendants((node, pos) => {
+    if (node.type === calloutType && node.textContent === '') targetPos = pos
+    return true
+  })
+  if (targetPos !== -1) {
+    tr.setSelection(TextSelection.create(tr.doc, targetPos + 2))
+  }
+  view.dispatch(tr.scrollIntoView())
+  view.focus()
+}
 
 // Live conversion: user types `> [!NOTE]` (or any of the 5 types) on the
 // first line of a brand-new blockquote → rewrites to a fresh empty callout so

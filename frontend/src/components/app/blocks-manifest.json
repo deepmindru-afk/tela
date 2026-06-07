@@ -1,0 +1,283 @@
+{
+  "$comment": "SOURCE OF TRUTH for tela's authorable block palette. Drives BOTH the editor slash menu (frontend/src/components/app/milkdown-slash.tsx) AND the agent-facing MCP authoring guide (backend/internal/api/mcp_authoring.go, via the generated backend/internal/api/blocks_gen.json). Edit here only; run `make blocks-gen` to regenerate the backend copy. A renderer plugin with no entry here is invisible to agents AND missing from the slash palette — the blocks gate fails CI if a milkdown-* feature plugin has no entry. Fields: id (stable, joins to the slash `run` fn), label/hint/keywords (slash menu), category (guide grouping), slash (appears in the palette), agent (appears in the agent guide), syntax (exact round-trip markdown), when (one-line agent guidance), note (optional caveat).",
+  "blocks": [
+    {
+      "id": "h1",
+      "label": "Heading 1",
+      "hint": "Large section heading",
+      "category": "Text",
+      "slash": true,
+      "agent": false,
+      "keywords": ["h1", "heading 1", "heading", "title"],
+      "syntax": "# Heading"
+    },
+    {
+      "id": "h2",
+      "label": "Heading 2",
+      "hint": "Medium section heading",
+      "category": "Text",
+      "slash": true,
+      "agent": false,
+      "keywords": ["h2", "heading 2", "heading", "subtitle"],
+      "syntax": "## Heading"
+    },
+    {
+      "id": "h3",
+      "label": "Heading 3",
+      "hint": "Small section heading",
+      "category": "Text",
+      "slash": true,
+      "agent": false,
+      "keywords": ["h3", "heading 3", "heading"],
+      "syntax": "### Heading"
+    },
+    {
+      "id": "bullet-list",
+      "label": "Bulleted list",
+      "hint": "Unordered list",
+      "category": "Text",
+      "slash": true,
+      "agent": false,
+      "keywords": ["bullet", "unordered", "list", "ul"],
+      "syntax": "- Item\n- Item"
+    },
+    {
+      "id": "ordered-list",
+      "label": "Numbered list",
+      "hint": "Ordered list",
+      "category": "Text",
+      "slash": true,
+      "agent": false,
+      "keywords": ["numbered", "ordered", "list", "ol"],
+      "syntax": "1. Item\n2. Item"
+    },
+    {
+      "id": "task-list",
+      "label": "To-do list",
+      "hint": "Checkbox / task list",
+      "category": "Lists & tables",
+      "slash": true,
+      "agent": true,
+      "keywords": ["todo", "to-do", "task", "checkbox", "checklist", "check"],
+      "syntax": "- [ ] Open task\n- [x] Done task",
+      "when": "A checklist of toggleable items."
+    },
+    {
+      "id": "quote",
+      "label": "Quote",
+      "hint": "Block quote",
+      "category": "Text",
+      "slash": true,
+      "agent": false,
+      "keywords": ["quote", "blockquote"],
+      "syntax": "> Quoted text"
+    },
+    {
+      "id": "pull-quote",
+      "label": "Pull quote",
+      "hint": "Elevated quote with attribution",
+      "category": "Callouts & quotes",
+      "slash": true,
+      "agent": true,
+      "keywords": ["pullquote", "pull quote", "quote", "epigraph", "citation"],
+      "syntax": ":::quote{cite=\"Ada Lovelace\"}\nThe quoted text.\n:::",
+      "when": "Feature a quotation or epigraph, set apart from body text.",
+      "note": "The cite attribute is optional."
+    },
+    {
+      "id": "callout",
+      "label": "Callout",
+      "hint": "Note / tip / warning admonition",
+      "category": "Callouts & quotes",
+      "slash": true,
+      "agent": true,
+      "keywords": ["callout", "note", "tip", "warning", "important", "caution", "admonition", "alert"],
+      "syntax": "> [!NOTE]\n> Body text here.",
+      "when": "Set off an aside, tip, or warning so it stands out from body text.",
+      "note": "Type is one of NOTE, TIP, IMPORTANT, WARNING, CAUTION."
+    },
+    {
+      "id": "collapsible",
+      "label": "Collapsible",
+      "hint": "Toggleable details block",
+      "category": "Layout",
+      "slash": true,
+      "agent": true,
+      "keywords": ["collapsible", "details", "toggle", "disclosure", "expand"],
+      "syntax": "<details><summary>Summary label</summary>\n\nHidden body content.\n\n</details>",
+      "when": "Hide long or secondary content behind a toggle.",
+      "note": "Blank lines around the body are required. Add `open` to <details> to start expanded."
+    },
+    {
+      "id": "tabs",
+      "label": "Tabs",
+      "hint": "Tabbed sections",
+      "category": "Layout",
+      "slash": true,
+      "agent": true,
+      "keywords": ["tabs", "tab", "tabbed", "sections"],
+      "syntax": ":::tabs\n### First tab\nContent for the first tab.\n\n### Second tab\nContent for the second tab.\n:::",
+      "when": "Show alternative content in the same space (e.g. per-language examples).",
+      "note": "Each ### heading inside the block becomes a tab label."
+    },
+    {
+      "id": "kanban",
+      "label": "Kanban board",
+      "hint": "Columns of draggable cards",
+      "category": "Layout",
+      "slash": true,
+      "agent": true,
+      "keywords": ["kanban", "board", "columns", "cards", "todo"],
+      "syntax": ":::kanban\n### To do\n- [ ] A card\n\n### In progress\n- [ ] Another card\n:::",
+      "when": "A board of columns holding draggable cards.",
+      "note": "Each ### heading is a column; bullet items are its cards."
+    },
+    {
+      "id": "embed",
+      "label": "Embed",
+      "hint": "YouTube, Vimeo, Loom, or a link",
+      "category": "Media & diagrams",
+      "slash": true,
+      "agent": true,
+      "keywords": ["embed", "video", "youtube", "vimeo", "loom", "iframe"],
+      "syntax": ":::embed\nhttps://www.youtube.com/watch?v=ID\n:::",
+      "when": "Embed a video or external page inline.",
+      "note": "YouTube, Vimeo, and Loom render as players; other URLs become link cards."
+    },
+    {
+      "id": "mermaid",
+      "label": "Mermaid diagram",
+      "hint": "Diagram from text",
+      "category": "Media & diagrams",
+      "slash": true,
+      "agent": true,
+      "keywords": ["mermaid", "diagram", "flowchart", "graph", "sequence"],
+      "syntax": "```mermaid\ngraph TD\n  A[Start] --> B[End]\n```",
+      "when": "Flowcharts, sequence/state/ER diagrams, pie charts — anything Mermaid supports."
+    },
+    {
+      "id": "excalidraw",
+      "label": "Excalidraw",
+      "hint": "Hand-drawn diagram",
+      "category": "Media & diagrams",
+      "slash": true,
+      "agent": false,
+      "keywords": ["excalidraw", "diagram", "drawing", "sketch", "whiteboard"],
+      "syntax": "```excalidraw\n{ ... scene JSON ... }\n```",
+      "when": "Hand-drawn diagram / whiteboard.",
+      "note": "Authored visually in the editor — not meant to be hand-written by agents."
+    },
+    {
+      "id": "image",
+      "label": "Image",
+      "hint": "Embedded image",
+      "category": "Media & diagrams",
+      "slash": false,
+      "agent": true,
+      "keywords": [],
+      "syntax": "![alt text](https://example.com/image.png)",
+      "when": "Embed an image.",
+      "note": "In the editor, drag-drop or paste uploads the file automatically."
+    },
+    {
+      "id": "code",
+      "label": "Code block",
+      "hint": "Syntax-highlighted code",
+      "category": "Code & math",
+      "slash": true,
+      "agent": true,
+      "keywords": ["code", "codeblock", "pre"],
+      "syntax": "```ts\nconst x = 1\n```",
+      "when": "Syntax-highlighted code with a copy button.",
+      "note": "Put the language right after the opening fence."
+    },
+    {
+      "id": "equation",
+      "label": "Equation",
+      "hint": "Block math (LaTeX)",
+      "category": "Code & math",
+      "slash": true,
+      "agent": true,
+      "keywords": ["math", "equation", "latex", "katex", "formula", "tex"],
+      "syntax": "$$\nE = mc^2\n$$",
+      "when": "Display a standalone mathematical formula (KaTeX/LaTeX)."
+    },
+    {
+      "id": "inline-math",
+      "label": "Inline math",
+      "hint": "Inline LaTeX",
+      "category": "Code & math",
+      "slash": false,
+      "agent": true,
+      "keywords": [],
+      "syntax": "Euler's identity $e^{i\\pi}+1=0$ is elegant.",
+      "when": "Inline LaTeX within a sentence.",
+      "note": "No space directly inside the $…$ delimiters."
+    },
+    {
+      "id": "divider",
+      "label": "Divider",
+      "hint": "Horizontal rule",
+      "category": "Text",
+      "slash": true,
+      "agent": false,
+      "keywords": ["hr", "divider", "separator", "rule"],
+      "syntax": "---"
+    },
+    {
+      "id": "table",
+      "label": "Table",
+      "hint": "3 rows x 2 cols",
+      "category": "Lists & tables",
+      "slash": true,
+      "agent": true,
+      "keywords": ["table", "grid"],
+      "syntax": "| Name | Role |\n| --- | --- |\n| Ada | Pioneer |",
+      "when": "Tabular data (GitHub-flavored markdown)."
+    },
+    {
+      "id": "highlight",
+      "label": "Highlight",
+      "hint": "Marked text",
+      "category": "Inline marks",
+      "slash": false,
+      "agent": true,
+      "keywords": [],
+      "syntax": "This is ==highlighted== text.",
+      "when": "Mark a span as if with a highlighter pen."
+    },
+    {
+      "id": "wikilink",
+      "label": "Wikilink",
+      "hint": "Link to another page",
+      "category": "Inline marks",
+      "slash": false,
+      "agent": true,
+      "keywords": [],
+      "syntax": "[[Page Title]]   [[Page Title|shown text]]   [[Page Title#Heading]]",
+      "when": "Link to another page in the same space by title; records a backlink.",
+      "note": "Resolved by title within the space. tela://page/{id} also works as a link target."
+    },
+    {
+      "id": "footnote",
+      "label": "Footnote",
+      "hint": "Footnote with back-reference",
+      "category": "Inline marks",
+      "slash": false,
+      "agent": true,
+      "keywords": [],
+      "syntax": "A claim that needs a source.[^1]\n\n[^1]: The supporting note.",
+      "when": "Add a footnote; the reader renders an auto-numbered back-reference."
+    },
+    {
+      "id": "date",
+      "label": "Date",
+      "hint": "Insert today's date",
+      "category": "Utility",
+      "slash": true,
+      "agent": false,
+      "keywords": ["date", "today", "now"],
+      "syntax": "YYYY-MM-DD"
+    }
+  ]
+}
