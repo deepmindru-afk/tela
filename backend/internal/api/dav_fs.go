@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"log"
 	"net/http"
 	"os"
 	"strings"
@@ -180,14 +181,17 @@ func (fs *davFS) openRead(ctx context.Context, segs []string) (webdavFile, error
 	}
 	leaf := segs[len(segs)-1]
 	if isFile {
-		// NB: the merge base is set ONLY on write (the PUT, in ApplyFileSync), not
-		// here. A read can't reliably mean "the client adopted this content" — stock
-		// clients (rclone) issue HEAD/GET probes during their own sync bookkeeping,
-		// and treating those as a base update would set base==current right before a
-		// PUT and collapse the 3-way merge into last-write-wins. Setting base only to
-		// what the client actually SENT is unambiguous and correct in every flow (the
-		// client downloads server changes into its local file before editing, so the
-		// incoming PUT already carries them and diff3 reconciles against the last send).
+		// Establish the merge base on FIRST download only (insert-if-absent), so a
+		// page created in the app and edited locally before this client ever
+		// uploaded it still merges instead of last-write-wins. We never OVERWRITE an
+		// existing base on a read — stock clients issue HEAD/GET probes during their
+		// bookkeeping, and overwriting would set base==current right before a PUT and
+		// collapse the merge to LWW. Writes (PUT) own base updates thereafter.
+		if pr := davPrincipalFrom(ctx); pr.k != nil {
+			if err := insertSyncBaseIfAbsent(ctx, fs.s.DB, pr.k.ID, p.ID, p.Title, p.Body, p.Props); err != nil {
+				log.Printf("dav: sync base seed on read (page %d): %v", p.ID, err)
+			}
+		}
 		return newDavReadFile(leaf, p), nil
 	}
 	return fs.dirFromChildren(leaf, davModTime(p.UpdatedAt), t, p.ID), nil

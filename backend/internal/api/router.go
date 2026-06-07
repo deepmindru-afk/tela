@@ -209,6 +209,11 @@ func registerRoutes(srv *Server, mux *http.ServeMux) {
 	mux.HandleFunc("DELETE /api/pages/{id}/favorite", srv.DeleteFavorite)
 	mux.HandleFunc("GET /api/recent-changes", srv.ListRecentChanges)
 
+	// Sync delta feed (§4 D10): per-space append-only change_log ranged by a
+	// monotonic seq cursor, so a syncing client pulls deltas instead of
+	// re-scanning. Session OR bearer-read; membership on space_id required.
+	mux.HandleFunc("GET /api/changes", srv.ListChanges)
+
 	// M16.A.1 API keys: bearer-token management. Instance-admin only via the
 	// session cookie path, OR a bearer key with admin scope. Keys are issued
 	// once on POST and never re-exposed — list/delete operate over key_prefix

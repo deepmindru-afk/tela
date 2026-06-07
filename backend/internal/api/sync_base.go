@@ -81,6 +81,25 @@ func upsertSyncBase(ctx context.Context, ex dbExec, apiKeyID, pageID int64, titl
 	return err
 }
 
+// insertSyncBaseIfAbsent records a base ONLY when the client has none for this
+// page yet — used by the WebDAV read path. The first time a client downloads a
+// page it never uploaded (e.g. one created in the app), this establishes the
+// merge base so its first local edit 3-way-merges instead of last-write-wins.
+// It deliberately does NOT overwrite an existing base: stock clients issue
+// HEAD/GET probes during their own bookkeeping, and overwriting base on every
+// read would set base==current right before a PUT and collapse the merge to LWW
+// (the bug fixed in 66a8a51). A stale base is harmless — diff3 reconciles
+// against any common ancestor, and the incoming PUT already carries whatever the
+// client downloaded.
+func insertSyncBaseIfAbsent(ctx context.Context, ex dbExec, apiKeyID, pageID int64, title, body string, props map[string]any) error {
+	_, err := ex.ExecContext(ctx, `
+		INSERT INTO sync_base (api_key_id, page_id, base_title, base_body, base_props, updated_at)
+		VALUES ($1, $2, $3, $4, $5::jsonb, tela_now())
+		ON CONFLICT (api_key_id, page_id) DO NOTHING`,
+		apiKeyID, pageID, title, body, propsJSON(props))
+	return err
+}
+
 // mergeAgainstBase three-way merges the incoming (title, body, props) against the
 // current DB page using the client's stored base (loaded in-tx). With no client
 // key, no stored base, or a body too large to diff safely, it returns the

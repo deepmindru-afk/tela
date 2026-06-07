@@ -413,6 +413,9 @@ func (s *Server) createPageCore(ctx context.Context, u *auth.User, k *auth.APIKe
 	if err := syncPageLinks(ctx, tx, id, body); err != nil {
 		return models.Page{}, &apiErr{http.StatusInternalServerError, "internal", "sync page_links failed"}
 	}
+	if err := appendChangeLog(ctx, tx, req.SpaceID, id, changeCreated); err != nil {
+		return models.Page{}, &apiErr{http.StatusInternalServerError, "internal", "append change_log failed"}
+	}
 	page, err := selectPageByIDTx(ctx, tx, id)
 	if err != nil {
 		return models.Page{}, &apiErr{http.StatusInternalServerError, "internal", "fetch created page failed"}
@@ -590,6 +593,9 @@ func applyUpdateTx(ctx context.Context, tx *sql.Tx, id int64, req pageUpdateRequ
 	if err != nil {
 		return models.Page{}, &apiErr{http.StatusInternalServerError, "internal", "fetch updated page failed"}
 	}
+	if err := appendChangeLog(ctx, tx, p.SpaceID, p.ID, changeUpdated); err != nil {
+		return models.Page{}, &apiErr{http.StatusInternalServerError, "internal", "append change_log failed"}
+	}
 	return p, nil
 }
 
@@ -723,17 +729,28 @@ func (s *Server) deletePageCore(ctx context.Context, u *auth.User, k *auth.APIKe
 			UNION ALL
 			SELECT p.id FROM pages p JOIN subtree s ON p.parent_id = s.id
 		)`
-	res, err := tx.ExecContext(ctx, subtreeCTE+`
+	rows, err := tx.QueryContext(ctx, subtreeCTE+`
 		UPDATE pages SET deleted_at = tela_now()
-		 WHERE id IN (SELECT id FROM subtree) AND deleted_at IS NULL`, id)
+		 WHERE id IN (SELECT id FROM subtree) AND deleted_at IS NULL
+		 RETURNING id`, id)
 	if err != nil {
 		return &apiErr{http.StatusInternalServerError, "internal", "delete page failed"}
 	}
-	n, err := res.RowsAffected()
-	if err != nil {
-		return &apiErr{http.StatusInternalServerError, "internal", "delete page: rows affected failed"}
+	var deletedIDs []int64
+	for rows.Next() {
+		var did int64
+		if err := rows.Scan(&did); err != nil {
+			rows.Close()
+			return &apiErr{http.StatusInternalServerError, "internal", "scan deleted id failed"}
+		}
+		deletedIDs = append(deletedIDs, did)
 	}
-	if n == 0 {
+	rerr := rows.Err()
+	rows.Close() // must close before the next Exec on this tx (single-conn cursor)
+	if rerr != nil {
+		return &apiErr{http.StatusInternalServerError, "internal", "delete page: read ids failed"}
+	}
+	if len(deletedIDs) == 0 {
 		return &apiErr{http.StatusNotFound, "not_found", "page not found"}
 	}
 
@@ -750,6 +767,14 @@ func (s *Server) deletePageCore(ctx context.Context, u *auth.User, k *auth.APIKe
 	} {
 		if _, err := tx.ExecContext(ctx, subtreeCTE+stmt, id); err != nil {
 			return &apiErr{http.StatusInternalServerError, "internal", "delete page dependents failed"}
+		}
+	}
+
+	// Feed every soft-deleted page (whole subtree) so a polling client learns of
+	// the deletions, not just the root (sync §4). Same space for the whole subtree.
+	for _, did := range deletedIDs {
+		if err := appendChangeLog(ctx, tx, existing.SpaceID, did, changeDeleted); err != nil {
+			return &apiErr{http.StatusInternalServerError, "internal", "append change_log failed"}
 		}
 	}
 
@@ -983,6 +1008,9 @@ func (s *Server) applyMoveTx(ctx context.Context, tx *sql.Tx, u *auth.User, k *a
 	moved, err := selectPageByIDTx(ctx, tx, id)
 	if err != nil {
 		return models.Page{}, &apiErr{http.StatusInternalServerError, "internal", "fetch moved page failed"}
+	}
+	if err := appendChangeLog(ctx, tx, moved.SpaceID, moved.ID, changeMoved); err != nil {
+		return models.Page{}, &apiErr{http.StatusInternalServerError, "internal", "append change_log failed"}
 	}
 	return moved, nil
 }

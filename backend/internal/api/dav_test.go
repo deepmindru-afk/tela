@@ -343,6 +343,52 @@ func TestDAV_ThreeWayMergeConflict(t *testing.T) {
 	}
 }
 
+// TestDAV_BaseGapSeededOnRead: a page created in the app (never PUT by this
+// client) has no merge base. The FIRST download (GET) seeds it (insert-if-
+// absent), so a subsequent local edit 3-way-merges instead of clobbering — and a
+// later probe GET must NOT overwrite that base.
+func TestDAV_BaseGapSeededOnRead(t *testing.T) {
+	ts, d, spaceID, folder, token := davFixture(t)
+	ctx := context.Background()
+
+	// Created in-app (direct insert → no sync_base for the client).
+	var pid int64
+	if err := d.QueryRowContext(ctx,
+		`INSERT INTO pages (space_id, title, body, props) VALUES ($1, 'note', $2, '{}'::jsonb) RETURNING id`,
+		spaceID, "L1\nL2\nL3\n").Scan(&pid); err != nil {
+		t.Fatalf("seed page: %v", err)
+	}
+
+	// First download seeds the base.
+	if resp, _ := davDo(t, ts, token, "GET", "/dav/"+folder+"/note.md", "", nil); resp.StatusCode != http.StatusOK {
+		t.Fatalf("GET = %d, want 200", resp.StatusCode)
+	}
+	var base string
+	if err := d.QueryRowContext(ctx, `SELECT base_body FROM sync_base WHERE page_id = $1`, pid).Scan(&base); err != nil {
+		t.Fatalf("base not seeded on first read: %v", err)
+	}
+	if base != "L1\nL2\nL3\n" {
+		t.Fatalf("seeded base = %q, want the downloaded body", base)
+	}
+
+	// Out-of-band app edit (line 1), then a probe GET — base must stay put.
+	d.ExecContext(ctx, `UPDATE pages SET body = $1, updated_at = tela_now() WHERE id = $2`, "L1-APP\nL2\nL3\n", pid)
+	davDo(t, ts, token, "GET", "/dav/"+folder+"/note.md", "", nil)
+	d.QueryRowContext(ctx, `SELECT base_body FROM sync_base WHERE page_id = $1`, pid).Scan(&base)
+	if base != "L1\nL2\nL3\n" {
+		t.Fatalf("base overwritten on read (insert-if-absent violated): %q", base)
+	}
+
+	// Client edits line 3 locally and PUTs → both edits survive (merge, not LWW).
+	if resp, _ := davDo(t, ts, token, "PUT", "/dav/"+folder+"/note.md", "L1\nL2\nL3-LOCAL\n", nil); resp.StatusCode != http.StatusCreated {
+		t.Fatalf("PUT = %d, want 201", resp.StatusCode)
+	}
+	merged, _ := pageByTitle(t, d, spaceID, "note")
+	if merged.Body != "L1-APP\nL2\nL3-LOCAL\n" {
+		t.Fatalf("base-gap merge body = %q, want both edits", merged.Body)
+	}
+}
+
 // --- pure unit tests (no DB) for the path + slug layer ---
 
 func TestDavSplit(t *testing.T) {
