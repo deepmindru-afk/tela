@@ -1,8 +1,13 @@
 import { useEffect } from 'react'
 import { useParams } from '@tanstack/react-router'
-import { usePublicSpace, usePublicSpacePage } from '../lib/queries/public'
+import {
+  usePublicSpace,
+  usePublicSpacePage,
+  usePublicSpaceTree,
+} from '../lib/queries/public'
 import { pageSlug } from '../lib/slug'
 import { PublicReaderView } from '../components/app/PublicReader'
+import { PublicSpaceIndex } from '../components/app/PublicSpaceIndex'
 import { ThemeSwitcher } from '../components/ThemeSwitcher'
 import { Card, CardDescription, CardHeader, CardTitle } from '../components/ui/card'
 
@@ -47,6 +52,32 @@ function PublicUnavailable({
         </CardHeader>
       </Card>
     </PublicShell>
+  )
+}
+
+// The curated front page of a public space: /public/spaces/{id}.
+export function PublicSpaceIndexRoute() {
+  const { spaceId } = useParams({ from: '/public/spaces/$spaceId' })
+  const spaceQuery = usePublicSpace(spaceId)
+  const treeQuery = usePublicSpaceTree(spaceId, spaceQuery.data != null)
+
+  if (spaceQuery.isLoading || (spaceQuery.data && treeQuery.isLoading)) {
+    return (
+      <PublicShell>
+        <p role="status" className="m-0 text-[length:var(--text-sm)] text-[var(--text-muted)]">
+          Loading…
+        </p>
+      </PublicShell>
+    )
+  }
+  if (spaceQuery.error || !spaceQuery.data) {
+    return <PublicUnavailable message="This space is not publicly available." />
+  }
+  return (
+    <PublicSpaceIndex
+      space={spaceQuery.data.space}
+      pages={treeQuery.data?.pages ?? []}
+    />
   )
 }
 

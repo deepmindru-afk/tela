@@ -86,13 +86,26 @@ export function PublicReaderView({
         ) : undefined
       }
       topbarLeading={
-        <a
-          href="/"
-          aria-label="tela home"
-          className="inline-block rounded-[var(--radius-xs)] font-[family-name:var(--font-sans)] text-[length:var(--text-base)] font-medium text-[var(--text-primary)] no-underline transition-opacity duration-[var(--duration-fast)] hover:opacity-70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
-        >
-          tela
-        </a>
+        <span className="flex items-center gap-[var(--space-2)] min-w-0">
+          <a
+            href="/"
+            aria-label="tela home"
+            className="inline-block rounded-[var(--radius-xs)] font-[family-name:var(--font-sans)] text-[length:var(--text-base)] font-medium text-[var(--text-primary)] no-underline transition-opacity duration-[var(--duration-fast)] hover:opacity-70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+          >
+            tela
+          </a>
+          <span aria-hidden className="text-[var(--text-muted)]">
+            /
+          </span>
+          {/* Back to the space's front page (its blog index). */}
+          <Link
+            to="/public/spaces/$spaceId"
+            params={{ spaceId: space.id }}
+            className="truncate rounded-[var(--radius-xs)] font-[family-name:var(--font-sans)] text-[length:var(--text-sm)] text-[var(--text-muted)] no-underline transition-colors duration-[var(--duration-fast)] hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+          >
+            {space.name}
+          </Link>
+        </span>
       }
       sourceLabel={space.name}
       topbarTrailing={

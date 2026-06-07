@@ -44,12 +44,14 @@ type publicPageDTO struct {
 	UpdatedAt string         `json:"updated_at"`
 }
 
-// publicTreeNode is one slim nav entry for the public space's page tree.
+// publicTreeNode is one slim nav entry for the public space's page tree. Carries
+// updated_at so the front-page index can show post dates.
 type publicTreeNode struct {
-	ID       int64  `json:"id"`
-	Title    string `json:"title"`
-	ParentID *int64 `json:"parent_id"`
-	Position int64  `json:"position"`
+	ID        int64  `json:"id"`
+	Title     string `json:"title"`
+	ParentID  *int64 `json:"parent_id"`
+	Position  int64  `json:"position"`
+	UpdatedAt string `json:"updated_at"`
 }
 
 // requirePublicSpace loads the space and returns it only when it is public.
@@ -95,7 +97,7 @@ func (s *Server) GetPublicSpaceTree(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	rows, err := s.DB.QueryContext(r.Context(),
-		`SELECT id, title, parent_id, position
+		`SELECT id, title, parent_id, position, updated_at
 		   FROM pages
 		  WHERE space_id = $1 AND deleted_at IS NULL
 		  ORDER BY position ASC, id ASC`, id)
@@ -107,7 +109,7 @@ func (s *Server) GetPublicSpaceTree(w http.ResponseWriter, r *http.Request) {
 	nodes := []publicTreeNode{}
 	for rows.Next() {
 		var n publicTreeNode
-		if err := rows.Scan(&n.ID, &n.Title, &n.ParentID, &n.Position); err != nil {
+		if err := rows.Scan(&n.ID, &n.Title, &n.ParentID, &n.Position, &n.UpdatedAt); err != nil {
 			writeError(w, http.StatusInternalServerError, "internal", "scan tree row failed")
 			return
 		}

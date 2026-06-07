@@ -823,6 +823,16 @@ function PublicAccessSection({
               ? 'Anyone can read every page in this space — no login. Editing stays members-only.'
               : 'Only members can read this space.'}
           </p>
+          {isPublic ? (
+            <a
+              href={`/public/spaces/${space.id}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-[var(--space-1)] inline-block truncate text-[length:var(--text-xs)] text-[var(--accent)] no-underline hover:underline"
+            >
+              {`${window.location.origin}/public/spaces/${space.id}`}
+            </a>
+          ) : null}
         </div>
         {iAmOwner ? (
           <Button

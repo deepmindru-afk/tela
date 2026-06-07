@@ -523,6 +523,15 @@ const readRoute = createRoute({
   component: lazyRouteComponent(() => import('./read'), 'ReadRoute'),
 })
 
+// Public-space front page (curated index). Child of rootRoute (NO ensureMe gate).
+const publicSpaceIndexRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/public/spaces/$spaceId',
+  parseParams: (raw) => ({ spaceId: Number(raw.spaceId) }),
+  stringifyParams: (params) => ({ spaceId: String(params.spaceId) }),
+  component: lazyRouteComponent(() => import('./public'), 'PublicSpaceIndexRoute'),
+})
+
 // Public-space reader. Child of rootRoute (NO ensureMe gate — a public space is
 // readable logged-out). One route matches both /pages/{id} and /pages/{id}/{slug}
 // via the optional slug, so slug canonicalisation never swaps routes. Lazy so
@@ -561,6 +570,7 @@ const routeTree = rootRoute.addChildren([
   shareRootRoute,
   shareSlugRoute,
   shareDescendantRoute,
+  publicSpaceIndexRoute,
   publicReaderRoute,
   readRoute,
   printRoute,

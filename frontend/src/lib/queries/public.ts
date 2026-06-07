@@ -35,6 +35,7 @@ export interface PublicPageNode {
   title: string
   parent_id: number | null
   position: number
+  updated_at: string
 }
 
 export type PublicErrorKind = 'not_found' | 'network' | 'http_error'
