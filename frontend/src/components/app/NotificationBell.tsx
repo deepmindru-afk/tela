@@ -27,6 +27,12 @@ function describe(n: NotificationItem): string {
       return `${actor} mentioned you in “${title}”`
     case 'page_updated':
       return `${actor} updated “${title}”`
+    case 'comment_reply':
+      return `${actor} replied to your comment in “${title}”`
+    case 'space_added': {
+      const space = typeof n.data.space_name === 'string' ? n.data.space_name : 'a space'
+      return `${actor} added you to ${space}`
+    }
     default:
       return `${actor} sent you a notification`
   }
@@ -117,13 +123,27 @@ function NotificationRow({ n, onOpen }: { n: NotificationItem; onOpen: () => voi
     </>
   )
 
-  // Page subjects deep-link to the page; anything else falls back to home.
+  // Deep-link by subject: page → the page, space → the space; else home.
   if (n.subject_kind === 'page' && n.space_id != null) {
     return (
       <DropdownMenuItem asChild>
         <Link
           to="/spaces/$spaceId/pages/$pageId/{-$slug}"
           params={{ spaceId: n.space_id, pageId: n.subject_id, slug: undefined }}
+          onClick={onOpen}
+          className={className}
+        >
+          {inner}
+        </Link>
+      </DropdownMenuItem>
+    )
+  }
+  if (n.subject_kind === 'space') {
+    return (
+      <DropdownMenuItem asChild>
+        <Link
+          to="/spaces/$spaceId"
+          params={{ spaceId: n.subject_id }}
           onClick={onOpen}
           className={className}
         >

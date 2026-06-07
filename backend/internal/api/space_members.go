@@ -7,6 +7,8 @@ import (
 	"errors"
 	"net/http"
 	"strings"
+
+	"github.com/zcag/tela/backend/internal/auth"
 )
 
 // spaceMemberDTO is the wire shape for member listings + writes. Joins
@@ -123,6 +125,11 @@ func (s *Server) AddSpaceMember(w http.ResponseWriter, r *http.Request) {
 		}
 		writeError(w, http.StatusInternalServerError, "internal", "add member failed")
 		return
+	}
+
+	// Notify the added user that they now have access (best-effort).
+	if actor, ok := auth.UserFromContext(ctx); ok {
+		s.notifySpaceAdded(ctx, actor, targetID, spaceID)
 	}
 
 	dto, err := selectSpaceMember(ctx, s.DB, spaceID, targetID)

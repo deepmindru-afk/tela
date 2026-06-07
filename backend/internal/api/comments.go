@@ -200,6 +200,7 @@ func (s *Server) createCommentCore(ctx context.Context, u *auth.User, k *auth.AP
 	isReply := req.ParentID != nil
 	var (
 		anchorPrefix, anchorExact, anchorSuffix any // sql NULL when reply
+		parentAuthorID                          int64
 	)
 
 	if isReply {
@@ -210,8 +211,8 @@ func (s *Server) createCommentCore(ctx context.Context, u *auth.User, k *auth.AP
 		var parentParentID sql.NullInt64
 		var parentDeleted sql.NullString
 		err := tx.QueryRowContext(ctx,
-			`SELECT page_id, parent_id, deleted_at FROM comments WHERE id = $1`, *req.ParentID).
-			Scan(&parentPageID, &parentParentID, &parentDeleted)
+			`SELECT page_id, parent_id, deleted_at, author_id FROM comments WHERE id = $1`, *req.ParentID).
+			Scan(&parentPageID, &parentParentID, &parentDeleted, &parentAuthorID)
 		if errors.Is(err, sql.ErrNoRows) {
 			return models.Comment{}, &apiErr{http.StatusNotFound, "comment_not_found", "parent comment not found"}
 		}
@@ -258,6 +259,10 @@ func (s *Server) createCommentCore(ctx context.Context, u *auth.User, k *auth.AP
 	}
 	if err := tx.Commit(); err != nil {
 		return models.Comment{}, &apiErr{http.StatusInternalServerError, "internal", "commit failed"}
+	}
+	// Notify the root comment's author that someone replied (best-effort).
+	if isReply {
+		s.notifyCommentReply(ctx, u, pageID, parentAuthorID)
 	}
 	return c, nil
 }

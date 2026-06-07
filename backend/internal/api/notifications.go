@@ -21,8 +21,10 @@ import (
 // Event types. Text codes (not a DB enum) so a new kind is additive — add a
 // constant, an emit site, and a frontend render case.
 const (
-	notifMention     = "mention"
-	notifPageUpdated = "page_updated"
+	notifMention      = "mention"
+	notifPageUpdated  = "page_updated"
+	notifSpaceAdded   = "space_added"
+	notifCommentReply = "comment_reply"
 )
 
 // Delivery channels. Only inapp is delivered today; email prefs are stored for
@@ -248,6 +250,63 @@ func (s *Server) notifyPageUpdate(ctx context.Context, editor *auth.User, pageID
 		})
 	}
 	s.emitNotifications(ctx, out...)
+}
+
+// notifySpaceAdded tells a user they were added to a space. Idempotent per
+// (space, user). The recipient just gained access, so no extra gating needed.
+func (s *Server) notifySpaceAdded(ctx context.Context, actor *auth.User, addedUserID, spaceID int64) {
+	if actor == nil || addedUserID == actor.ID {
+		return
+	}
+	var name string
+	if err := s.DB.QueryRowContext(ctx, `SELECT name FROM spaces WHERE id = $1`, spaceID).Scan(&name); err != nil {
+		log.Printf("notify space_added: lookup space %d: %v", spaceID, err)
+		return
+	}
+	actorID := actor.ID
+	s.emitNotifications(ctx, notificationInput{
+		UserID:      addedUserID,
+		Type:        notifSpaceAdded,
+		ActorID:     &actorID,
+		SubjectKind: "space",
+		SubjectID:   spaceID,
+		SpaceID:     &spaceID,
+		Data:        map[string]any{"space_name": name, "actor_username": actor.Username},
+		DedupKey:    "space_added:space:" + strconv.FormatInt(spaceID, 10) + ":" + strconv.FormatInt(addedUserID, 10),
+	})
+}
+
+// notifyCommentReply tells the author of a root comment that someone replied.
+// Skips self-replies; re-gates the recipient through space_access (they authored
+// a comment there, but access can be revoked). One notification per reply.
+func (s *Server) notifyCommentReply(ctx context.Context, replier *auth.User, pageID, parentAuthorID int64) {
+	if parentAuthorID == replier.ID {
+		return
+	}
+	var (
+		title   string
+		spaceID int64
+	)
+	if err := s.DB.QueryRowContext(ctx,
+		`SELECT title, space_id FROM pages WHERE id = $1`, pageID).Scan(&title, &spaceID); err != nil {
+		log.Printf("notify comment_reply: lookup page %d: %v", pageID, err)
+		return
+	}
+	var x int
+	if err := s.DB.QueryRowContext(ctx,
+		`SELECT 1 FROM space_access WHERE space_id = $1 AND user_id = $2`, spaceID, parentAuthorID).Scan(&x); err != nil {
+		return // no access (or lookup error) → don't notify
+	}
+	replierID := replier.ID
+	s.emitNotifications(ctx, notificationInput{
+		UserID:      parentAuthorID,
+		Type:        notifCommentReply,
+		ActorID:     &replierID,
+		SubjectKind: "page",
+		SubjectID:   pageID,
+		SpaceID:     &spaceID,
+		Data:        map[string]any{"page_title": title, "actor_username": replier.Username},
+	})
 }
 
 // notificationDTO is the wire shape for the inbox. Data is the denormalized

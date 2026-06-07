@@ -16,6 +16,16 @@ const EVENTS: { type: string; label: string; desc: string }[] = [
     label: 'Page updates',
     desc: 'When a page or space you follow changes.',
   },
+  {
+    type: 'comment_reply',
+    label: 'Comment replies',
+    desc: 'When someone replies to your comment.',
+  },
+  {
+    type: 'space_added',
+    label: 'Added to a space',
+    desc: 'When someone gives you access to a space.',
+  },
 ]
 const CHANNELS: { channel: string; label: string }[] = [
   { channel: 'inapp', label: 'In-app' },

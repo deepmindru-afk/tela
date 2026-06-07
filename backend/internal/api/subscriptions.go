@@ -179,7 +179,7 @@ func (s *Server) UnsubscribeSpace(w http.ResponseWriter, r *http.Request) {
 
 // notificationEventTypes / notificationChannels define the matrix the prefs UI
 // renders. Adding an event type or channel here exposes it everywhere.
-var notificationEventTypes = []string{notifMention, notifPageUpdated}
+var notificationEventTypes = []string{notifMention, notifPageUpdated, notifSpaceAdded, notifCommentReply}
 var notificationChannels = []string{channelInApp, channelEmail}
 
 type notificationPrefDTO struct {

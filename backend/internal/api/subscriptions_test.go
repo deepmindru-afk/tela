@@ -152,14 +152,15 @@ func TestNotificationPrefs_GatingAndAPI(t *testing.T) {
 
 	bu := authUser(bob, "bob", false)
 
-	// Default matrix: 2 event types × 2 channels, all enabled.
+	// Default matrix: the event types × 2 channels, all enabled.
 	rec := routedRecorder("GET /api/users/me/notification-prefs", srv.GetNotificationPrefs,
 		userRequest(http.MethodGet, "/api/users/me/notification-prefs", "", bu))
 	if rec.Code != http.StatusOK {
 		t.Fatalf("get prefs: code=%d body=%q", rec.Code, rec.Body.String())
 	}
-	if c := strings.Count(rec.Body.String(), `"enabled":true`); c != 4 {
-		t.Fatalf("default prefs enabled=true count = %d, want 4: %q", c, rec.Body.String())
+	wantPrefs := len(notificationEventTypes) * len(notificationChannels)
+	if c := strings.Count(rec.Body.String(), `"enabled":true`); c != wantPrefs {
+		t.Fatalf("default prefs enabled=true count = %d, want %d: %q", c, wantPrefs, rec.Body.String())
 	}
 
 	// Turn page_updated in-app OFF.
