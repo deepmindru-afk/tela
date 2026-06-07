@@ -24,8 +24,11 @@ type Space struct {
 	// (whole space readable by anyone, no login). Read-only outbound exposure —
 	// never grants write. See docs/public-spaces.md.
 	Visibility string `json:"visibility"`
-	CreatedAt  string `json:"created_at"`
-	UpdatedAt  string `json:"updated_at"`
+	// Description is the blog standfirst shown under the name on a public space's
+	// front page. Free text, '' when unset, editor+ editable. See migration 0014.
+	Description string `json:"description"`
+	CreatedAt   string `json:"created_at"`
+	UpdatedAt   string `json:"updated_at"`
 }
 
 type Page struct {

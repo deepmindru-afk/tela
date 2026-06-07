@@ -16,16 +16,19 @@ import (
 // simply doesn't exist publicly — we don't confirm an arbitrary username).
 
 type publicUserSpaceDTO struct {
-	ID    int64               `json:"id"`
-	Name  string              `json:"name"`
-	Slug  string              `json:"slug"`
-	Pages []publicUserPageDTO `json:"pages"`
+	ID          int64               `json:"id"`
+	Name        string              `json:"name"`
+	Slug        string              `json:"slug"`
+	Description string              `json:"description"`
+	Pages       []publicUserPageDTO `json:"pages"`
 }
 
 type publicUserPageDTO struct {
 	ID        int64  `json:"id"`
 	Title     string `json:"title"`
+	CreatedAt string `json:"created_at"`
 	UpdatedAt string `json:"updated_at"`
+	blogCardMeta
 }
 
 func (s *Server) GetPublicUser(w http.ResponseWriter, r *http.Request) {
@@ -38,10 +41,11 @@ func (s *Server) GetPublicUser(w http.ResponseWriter, r *http.Request) {
 	var (
 		userID    int64
 		canonical string
+		bio       string
 	)
 	err := s.DB.QueryRowContext(r.Context(),
-		`SELECT id, username FROM users WHERE LOWER(username) = LOWER($1)`, username).
-		Scan(&userID, &canonical)
+		`SELECT id, username, bio FROM users WHERE LOWER(username) = LOWER($1)`, username).
+		Scan(&userID, &canonical, &bio)
 	if errors.Is(err, sql.ErrNoRows) {
 		writeError(w, http.StatusNotFound, "not_found", "no such user")
 		return
@@ -55,7 +59,8 @@ func (s *Server) GetPublicUser(w http.ResponseWriter, r *http.Request) {
 	// top-level pages, so a space with no posts still appears. Ordered by space
 	// name, then the author's page arrangement.
 	rows, err := s.DB.QueryContext(r.Context(), `
-		SELECT s.id, s.name, s.slug, p.id, p.title, p.updated_at
+		SELECT s.id, s.name, s.slug, s.description,
+		       p.id, p.title, p.body, p.props, p.created_at, p.updated_at
 		  FROM spaces s
 		  JOIN space_members m ON m.space_id = s.id AND m.user_id = $1
 		  LEFT JOIN pages p
@@ -75,27 +80,33 @@ func (s *Server) GetPublicUser(w http.ResponseWriter, r *http.Request) {
 			sID    int64
 			sName  string
 			sSlug  string
+			sDesc  string
 			pID    sql.NullInt64
 			pTitle sql.NullString
+			pBody  sql.NullString
+			pProps []byte
+			pCreat sql.NullString
 			pTime  sql.NullString
 		)
-		if err := rows.Scan(&sID, &sName, &sSlug, &pID, &pTitle, &pTime); err != nil {
+		if err := rows.Scan(&sID, &sName, &sSlug, &sDesc, &pID, &pTitle, &pBody, &pProps, &pCreat, &pTime); err != nil {
 			writeError(w, http.StatusInternalServerError, "internal", "scan row failed")
 			return
 		}
 		idx, ok := byID[sID]
 		if !ok {
 			spaces = append(spaces, publicUserSpaceDTO{
-				ID: sID, Name: sName, Slug: sSlug, Pages: []publicUserPageDTO{},
+				ID: sID, Name: sName, Slug: sSlug, Description: sDesc, Pages: []publicUserPageDTO{},
 			})
 			idx = len(spaces) - 1
 			byID[sID] = idx
 		}
 		if pID.Valid {
 			spaces[idx].Pages = append(spaces[idx].Pages, publicUserPageDTO{
-				ID:        pID.Int64,
-				Title:     pTitle.String,
-				UpdatedAt: pTime.String,
+				ID:           pID.Int64,
+				Title:        pTitle.String,
+				CreatedAt:    pCreat.String,
+				UpdatedAt:    pTime.String,
+				blogCardMeta: blogMetaFor(pBody.String, decodeProps(pProps)),
 			})
 		}
 	}
@@ -111,7 +122,7 @@ func (s *Server) GetPublicUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, http.StatusOK, map[string]any{
-		"user":   map[string]any{"username": canonical},
+		"user":   map[string]any{"username": canonical, "bio": bio},
 		"spaces": spaces,
 	})
 }

@@ -17,6 +17,8 @@ export interface Space {
   // 'private' (members-only) or 'public' (whole space readable on the web, no
   // login). Present on the spaces list + detail; optional on constructed Spaces.
   visibility?: 'private' | 'public'
+  // Blog standfirst shown on a public space's front page. Present on list/detail.
+  description?: string
   created_at: string
   updated_at: string
   // Access summary — present on the spaces list (sidebar), optional elsewhere.
@@ -100,6 +102,8 @@ export interface UpdateSpaceInput {
   name?: string
   slug?: string
   visibility?: 'private' | 'public'
+  // Blog standfirst for a public space. '' clears it.
+  description?: string
 }
 
 export interface CreatePageInput {

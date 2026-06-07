@@ -26,12 +26,16 @@ const (
 	spaceVisibilityPublic  = "public"
 )
 
-// publicSpaceDTO is the minimal space envelope a logged-out reader gets.
+// publicSpaceDTO is the space envelope a logged-out reader gets. Description is
+// the blog standfirst; OwnerHandle is the byline author (the space's owner) so
+// the front page can link back to /u/{handle}. Both empty when unset.
 type publicSpaceDTO struct {
-	ID         int64  `json:"id"`
-	Name       string `json:"name"`
-	Slug       string `json:"slug"`
-	Visibility string `json:"visibility"`
+	ID          int64  `json:"id"`
+	Name        string `json:"name"`
+	Slug        string `json:"slug"`
+	Visibility  string `json:"visibility"`
+	Description string `json:"description"`
+	OwnerHandle string `json:"owner_handle,omitempty"`
 }
 
 // publicPageDTO is the read-only page projection for a public space — body +
@@ -44,14 +48,18 @@ type publicPageDTO struct {
 	UpdatedAt string         `json:"updated_at"`
 }
 
-// publicTreeNode is one slim nav entry for the public space's page tree. Carries
-// updated_at so the front-page index can show post dates.
+// publicTreeNode is one nav/index entry for the public space's page tree. Beyond
+// the nav fields it carries blog-card metadata (excerpt, reading time, cover,
+// tags) and created_at so the front-page index renders rich post cards in one
+// round trip — no per-post body fetch.
 type publicTreeNode struct {
 	ID        int64  `json:"id"`
 	Title     string `json:"title"`
 	ParentID  *int64 `json:"parent_id"`
 	Position  int64  `json:"position"`
+	CreatedAt string `json:"created_at"`
 	UpdatedAt string `json:"updated_at"`
+	blogCardMeta
 }
 
 // requirePublicSpace loads the space and returns it only when it is public.
@@ -81,8 +89,23 @@ func (s *Server) GetPublicSpace(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
+	// Byline author: the space owner's handle, for a link back to /u/{handle}.
+	// Best-effort — a space with no owner row simply omits the byline.
+	var owner string
+	_ = s.DB.QueryRowContext(r.Context(),
+		`SELECT u.username
+		   FROM space_members m JOIN users u ON u.id = m.user_id
+		  WHERE m.space_id = $1 AND m.role = 'owner'
+		  ORDER BY m.user_id ASC LIMIT 1`, sp.ID).Scan(&owner)
 	writeJSON(w, http.StatusOK, map[string]any{
-		"space": publicSpaceDTO{ID: sp.ID, Name: sp.Name, Slug: sp.Slug, Visibility: sp.Visibility},
+		"space": publicSpaceDTO{
+			ID:          sp.ID,
+			Name:        sp.Name,
+			Slug:        sp.Slug,
+			Visibility:  sp.Visibility,
+			Description: sp.Description,
+			OwnerHandle: owner,
+		},
 	})
 }
 
@@ -97,7 +120,7 @@ func (s *Server) GetPublicSpaceTree(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	rows, err := s.DB.QueryContext(r.Context(),
-		`SELECT id, title, parent_id, position, updated_at
+		`SELECT id, title, parent_id, position, body, props, created_at, updated_at
 		   FROM pages
 		  WHERE space_id = $1 AND deleted_at IS NULL
 		  ORDER BY position ASC, id ASC`, id)
@@ -108,11 +131,16 @@ func (s *Server) GetPublicSpaceTree(w http.ResponseWriter, r *http.Request) {
 	defer rows.Close()
 	nodes := []publicTreeNode{}
 	for rows.Next() {
-		var n publicTreeNode
-		if err := rows.Scan(&n.ID, &n.Title, &n.ParentID, &n.Position, &n.UpdatedAt); err != nil {
+		var (
+			n        publicTreeNode
+			body     string
+			propsRaw []byte
+		)
+		if err := rows.Scan(&n.ID, &n.Title, &n.ParentID, &n.Position, &body, &propsRaw, &n.CreatedAt, &n.UpdatedAt); err != nil {
 			writeError(w, http.StatusInternalServerError, "internal", "scan tree row failed")
 			return
 		}
+		n.blogCardMeta = blogMetaFor(body, decodeProps(propsRaw))
 		nodes = append(nodes, n)
 	}
 	if err := rows.Err(); err != nil {

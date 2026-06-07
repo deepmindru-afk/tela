@@ -1,13 +1,12 @@
 import { useMemo } from 'react'
 import { Link } from '@tanstack/react-router'
-import { relativeTimeFromSqlite } from '../../lib/relativeTime'
-import { pageSlug } from '../../lib/slug'
 import {
   type PublicPageNode,
   type PublicSpacePayload,
 } from '../../lib/queries/public'
-import { Button } from '../ui/button'
-import { ThemeSwitcher } from '../ThemeSwitcher'
+import { PublicTopbar } from './blog/PublicTopbar'
+import { PublicMasthead, MetaDot } from './blog/PublicMasthead'
+import { PostCard } from './blog/PostCard'
 
 interface PublicSpaceIndexProps {
   space: PublicSpacePayload
@@ -15,73 +14,72 @@ interface PublicSpaceIndexProps {
 }
 
 // The curated front page of a public space — a blog-style index. Top-level pages
-// are the "posts" (nested pages are sub-sections, reachable by navigating in),
-// ordered by the author's arrangement (position). Each entry links to the
-// no-login reader. Chrome mirrors the reader's topbar so the surface reads as
-// one site.
+// are the "posts" (nested pages are sub-sections, reached by navigating in),
+// newest first. The newest gets a featured lead card; the rest fall into a grid.
+// Chrome mirrors the reader/author surfaces so it all reads as one site.
 export function PublicSpaceIndex({ space, pages }: PublicSpaceIndexProps) {
   const posts = useMemo(
     () =>
       pages
         .filter((p) => p.parent_id == null)
-        .sort((a, b) => a.position - b.position || a.id - b.id),
+        // Newest first — string UTC timestamps sort lexicographically.
+        .sort((a, b) => b.updated_at.localeCompare(a.updated_at)),
     [pages],
   )
 
-  return (
-    <div className="min-h-dvh flex flex-col bg-[var(--surface-1)] text-[var(--text-primary)]">
-      <header className="flex items-center justify-between px-[var(--space-5)] py-[var(--space-3)] border-b border-[var(--border-subtle)] shrink-0">
-        <a
-          href="/"
-          aria-label="tela home"
-          className="inline-block rounded-[var(--radius-xs)] font-[family-name:var(--font-sans)] text-[length:var(--text-base)] font-medium text-[var(--text-primary)] no-underline transition-opacity duration-[var(--duration-fast)] hover:opacity-70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
-        >
-          tela
-        </a>
-        <div className="flex items-center gap-[var(--space-2)]">
-          <ThemeSwitcher />
-          <Button asChild variant="ghost" size="sm">
-            <a href="/login">Sign in</a>
-          </Button>
-        </div>
-      </header>
+  const [featured, ...rest] = posts
 
-      <main className="flex-1 overflow-y-auto">
-        <div className="mx-auto w-full max-w-[42rem] px-[var(--space-6)] py-[var(--space-8)]">
-          <h1 className="m-0 mb-[var(--space-7)] font-[family-name:var(--font-sans)] text-[length:var(--text-3xl)] font-semibold leading-[var(--leading-tight)] tracking-[-0.015em]">
-            {space.name}
-          </h1>
+  return (
+    <div className="flex min-h-dvh flex-col bg-[var(--surface-1)] text-[var(--text-primary)]">
+      <PublicTopbar />
+
+      <main className="flex-1">
+        <div className="mx-auto w-full max-w-[60rem] px-[var(--space-6)] py-[var(--space-8)]">
+          <PublicMasthead
+            title={space.name}
+            avatarSeed={space.slug || space.name}
+            standfirst={space.description || undefined}
+            meta={
+              <>
+                {space.owner_handle ? (
+                  <>
+                    <span>
+                      by{' '}
+                      <Link
+                        to="/u/$username"
+                        params={{ username: space.owner_handle }}
+                        className="font-medium text-[var(--text-primary)] no-underline hover:text-[var(--accent)]"
+                      >
+                        @{space.owner_handle}
+                      </Link>
+                    </span>
+                    <MetaDot />
+                  </>
+                ) : null}
+                <span>
+                  {posts.length} {posts.length === 1 ? 'post' : 'posts'}
+                </span>
+              </>
+            }
+          />
 
           {posts.length === 0 ? (
-            <p className="m-0 text-[length:var(--text-sm)] text-[var(--text-muted)]">
+            <p className="mt-[var(--space-8)] text-[length:var(--text-sm)] text-[var(--text-muted)]">
               Nothing published here yet.
             </p>
           ) : (
-            <ul className="m-0 p-0 list-none flex flex-col">
-              {posts.map((p) => (
-                <li
-                  key={p.id}
-                  className="border-b border-[var(--border-subtle)] last:border-b-0"
-                >
-                  <Link
-                    to="/public/spaces/$spaceId/pages/$pageId/{-$slug}"
-                    params={{
-                      spaceId: space.id,
-                      pageId: p.id,
-                      slug: pageSlug(p.title) || undefined,
-                    }}
-                    className="group flex flex-col gap-[var(--space-1)] py-[var(--space-4)] no-underline"
-                  >
-                    <span className="text-[length:var(--text-lg)] font-medium text-[var(--text-primary)] transition-colors duration-[var(--duration-fast)] group-hover:text-[var(--accent)]">
-                      {p.title || 'Untitled'}
-                    </span>
-                    <span className="text-[length:var(--text-xs)] text-[var(--text-muted)]">
-                      {relativeTimeFromSqlite(p.updated_at)}
-                    </span>
-                  </Link>
-                </li>
-              ))}
-            </ul>
+            <div className="mt-[var(--space-8)] flex flex-col gap-[var(--space-5)]">
+              {featured ? (
+                <PostCard spaceId={space.id} post={featured} featured />
+              ) : null}
+              {rest.length > 0 ? (
+                <div className="grid grid-cols-1 gap-[var(--space-5)] sm:grid-cols-2">
+                  {rest.map((p) => (
+                    <PostCard key={p.id} spaceId={space.id} post={p} />
+                  ))}
+                </div>
+              ) : null}
+            </div>
           )}
         </div>
       </main>

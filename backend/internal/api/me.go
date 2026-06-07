@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"strings"
 
 	"github.com/zcag/tela/backend/internal/auth"
 )
@@ -12,6 +13,42 @@ import (
 type changePasswordRequest struct {
 	OldPassword string `json:"old_password"`
 	NewPassword string `json:"new_password"`
+}
+
+const maxBioLen = 280
+
+type updateProfileRequest struct {
+	// Bio is the author blurb shown on /u/{handle}. Empty string clears it.
+	Bio *string `json:"bio"`
+}
+
+// UpdateMyProfile patches the caller's own public profile fields (currently just
+// bio). PATCH /api/users/me. Self-service, no privilege beyond being signed in.
+func (s *Server) UpdateMyProfile(w http.ResponseWriter, r *http.Request) {
+	u, ok := requireUser(w, r)
+	if !ok {
+		return
+	}
+	var req updateProfileRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_json", "could not parse request body")
+		return
+	}
+	if req.Bio == nil {
+		writeError(w, http.StatusBadRequest, "no_fields", "nothing to update")
+		return
+	}
+	bio := strings.TrimSpace(*req.Bio)
+	if len(bio) > maxBioLen {
+		writeError(w, http.StatusBadRequest, "invalid_bio", "bio exceeds 280 characters")
+		return
+	}
+	if _, err := s.DB.ExecContext(r.Context(),
+		`UPDATE users SET bio = $1, updated_at = tela_now() WHERE id = $2`, bio, u.ID); err != nil {
+		writeError(w, http.StatusInternalServerError, "internal", "update profile failed")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"bio": bio})
 }
 
 type sessionDTO struct {

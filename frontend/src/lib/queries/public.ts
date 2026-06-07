@@ -21,6 +21,19 @@ export interface PublicSpacePayload {
   name: string
   slug: string
   visibility: string
+  // Blog standfirst + byline author handle (links to /u/{handle}). '' when unset.
+  description: string
+  owner_handle?: string
+}
+
+// Blog-card metadata the backend derives per post for the index surfaces
+// (a public space front page and /u/{handle}). Lets a card render an excerpt,
+// reading time, cover and tags in one round trip — no per-post body fetch.
+export interface BlogCardMeta {
+  excerpt: string
+  reading_minutes: number
+  cover?: string
+  tags?: string[]
 }
 
 export interface PublicPagePayload {
@@ -31,11 +44,12 @@ export interface PublicPagePayload {
   updated_at: string
 }
 
-export interface PublicPageNode {
+export interface PublicPageNode extends BlogCardMeta {
   id: number
   title: string
   parent_id: number | null
   position: number
+  created_at: string
   updated_at: string
 }
 
@@ -100,15 +114,23 @@ export function usePublicSpacePage(spaceId: number, pageId: number, enabled = tr
 }
 
 // /u/{handle} home page: a user's public spaces + their top-level posts.
+export interface PublicUserPost extends BlogCardMeta {
+  id: number
+  title: string
+  created_at: string
+  updated_at: string
+}
+
 export interface PublicUserSpace {
   id: number
   name: string
   slug: string
-  pages: { id: number; title: string; updated_at: string }[]
+  description: string
+  pages: PublicUserPost[]
 }
 
 export interface PublicUserResponse {
-  user: { username: string }
+  user: { username: string; bio?: string }
   spaces: PublicUserSpace[]
 }
 

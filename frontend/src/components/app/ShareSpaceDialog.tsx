@@ -37,6 +37,7 @@ import {
   DialogTitle,
 } from '../ui/dialog'
 import { Input } from '../ui/input'
+import { TextArea } from '../ui/textarea'
 import { Select } from '../ui/select'
 import { cn } from '../../lib/utils'
 
@@ -851,6 +852,63 @@ function PublicAccessSection({
           role="alert"
           className="m-0 text-[length:var(--text-xs)] text-[var(--danger)]"
         >
+          {error}
+        </p>
+      ) : null}
+
+      {isPublic && iAmOwner ? <BlogDescriptionField space={space} /> : null}
+    </div>
+  )
+}
+
+// The blog standfirst for a public space — shown under the space name on its
+// front page. Owner-edited inline here, saved on blur when it changed.
+function BlogDescriptionField({ space }: { space: Space }) {
+  const updateSpace = useUpdateSpace()
+  const [value, setValue] = useState(space.description ?? '')
+  const [error, setError] = useState<string | null>(null)
+
+  async function save() {
+    const next = value.trim()
+    if (next === (space.description ?? '')) return
+    setError(null)
+    try {
+      await updateSpace.mutateAsync({ id: space.id, description: next })
+    } catch (err) {
+      setError(
+        err instanceof ApiError ? err.message : 'Failed to save description.',
+      )
+    }
+  }
+
+  return (
+    <div className="flex flex-col gap-[var(--space-1)] pl-[calc(1.1em+var(--space-3))]">
+      <label
+        htmlFor={`blog-desc-${space.id}`}
+        className="text-[length:var(--text-xs)] text-[var(--text-muted)]"
+      >
+        Blog description
+      </label>
+      <TextArea
+        id={`blog-desc-${space.id}`}
+        value={value}
+        onChange={(e) => setValue(e.target.value.slice(0, 280))}
+        onBlur={() => void save()}
+        rows={2}
+        placeholder="A line that introduces this blog — shown under its title."
+        size="sm"
+        font="sans"
+      />
+      <div className="flex items-center justify-between">
+        <span className="text-[length:var(--text-xs)] text-[var(--text-muted)]">
+          {updateSpace.isPending ? 'Saving…' : 'Shown on the front page'}
+        </span>
+        <span className="text-[length:var(--text-xs)] text-[var(--text-muted)]">
+          {value.length}/280
+        </span>
+      </div>
+      {error ? (
+        <p role="alert" className="m-0 text-[length:var(--text-xs)] text-[var(--danger)]">
           {error}
         </p>
       ) : null}

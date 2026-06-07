@@ -43,3 +43,16 @@ export function localDateFromSqlite(s: string): string {
   const d = parseSqliteTs(s)
   return d.toLocaleDateString('en-CA')
 }
+
+// Render a SQLite-native UTC timestamp as an editorial date — "Jun 7, 2026" —
+// for blog post bylines/cards. Drops the year when it's the current one for a
+// lighter line ("Jun 7"). Locale-aware month name; stable shape.
+export function postDateFromSqlite(s: string, now: Date = new Date()): string {
+  const d = parseSqliteTs(s)
+  const sameYear = d.getFullYear() === now.getFullYear()
+  return d.toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    ...(sameYear ? {} : { year: 'numeric' }),
+  })
+}

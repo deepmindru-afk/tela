@@ -10,6 +10,8 @@ export interface AuthUser {
   email: string | null
   email_verified: boolean
   is_instance_admin: boolean
+  // Author bio shown on /u/{handle}. '' when unset.
+  bio?: string
 }
 
 export interface LoginInput {
@@ -48,6 +50,26 @@ export function useMe() {
     queryFn: fetchMe,
     retry: false,
     staleTime: Infinity,
+  })
+}
+
+// Patch the caller's own profile (bio). Updates the me cache in place so the
+// settings form and any open /u/{handle} preview reflect the new value.
+export function useUpdateProfile() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (input: { bio: string }) => {
+      const { bio } = await api<{ bio: string }>('/api/users/me', {
+        method: 'PATCH',
+        body: JSON.stringify(input),
+      })
+      return bio
+    },
+    onSuccess: (bio) => {
+      qc.setQueryData<AuthUser | null>(authKeys.me(), (curr) =>
+        curr ? { ...curr, bio } : curr,
+      )
+    },
   })
 }
 

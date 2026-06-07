@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { LogOut } from 'lucide-react'
 import { ApiError } from '../../lib/api'
-import { useMe } from '../../lib/queries/auth'
+import { useMe, useUpdateProfile } from '../../lib/queries/auth'
 import {
   useChangePassword,
   useLogoutEverywhere,
@@ -25,6 +25,7 @@ import {
   DialogTitle,
 } from '../ui/dialog'
 import { Input } from '../ui/input'
+import { TextArea } from '../ui/textarea'
 import {
   Tooltip,
   TooltipContent,
@@ -38,6 +39,8 @@ export function SettingsProfileTab() {
   return (
     <div className="flex flex-col gap-[var(--space-7)]">
       <AccountSection />
+      <Separator />
+      <BioSection />
       <Separator />
       <ChangePasswordSection />
       <Separator />
@@ -89,6 +92,95 @@ function AccountSection() {
         <span className="text-[length:var(--text-base)] text-[var(--text-primary)] font-[family-name:var(--font-sans)]">
           {me.data?.username ?? '—'}
         </span>
+      </div>
+    </section>
+  )
+}
+
+const MAX_BIO_LEN = 280
+
+function BioSection() {
+  const me = useMe()
+  const updateProfile = useUpdateProfile()
+  const saved = me.data?.bio ?? ''
+  const [value, setValue] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const [success, setSuccess] = useState(false)
+  // null = uninitialised → mirror the loaded value; once edited we own it.
+  const bio = value ?? saved
+  const dirty = value != null && value.trim() !== saved
+
+  async function handleSave() {
+    setSuccess(false)
+    setError(null)
+    try {
+      await updateProfile.mutateAsync({ bio: bio.trim() })
+      setValue(null)
+      setSuccess(true)
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Something went wrong. Try again.')
+    }
+  }
+
+  return (
+    <section
+      aria-labelledby="settings-bio"
+      className="flex flex-col gap-[var(--space-3)]"
+    >
+      <SectionHeader
+        title="Bio"
+        description="A short line about you, shown on your public profile at /u/your-handle."
+      />
+      <div className="flex flex-col gap-[var(--space-2)] max-w-[36rem]" id="settings-bio">
+        <TextArea
+          aria-label="Bio"
+          value={bio}
+          onChange={(e) => {
+            setValue(e.target.value.slice(0, MAX_BIO_LEN))
+            setSuccess(false)
+          }}
+          rows={3}
+          font="sans"
+          placeholder="Writer. Builder. Tending a small corner of the web."
+        />
+        <div className="flex items-center justify-between">
+          <span className="text-[length:var(--text-xs)] text-[var(--text-muted)]">
+            {me.data?.username ? (
+              <a
+                href={`/u/${me.data.username}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-[var(--accent)] no-underline hover:underline"
+              >
+                View your profile →
+              </a>
+            ) : null}
+          </span>
+          <span className="text-[length:var(--text-xs)] text-[var(--text-muted)]">
+            {bio.length}/{MAX_BIO_LEN}
+          </span>
+        </div>
+        {error ? (
+          <p role="alert" className="m-0 text-[length:var(--text-sm)] text-[var(--danger)]">
+            {error}
+          </p>
+        ) : null}
+        {success ? (
+          <p role="status" className="m-0 text-[length:var(--text-sm)] text-[var(--success)]">
+            Bio saved.
+          </p>
+        ) : null}
+        <div className="flex">
+          <Button
+            type="button"
+            variant="primary"
+            size="sm"
+            onClick={() => void handleSave()}
+            disabled={!dirty || updateProfile.isPending}
+          >
+            {updateProfile.isPending ? 'Saving…' : 'Save bio'}
+          </Button>
+        </div>
       </div>
     </section>
   )

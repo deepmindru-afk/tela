@@ -25,6 +25,7 @@ type authUserDTO struct {
 	Email           *string `json:"email"`
 	EmailVerified   bool    `json:"email_verified"`
 	IsInstanceAdmin bool    `json:"is_instance_admin"`
+	Bio             string  `json:"bio"`
 }
 
 // Login authenticates an email-or-username + password pair. On success it
@@ -147,6 +148,10 @@ func (s *Server) Me(w http.ResponseWriter, r *http.Request) {
 	if u.Email != "" {
 		email = &u.Email
 	}
+	// bio isn't on the session-loaded user struct; fetch it directly (cheap,
+	// single-row) so /api/auth/me can prefill the profile editor.
+	var bio string
+	_ = s.DB.QueryRowContext(r.Context(), `SELECT bio FROM users WHERE id = $1`, u.ID).Scan(&bio)
 	writeJSON(w, http.StatusOK, map[string]any{
 		"user": authUserDTO{
 			ID:       u.ID,
@@ -156,6 +161,7 @@ func (s *Server) Me(w http.ResponseWriter, r *http.Request) {
 			// (or has no email at all), so an email here is a confirmed one.
 			EmailVerified:   u.Email != "",
 			IsInstanceAdmin: u.IsInstanceAdmin,
+			Bio:             bio,
 		},
 	})
 }

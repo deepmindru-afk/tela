@@ -63,7 +63,12 @@ type spaceUpdateRequest struct {
 	// (stricter than name/slug, which is editor+) — publishing a whole space is
 	// an owner decision.
 	Visibility *string `json:"visibility"`
+	// Description is the public blog standfirst. Editor+ (curation, not a publish
+	// decision). Empty string clears it.
+	Description *string `json:"description"`
 }
+
+const maxSpaceDescriptionLen = 280
 
 func (s *Server) ListSpaces(w http.ResponseWriter, r *http.Request) {
 	u, ok := requireUser(w, r)
@@ -84,7 +89,7 @@ func (s *Server) ListSpaces(w http.ResponseWriter, r *http.Request) {
 // HTTP route and the MCP tool can share one implementation.
 func (s *Server) listSpacesCore(ctx context.Context, u *auth.User) ([]spaceListItem, *apiErr) {
 	rows, err := s.DB.QueryContext(ctx, `
-		SELECT s.id, s.name, s.slug, s.visibility, s.created_at, s.updated_at,
+		SELECT s.id, s.name, s.slug, s.visibility, s.description, s.created_at, s.updated_at,
 		       (SELECT COUNT(DISTINCT user_id) FROM space_access a WHERE a.space_id = s.id) AS member_count,
 		       CASE WHEN s.personal_user_id IS NOT NULL THEN 1 ELSE 0 END AS is_personal
 		  FROM spaces s
@@ -102,7 +107,7 @@ func (s *Server) listSpacesCore(ctx context.Context, u *auth.User) ([]spaceListI
 			it       spaceListItem
 			personal int
 		)
-		if err := rows.Scan(&it.ID, &it.Name, &it.Slug, &it.Visibility, &it.CreatedAt, &it.UpdatedAt, &it.MemberCount, &personal); err != nil {
+		if err := rows.Scan(&it.ID, &it.Name, &it.Slug, &it.Visibility, &it.Description, &it.CreatedAt, &it.UpdatedAt, &it.MemberCount, &personal); err != nil {
 			return nil, &apiErr{http.StatusInternalServerError, "internal", "scan space row failed"}
 		}
 		it.IsPersonal = personal == 1
@@ -312,8 +317,8 @@ func (s *Server) updateSpaceCore(ctx context.Context, u *auth.User, k *auth.APIK
 	if req.Visibility != nil && role != roleOwner {
 		return models.Space{}, &apiErr{http.StatusForbidden, "forbidden", "owner role required to change visibility"}
 	}
-	if req.Name == nil && req.Slug == nil && req.Visibility == nil {
-		return models.Space{}, &apiErr{http.StatusBadRequest, "no_fields", "at least one of name, slug, visibility must be provided"}
+	if req.Name == nil && req.Slug == nil && req.Visibility == nil && req.Description == nil {
+		return models.Space{}, &apiErr{http.StatusBadRequest, "no_fields", "at least one of name, slug, visibility, description must be provided"}
 	}
 
 	sets := make([]string, 0, 3)
@@ -355,6 +360,15 @@ func (s *Server) updateSpaceCore(ctx context.Context, u *auth.User, k *auth.APIK
 		argN++
 		sets = append(sets, "visibility = $"+strconv.Itoa(argN))
 		args = append(args, vis)
+	}
+	if req.Description != nil {
+		desc := strings.TrimSpace(*req.Description)
+		if len(desc) > maxSpaceDescriptionLen {
+			return models.Space{}, &apiErr{http.StatusBadRequest, "invalid_description", "description exceeds 280 characters"}
+		}
+		argN++
+		sets = append(sets, "description = $"+strconv.Itoa(argN))
+		args = append(args, desc)
 	}
 	sets = append(sets, "updated_at = tela_now()")
 	argN++
@@ -476,16 +490,16 @@ func attachSpacePrincipals(ctx context.Context, db *sql.DB, byID map[int64]*spac
 func selectSpaceByID(ctx context.Context, db *sql.DB, id int64) (models.Space, error) {
 	var sp models.Space
 	err := db.QueryRowContext(ctx,
-		`SELECT id, name, slug, visibility, created_at, updated_at FROM spaces WHERE id = $1`, id,
-	).Scan(&sp.ID, &sp.Name, &sp.Slug, &sp.Visibility, &sp.CreatedAt, &sp.UpdatedAt)
+		`SELECT id, name, slug, visibility, description, created_at, updated_at FROM spaces WHERE id = $1`, id,
+	).Scan(&sp.ID, &sp.Name, &sp.Slug, &sp.Visibility, &sp.Description, &sp.CreatedAt, &sp.UpdatedAt)
 	return sp, err
 }
 
 func selectSpaceByIDTx(ctx context.Context, tx *sql.Tx, id int64) (models.Space, error) {
 	var sp models.Space
 	err := tx.QueryRowContext(ctx,
-		`SELECT id, name, slug, visibility, created_at, updated_at FROM spaces WHERE id = $1`, id,
-	).Scan(&sp.ID, &sp.Name, &sp.Slug, &sp.Visibility, &sp.CreatedAt, &sp.UpdatedAt)
+		`SELECT id, name, slug, visibility, description, created_at, updated_at FROM spaces WHERE id = $1`, id,
+	).Scan(&sp.ID, &sp.Name, &sp.Slug, &sp.Visibility, &sp.Description, &sp.CreatedAt, &sp.UpdatedAt)
 	return sp, err
 }
 

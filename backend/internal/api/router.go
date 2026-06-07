@@ -206,6 +206,7 @@ func registerRoutes(srv *Server, mux *http.ServeMux) {
 
 	// Mention directory — active users for the @-mention picker (any member).
 	mux.HandleFunc("GET /api/users", srv.ListUsers)
+	mux.HandleFunc("PATCH /api/users/me", srv.UpdateMyProfile)
 	mux.HandleFunc("POST /api/users/me/password", srv.ChangePassword)
 	mux.HandleFunc("POST /api/users/me/quick-notes", srv.QuickNotes)
 	mux.HandleFunc("GET /api/users/me/sessions", srv.ListMySessions)
