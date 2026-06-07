@@ -54,13 +54,36 @@ public reader (`/public/spaces/{spaceID}/pages/{id}/{slug}`) when the page's
 space is public, instead of the session-gated in-app route; bots still get the OG
 envelope.
 
+## Shipped (frontend)
+
+- No-login public reader route `/public/spaces/{id}/pages/{id}/{slug}` (reuses
+  the read-only ReaderShell; raw-fetch queries that never bounce to /login).
+- Owner-only "Make public / private" toggle in the space dialog; the public
+  front-page URL is surfaced when public.
+- **Space front page** `/public/spaces/{id}` — a blog-style index: space title +
+  top-level posts (title + date) linking to the reader. The reader's topbar
+  breadcrumb links back to it.
+
 ## Deferred / follow-ups
 
-- **Per-page "Published" in a private space** — explicitly skipped. Publicness is
-  whole-space only.
+- **Full SEO for public spaces** — make published spaces properly indexable +
+  shareable. The public reader is a client-rendered SPA, so crawlers need
+  server-rendered/prerendered metadata (today `/p/{id}` emits only a title-only
+  OG envelope, by design for private). Scope:
+  - per-page `<title>` + meta description (derived from the body) rendered for
+    crawlers; **full-body** OG for public pages (not the title-only private form);
+  - OG / Twitter card tags on `/public/…` URLs (title, description, image);
+  - `<link rel="canonical">` per page;
+  - `sitemap.xml` enumerating every public space's pages (public spaces give the
+    enumerable set this needs);
+  - `robots.txt` allowing `/public/…`; JSON-LD (Article/BlogPosting) for rich
+    results;
+  - clean, branded indexable URLs (ties to "clean readable URLs").
+  Tracked in the blog roadmap (tela space 9, page 177) as its own item.
 - **`llms.txt`** — an index of a public space's pages (now that there's an
   enumerable public set to point at).
-- **Frontend** — the no-login public reader route + an owner "Make public" toggle
-  + a visibility indicator.
+- **Per-page "Published" in a private space** — explicitly skipped. Publicness is
+  whole-space only.
 - **Caddy** `…/post.md` suffix rewrite → `/api/public/.../md` (the functional
   endpoint exists regardless).
+- **OG / link-preview cards** for public-space URLs (currently only share links).
