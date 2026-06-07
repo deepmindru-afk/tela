@@ -38,11 +38,26 @@ package mdimport
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"path"
 	"sort"
 	"strings"
 )
+
+// propsJSON marshals a props bag to a JSON string for a JSONB column, falling
+// back to an empty object. Bound with a ::jsonb cast at the insert site (pgx
+// encodes a Go string as text, which jsonb input parses).
+func propsJSON(props map[string]any) string {
+	if len(props) == 0 {
+		return "{}"
+	}
+	b, err := json.Marshal(props)
+	if err != nil {
+		return "{}"
+	}
+	return string(b)
+}
 
 // ImportFile is one entry in a markdown import payload — the relative path
 // under the uploaded root plus its raw bytes.
@@ -142,13 +157,15 @@ func Import(
 		wrapperTitle       string
 		wrapperBody        string
 		wrapperImportPath  string
+		wrapperProps       map[string]any
 	)
 	if rootDir := singleTopLevelDir(mdFiles); rootDir != "" {
 		if idx := findRootReadme(mdFiles, rootDir); idx >= 0 {
-			rawBody, _ := StripFrontmatter(mdFiles[idx].content)
+			rawBody, _, rawProps := StripFrontmatter(mdFiles[idx].content)
 			havePendingWrapper = true
 			wrapperTitle = path.Base(rootDir)
 			wrapperBody = rawBody
+			wrapperProps = rawProps
 			wrapperImportPath = mdFiles[idx].path
 			mdFiles = append(mdFiles[:idx], mdFiles[idx+1:]...)
 		}
@@ -289,7 +306,7 @@ func Import(
 
 	// insertPage handles both the live INSERT and the dry-run placeholder
 	// allocation. Returns the assigned pageID.
-	insertPage := func(parent *int64, title, body, importPath string) (int64, error) {
+	insertPage := func(parent *int64, title, body, importPath string, props map[string]any) (int64, error) {
 		if err := preloadPosition(parent); err != nil {
 			return 0, err
 		}
@@ -299,6 +316,8 @@ func Import(
 		}
 		pos := positionsAt[key]
 		positionsAt[key] = pos + 1
+
+		propsStr := propsJSON(props)
 
 		var pageID int64
 		if dryRun {
@@ -310,9 +329,9 @@ func Import(
 				parentArg = *parent
 			}
 			err := tx.QueryRowContext(ctx,
-				`INSERT INTO pages (space_id, parent_id, title, body, position)
-				 VALUES ($1, $2, $3, $4, $5) RETURNING id`,
-				spaceID, parentArg, title, body, pos).Scan(&pageID)
+				`INSERT INTO pages (space_id, parent_id, title, body, position, props)
+				 VALUES ($1, $2, $3, $4, $5, $6::jsonb) RETURNING id`,
+				spaceID, parentArg, title, body, pos, propsStr).Scan(&pageID)
 			if err != nil {
 				return 0, fmt.Errorf("insert page %q: %w", importPath, err)
 			}
@@ -320,9 +339,9 @@ func Import(
 			// Seed page-history so the imported page already has an entry
 			// from t=0. Source 'import' distinguishes from 'manual' saves.
 			if _, err := tx.ExecContext(ctx, `
-				INSERT INTO page_revisions (page_id, body, title, author_id, source, byte_size, created_at)
-				VALUES ($1, $2, $3, $4, 'import', $5, tela_now())`,
-				pageID, body, title, authorID, int64(len(body))); err != nil {
+				INSERT INTO page_revisions (page_id, body, title, props, author_id, source, byte_size, created_at)
+				VALUES ($1, $2, $3, $4::jsonb, $5, 'import', $6, tela_now())`,
+				pageID, body, title, propsStr, authorID, int64(len(body))); err != nil {
 				return 0, fmt.Errorf("seed page_revision for %q: %w", importPath, err)
 			}
 		}
@@ -349,7 +368,7 @@ func Import(
 		if renamed {
 			result.Summary.ConflictsRenamed++
 		}
-		wrapperID, err := insertPage(parentID, resolved, wrapperBody, wrapperImportPath)
+		wrapperID, err := insertPage(parentID, resolved, wrapperBody, wrapperImportPath, wrapperProps)
 		if err != nil {
 			return nil, err
 		}
@@ -388,9 +407,13 @@ func Import(
 
 		var body string
 		var importPath string
+		var props map[string]any
 		if readmeIdx >= 0 {
-			rawBody, _ := StripFrontmatter(mdFiles[readmeIdx].content)
+			// README props attach to the dir-index page; the dir basename still
+			// wins the title (so the frontmatter title is intentionally ignored).
+			rawBody, _, rawProps := StripFrontmatter(mdFiles[readmeIdx].content)
 			body = rawBody
+			props = rawProps
 			importPath = mdFiles[readmeIdx].path
 			mdFiles[readmeIdx].consumed = true
 		} else {
@@ -402,7 +425,7 @@ func Import(
 		if renamed {
 			result.Summary.ConflictsRenamed++
 		}
-		pageID, err := insertPage(parent, resolvedTitle, body, importPath)
+		pageID, err := insertPage(parent, resolvedTitle, body, importPath, props)
 		if err != nil {
 			return nil, err
 		}
@@ -419,7 +442,7 @@ func Import(
 			return nil, err
 		}
 
-		body, fmTitle := StripFrontmatter(mdFiles[i].content)
+		body, fmTitle, fmProps := StripFrontmatter(mdFiles[i].content)
 		title := fmTitle
 		if title == "" {
 			title = FirstH1Title(body)
@@ -445,7 +468,7 @@ func Import(
 		if renamed {
 			result.Summary.ConflictsRenamed++
 		}
-		if _, err := insertPage(parent, resolvedTitle, body, mdFiles[i].path); err != nil {
+		if _, err := insertPage(parent, resolvedTitle, body, mdFiles[i].path, fmProps); err != nil {
 			return nil, err
 		}
 	}

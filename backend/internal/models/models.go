@@ -25,14 +25,15 @@ type Space struct {
 }
 
 type Page struct {
-	ID        int64  `json:"id"`
-	SpaceID   int64  `json:"space_id"`
-	ParentID  *int64 `json:"parent_id"`
-	Title     string `json:"title"`
-	Body      string `json:"body"`
-	Position  int64  `json:"position"`
-	CreatedAt string `json:"created_at"`
-	UpdatedAt string `json:"updated_at"`
+	ID        int64          `json:"id"`
+	SpaceID   int64          `json:"space_id"`
+	ParentID  *int64         `json:"parent_id"`
+	Title     string         `json:"title"`
+	Body      string         `json:"body"`
+	Position  int64          `json:"position"`
+	Props     map[string]any `json:"props,omitempty"`
+	CreatedAt string         `json:"created_at"`
+	UpdatedAt string         `json:"updated_at"`
 }
 
 // Comment is the wire shape for an M8 comment row. Roots have ParentID==nil
@@ -44,15 +45,16 @@ type Page struct {
 // nullable; author_username is joined from users when present. byte_size is
 // length(body) at write time, cached so list views don't pull the full body.
 type PageRevision struct {
-	ID             int64   `json:"id"`
-	PageID         int64   `json:"page_id"`
-	Title          string  `json:"title"`
-	Body           string  `json:"body,omitempty"`
-	AuthorID       *int64  `json:"author_id"`
-	AuthorUsername *string `json:"author_username,omitempty"`
-	Source         string  `json:"source"`
-	ByteSize       int64   `json:"byte_size"`
-	CreatedAt      string  `json:"created_at"`
+	ID             int64          `json:"id"`
+	PageID         int64          `json:"page_id"`
+	Title          string         `json:"title"`
+	Body           string         `json:"body,omitempty"`
+	Props          map[string]any `json:"props,omitempty"`
+	AuthorID       *int64         `json:"author_id"`
+	AuthorUsername *string        `json:"author_username,omitempty"`
+	Source         string         `json:"source"`
+	ByteSize       int64          `json:"byte_size"`
+	CreatedAt      string         `json:"created_at"`
 }
 
 type Comment struct {

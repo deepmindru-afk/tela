@@ -505,10 +505,11 @@ func (s *Server) mcpFetch(ctx context.Context, req *mcp.CallToolRequest, in fetc
 // ---- create_page ---------------------------------------------------------
 
 type createPageIn struct {
-	SpaceID  int64  `json:"space_id" jsonschema:"id of the space to create the page in"`
-	ParentID *int64 `json:"parent_id,omitempty" jsonschema:"optional parent page id"`
-	Title    string `json:"title" jsonschema:"page title"`
-	Body     string `json:"body" jsonschema:"markdown body"`
+	SpaceID  int64          `json:"space_id" jsonschema:"id of the space to create the page in"`
+	ParentID *int64         `json:"parent_id,omitempty" jsonschema:"optional parent page id"`
+	Title    string         `json:"title" jsonschema:"page title"`
+	Body     string         `json:"body" jsonschema:"markdown body"`
+	Props    map[string]any `json:"props,omitempty" jsonschema:"optional page properties (frontmatter); free-form keys, reserved keys like id/title/slug/created are ignored"`
 }
 
 func (s *Server) mcpCreatePage(ctx context.Context, req *mcp.CallToolRequest, in createPageIn) (*mcp.CallToolResult, getPageOut, error) {
@@ -524,6 +525,7 @@ func (s *Server) mcpCreatePage(ctx context.Context, req *mcp.CallToolRequest, in
 		ParentID: in.ParentID,
 		Title:    in.Title,
 		Body:     in.Body,
+		Props:    in.Props,
 	})
 	if ae != nil {
 		return mcpErr(ae), getPageOut{}, nil
@@ -535,9 +537,10 @@ func (s *Server) mcpCreatePage(ctx context.Context, req *mcp.CallToolRequest, in
 // ---- update_page ---------------------------------------------------------
 
 type updatePageIn struct {
-	ID    int64   `json:"id" jsonschema:"page id to patch"`
-	Title *string `json:"title,omitempty" jsonschema:"new title (omit to leave unchanged)"`
-	Body  *string `json:"body,omitempty" jsonschema:"new markdown body (omit to leave unchanged)"`
+	ID    int64          `json:"id" jsonschema:"page id to patch"`
+	Title *string        `json:"title,omitempty" jsonschema:"new title (omit to leave unchanged)"`
+	Body  *string        `json:"body,omitempty" jsonschema:"new markdown body (omit to leave unchanged)"`
+	Props map[string]any `json:"props,omitempty" jsonschema:"replace the whole properties bag (omit to leave unchanged); reserved keys are ignored"`
 }
 
 func (s *Server) mcpUpdatePage(ctx context.Context, req *mcp.CallToolRequest, in updatePageIn) (*mcp.CallToolResult, getPageOut, error) {
@@ -550,7 +553,7 @@ func (s *Server) mcpUpdatePage(ctx context.Context, req *mcp.CallToolRequest, in
 	}
 	// agentWrite=true: an agent rewriting the body must invalidate the Yjs collab
 	// overlay so live/next editors see it instead of stale CRDT state.
-	p, ae := s.updatePageCore(ctx, u, k, in.ID, pageUpdateRequest{Title: in.Title, Body: in.Body}, true)
+	p, ae := s.updatePageCore(ctx, u, k, in.ID, pageUpdateRequest{Title: in.Title, Body: in.Body, Props: in.Props}, true)
 	if ae != nil {
 		return mcpErr(ae), getPageOut{}, nil
 	}

@@ -3,7 +3,9 @@ package api
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"strconv"
 
@@ -24,7 +26,7 @@ const pageRevisionListColumns = `
 // pageRevisionFullColumns is the SELECT used by the single-revision endpoint
 // — adds the body column for the soft-draft / diff payload.
 const pageRevisionFullColumns = `
-	SELECT r.id, r.page_id, r.title, r.body, r.author_id, u.username,
+	SELECT r.id, r.page_id, r.title, r.body, r.props, r.author_id, u.username,
 	       r.source, r.byte_size, r.created_at`
 
 // insertPageRevision writes a new page_revisions row for pageID. byte_size is
@@ -33,13 +35,13 @@ const pageRevisionFullColumns = `
 // the writer's user record is unavailable. Called from the snapshot-on-save
 // hook AFTER the pages UPDATE has committed, so a failure here cannot roll the
 // user's save back.
-func insertPageRevision(ctx context.Context, db *sql.DB, pageID int64, body, title string, authorID *int64, source string) (int64, error) {
+func insertPageRevision(ctx context.Context, db *sql.DB, pageID int64, body, title string, props map[string]any, authorID *int64, source string) (int64, error) {
 	var id int64
 	err := db.QueryRowContext(ctx, `
 		INSERT INTO page_revisions
-		  (page_id, body, title, author_id, source, byte_size, created_at)
-		VALUES ($1, $2, $3, $4, $5, $6, tela_now()) RETURNING id`,
-		pageID, body, title, nullableInt64(authorID), source, int64(len(body))).Scan(&id)
+		  (page_id, body, title, props, author_id, source, byte_size, created_at)
+		VALUES ($1, $2, $3, $4::jsonb, $5, $6, $7, tela_now()) RETURNING id`,
+		pageID, body, title, propsJSON(props), nullableInt64(authorID), source, int64(len(body))).Scan(&id)
 	if err != nil {
 		return 0, err
 	}
@@ -235,12 +237,19 @@ func scanPageRevisionFull(row *sql.Row) (models.PageRevision, error) {
 	var (
 		authorID   sql.NullInt64
 		authorName sql.NullString
+		propsRaw   []byte
 	)
 	if err := row.Scan(
-		&rev.ID, &rev.PageID, &rev.Title, &rev.Body, &authorID, &authorName,
+		&rev.ID, &rev.PageID, &rev.Title, &rev.Body, &propsRaw, &authorID, &authorName,
 		&rev.Source, &rev.ByteSize, &rev.CreatedAt,
 	); err != nil {
 		return rev, err
+	}
+	rev.Props = map[string]any{}
+	if len(propsRaw) > 0 {
+		if err := json.Unmarshal(propsRaw, &rev.Props); err != nil {
+			return rev, fmt.Errorf("scan revision props: %w", err)
+		}
 	}
 	if authorID.Valid {
 		v := authorID.Int64

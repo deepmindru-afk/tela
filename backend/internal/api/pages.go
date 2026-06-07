@@ -13,21 +13,40 @@ import (
 	"strings"
 
 	"github.com/zcag/tela/backend/internal/auth"
+	"github.com/zcag/tela/backend/internal/mdimport"
 	"github.com/zcag/tela/backend/internal/models"
 )
 
 const maxPageTitleLen = 500
 
 type pageCreateRequest struct {
-	SpaceID  int64  `json:"space_id"`
-	ParentID *int64 `json:"parent_id"`
-	Title    string `json:"title"`
-	Body     string `json:"body"`
+	SpaceID  int64          `json:"space_id"`
+	ParentID *int64         `json:"parent_id"`
+	Title    string         `json:"title"`
+	Body     string         `json:"body"`
+	Props    map[string]any `json:"props"`
 }
 
+// pageUpdateRequest patches a page. A nil field is left unchanged; a non-nil
+// Props (including an explicit {}) replaces the whole bag (Replace/PUT semantics
+// — see docs/page-properties.md "Update semantics").
 type pageUpdateRequest struct {
-	Title *string `json:"title"`
-	Body  *string `json:"body"`
+	Title *string        `json:"title"`
+	Body  *string        `json:"body"`
+	Props map[string]any `json:"props"`
+}
+
+// propsJSON marshals a props bag to a JSON string for binding into a JSONB
+// column (with a ::jsonb cast at the call site). Empty/nil → "{}".
+func propsJSON(props map[string]any) string {
+	if len(props) == 0 {
+		return "{}"
+	}
+	b, err := json.Marshal(props)
+	if err != nil {
+		return "{}"
+	}
+	return string(b)
 }
 
 // pageNode mirrors models.Page (promoted via embedding) plus a children slice
@@ -123,12 +142,12 @@ func listPagesFlat(ctx context.Context, db *sql.DB, spaceID int64, parentID *int
 	var err error
 	if parentID == nil {
 		rows, err = db.QueryContext(ctx,
-			`SELECT id, space_id, parent_id, title, body, position, created_at, updated_at
+			`SELECT id, space_id, parent_id, title, body, position, props, created_at, updated_at
 			 FROM pages WHERE space_id = $1 AND parent_id IS NULL
 			 ORDER BY position ASC, id ASC`, spaceID)
 	} else {
 		rows, err = db.QueryContext(ctx,
-			`SELECT id, space_id, parent_id, title, body, position, created_at, updated_at
+			`SELECT id, space_id, parent_id, title, body, position, props, created_at, updated_at
 			 FROM pages WHERE space_id = $1 AND parent_id = $2
 			 ORDER BY position ASC, id ASC`, spaceID, *parentID)
 	}
@@ -304,7 +323,18 @@ func (s *Server) createPageCore(ctx context.Context, u *auth.User, k *auth.APIKe
 	if title == "" {
 		return models.Page{}, &apiErr{http.StatusBadRequest, "invalid_title", "title is required"}
 	}
-	body := stripLeadingTitleH1(req.Body, title)
+	// Body invariant: frontmatter never lives in pages.body, at any ingress.
+	// Strip any leading frontmatter out of the body and absorb it into props.
+	// Precedence: an explicit props field wins over frontmatter found in body.
+	body, _, bodyProps := mdimport.StripFrontmatter(req.Body)
+	body = stripLeadingTitleH1(body, title)
+	props := mdimport.FilterReserved(req.Props)
+	if props == nil {
+		props = bodyProps
+	}
+	if props == nil {
+		props = map[string]any{}
+	}
 	if len(title) > maxPageTitleLen {
 		return models.Page{}, &apiErr{http.StatusBadRequest, "invalid_title", "title exceeds 500 characters"}
 	}
@@ -375,8 +405,8 @@ func (s *Server) createPageCore(ctx context.Context, u *auth.User, k *auth.APIKe
 
 	var id int64
 	if err := tx.QueryRowContext(ctx,
-		`INSERT INTO pages(space_id, parent_id, title, body, position) VALUES ($1, $2, $3, $4, $5) RETURNING id`,
-		req.SpaceID, nullableInt64(req.ParentID), title, body, position).Scan(&id); err != nil {
+		`INSERT INTO pages(space_id, parent_id, title, body, position, props) VALUES ($1, $2, $3, $4, $5, $6::jsonb) RETURNING id`,
+		req.SpaceID, nullableInt64(req.ParentID), title, body, position, propsJSON(props)).Scan(&id); err != nil {
 		return models.Page{}, &apiErr{http.StatusInternalServerError, "internal", "create page failed"}
 	}
 	if err := syncPageLinks(ctx, tx, id, body); err != nil {
@@ -467,12 +497,12 @@ func (s *Server) UpdatePage(w http.ResponseWriter, r *http.Request) {
 // the MCP update_page tool: patch title and/or body under editor+ membership,
 // re-sync wikilinks when the body changes, and snapshot a revision after commit.
 func (s *Server) updatePageCore(ctx context.Context, u *auth.User, k *auth.APIKey, id int64, req pageUpdateRequest, agentWrite bool) (models.Page, *apiErr) {
-	if req.Title == nil && req.Body == nil {
-		return models.Page{}, &apiErr{http.StatusBadRequest, "no_fields", "at least one of title, body must be provided"}
+	if req.Title == nil && req.Body == nil && req.Props == nil {
+		return models.Page{}, &apiErr{http.StatusBadRequest, "no_fields", "at least one of title, body, props must be provided"}
 	}
 
-	sets := make([]string, 0, 3)
-	args := make([]any, 0, 3)
+	sets := make([]string, 0, 4)
+	args := make([]any, 0, 4)
 
 	if req.Title != nil {
 		title := strings.TrimSpace(*req.Title)
@@ -485,9 +515,23 @@ func (s *Server) updatePageCore(ctx context.Context, u *auth.User, k *auth.APIKe
 		args = append(args, title)
 		sets = append(sets, "title = $"+strconv.Itoa(len(args)))
 	}
+	// Body invariant: strip any leading frontmatter out of the incoming body and
+	// absorb it into props (bodyStripped is what gets stored + link-synced).
+	var bodyStripped string
+	var bodyProps map[string]any
 	if req.Body != nil {
-		args = append(args, *req.Body)
+		bodyStripped, _, bodyProps = mdimport.StripFrontmatter(*req.Body)
+		args = append(args, bodyStripped)
 		sets = append(sets, "body = $"+strconv.Itoa(len(args)))
+	}
+	// Props: Replace semantics. An explicit props field wins over frontmatter
+	// found in body; a nil field leaves the bag unchanged.
+	if req.Props != nil {
+		args = append(args, propsJSON(mdimport.FilterReserved(req.Props)))
+		sets = append(sets, "props = $"+strconv.Itoa(len(args))+"::jsonb")
+	} else if bodyProps != nil {
+		args = append(args, propsJSON(bodyProps))
+		sets = append(sets, "props = $"+strconv.Itoa(len(args))+"::jsonb")
 	}
 	sets = append(sets, "updated_at = tela_now()")
 	args = append(args, id)
@@ -532,7 +576,7 @@ func (s *Server) updatePageCore(ctx context.Context, u *auth.User, k *auth.APIKe
 		return models.Page{}, &apiErr{http.StatusNotFound, "not_found", "page not found"}
 	}
 	if req.Body != nil {
-		if err := syncPageLinks(ctx, tx, id, *req.Body); err != nil {
+		if err := syncPageLinks(ctx, tx, id, bodyStripped); err != nil {
 			return models.Page{}, &apiErr{http.StatusInternalServerError, "internal", "sync page_links failed"}
 		}
 	}
@@ -548,7 +592,7 @@ func (s *Server) updatePageCore(ctx context.Context, u *auth.User, k *auth.APIKe
 	// here cannot roll the user's save back — we log and proceed.
 	if p.Body != existing.Body || p.Title != existing.Title {
 		authorID := u.ID
-		if _, err := insertPageRevision(ctx, s.DB, id, p.Body, p.Title, &authorID, "manual"); err != nil {
+		if _, err := insertPageRevision(ctx, s.DB, id, p.Body, p.Title, p.Props, &authorID, "manual"); err != nil {
 			log.Printf("page %d snapshot revision failed: %v", id, err)
 		}
 		// Title is folded into each chunk's embed text and body is the source,
@@ -873,7 +917,7 @@ func (s *Server) movePageCore(ctx context.Context, u *auth.User, k *auth.APIKey,
 
 func buildPageTree(ctx context.Context, db *sql.DB, spaceID int64) ([]*pageNode, error) {
 	rows, err := db.QueryContext(ctx,
-		`SELECT id, space_id, parent_id, title, body, position, created_at, updated_at
+		`SELECT id, space_id, parent_id, title, body, position, props, created_at, updated_at
 		 FROM pages WHERE space_id = $1
 		 ORDER BY position ASC, id ASC`, spaceID)
 	if err != nil {
@@ -927,14 +971,14 @@ func buildPageTree(ctx context.Context, db *sql.DB, spaceID int64) ([]*pageNode,
 
 func selectPageByID(ctx context.Context, db *sql.DB, id int64) (models.Page, error) {
 	row := db.QueryRowContext(ctx,
-		`SELECT id, space_id, parent_id, title, body, position, created_at, updated_at
+		`SELECT id, space_id, parent_id, title, body, position, props, created_at, updated_at
 		 FROM pages WHERE id = $1`, id)
 	return scanPageFromRow(row)
 }
 
 func selectPageByIDTx(ctx context.Context, tx *sql.Tx, id int64) (models.Page, error) {
 	row := tx.QueryRowContext(ctx,
-		`SELECT id, space_id, parent_id, title, body, position, created_at, updated_at
+		`SELECT id, space_id, parent_id, title, body, position, props, created_at, updated_at
 		 FROM pages WHERE id = $1`, id)
 	return scanPageFromRow(row)
 }
@@ -954,12 +998,19 @@ func scanPageFromRows(rows *sql.Rows) (models.Page, error) {
 func scanPageInto(r rowScanner) (models.Page, error) {
 	var p models.Page
 	var parentID sql.NullInt64
-	if err := r.Scan(&p.ID, &p.SpaceID, &parentID, &p.Title, &p.Body, &p.Position, &p.CreatedAt, &p.UpdatedAt); err != nil {
+	var propsRaw []byte
+	if err := r.Scan(&p.ID, &p.SpaceID, &parentID, &p.Title, &p.Body, &p.Position, &propsRaw, &p.CreatedAt, &p.UpdatedAt); err != nil {
 		return p, err
 	}
 	if parentID.Valid {
 		v := parentID.Int64
 		p.ParentID = &v
+	}
+	p.Props = map[string]any{}
+	if len(propsRaw) > 0 {
+		if err := json.Unmarshal(propsRaw, &p.Props); err != nil {
+			return p, fmt.Errorf("scan page props: %w", err)
+		}
 	}
 	return p, nil
 }
