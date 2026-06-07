@@ -11,6 +11,7 @@ import {
 import { Type } from 'lucide-react'
 import type { EditorView } from '@milkdown/kit/prose/view'
 import { relativeTimeFromSqlite } from '../../lib/relativeTime'
+import { useHeadMeta } from '../../lib/useHeadMeta'
 import { pageSlug } from '../../lib/slug'
 import {
   getTheme,
@@ -171,6 +172,15 @@ export interface ReaderShellProps {
   /** Mount the wikilink hover-preview over the article. Authed reader only —
    * the preview fetches via the authed API, so it stays off for share/print. */
   enableLinkPreview?: boolean
+  /** Public-reader SEO/social head: description, canonical, OG image, feed. When
+   * present the shell emits full per-page meta (indexable surfaces); when absent
+   * it only manages the document title (authed read / share are noindex). */
+  headMeta?: {
+    description?: string
+    canonicalPath?: string
+    image?: string
+    feedHref?: string
+  }
 }
 
 // Set on the window once the reader has painted (fonts ready + a short settle so
@@ -201,6 +211,7 @@ export function ReaderShell({
   onEscape,
   sourceLabel,
   enableLinkPreview,
+  headMeta,
 }: ReaderShellProps) {
   // Preferences — text size + typeface, persisted; theme is global.
   const [size, setSize] = useState<ReaderSize>(() =>
@@ -214,14 +225,16 @@ export function ReaderShell({
 
   const minutes = useMemo(() => readingMinutes(body), [body])
 
-  // Document title while in the reader.
-  useEffect(() => {
-    const prev = document.title
-    document.title = `${title || 'Untitled'} — tela`
-    return () => {
-      document.title = prev
-    }
-  }, [title])
+  // Document title (+ full SEO/social meta on the public reader, when headMeta
+  // is supplied) while in the reader.
+  useHeadMeta({
+    title: `${title || 'Untitled'} — tela`,
+    description: headMeta?.description,
+    canonicalPath: headMeta?.canonicalPath,
+    image: headMeta?.image,
+    ogType: 'article',
+    feedHref: headMeta?.feedHref,
+  })
 
   // Esc exits (read mode → editor). No-op when the caller has nowhere to go.
   useEffect(() => {

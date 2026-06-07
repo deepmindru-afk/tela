@@ -2,6 +2,7 @@ import { useCallback, useMemo, useState } from 'react'
 import { Link, useNavigate } from '@tanstack/react-router'
 import { applyPdfThemeParam } from '../../lib/theme'
 import { buildWikilinkResolveIndex, pageSlug } from '../../lib/slug'
+import { bodyExcerpt } from '../../lib/search/body-excerpt'
 import {
   usePublicSpaceTree,
   type PublicPageNode,
@@ -30,9 +31,19 @@ export function PublicReaderView({
   pageId,
   pageTitle,
   pageBody,
+  pageProps,
   updatedAt,
 }: PublicReaderViewProps) {
   const navigate = useNavigate()
+
+  // SEO/social head for this public article: an author summary in frontmatter
+  // wins, else the body lead. Canonical is the current (pretty) reader URL.
+  const metaDescription = useMemo(() => {
+    const fromProps = ['summary', 'excerpt', 'description']
+      .map((k) => pageProps?.[k])
+      .find((v): v is string => typeof v === 'string' && v.trim() !== '')
+    return (fromProps ?? bodyExcerpt(pageBody, '', 90)).trim()
+  }, [pageProps, pageBody])
   // Apply ?theme= once, pre-paint, for a themed PDF export; no-op for humans.
   useState(() => applyPdfThemeParam())
 
@@ -75,6 +86,12 @@ export function PublicReaderView({
       aliveWikilinkIds={inScopePageIds}
       wikilinkResolveIndex={wikilinkResolveIndex}
       onNavigateWikilink={onNavigateWikilink}
+      headMeta={{
+        description: metaDescription,
+        canonicalPath: window.location.pathname,
+        image: `/p/${pageId}/og.png`,
+        feedHref: `/api/public/spaces/${space.id}/feed.xml`,
+      }}
       sidebar={
         showSidebar ? (
           <PublicSpaceNav

@@ -4,6 +4,7 @@ import {
   type PublicUserResponse,
   type PublicUserSpace,
 } from '../../lib/queries/public'
+import { useHeadMeta } from '../../lib/useHeadMeta'
 import { PublicTopbar } from './blog/PublicTopbar'
 import { PublicMasthead, MetaDot } from './blog/PublicMasthead'
 import { PostCard } from './blog/PostCard'
@@ -18,6 +19,14 @@ export function PublicUserHome({ data }: { data: PublicUserResponse }) {
     () => spaces.reduce((n, s) => n + s.pages.length, 0),
     [spaces],
   )
+
+  useHeadMeta({
+    title: `${user.username} — tela`,
+    description: user.bio || `${user.username} on tela.`,
+    canonicalPath: `/u/${user.username}`,
+    image: `/api/public/users/${encodeURIComponent(user.username)}/og.png`,
+    ogType: 'profile',
+  })
 
   return (
     <div className="flex min-h-dvh flex-col bg-[var(--surface-1)] text-[var(--text-primary)]">
@@ -55,7 +64,7 @@ export function PublicUserHome({ data }: { data: PublicUserResponse }) {
 
 function SpaceSection({ space }: { space: PublicUserSpace }) {
   const posts = useMemo(
-    () => [...space.pages].sort((a, b) => b.updated_at.localeCompare(a.updated_at)),
+    () => [...space.pages].sort((a, b) => b.created_at.localeCompare(a.created_at)),
     [space.pages],
   )
 
@@ -67,9 +76,9 @@ function SpaceSection({ space }: { space: PublicUserSpace }) {
           params={{ spaceId: space.id }}
           className="group inline-flex items-baseline gap-[var(--space-2)] no-underline"
         >
-          <span className="text-[length:var(--text-xl)] font-semibold tracking-[-0.01em] text-[var(--text-primary)] transition-colors duration-[var(--duration-fast)] group-hover:text-[var(--accent)]">
+          <h2 className="m-0 text-[length:var(--text-xl)] font-semibold tracking-[-0.01em] text-[var(--text-primary)] transition-colors duration-[var(--duration-fast)] group-hover:text-[var(--accent)]">
             {space.name}
-          </span>
+          </h2>
           <span className="text-[length:var(--text-sm)] text-[var(--text-muted)] transition-colors group-hover:text-[var(--accent)]">
             View all →
           </span>

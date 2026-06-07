@@ -536,6 +536,13 @@ const publicSpaceIndexRoute = createRoute({
   path: '/public/spaces/$spaceId',
   parseParams: (raw) => ({ spaceId: Number(raw.spaceId) }),
   stringifyParams: (params) => ({ spaceId: String(params.spaceId) }),
+  // ?tag= filters the index to one tag (shareable, back-button friendly).
+  validateSearch: (search: Record<string, unknown>): { tag?: string } => ({
+    tag:
+      typeof search.tag === 'string' && search.tag.trim()
+        ? search.tag.trim()
+        : undefined,
+  }),
   component: lazyRouteComponent(() => import('./public'), 'PublicSpaceIndexRoute'),
 })
 

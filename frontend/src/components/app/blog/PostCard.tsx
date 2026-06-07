@@ -18,12 +18,18 @@ export function PostCard({
   spaceId,
   post,
   featured = false,
+  headingLevel = 3,
 }: {
   spaceId: number
   post: BlogPost
   featured?: boolean
+  // Heading tag for the title, so each surface keeps a correct outline: posts
+  // sit directly under the page h1 on the space index (h2), and under a per-
+  // space h2 on the author home (h3, the default).
+  headingLevel?: 2 | 3
 }) {
   const title = post.title || 'Untitled'
+  const Heading = headingLevel === 2 ? 'h2' : 'h3'
   return (
     <Link
       to="/public/spaces/$spaceId/pages/$pageId/{-$slug}"
@@ -40,7 +46,7 @@ export function PostCard({
       <div
         className={[
           'flex min-w-0 flex-1 flex-col gap-[var(--space-2)]',
-          featured ? 'p-[var(--space-6)]' : 'p-[var(--space-4)]',
+          featured ? 'p-[var(--space-6)] md:justify-center' : 'p-[var(--space-4)]',
         ].join(' ')}
       >
         {post.tags && post.tags.length > 0 ? (
@@ -56,15 +62,15 @@ export function PostCard({
           </div>
         ) : null}
 
-        <h3
+        <Heading
           className={[
-            'm-0 font-[family-name:var(--font-sans)] font-semibold leading-[var(--leading-tight)] tracking-[-0.01em]',
+            'm-0 font-[family-name:var(--font-sans)] font-semibold leading-[var(--leading-tight)] tracking-[-0.01em] line-clamp-2',
             'text-[var(--text-primary)] transition-colors duration-[var(--duration-fast)] group-hover:text-[var(--accent)]',
             featured ? 'text-[length:var(--text-2xl)]' : 'text-[length:var(--text-lg)]',
           ].join(' ')}
         >
           {title}
-        </h3>
+        </Heading>
 
         {post.excerpt ? (
           <p
@@ -77,8 +83,13 @@ export function PostCard({
           </p>
         ) : null}
 
-        <div className="mt-auto flex items-center gap-[var(--space-2)] pt-[var(--space-2)] text-[length:var(--text-xs)] text-[var(--text-muted)]">
-          <span>{postDateFromSqlite(post.updated_at)}</span>
+        <div
+          className={[
+            'flex items-center gap-[var(--space-2)] pt-[var(--space-2)] text-[length:var(--text-xs)] text-[var(--text-muted)]',
+            featured ? '' : 'mt-auto',
+          ].join(' ')}
+        >
+          <span>{postDateFromSqlite(post.created_at)}</span>
           <span aria-hidden className="opacity-50">
             ·
           </span>
