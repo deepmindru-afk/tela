@@ -28,11 +28,16 @@ type syncConnectionCreateRequest struct {
 // rcloneSetup is the copy-paste configuration the panel shows once. The raw PAT
 // is embedded in config_create_command (same once-only exposure as api_keys).
 type rcloneSetup struct {
-	WebdavURL           string `json:"webdav_url"`
-	RemoteName          string `json:"remote_name"`
-	RemotePath          string `json:"remote_path"`
-	ConfigCreateCommand string `json:"config_create_command"`
-	SyncCommand         string `json:"sync_command"`
+	WebdavURL  string `json:"webdav_url"`
+	RemoteName string `json:"remote_name"`
+	RemotePath string `json:"remote_path"`
+	// LocalDir is the concrete folder the files land in (~-anchored, so the user
+	// always knows WHERE), e.g. ~/tela or ~/tela/<slug>.
+	LocalDir            string `json:"local_dir"`
+	ConfigCreateCommand string `json:"config_create_command"` // step 1, run once
+	FirstSyncCommand    string `json:"first_sync_command"`    // step 2: make the dir + baseline sync
+	SyncCommand         string `json:"sync_command"`          // step 3: sync again on demand
+	ScheduleExample     string `json:"schedule_example"`      // step 4: a crontab line to keep it automatic
 	ReadOnly            bool   `json:"read_only"`
 	Excludes            string `json:"excludes"`
 }
@@ -159,27 +164,40 @@ func buildRcloneSetup(user, spaceSlug, rawKey string, readOnly bool) rcloneSetup
 	url := strings.TrimRight(publicBaseURL(), "/") + "/dav/"
 	const remote = "tela"
 	remotePath := remote + ":"
-	localDir := "./tela"
+	localDir := "~/tela"
 	if spaceSlug != "" {
 		remotePath = remote + ":" + spaceSlug
-		localDir = "./" + spaceSlug
+		localDir = "~/tela/" + spaceSlug
 	}
 	if user == "" {
 		user = "you@example.com"
 	}
-	// Read-only → one-way pull (the token can't write, so bisync would 403 going
+	configCreate := fmt.Sprintf("rclone config create %s webdav url=%s vendor=other user=%s pass=%s", remote, url, user, rawKey)
+
+	// Read-only → a one-way pull (the token can't write, so bisync would 403 going
 	// up). Two-way → bisync with --ignore-size (tela renders frontmatter + merges
-	// on write, so rclone must not size-check; see docs/webdav-sync.md).
-	syncCmd := fmt.Sprintf("rclone bisync %s %s --resync --ignore-size", localDir, remotePath)
+	// on write, so rclone must not size-check; see docs/webdav-sync.md). First run
+	// makes the folder and (for two-way) establishes the bisync baseline; the
+	// ongoing command drops --resync. rclone runs on demand — the schedule line is
+	// how you make "always synced" real.
+	var firstSync, syncCmd string
 	if readOnly {
-		syncCmd = fmt.Sprintf("rclone sync %s %s --create-empty-src-dirs", remotePath, localDir)
+		pull := fmt.Sprintf("rclone sync %s %s --create-empty-src-dirs", remotePath, localDir)
+		firstSync = fmt.Sprintf("mkdir -p %s && %s", localDir, pull)
+		syncCmd = pull
+	} else {
+		syncCmd = fmt.Sprintf("rclone bisync %s %s --ignore-size", localDir, remotePath)
+		firstSync = fmt.Sprintf("mkdir -p %s && rclone bisync %s %s --resync --ignore-size", localDir, localDir, remotePath)
 	}
 	return rcloneSetup{
 		WebdavURL:           url,
 		RemoteName:          remote,
 		RemotePath:          remotePath,
-		ConfigCreateCommand: fmt.Sprintf("rclone config create %s webdav url=%s vendor=other user=%s pass=%s", remote, url, user, rawKey),
+		LocalDir:            localDir,
+		ConfigCreateCommand: configCreate,
+		FirstSyncCommand:    firstSync,
 		SyncCommand:         syncCmd,
+		ScheduleExample:     "*/5 * * * * " + syncCmd,
 		ReadOnly:            readOnly,
 		Excludes:            ".DS_Store\n._*\n*.swp\n*.tmp\n~$*\nThumbs.db\n.git/**\n.obsidian/**",
 	}

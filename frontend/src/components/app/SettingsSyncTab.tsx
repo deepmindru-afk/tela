@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Copy, Link2, ShieldAlert } from 'lucide-react'
+import { Copy, Folder, Link2, ShieldAlert } from 'lucide-react'
 import { ApiError } from '../../lib/api'
 import {
   useCreateSyncConnection,
@@ -390,52 +390,100 @@ function SetupDialog({ created, onOpenChange }: SetupDialogProps) {
     <Dialog open={created != null} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Vault connected — set up rclone</DialogTitle>
+          <DialogTitle>Vault connected — finish in your terminal</DialogTitle>
           <DialogDescription>
-            Run these two commands once. The first carries your access token and
-            is shown only now — once you close this, it can't be recovered.
+            Open a terminal and paste each command below, in order. (You'll need
+            rclone installed.) The first command carries your access token and is
+            shown only now.
           </DialogDescription>
         </DialogHeader>
         {rclone ? (
-          <div className="flex flex-col gap-[var(--space-4)]">
+          <div className="flex flex-col gap-[var(--space-4)] max-h-[60vh] overflow-y-auto">
             <div
               className={cn(
-                'flex items-start gap-[var(--space-2)] rounded-[var(--radius-sm)]',
-                'border border-[var(--accent)] bg-[var(--surface-2)]',
+                'flex items-center gap-[var(--space-2)] rounded-[var(--radius-sm)]',
+                'border border-[var(--border-subtle)] bg-[var(--surface-2)]',
                 'px-[var(--space-3)] py-[var(--space-2)]',
               )}
             >
-              <ShieldAlert
+              <Folder
                 aria-hidden
-                width={16}
-                height={16}
-                className="mt-[2px] shrink-0 text-[var(--accent)]"
+                width={15}
+                height={15}
+                className="shrink-0 text-[var(--text-muted)]"
               />
-              <span className="text-[length:var(--text-xs)] text-[var(--text-primary)] font-[family-name:var(--font-sans)] leading-[var(--leading-relaxed)]">
-                The setup command contains your access token. Treat it like a
-                password — anyone with it can sync your{' '}
-                {rclone.read_only ? 'content (read-only)' : 'spaces'}.
+              <span className="text-[length:var(--text-xs)] text-[var(--text-primary)] font-[family-name:var(--font-sans)]">
+                Your files will live in{' '}
+                <code className="font-[family-name:var(--font-mono)]">
+                  {rclone.local_dir}
+                </code>{' '}
+                — open them with any editor.
               </span>
             </div>
 
-            <CommandBlock
-              label="1 — Create the rclone remote (obscures the token for you)"
-              command={rclone.config_create_command}
-            />
-            <CommandBlock
-              label={
+            <Step n={1} title="Link tela to rclone">
+              <p className="m-0 text-[length:var(--text-xs)] text-[var(--text-muted)] font-[family-name:var(--font-sans)]">
+                Run once on this device — creates the connection.
+              </p>
+              <CommandBlock command={rclone.config_create_command} />
+              <div
+                className={cn(
+                  'flex items-start gap-[var(--space-2)] rounded-[var(--radius-sm)]',
+                  'border border-[var(--accent)] bg-[var(--surface-1)]',
+                  'px-[var(--space-2)] py-[var(--space-1)]',
+                )}
+              >
+                <ShieldAlert
+                  aria-hidden
+                  width={14}
+                  height={14}
+                  className="mt-[2px] shrink-0 text-[var(--accent)]"
+                />
+                <span className="text-[length:var(--text-xs)] text-[var(--text-muted)] font-[family-name:var(--font-sans)] leading-[var(--leading-relaxed)]">
+                  This line contains your access token — treat it like a password.
+                </span>
+              </div>
+            </Step>
+
+            <Step
+              n={2}
+              title={
                 rclone.read_only
-                  ? '2 — Pull a local mirror'
-                  : '2 — First sync (two-way)'
+                  ? 'Download your files'
+                  : 'Download your files & turn on syncing'
               }
-              command={rclone.sync_command}
-            />
-            <p className="m-0 text-[length:var(--text-xs)] text-[var(--text-muted)] font-[family-name:var(--font-sans)] leading-[var(--leading-relaxed)]">
-              {rclone.read_only
-                ? 'Re-run command 2 (without --resync) to refresh.'
-                : 'For ongoing syncs, drop --resync. --ignore-size is required: tela renders frontmatter on write, so rclone must not size-check.'}{' '}
-              See the sync docs for filters and scheduling.
-            </p>
+            >
+              <p className="m-0 text-[length:var(--text-xs)] text-[var(--text-muted)] font-[family-name:var(--font-sans)] leading-[var(--leading-relaxed)]">
+                Creates{' '}
+                <code className="font-[family-name:var(--font-mono)]">
+                  {rclone.local_dir}
+                </code>{' '}
+                and runs the first sync — this can take a minute.
+              </p>
+              <CommandBlock command={rclone.first_sync_command} />
+            </Step>
+
+            <Step n={3} title="Sync again whenever you want">
+              <p className="m-0 text-[length:var(--text-xs)] text-[var(--text-muted)] font-[family-name:var(--font-sans)]">
+                {rclone.read_only
+                  ? 'Re-run to pull the latest from tela.'
+                  : 'Pushes your local edits up and pulls other changes down.'}
+              </p>
+              <CommandBlock command={rclone.sync_command} />
+            </Step>
+
+            <Step n={4} title="Keep it synced automatically (optional)">
+              <p className="m-0 text-[length:var(--text-xs)] text-[var(--text-muted)] font-[family-name:var(--font-sans)] leading-[var(--leading-relaxed)]">
+                rclone syncs when you run it — it doesn't run in the background.
+                On macOS/Linux, run{' '}
+                <code className="font-[family-name:var(--font-mono)]">
+                  crontab -e
+                </code>{' '}
+                and add this line to sync every 5 minutes (on Windows, use Task
+                Scheduler):
+              </p>
+              <CommandBlock command={rclone.schedule_example} />
+            </Step>
 
             <DialogFooter>
               <Button
@@ -453,7 +501,41 @@ function SetupDialog({ created, onOpenChange }: SetupDialogProps) {
   )
 }
 
-function CommandBlock({ label, command }: { label: string; command: string }) {
+function Step({
+  n,
+  title,
+  children,
+}: {
+  n: number
+  title: string
+  children: React.ReactNode
+}) {
+  return (
+    <div className="flex flex-col gap-[var(--space-2)]">
+      <div className="flex items-center gap-[var(--space-2)]">
+        <span
+          aria-hidden
+          className={cn(
+            'shrink-0 inline-flex items-center justify-center rounded-full',
+            'h-[var(--space-5)] w-[var(--space-5)]',
+            'bg-[var(--surface-3)] text-[var(--text-primary)]',
+            'text-[length:var(--text-xs)] font-medium',
+          )}
+        >
+          {n}
+        </span>
+        <span className="text-[length:var(--text-sm)] font-medium text-[var(--text-primary)] font-[family-name:var(--font-sans)]">
+          {title}
+        </span>
+      </div>
+      <div className="flex flex-col gap-[var(--space-2)] pl-[var(--space-6)]">
+        {children}
+      </div>
+    </div>
+  )
+}
+
+function CommandBlock({ command, label }: { command: string; label?: string }) {
   const [copied, setCopied] = useState(false)
   async function copy() {
     try {
@@ -468,9 +550,13 @@ function CommandBlock({ label, command }: { label: string; command: string }) {
   return (
     <div className="flex flex-col gap-[var(--space-1)]">
       <div className="flex items-center justify-between gap-[var(--space-2)]">
-        <span className="text-[length:var(--text-xs)] text-[var(--text-muted)] font-[family-name:var(--font-sans)]">
-          {label}
-        </span>
+        {label ? (
+          <span className="text-[length:var(--text-xs)] text-[var(--text-muted)] font-[family-name:var(--font-sans)]">
+            {label}
+          </span>
+        ) : (
+          <span />
+        )}
         <Button type="button" variant="ghost" size="sm" onClick={() => void copy()}>
           <Copy width={13} height={13} />
           <span>{copied ? 'Copied!' : 'Copy'}</span>

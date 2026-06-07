@@ -28,16 +28,18 @@ import (
 
 // Config is the env-driven configuration. EmbedURL empty => feature disabled.
 type Config struct {
-	EmbedURL   string // Ollama base, e.g. http://tardis:11434
-	EmbedModel string // default mxbai-embed-large (1024-d)
+	EmbedURL   string // Ollama base, e.g. http://tardis:11435
+	EmbedModel string // default qwen3-embedding:0.6b (1024-d)
 	Dim        int    // expected embedding dimension (advisory; column is vector(1024))
 }
 
-// ConfigFromEnv reads TELA_RAG_EMBED_URL / _MODEL / _DIM.
+// ConfigFromEnv reads TELA_RAG_EMBED_URL / _MODEL / _DIM. The default model
+// tracks the prod embed instance (qwen3-embedding:0.6b, 1024-d); override per
+// deployment with TELA_RAG_EMBED_MODEL.
 func ConfigFromEnv() Config {
 	return Config{
 		EmbedURL:   os.Getenv("TELA_RAG_EMBED_URL"),
-		EmbedModel: getenv("TELA_RAG_EMBED_MODEL", "mxbai-embed-large"),
+		EmbedModel: getenv("TELA_RAG_EMBED_MODEL", "qwen3-embedding:0.6b"),
 		Dim:        atoiDefault(os.Getenv("TELA_RAG_EMBED_DIM"), 1024),
 	}
 }

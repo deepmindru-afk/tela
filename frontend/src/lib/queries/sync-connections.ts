@@ -20,9 +20,12 @@ export interface RcloneSetup {
   webdav_url: string
   remote_name: string
   remote_path: string
-  config_create_command: string
-  // bisync (two-way) or a one-way pull, depending on read_only.
-  sync_command: string
+  // The concrete folder the files land in (e.g. ~/tela or ~/tela/<slug>).
+  local_dir: string
+  config_create_command: string // step 1, run once
+  first_sync_command: string // step 2: make the dir + baseline sync
+  sync_command: string // step 3: sync again on demand (bisync, or a one-way pull when read-only)
+  schedule_example: string // step 4: a crontab line to keep it automatic
   read_only: boolean
   excludes: string
 }
