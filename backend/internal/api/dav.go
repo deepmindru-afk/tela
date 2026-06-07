@@ -73,7 +73,8 @@ type davReqState struct {
 	spacesErr   error
 	spacesDone  bool
 
-	trees map[int64]*spaceTree
+	trees    map[int64]*spaceTree
+	fileSets map[int64]map[int64][]spaceFile
 }
 
 func (st *davReqState) spaces(ctx context.Context, db *sql.DB) ([]davSpace, error) {
@@ -94,6 +95,20 @@ func (st *davReqState) tree(ctx context.Context, db *sql.DB, spaceID int64) (*sp
 	}
 	st.trees[spaceID] = t
 	return t, nil
+}
+
+// files returns the space's live non-markdown files grouped by parent, loaded
+// at most once per request (same once-per-space discipline as tree).
+func (st *davReqState) files(ctx context.Context, db *sql.DB, spaceID int64) (map[int64][]spaceFile, error) {
+	if set, ok := st.fileSets[spaceID]; ok {
+		return set, nil
+	}
+	set, err := loadSpaceFiles(ctx, db, spaceID)
+	if err != nil {
+		return nil, err
+	}
+	st.fileSets[spaceID] = set
+	return set, nil
 }
 
 // loadDavSpaces lists the spaces the principal can reach as deduped folders,
@@ -229,7 +244,11 @@ func (s *Server) DAVHandler() http.Handler {
 			http.Error(w, "insufficient api key scope", http.StatusForbidden)
 			return
 		}
-		st := &davReqState{pr: davPrincipal{u: u, k: k}, trees: map[int64]*spaceTree{}}
+		st := &davReqState{
+			pr:       davPrincipal{u: u, k: k},
+			trees:    map[int64]*spaceTree{},
+			fileSets: map[int64]map[int64][]spaceFile{},
+		}
 		h.ServeHTTP(w, r.WithContext(withDavState(r.Context(), st)))
 	})
 }

@@ -53,6 +53,32 @@ chasing a different name. The URL `slug` in the frontmatter still follows the
 (Pages created in the app are named by their title-slug until a sync client first
 creates or renames them.)
 
+## Non-markdown files
+
+A vault isn't only markdown. Drop a `report.pdf`, an image, a `.csv` — anything
+that isn't `.md`/`.markdown` — anywhere in the tree and it **syncs as a file**
+(stored as a `space_file`, migration `0015`), so it reaches your other machines
+like any other vault content. Markdown is still a page; everything else is a
+file. The two never collide (different namespaces, keyed differently).
+
+- **Identity is the path, not an id.** A raw file has no frontmatter to carry an
+  id, so its identity is its location: the space, the folder page it sits under,
+  and its name. Renaming/moving a *page* keeps its files attached (they hang off
+  the parent page, not a frozen path string).
+- **Conflicts are last-write-wins** by content (no 3-way merge — that's
+  markdown-only). Re-uploading identical bytes is a no-op (content-addressed, so
+  no churn); different bytes replace in place.
+- **Deletes are soft** and gated by the same mass-delete brake pages get, so a
+  wiped local vault can't erase a space's files in one run — and anything deleted
+  is recoverable.
+- **Size cap:** `TELA_WEBDAV_FILE_MAX_BYTES` (default **50 MiB**) per file. Blobs
+  live in Postgres, so this bloats the DB/backups — it's "carry your
+  attachments", not a Dropbox replacement. An oversized PUT **fails loudly**
+  (it is not silently dropped). OS/editor junk (`.DS_Store`, `._*`, `*.swp`,
+  `*.tmp`, `Thumbs.db`) is still accept-and-dropped.
+- **No app UI yet.** Files round-trip over sync but aren't surfaced in the web
+  app — that's a later, separate phase.
+
 ### Conflict handling — server-side 3-way merge
 
 tela merges on the server. When a page changed both in the app and in your local

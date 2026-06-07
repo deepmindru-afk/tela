@@ -40,7 +40,8 @@ type davInfo struct {
 	dir  bool
 	mod  time.Time
 	page *models.Page
-	enc  []byte // memoised Encode(page) for Size; nil until first needed
+	enc  []byte     // memoised Encode(page) for Size; nil until first needed
+	file *spaceFile // set for a non-markdown space_file node (mutually exclusive with page)
 }
 
 func (i *davInfo) Name() string { return i.name }
@@ -58,10 +59,16 @@ func (i *davInfo) ModTime() time.Time {
 	if i.page != nil {
 		return davModTime(i.page.UpdatedAt)
 	}
+	if i.file != nil {
+		return davModTime(i.file.updatedAt)
+	}
 	return i.mod
 }
 
 func (i *davInfo) Size() int64 {
+	if i.file != nil {
+		return i.file.size
+	}
 	if i.page == nil {
 		return 0
 	}
@@ -77,6 +84,11 @@ func (i *davInfo) Size() int64 {
 // skip unchanged transfers without re-hashing. Non-page nodes fall back to
 // webdav's ModTime/Size etag.
 func (i *davInfo) ETag(_ context.Context) (string, error) {
+	if i.file != nil {
+		// Content-addressed: the bytes' sha256 changes iff the file changes, so
+		// rclone skips unchanged transfers without re-hashing.
+		return `"` + i.file.hash + `"`, nil
+	}
 	if i.page == nil {
 		return "", webdav.ErrNotImplemented
 	}
@@ -113,6 +125,19 @@ func newDavReadFile(name string, p models.Page) *davReadFile {
 	cp := p
 	info := &davInfo{name: name, page: &cp, enc: enc}
 	return &davReadFile{info: info, rd: bytes.NewReader(enc)}
+}
+
+// spaceFileInfo is the os.FileInfo for a stored non-markdown file (listing/Stat).
+func spaceFileInfo(f spaceFile) *davInfo {
+	cf := f
+	return &davInfo{name: f.name, file: &cf}
+}
+
+// newDavBlobFile serves a stored file's raw bytes for GET. Like davReadFile but
+// the body is the blob, not encoded markdown.
+func newDavBlobFile(f spaceFile, data []byte) *davReadFile {
+	cf := f
+	return &davReadFile{info: &davInfo{name: f.name, file: &cf}, rd: bytes.NewReader(data)}
 }
 
 func (f *davReadFile) Read(p []byte) (int, error)                { return f.rd.Read(p) }
@@ -206,6 +231,66 @@ func (f *davWriteFile) Close() error                       { return f.flush() }
 func (f *davWriteFile) Read([]byte) (int, error)           { return 0, os.ErrInvalid }
 func (f *davWriteFile) Seek(int64, int) (int64, error)     { return 0, os.ErrInvalid }
 func (f *davWriteFile) Readdir(int) ([]os.FileInfo, error) { return nil, os.ErrInvalid }
+
+// davSpaceWriteFile buffers a PUT body for a non-markdown file and stores it as a
+// space_file (by location) on flush. A size cap is enforced as bytes arrive so a
+// huge upload can't pin memory or bloat the blob store: past it Write fails, the
+// flush surfaces the error, and the PUT fails (the file is NOT silently dropped —
+// that's the footgun this feature fixes). Stat-before-Close means flush runs once.
+type davSpaceWriteFile struct {
+	fs       *davFS
+	ctx      context.Context
+	spaceID  int64
+	parentID *int64
+	name     string
+
+	buf     bytes.Buffer
+	tooBig  bool
+	flushed bool
+	result  spaceFile
+	err     error
+}
+
+func (f *davSpaceWriteFile) Write(p []byte) (int, error) {
+	if f.tooBig {
+		return 0, os.ErrInvalid
+	}
+	if int64(f.buf.Len()+len(p)) > davFileMaxBytes() {
+		f.tooBig = true
+		f.err = errors.New("file exceeds TELA_WEBDAV_FILE_MAX_BYTES")
+		return 0, f.err
+	}
+	return f.buf.Write(p)
+}
+
+func (f *davSpaceWriteFile) flush() error {
+	if f.flushed {
+		return f.err
+	}
+	f.flushed = true
+	if f.err != nil { // a size-cap failure recorded during Write
+		return f.err
+	}
+	sf, err := upsertSpaceFile(f.ctx, f.fs.s.DB, f.spaceID, f.parentID, f.name, f.buf.Bytes())
+	if err != nil {
+		f.err = err
+		return err
+	}
+	f.result = sf
+	return nil
+}
+
+func (f *davSpaceWriteFile) Stat() (os.FileInfo, error) {
+	if err := f.flush(); err != nil {
+		return nil, err
+	}
+	return spaceFileInfo(f.result), nil
+}
+
+func (f *davSpaceWriteFile) Close() error                       { return f.flush() }
+func (f *davSpaceWriteFile) Read([]byte) (int, error)           { return 0, os.ErrInvalid }
+func (f *davSpaceWriteFile) Seek(int64, int) (int64, error)     { return 0, os.ErrInvalid }
+func (f *davSpaceWriteFile) Readdir(int) ([]os.FileInfo, error) { return nil, os.ErrInvalid }
 
 // davDiscardFile swallows a write to a path tela does not persist (a non-.md
 // junk file — .DS_Store, ._*, *.swp, editor temp). Accepting it keeps OS-native

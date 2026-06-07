@@ -70,6 +70,23 @@ func parentKey(parentID *int64) int64 {
 	return *parentID
 }
 
+// fileDirParent resolves the DIRECTORY part of a non-markdown path (segs below
+// the space, minus the filename) to the folder page a space_file would nest
+// under: nil = the space root, else the page id of the containing folder. ok is
+// false when the directory doesn't resolve to a page-folder (a missing or
+// file-form interior segment) — i.e. there's no such location.
+func fileDirParent(t *spaceTree, segs []string) (parentID *int64, ok bool) {
+	dir := segs[1 : len(segs)-1] // drop the space folder and the filename
+	if len(dir) == 0 {
+		return nil, true // space root
+	}
+	p, isFile, found := t.resolve(dir)
+	if !found || isFile {
+		return nil, false
+	}
+	return &p.ID, true
+}
+
 // davMapErr turns a page-core *apiErr into the error shape webdav maps to a
 // status: not-found → 404/409, forbidden/unauthorized → permission, else a
 // generic 500. nil passes through.
@@ -119,22 +136,32 @@ func (fs *davFS) Stat(ctx context.Context, name string) (os.FileInfo, error) {
 	if len(segs) == 1 {
 		return dirInfo(sp.folder, davModTime(sp.updatedAt)), nil
 	}
-	t, err := davStateFrom(ctx).tree(ctx, fs.s.DB, sp.id)
+	st := davStateFrom(ctx)
+	t, err := st.tree(ctx, fs.s.DB, sp.id)
 	if err != nil {
 		return nil, err
 	}
-	p, isFile, found := t.resolve(segs[1:])
-	if !found {
-		return nil, os.ErrNotExist
-	}
 	leaf := segs[len(segs)-1]
-	if isFile {
-		return pageFileInfo(leaf, p), nil
+	if p, isFile, found := t.resolve(segs[1:]); found {
+		if isFile {
+			return pageFileInfo(leaf, p), nil
+		}
+		// Directory form: a page-as-collection is statable for ANY page (so MKCOL /
+		// PUT into a leaf that is gaining its first child resolves), independent of
+		// whether it currently has children.
+		return dirInfo(leaf, davModTime(p.UpdatedAt)), nil
 	}
-	// Directory form: a page-as-collection is statable for ANY page (so MKCOL /
-	// PUT into a leaf that is gaining its first child resolves), independent of
-	// whether it currently has children.
-	return dirInfo(leaf, davModTime(p.UpdatedAt)), nil
+	// Not a page — a stored non-markdown file at this location?
+	if parentID, ok := fileDirParent(t, segs); ok {
+		set, err := st.files(ctx, fs.s.DB, sp.id)
+		if err != nil {
+			return nil, err
+		}
+		if f, found := lookupInSet(set, parentID, leaf); found {
+			return spaceFileInfo(f), nil
+		}
+	}
+	return nil, os.ErrNotExist
 }
 
 func (fs *davFS) OpenFile(ctx context.Context, name string, flag int, _ os.FileMode) (webdavFile, error) {
@@ -172,14 +199,28 @@ func (fs *davFS) openRead(ctx context.Context, segs []string) (webdavFile, error
 	if err != nil {
 		return nil, err
 	}
-	if len(segs) == 1 { // space folder: its root pages
-		return fs.dirFromChildren(sp.folder, davModTime(sp.updatedAt), t, rootParentKey), nil
+	fileSet, err := st.files(ctx, fs.s.DB, sp.id)
+	if err != nil {
+		return nil, err
 	}
-	p, isFile, found := t.resolve(segs[1:])
-	if !found {
-		return nil, os.ErrNotExist
+	if len(segs) == 1 { // space folder: its root pages + root files
+		return fs.dirFromChildren(sp.folder, davModTime(sp.updatedAt), t, rootParentKey, fileSet[rootParentKey]), nil
 	}
 	leaf := segs[len(segs)-1]
+	p, isFile, found := t.resolve(segs[1:])
+	if !found {
+		// Not a page — try a stored non-markdown file at this location.
+		if parentID, ok := fileDirParent(t, segs); ok {
+			if f, ok := lookupInSet(fileSet, parentID, leaf); ok {
+				data, err := readSpaceFileData(ctx, fs.s.DB, f.id)
+				if err != nil {
+					return nil, err
+				}
+				return newDavBlobFile(f, data), nil
+			}
+		}
+		return nil, os.ErrNotExist
+	}
 	if isFile {
 		// Establish the merge base on FIRST download only (insert-if-absent), so a
 		// page created in the app and edited locally before this client ever
@@ -194,22 +235,25 @@ func (fs *davFS) openRead(ctx context.Context, segs []string) (webdavFile, error
 		}
 		return newDavReadFile(leaf, p), nil
 	}
-	return fs.dirFromChildren(leaf, davModTime(p.UpdatedAt), t, p.ID), nil
+	return fs.dirFromChildren(leaf, davModTime(p.UpdatedAt), t, p.ID, fileSet[p.ID]), nil
 }
 
 // dirFromChildren builds a collection whose entries are the page tree's children
 // of parentKey: a `<slug>.md` file per child, plus a `<slug>/` folder for each
 // child that itself has children. The file entries are lightweight (walkFS
 // re-Stats every node for the authoritative props).
-func (fs *davFS) dirFromChildren(name string, mod time.Time, t *spaceTree, parentKey int64) *davDir {
+func (fs *davFS) dirFromChildren(name string, mod time.Time, t *spaceTree, parentKey int64, files []spaceFile) *davDir {
 	group := t.children[parentKey]
-	kids := make([]os.FileInfo, 0, len(group))
+	kids := make([]os.FileInfo, 0, len(group)+len(files))
 	for _, c := range group {
 		slug := t.slug[c.ID]
 		kids = append(kids, &davInfo{name: slug + ".md"})
 		if t.hasChildren(c.ID) {
 			kids = append(kids, &davInfo{name: slug, dir: true, mod: davModTime(c.UpdatedAt)})
 		}
+	}
+	for _, f := range files { // stored non-markdown files at this level
+		kids = append(kids, spaceFileInfo(f))
 	}
 	return &davDir{info: dirInfo(name, mod), children: kids}
 }
@@ -221,10 +265,13 @@ func (fs *davFS) openWrite(ctx context.Context, segs []string) (webdavFile, erro
 		return &davDiscardFile{name: lastSeg(segs)}, nil
 	}
 	filename := segs[len(segs)-1]
-	if !isMarkdownName(filename) {
-		// .DS_Store, ._*, *.swp, editor temp — accept-and-drop (sync §14).
+	if isSyncJunkName(filename) {
+		// .DS_Store, ._*, *.swp, editor temp — accept-and-drop (sync §14). Checked
+		// before the markdown split so AppleDouble shadows (._note.md) don't mint a
+		// page either.
 		return &davDiscardFile{name: filename}, nil
 	}
+	isMD := isMarkdownName(filename)
 	sp, found, err := fs.space(ctx, segs[0])
 	if err != nil {
 		return nil, err
@@ -243,6 +290,11 @@ func (fs *davFS) openWrite(ctx context.Context, segs []string) (webdavFile, erro
 			return nil, os.ErrNotExist
 		}
 		parentID = &parent.ID
+	}
+	if !isMD {
+		// A real non-markdown file — persist it as a space_file (markdown stays a
+		// page). This is the path that used to discard arbitrary files.
+		return &davSpaceWriteFile{fs: fs, ctx: ctx, spaceID: sp.id, parentID: parentID, name: filename}, nil
 	}
 	return &davWriteFile{fs: fs, ctx: ctx, spaceID: sp.id, parentID: parentID, filename: filename}, nil
 }
@@ -309,15 +361,19 @@ func (fs *davFS) RemoveAll(ctx context.Context, name string) error {
 	if !found {
 		return os.ErrNotExist
 	}
-	t, err := davStateFrom(ctx).tree(ctx, fs.s.DB, sp.id)
+	st := davStateFrom(ctx)
+	t, err := st.tree(ctx, fs.s.DB, sp.id)
 	if err != nil {
 		return err
 	}
+	pr := davPrincipalFrom(ctx)
 	p, _, ok := t.resolve(segs[1:]) // file or folder form both name the page
 	if !ok {
-		return os.ErrNotExist
+		// Not a page — a stored non-markdown file? Soft-delete it (recoverable),
+		// gated by the same mass-delete brake so a wiped local vault can't wipe a
+		// space's files in one run.
+		return fs.removeSpaceFile(ctx, st, sp, segs)
 	}
-	pr := davPrincipalFrom(ctx)
 	// Delete-safety (sync §6), WebDAV path only — an interactive app/MCP delete is
 	// always honoured. (1) Cursor gate: a sync client may only delete a page it
 	// has previously synced (a sync_base row proves it had the page); a page it
@@ -354,6 +410,40 @@ func countLiveSpacePages(ctx context.Context, db *sql.DB, spaceID int64) (int64,
 	return n, err
 }
 
+// removeSpaceFile soft-deletes the non-markdown file a DELETE path names (when it
+// isn't a page). The mass-delete brake applies — sharing the page guard's window,
+// measured against the live file count — so a wiped local vault can't wipe a
+// space's files in one run. Deletes are soft, so they're recoverable regardless.
+func (fs *davFS) removeSpaceFile(ctx context.Context, st *davReqState, sp davSpace, segs []string) error {
+	t, err := st.tree(ctx, fs.s.DB, sp.id)
+	if err != nil {
+		return err
+	}
+	parentID, ok := fileDirParent(t, segs)
+	if !ok {
+		return os.ErrNotExist
+	}
+	set, err := st.files(ctx, fs.s.DB, sp.id)
+	if err != nil {
+		return err
+	}
+	f, ok := lookupInSet(set, parentID, segs[len(segs)-1])
+	if !ok {
+		return os.ErrNotExist
+	}
+	if pr := davPrincipalFrom(ctx); pr.k != nil {
+		live, err := countLiveSpaceFiles(ctx, fs.s.DB, sp.id)
+		if err != nil {
+			return err
+		}
+		if !fs.s.davDeletes.allow(pr.k.ID, sp.id, live) {
+			log.Printf("dav: refused DELETE of file %d — mass-delete guard tripped (key %d, space %d)", f.id, pr.k.ID, sp.id)
+			return os.ErrPermission
+		}
+	}
+	return softDeleteSpaceFile(ctx, fs.s.DB, f.id)
+}
+
 func (fs *davFS) Rename(ctx context.Context, oldName, newName string) error {
 	oseg, ok := davSplit(oldName)
 	if !ok || len(oseg) <= 1 {
@@ -375,16 +465,17 @@ func (fs *davFS) Rename(ctx context.Context, oldName, newName string) error {
 	if err != nil {
 		return err
 	}
-	page, _, ok := ot.resolve(oseg[1:])
-	if !ok {
-		return os.ErrNotExist
-	}
 	nsp, found, err := fs.space(ctx, nseg[0])
 	if err != nil {
 		return err
 	}
 	if !found {
 		return os.ErrNotExist
+	}
+	page, _, ok := ot.resolve(oseg[1:])
+	if !ok {
+		// Not a page — a stored non-markdown file move/rename (path-keyed, no title).
+		return fs.renameSpaceFileAt(ctx, st, osp, oseg, nsp, nseg)
 	}
 	var newParentID *int64
 	if len(nseg) > 2 {
@@ -453,6 +544,44 @@ func (fs *davFS) renameApply(ctx context.Context, page models.Page, spaceID int6
 	}
 	fs.s.afterPageWrite(ctx, cur, p, false, true, pr.u.ID, "sync")
 	return nil
+}
+
+// renameSpaceFileAt commits a WebDAV MOVE of a stored non-markdown file: relocate
+// it to the new parent folder and/or rename it. A file can't cross into the page
+// namespace, so the destination must also be non-markdown.
+func (fs *davFS) renameSpaceFileAt(ctx context.Context, st *davReqState, osp davSpace, oseg []string, nsp davSpace, nseg []string) error {
+	newName := nseg[len(nseg)-1]
+	if isMarkdownName(newName) {
+		return os.ErrPermission // a raw file can't become a page
+	}
+	ot, err := st.tree(ctx, fs.s.DB, osp.id)
+	if err != nil {
+		return err
+	}
+	oldParentID, ok := fileDirParent(ot, oseg)
+	if !ok {
+		return os.ErrNotExist
+	}
+	set, err := st.files(ctx, fs.s.DB, osp.id)
+	if err != nil {
+		return err
+	}
+	f, ok := lookupInSet(set, oldParentID, oseg[len(oseg)-1])
+	if !ok {
+		return os.ErrNotExist
+	}
+	nt := ot
+	if nsp.id != osp.id {
+		if nt, err = st.tree(ctx, fs.s.DB, nsp.id); err != nil {
+			return err
+		}
+	}
+	newParentID, ok := fileDirParent(nt, nseg)
+	if !ok {
+		return os.ErrNotExist
+	}
+	// The destination space is the new parent's space (or the space root's).
+	return renameSpaceFileToSpace(ctx, fs.s.DB, f.id, nsp.id, newParentID, newName)
 }
 
 func lastSeg(segs []string) string {
