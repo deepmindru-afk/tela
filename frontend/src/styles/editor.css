@@ -1190,6 +1190,19 @@
     font-size: var(--text-sm);
   }
 
+  /* Rendered-from-source blocks (chart, mermaid) render their output as a widget
+     BELOW the fenced source. In edit mode the source stays visible so the data
+     is editable; in the reader / share / PDF view it's just noise above the
+     visual, so hide it and show only the rendered output. */
+  .tela-milkdown
+    .ProseMirror[contenteditable='false']
+    .tela-codeblock[data-language='chart'],
+  .tela-milkdown
+    .ProseMirror[contenteditable='false']
+    .tela-codeblock[data-language='mermaid'] {
+    display: none;
+  }
+
   /* Images */
   .tela-milkdown .ProseMirror img {
     max-width: 100%;
