@@ -29,13 +29,22 @@ const pageRevisionFullColumns = `
 	SELECT r.id, r.page_id, r.title, r.body, r.props, r.author_id, u.username,
 	       r.source, r.byte_size, r.created_at`
 
+// revisionQuerier is satisfied by both *sql.DB and *sql.Tx, so a revision can be
+// snapshotted post-commit (the usual case) OR atomically inside a write tx — the
+// latter for the pre-sync-overwrite snapshot that must be guaranteed never to be
+// lost (see applySyncBound).
+type revisionQuerier interface {
+	QueryRowContext(ctx context.Context, query string, args ...any) *sql.Row
+}
+
 // insertPageRevision writes a new page_revisions row for pageID. byte_size is
 // derived from len(body); created_at is set by tela_now() so the
 // wire format matches the rest of the API. authorID is nullable; pass nil when
-// the writer's user record is unavailable. Called from the snapshot-on-save
-// hook AFTER the pages UPDATE has committed, so a failure here cannot roll the
-// user's save back.
-func insertPageRevision(ctx context.Context, db *sql.DB, pageID int64, body, title string, props map[string]any, authorID *int64, source string) (int64, error) {
+// the writer's user record is unavailable. Usually called from the
+// snapshot-on-save hook AFTER the pages UPDATE has committed (pass s.DB) so a
+// failure cannot roll the user's save back; the sync path passes its tx to
+// snapshot the overwritten state atomically.
+func insertPageRevision(ctx context.Context, db revisionQuerier, pageID int64, body, title string, props map[string]any, authorID *int64, source string) (int64, error) {
 	var id int64
 	err := db.QueryRowContext(ctx, `
 		INSERT INTO page_revisions

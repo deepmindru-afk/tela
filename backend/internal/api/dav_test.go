@@ -458,6 +458,40 @@ func TestDAV_MassDeleteGuard(t *testing.T) {
 	}
 }
 
+// TestDAV_SyncPreservesOverwrittenContent: even a last-write-wins overwrite (no
+// base → no merge) must keep what it replaced in revision history, so a sync can
+// never silently lose server content. The overwritten state lands as a
+// `sync-prior` revision, in the same tx as the write.
+func TestDAV_SyncPreservesOverwrittenContent(t *testing.T) {
+	ts, d, spaceID, folder, token := davFixture(t)
+	ctx := context.Background()
+
+	// In-app page (no base for this client → the PUT is last-write-wins).
+	var pid int64
+	if err := d.QueryRowContext(ctx,
+		`INSERT INTO pages (space_id, title, body, props) VALUES ($1, 'note', $2, '{}'::jsonb) RETURNING id`,
+		spaceID, "original server content\n").Scan(&pid); err != nil {
+		t.Fatalf("seed page: %v", err)
+	}
+
+	if resp, _ := davDo(t, ts, token, "PUT", "/dav/"+folder+"/note.md", "replaced by sync\n", nil); resp.StatusCode != http.StatusCreated {
+		t.Fatalf("PUT = %d, want 201", resp.StatusCode)
+	}
+
+	// Live page is the incoming (LWW), and the overwritten content survives.
+	p, _ := pageByTitle(t, d, spaceID, "note")
+	if p.Body != "replaced by sync\n" {
+		t.Fatalf("live body = %q, want the incoming (LWW)", p.Body)
+	}
+	var n int
+	d.QueryRowContext(ctx,
+		`SELECT count(*) FROM page_revisions WHERE page_id = $1 AND source = 'sync-prior' AND body LIKE '%original server content%'`,
+		pid).Scan(&n)
+	if n != 1 {
+		t.Fatalf("want 1 sync-prior revision preserving the overwritten content, got %d", n)
+	}
+}
+
 // --- pure unit tests (no DB) for the path + slug layer ---
 
 func TestDavSplit(t *testing.T) {

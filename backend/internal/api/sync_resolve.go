@@ -226,6 +226,22 @@ func (s *Server) applySyncBound(
 	p := cur
 	action := syncUpdated
 	if contentChanged {
+		// Snapshot the server state this sync is about to overwrite/merge-over,
+		// IN THE TX, so the prior content can never be lost — whether the merge
+		// auto-resolved a conflict (the overridden side) or fell back to
+		// last-write-wins (the fully replaced content). It's tagged distinctly so
+		// a conflict's losing side is findable. In-tx is safe here because a sync
+		// write is retryable: if the snapshot ever failed, the whole apply rolls
+		// back and the client re-syncs — nothing is lost. (afterPageWrite snapshots
+		// the resulting merged state post-commit, giving a full before/after pair.)
+		priorSource := "sync-prior"
+		if conflicted {
+			priorSource = "sync-conflict"
+		}
+		if _, err := insertPageRevision(ctx, tx, cur.ID, cur.Body, cur.Title, cur.Props, &u.ID, priorSource); err != nil {
+			return models.Page{}, "", &apiErr{http.StatusInternalServerError, "internal", "snapshot pre-sync revision failed"}
+		}
+
 		req := pageUpdateRequest{Title: &mTitle, Body: &mBody, Props: mProps}
 		if ae := validateUpdateReq(req); ae != nil {
 			return models.Page{}, "", ae
@@ -236,8 +252,8 @@ func (s *Server) applySyncBound(
 		}
 		p = updated
 		if conflicted {
-			// Flag the page for manual resolution; the merged text already took a
-			// side (the snapshot of the overridden side happens post-commit below).
+			// Flag the page so an auto-resolved conflict is discoverable (the losing
+			// side is the sync-conflict revision snapshotted just above).
 			if _, err := tx.ExecContext(ctx,
 				`UPDATE pages SET sync_conflict_at = tela_now() WHERE id = $1`, cur.ID); err != nil {
 				return models.Page{}, "", &apiErr{http.StatusInternalServerError, "internal", "flag sync conflict failed"}
@@ -257,17 +273,10 @@ func (s *Server) applySyncBound(
 
 	// agentWrite=true: a sync write is out-of-band w.r.t. any live Yjs overlay,
 	// so the overlay must re-seed from the new body (DB-wins), like an agent
-	// write. Only fires when body/title actually changed.
+	// write. Only fires when body/title actually changed. (The overwritten prior
+	// state was already snapshotted in-tx above.)
 	if contentChanged {
 		s.afterPageWrite(ctx, cur, p, true, true, u.ID, "sync")
-		if conflicted {
-			// Preserve the overridden DB side as a revision so the auto-resolved
-			// conflict is recoverable (afterPageWrite already snapshotted the
-			// merged result as the live "sync" revision).
-			if _, err := insertPageRevision(ctx, s.DB, cur.ID, cur.Body, cur.Title, cur.Props, &u.ID, "sync-conflict"); err != nil {
-				log.Printf("page %d sync-conflict snapshot failed: %v", cur.ID, err)
-			}
-		}
 	}
 	return p, action, nil
 }
