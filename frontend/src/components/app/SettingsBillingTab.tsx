@@ -46,6 +46,12 @@ function formatCount(max: number | null): string {
   return max == null ? INFINITY : String(max)
 }
 
+// null cents = custom/contact tier; otherwise a whole-dollar amount ($0 for free).
+function formatPrice(cents: number | null): string {
+  if (cents == null) return 'Custom'
+  return `$${Math.round(cents / 100)}`
+}
+
 interface MetricProps {
   icon: React.ReactNode
   label: string
@@ -201,6 +207,16 @@ function PlanCatalog({ plans, currentKey }: { plans: Plan[]; currentKey: string 
                       <span className="font-medium text-[var(--text-primary)]">{p.name}</span>
                       {isCurrent ? <Badge variant="accent">Current</Badge> : null}
                     </div>
+                    <p className="m-0 flex items-baseline gap-[var(--space-2)]">
+                      <span className="text-[length:var(--text-xl)] font-semibold text-[var(--text-primary)]">
+                        {formatPrice(p.price_cents)}
+                      </span>
+                      {p.price_period ? (
+                        <span className="text-[length:var(--text-xs)] text-[var(--text-muted)]">
+                          {p.price_period}
+                        </span>
+                      ) : null}
+                    </p>
                     <ul className="m-0 flex list-none flex-col gap-[var(--space-1)] p-0">
                       {planSpecs(p).map((s) => (
                         <li

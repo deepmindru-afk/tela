@@ -116,6 +116,9 @@ export interface Plan {
   // false = an internal/comp tier kept out of the public catalog (still
   // admin-assignable). The plan-comparison UI shows only listed tiers.
   listed: boolean
+  // Display pricing (no billing engine). null = custom/contact, 0 = free.
+  price_cents: number | null
+  price_period: string
 }
 
 // GET /api/usage and /api/orgs/{id}/usage. members is present for orgs only.
