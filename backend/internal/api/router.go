@@ -18,7 +18,7 @@ func Handler(d *sql.DB) http.Handler {
 	srv := New(d)
 	mux := http.NewServeMux()
 	registerRoutes(srv, mux)
-	return auth.Middleware(d, srv.auditWriter)(mux)
+	return requestLogger(auth.Middleware(d, srv.auditWriter)(mux))
 }
 
 // HandlerWithServer is the wired-handler variant that also returns the
@@ -29,7 +29,7 @@ func HandlerWithServer(d *sql.DB) (http.Handler, *Server) {
 	srv := New(d)
 	mux := http.NewServeMux()
 	registerRoutes(srv, mux)
-	return auth.Middleware(d, srv.auditWriter)(mux), srv
+	return requestLogger(auth.Middleware(d, srv.auditWriter)(mux)), srv
 }
 
 func registerRoutes(srv *Server, mux *http.ServeMux) {

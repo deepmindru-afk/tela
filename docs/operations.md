@@ -89,5 +89,7 @@ make logs                              # all services, follow
 $COMPOSE logs -f --tail=100 backend    # one service
 ```
 
-Logs are plain text on stdout (structured logging + a `/metrics` endpoint are on
-the hardening roadmap).
+Each request emits a structured access-log line (`http method=… path=… status=…
+dur_ms=…` via `slog`; the `/api/health` probe is skipped). `/api/health` also
+reports `rag: enabled|disabled`. A Prometheus `/metrics` endpoint is still on the
+roadmap.
