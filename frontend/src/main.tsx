@@ -11,6 +11,21 @@ import App from './App.tsx'
 
 initTheme()
 
+// Stale-chunk recovery. After a frontend redeploy the hashed lazy-chunk
+// filenames change; a tab still running the old bundle 404s when it tries to
+// import a now-gone chunk (Vite fires `vite:preloadError`), which would
+// otherwise crash the route. Reload once to pick up the fresh index.html +
+// chunk hashes. A 10s sessionStorage guard prevents a reload loop if an asset
+// is genuinely missing rather than merely stale.
+window.addEventListener('vite:preloadError', () => {
+  const KEY = 'tela:chunk-reload-at'
+  const last = Number(sessionStorage.getItem(KEY) || 0)
+  if (Date.now() - last > 10_000) {
+    sessionStorage.setItem(KEY, String(Date.now()))
+    window.location.reload()
+  }
+})
+
 // Mid-session 401 handler. api.ts fires `tela:auth-required` after a non-auth
 // endpoint comes back 401 (cookie expired, user deactivated, etc.). We clear
 // the cached identity and bounce to /login?next=<current> so the form

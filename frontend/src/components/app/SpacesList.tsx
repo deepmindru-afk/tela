@@ -208,8 +208,9 @@ function SpaceRow({ space, active, stalePages, onSelect }: SpaceRowProps) {
 
       {/* Compact access cluster: a lock for solo spaces, else people-count +
           org/group kind icons. Click → manage; hover → full who/what peek.
-          The hover query fires lazily (only when the tooltip opens). The
-          cluster hides on hover to make room for the ⋯ menu. */}
+          The hover query fires lazily (only when the tooltip opens). Stays
+          visible on row hover so its peek tooltip is reachable; the ⋯ menu
+          appears alongside it rather than replacing it. */}
       <Tooltip>
         <TooltipTrigger asChild>
           <button
@@ -219,7 +220,7 @@ function SpaceRow({ space, active, stalePages, onSelect }: SpaceRowProps) {
               e.stopPropagation()
               setShareOpen(true)
             }}
-            className="shrink-0 inline-flex items-center bg-transparent border-0 p-[var(--space-1)] cursor-pointer outline-none rounded-[var(--radius-xs)] group-hover:hidden focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+            className="shrink-0 inline-flex items-center bg-transparent border-0 p-[var(--space-1)] cursor-pointer outline-none rounded-[var(--radius-xs)] focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
           >
             <AccessCluster space={space} />
           </button>
