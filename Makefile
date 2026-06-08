@@ -40,13 +40,29 @@ else
 endif
 
 .PHONY: up down logs build clean dev be-dev fe-dev storybook help test-mcp-integration \
-        test dev-db dev-db-clean \
+        test dev-db dev-db-clean setup \
         landing-dev landing-build landing-gate landing-clean \
         deploy deploy-backend deploy-frontend deploy-landing release-mcp reset-prod-db \
         health-gate
 
+# setup: first-run convenience. Copies deploy/.env.example → deploy/.env and
+# fills the three load-bearing secrets with `openssl rand -hex 32` so a
+# self-hoster never ships blank/weak secrets. Refuses to clobber an existing
+# .env. Edit the result (admin creds, public base URL, SMTP) before `make up`.
+setup:
+	@if [ -f deploy/.env ]; then \
+	  echo "deploy/.env already exists — not overwriting. Delete it first to regenerate."; exit 1; fi
+	@cp deploy/.env.example deploy/.env
+	@for key in TELA_API_KEY_SECRET TELA_SHARE_SECRET TELA_PG_PASSWORD; do \
+	  secret=$$(openssl rand -hex 32); \
+	  sed -i "s|^$$key=.*|$$key=$$secret|" deploy/.env; \
+	done
+	@echo "Wrote deploy/.env with generated secrets."
+	@echo "Next: edit deploy/.env (TELA_ADMIN_*, TELA_PUBLIC_BASE_URL, TELA_SMTP_*), then 'make up'."
+
 help:
 	@echo "tela — common targets"
+	@echo "  make setup      # first run: write deploy/.env from the example with generated secrets"
 	@echo "  make up         # build and start the stack (auto-stamps git version/commit) on http://localhost:8780"
 	@echo "  make down       # stop the stack"
 	@echo "  make logs       # tail logs from all services"
@@ -72,14 +88,15 @@ help:
 	@echo "  make release-mcp      # publish tela-mcp to npm (BUMP=patch|minor|major, default patch)"
 
 # `up` builds the marketing landing first so the proxy's /srv/landing mount is
-# populated (Caddy serves it at the apex). The app images build via compose.
+# populated (Caddy serves it at the apex). All images — including the proxy,
+# which now bakes the landing build (deploy/proxy/Dockerfile) — build via
+# compose, so `make up` needs only Docker, no host Node.
 #
-# The proxy runs an unbuilt caddy image with a single-file Caddyfile bind mount;
-# compose won't recreate it on a Caddyfile-only change, and a single-file mount
-# pins the OLD inode after a `git pull` rewrites the file — so Caddy keeps the
-# stale config. Force-recreate the proxy so it re-mounts the current Caddyfile
-# (and the freshly built landing/dist).
-up: landing-build
+# The Caddyfile is still a single-file bind mount; compose won't recreate the
+# proxy on a Caddyfile-only change, and the mount pins the OLD inode after a
+# `git pull` rewrites the file. Force-recreate the proxy so it re-mounts the
+# current Caddyfile.
+up:
 	$(EXPORT_BUILD) $(COMPOSE) up -d --build
 	$(COMPOSE) up -d --force-recreate proxy
 
@@ -257,15 +274,12 @@ deploy-frontend:
 	$(RUN_REMOTE) 'cd $(DEPLOY_DIR) && git pull --ff-only && \
 	  docker compose -f deploy/docker-compose.yml up -d --build frontend'
 
-# deploy-landing: the marketing landing is a static bind-mount (landing/dist →
-# proxy:/srv/landing), so "deploying" it = rebuild the static files on archer
-# then force-recreate the proxy so Caddy re-reads the freshly built directory
-# (a single-file/dir bind mount otherwise pins the old inode after a git pull;
-# same reasoning as `make up`'s proxy recreate). This wires the landing deploy
-# that CLAUDE.md flagged as TODO.
+# deploy-landing: the landing is now baked into the proxy image
+# (deploy/proxy/Dockerfile), so "deploying" it = pull + rebuild & recreate the
+# proxy image on archer. No host Node build step anymore.
 deploy-landing:
-	$(RUN_REMOTE) 'cd $(DEPLOY_DIR) && git pull --ff-only && make landing-build && \
-	  docker compose -f deploy/docker-compose.yml up -d --force-recreate proxy'
+	$(RUN_REMOTE) 'cd $(DEPLOY_DIR) && git pull --ff-only && \
+	  docker compose -f deploy/docker-compose.yml up -d --build proxy'
 
 # reset-prod-db: GUARDED, DESTRUCTIVE. Drops the prod Postgres volume and brings
 # it back empty so the backend re-runs migrations from scratch. Prod data is
