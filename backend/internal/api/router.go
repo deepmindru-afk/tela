@@ -204,6 +204,9 @@ func registerRoutes(srv *Server, mux *http.ServeMux) {
 	// middleware skips it; every handler self-authenticates by requiring the
 	// space be public, and is GET/read-only (writes stay on the membership-gated
 	// /api/ routes). See public_spaces.go + docs/public-spaces.md.
+	// Cross-tenant public-space directory (the publishing "network"); self-
+	// authenticates by listing only visibility='public' spaces. See public_discover.go.
+	mux.HandleFunc("GET /api/public/discover", srv.GetPublicDiscover)
 	mux.HandleFunc("GET /api/public/spaces/{id}", srv.GetPublicSpace)
 	mux.HandleFunc("GET /api/public/spaces/{id}/tree", srv.GetPublicSpaceTree)
 	mux.HandleFunc("GET /api/public/spaces/{id}/feed.xml", srv.GetPublicSpaceFeed)
