@@ -3,6 +3,7 @@ import { useNavigate } from '@tanstack/react-router'
 import {
   Building2,
   FileDown,
+  Globe,
   Lock,
   MoreHorizontal,
   Plus,
@@ -290,6 +291,7 @@ function isPrivateSpace(space: Space): boolean {
 }
 
 function accessAriaLabel(space: Space): string {
+  if (space.visibility === 'public') return 'Public on the web'
   if (space.is_personal) return 'Personal space, only you'
   if (isPrivateSpace(space)) return 'Private, only you'
   const people = space.member_count ?? 0
@@ -305,6 +307,11 @@ function AccessCluster({ space }: { space: Space }) {
   const tone =
     'text-[var(--text-muted)] group-hover:text-[var(--text-primary)]'
 
+  // Public-on-the-web is the dominant read-visibility signal — show it even when
+  // you're the only member (a published blog/docs space is exactly that case).
+  if (space.visibility === 'public') {
+    return <Globe width={13} height={13} aria-hidden className={tone} />
+  }
   if (space.is_personal || isPrivateSpace(space)) {
     return <Lock width={13} height={13} aria-hidden className={tone} />
   }
@@ -335,6 +342,13 @@ function SpaceAccessPeek({ space }: { space: Space }) {
   const access = useSpaceAccess(space.id)
   const principals = space.principals ?? []
 
+  if (space.visibility === 'public') {
+    return (
+      <span className="text-[var(--text-muted)]">
+        Public on the web — anyone with the link can read
+      </span>
+    )
+  }
   if (space.is_personal || isPrivateSpace(space)) {
     return (
       <span className="text-[var(--text-muted)]">
