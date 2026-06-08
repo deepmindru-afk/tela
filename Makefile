@@ -293,12 +293,15 @@ deploy-frontend:
 	$(RUN_REMOTE) 'cd $(DEPLOY_DIR) && git pull --ff-only && \
 	  docker compose -f deploy/docker-compose.yml up -d --build frontend'
 
-# deploy-landing: the landing is now baked into the proxy image
-# (deploy/proxy/Dockerfile), so "deploying" it = pull + rebuild & recreate the
-# proxy image on archer. No host Node build step anymore.
+# deploy-landing: the landing is baked into the proxy image
+# (deploy/proxy/Dockerfile), so "deploying" it = pull + rebuild the proxy image
+# on archer. No host Node build step. --force-recreate is REQUIRED: the Caddyfile
+# is bind-mounted (not baked), and a Caddyfile-only change cache-hits the image —
+# without --force-recreate the proxy keeps running the old in-memory config and
+# the edit silently never applies. This is also the target for Caddyfile changes.
 deploy-landing:
 	$(RUN_REMOTE) 'cd $(DEPLOY_DIR) && git pull --ff-only && \
-	  docker compose -f deploy/docker-compose.yml up -d --build proxy'
+	  docker compose -f deploy/docker-compose.yml up -d --build --force-recreate proxy'
 
 # reset-prod-db: GUARDED, DESTRUCTIVE. Drops the prod Postgres volume and brings
 # it back empty so the backend re-runs migrations from scratch. Prod data is

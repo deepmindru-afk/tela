@@ -5,7 +5,9 @@
 #
 # Build context is the repo root (see docker-compose.yml: context: ..), so the
 # COPY paths are repo-relative. The Caddyfile itself stays bind-mounted by
-# compose, so config tweaks don't need an image rebuild — only the landing does.
+# compose, so config tweaks don't need an image rebuild — but they DO need a
+# container recreate to load (Caddy holds the config in memory and we run no
+# file-watcher): `make deploy-landing` force-recreates the proxy for this reason.
 
 # ── Stage 1: build the landing ──────────────────────────────────────────────
 FROM node:22-alpine AS landing
