@@ -933,7 +933,7 @@
   /* A highlight mark (`==text==`) in a header cell renders as a loud yellow box
      that reads as a stray highlighter (agents sometimes ==mark== a header). The
      header is already bold — neutralise the mark's chrome so it reads cleanly. */
-  .tela-milkdown .ProseMirror table th mark {
+  .tela-milkdown .ProseMirror table th mark.tela-highlight {
     background: transparent;
     color: inherit;
     padding: 0;
