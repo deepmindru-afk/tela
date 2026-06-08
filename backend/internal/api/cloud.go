@@ -32,6 +32,16 @@ func (s *Server) cloudAccount(r *http.Request) (account, bool) {
 	return account{Kind: accountUser, ID: key.UserID}, true
 }
 
+// publishingEntitlementRequired reports whether flipping a space to public must
+// be gated on the owning account's `publishing` plan feature. Off by default —
+// a self-host instance lets anyone publish their own spaces — and turned on for
+// the cloud main instance via the instance setting. Single source of truth for
+// the gate's posture; the check itself reuses featureEnabled (see spaces.go).
+func (s *Server) publishingEntitlementRequired() bool {
+	v, ok := s.settings.Get("require_publishing_entitlement")
+	return ok && v == "true"
+}
+
 // CloudEntitlements returns the effective plan + feature flags for the token's
 // account — the control-plane primitive a connected instance can read to learn
 // what its subscription grants. Reuses planFor, so the answer is computed by the

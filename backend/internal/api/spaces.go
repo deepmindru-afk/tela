@@ -347,6 +347,23 @@ func (s *Server) updateSpaceCore(ctx context.Context, u *auth.User, k *auth.APIK
 	if req.Visibility != nil && role != roleOwner {
 		return models.Space{}, &apiErr{http.StatusForbidden, "forbidden", "owner role required to change visibility"}
 	}
+	// Cloud publishing entitlement: flipping a space PUBLIC can be gated on the
+	// owning account's plan granting the `publishing` feature. This is the single
+	// place the gate lives (PATCH /api/spaces and the MCP update_space tool both
+	// route through updateSpaceCore). It is OPT-IN via the instance setting
+	// require_publishing_entitlement (default off) so self-hosters are unaffected:
+	// the cloud main instance sets it on, while a self-host comp/unlimited tier —
+	// which already carries publishing=true — keeps publishing even when on. We
+	// only gate the private→public transition, never un-publishing.
+	if req.Visibility != nil && strings.TrimSpace(*req.Visibility) == spaceVisibilityPublic && s.publishingEntitlementRequired() {
+		owner, err := spaceOwner(ctx, s.DB, id)
+		if err != nil {
+			return models.Space{}, &apiErr{http.StatusInternalServerError, "internal", "resolve space owner failed"}
+		}
+		if !s.featureEnabled(ctx, owner, "publishing") {
+			return models.Space{}, &apiErr{http.StatusPaymentRequired, "upgrade_required", "publishing public spaces requires a plan that includes publishing"}
+		}
+	}
 	if req.Name == nil && req.Slug == nil && req.Visibility == nil && req.Description == nil {
 		return models.Space{}, &apiErr{http.StatusBadRequest, "no_fields", "at least one of name, slug, visibility, description must be provided"}
 	}
