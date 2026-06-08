@@ -182,6 +182,30 @@
 			file_server
 		}
 
+		# Known app routes (auth-gated shell, editor, settings, …): always noindex.
+		# Listed BEFORE the handle carve-out below so e.g. /login, /search are not
+		# mistaken for a {handle}. Mirror of the top-level routes in
+		# frontend/src/routes/router.tsx (and nginx.conf's allowlist). /share, /public,
+		# /u, /discover are noindex'd or indexable upstream and never reach here.
+		@app_routes path /login /register /verify-email /forgot-password /reset-password /settings /settings/* /spaces /spaces/* /search /read/* /print/* /graph /graph/* /n /n/* /ask /setup
+		handle @app_routes {
+			header X-Robots-Tag "noindex"
+			reverse_proxy frontend:80
+		}
+
+		# GitHub-style handle pages: /{handle} (user/org public home) and
+		# /{handle}/{space-slug} (public space). These ARE the open-web surface, so
+		# — like /public and /u — they stay INDEXABLE (no noindex header). The SPA
+		# resolves the handle client-side; bot OG/JSON-LD for these is served via the
+		# /public/* + /u/* backend routes the client canonicalizes to. Handle-shaped
+		# = one or two slug segments (dots allowed, e.g. gulden.gullu). Anything that
+		# isn't a real landing file, a known app route, or handle-shaped falls to the
+		# noindex fallback below.
+		@handle path_regexp ^/[A-Za-z0-9][A-Za-z0-9._-]*(/[A-Za-z0-9._-]+)?$
+		handle @handle {
+			reverse_proxy frontend:80
+		}
+
 		# Everything else = the app SPA (auth-gated shell + share-mode UI): noindex.
 		handle {
 			header X-Robots-Tag "noindex"

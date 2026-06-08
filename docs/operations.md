@@ -97,3 +97,30 @@ Each request emits a structured access-log line (`http method=… path=… statu
 dur_ms=…` via `slog`; the `/api/health` probe is skipped). `/api/health` also
 reports `rag: enabled|disabled`. A Prometheus `/metrics` endpoint is still on the
 roadmap.
+
+## Search-engine indexing (SEO)
+
+Indexability is enforced **at the proxy** (`deploy/proxy/Caddyfile`), not the app
+— the SPA can't set per-route response headers. The rule is *deny-by-default*:
+every surface gets an `X-Robots-Tag: noindex` header **unless** it is meant for
+the open web. Indexable surfaces:
+
+- **The marketing landing** (`/`, `/mcp`, `/pricing`, `/privacy`, `/terms`) — any
+  file that exists in the mounted `landing/dist`.
+- **Public spaces & reader** (`/public/*`), **author/org homes** (`/u/*`), the
+  **discovery directory** (`/discover`), and **handle pages** — `/{handle}` (a
+  user or org home) and `/{handle}/{space-slug}` (a public space). These are the
+  blog/profile surfaces, so they are served **without** the noindex header.
+- The **public sitemap** (`/sitemap-public.xml`, backend-generated).
+
+Everything else is noindex: the API (`/api/*`), private permalinks (`/p/*`),
+share links (`/share/*`), and the whole auth-gated app shell (`/login`,
+`/spaces/*`, `/settings`, `/search`, the editor, …). Crawler-UA hits on the
+public surfaces are routed to the backend, which server-renders OG/JSON-LD
+metadata (humans get the SPA, which sets its own per-page title/canonical).
+
+> [!NOTE]
+> A self-hosted instance is indexable the same way, but a **fresh** instance has
+> no landing build and no public spaces — so crawlers see only noindex app routes
+> until you publish a space or serve the landing. Keep your own instance private
+> by simply not making any space public (the default).
