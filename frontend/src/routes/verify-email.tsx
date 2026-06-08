@@ -37,7 +37,7 @@ export function VerifyEmailPage() {
   if (phase === 'done') {
     return (
       <AuthShell>
-        <Card className="w-full max-w-[24rem] text-center">
+        <Card className="tela-auth-card w-full bg-[var(--surface-1)] shadow-[var(--shadow-lg)] text-center">
           <CardHeader className="items-center">
             <CardTitle className="text-[length:var(--text-2xl)]">
               Email confirmed
@@ -63,7 +63,7 @@ export function VerifyEmailPage() {
   if (phase === 'verifying') {
     return (
       <AuthShell>
-        <Card className="w-full max-w-[24rem] text-center">
+        <Card className="tela-auth-card w-full bg-[var(--surface-1)] shadow-[var(--shadow-lg)] text-center">
           <CardHeader className="items-center">
             <CardTitle className="text-[length:var(--text-2xl)]">
               Confirming…
@@ -78,7 +78,7 @@ export function VerifyEmailPage() {
   // error | missing
   return (
     <AuthShell>
-      <Card className="w-full max-w-[24rem] text-center">
+      <Card className="tela-auth-card w-full bg-[var(--surface-1)] shadow-[var(--shadow-lg)] text-center">
         <CardHeader className="items-center">
           <CardTitle className="text-[length:var(--text-2xl)]">
             Link invalid or expired

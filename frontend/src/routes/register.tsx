@@ -57,7 +57,7 @@ export function RegisterPage() {
   if (sentTo) {
     return (
       <AuthShell>
-        <Card className="w-full max-w-[24rem]">
+        <Card className="tela-auth-card w-full bg-[var(--surface-1)] shadow-[var(--shadow-lg)]">
           <CardHeader>
             <CardTitle className="text-[length:var(--text-2xl)]">
               Check your email
@@ -98,7 +98,7 @@ export function RegisterPage() {
 
   return (
     <AuthShell>
-      <Card className="w-full max-w-[24rem]">
+      <Card className="tela-auth-card w-full bg-[var(--surface-1)] shadow-[var(--shadow-lg)]">
         <CardHeader>
           <CardTitle className="text-[length:var(--text-2xl)]">
             Create your account
