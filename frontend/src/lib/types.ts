@@ -325,14 +325,39 @@ export interface OrgLoginSettings {
 // GET /api/host-context — PUBLIC, host-derived. `org` is null on the canonical
 // host and the owning org on a custom domain; `login` drives which sign-in
 // affordances the (white-labeled) login screen shows. Mirrors backend's
-// hostContextDTO.
+// hostContextDTO. `logo_url`/`accent` carry the org's white-label branding and
+// are '' when there's no override (fall back to the org name / default theme).
 export interface HostContext {
-  org: { id: number; name: string; slug: string } | null
+  org: {
+    id: number
+    name: string
+    slug: string
+    logo_url: string
+    accent: string
+  } | null
   login: {
     password_enabled: boolean
     social_enabled: boolean
     org_sso_available: boolean
   }
+}
+
+// GET/PUT /api/orgs/{id}/branding — an org's white-label overrides. Both '' to
+// clear. PUT validates: logo_url must be https://; accent must be a hex
+// (#rrggbb) or an oklch()/rgb()/rgba() color (400 bad_request otherwise).
+export interface OrgBranding {
+  logo_url: string
+  accent: string
+}
+
+// GET /api/orgs/{id}/hostnames/{hostname}/health — a live probe of a custom
+// domain: whether DNS resolves to us and HTTPS terminates. `note` carries a
+// human hint when a check fails. Mirrors backend's hostnameHealthDTO.
+export interface HostnameHealth {
+  dns_ok: boolean
+  addrs: string[]
+  https_ok: boolean
+  note?: string
 }
 
 // One way a user reaches a space (GET /api/spaces/{id}/access). Mirrors

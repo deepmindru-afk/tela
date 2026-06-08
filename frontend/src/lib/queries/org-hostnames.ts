@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from '../api'
-import type { OrgHostname } from '../types'
+import type { HostnameHealth, OrgHostname } from '../types'
 
 // Custom login domains (vanity hostnames) attached to an org — the org's
 // white-labeled sign-in surface. Distinct from the email-domain auto-join
@@ -9,6 +9,8 @@ import type { OrgHostname } from '../types'
 export const orgHostnameKeys = {
   all: ['org-hostnames'] as const,
   list: (orgId: number) => [...orgHostnameKeys.all, orgId] as const,
+  health: (orgId: number, hostname: string) =>
+    [...orgHostnameKeys.all, orgId, 'health', hostname] as const,
 }
 
 // GET /api/orgs/{id}/hostnames — every custom login domain on the org.
@@ -59,6 +61,29 @@ export function useVerifyOrgHostname(orgId: number) {
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: orgHostnameKeys.list(orgId) })
     },
+  })
+}
+
+// GET /api/orgs/{id}/hostnames/{hostname}/health — a live DNS+HTTPS probe.
+// Lazy: `enabled` defaults to false so it doesn't fire for every row on mount.
+// Trigger it from a "Check" button via the returned `refetch`, or pass
+// `enabled` (e.g. true for Active rows) to auto-run once. `staleTime: 0` so a
+// re-check always hits the network.
+export function useOrgHostnameHealth(
+  orgId: number,
+  hostname: string,
+  enabled = false,
+) {
+  return useQuery({
+    queryKey: orgHostnameKeys.health(orgId, hostname),
+    queryFn: async () =>
+      api<HostnameHealth>(
+        `/api/orgs/${orgId}/hostnames/${encodeURIComponent(hostname)}/health`,
+      ),
+    enabled,
+    staleTime: 0,
+    gcTime: 0,
+    retry: false,
   })
 }
 

@@ -17,10 +17,17 @@ const PROVIDER_ORDER = ['google', 'microsoft', 'github']
 export function SSOButtons({ next }: { next: string }) {
   const { data } = useSSOProviders()
   const orgSSO = data?.org_sso ?? false
+  const host = useHostContext().data
+  // On the org's own custom domain the backend resolves the org from the
+  // request host, so we offer a one-click "Sign in with {org}" button (no email
+  // prompt). On the canonical host we don't know the org up front, so we keep
+  // the by-domain email-prompt affordance. org_sso_available picks which.
+  const org = host?.org ?? null
+  const directOrgSSO = host?.login.org_sso_available ?? false
   // On a custom domain that's disabled social sign-in, suppress the social
-  // provider buttons — the org-SSO by-domain affordance stays. Degrades to
-  // "social on" while host context loads / on error.
-  const socialEnabled = useHostContext().data?.login.social_enabled ?? true
+  // provider buttons — the org-SSO affordance stays. Degrades to "social on"
+  // while host context loads / on error.
+  const socialEnabled = host?.login.social_enabled ?? true
   const providers = socialEnabled
     ? [...(data?.providers ?? [])].sort(
         (a, b) =>
@@ -29,7 +36,10 @@ export function SSOButtons({ next }: { next: string }) {
       )
     : []
 
-  if (providers.length === 0 && !orgSSO) return null
+  // The email-prompt fallback only makes sense on the canonical host (no
+  // resolvable org); on a custom domain the direct button replaces it.
+  const showOrgSSOPrompt = orgSSO && !directOrgSSO
+  if (providers.length === 0 && !directOrgSSO && !showOrgSSOPrompt) return null
 
   const start = (provider: string) =>
     `/api/auth/sso/${provider}/start?next=${encodeURIComponent(next)}`
@@ -41,6 +51,8 @@ export function SSOButtons({ next }: { next: string }) {
         Or continue with
         <span className="h-px flex-1 bg-[var(--border-subtle)]" />
       </div>
+
+      {directOrgSSO ? <OrgSSODirect next={next} orgName={org?.name ?? null} /> : null}
 
       {providers.map((p) => (
         <Button
@@ -57,8 +69,30 @@ export function SSOButtons({ next }: { next: string }) {
         </Button>
       ))}
 
-      {orgSSO ? <OrgSSO next={next} /> : null}
+      {showOrgSSOPrompt ? <OrgSSO next={next} /> : null}
     </div>
+  )
+}
+
+// One-click org SSO on the org's own custom domain: the backend resolves the
+// org from the request host, so no email/domain is needed. Primary because on a
+// white-labeled domain this is the headline sign-in path.
+function OrgSSODirect({ next, orgName }: { next: string; orgName: string | null }) {
+  return (
+    <Button
+      type="button"
+      variant="primary"
+      size="lg"
+      onClick={() =>
+        window.location.assign(
+          `/api/auth/sso/org/start?next=${encodeURIComponent(next)}`,
+        )
+      }
+      className="font-medium"
+    >
+      <Building2 size={18} aria-hidden />
+      {orgName ? `Sign in with ${orgName}` : 'Single sign-on (SSO)'}
+    </Button>
   )
 }
 

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link } from '@tanstack/react-router'
 import {
   ArrowLeft,
@@ -6,6 +6,7 @@ import {
   Globe,
   History,
   KeyRound,
+  Palette,
   Trash2,
   UserPlus,
   Users,
@@ -34,15 +35,21 @@ import { useDeleteOrgSSO, useOrgSSO, usePutOrgSSO } from '../../lib/queries/org-
 import {
   useAddOrgHostname,
   useDeleteOrgHostname,
+  useOrgHostnameHealth,
   useOrgHostnames,
   useVerifyOrgHostname,
 } from '../../lib/queries/org-hostnames'
+import {
+  useOrgBranding,
+  usePutOrgBranding,
+} from '../../lib/queries/org-branding'
 import {
   useOrgLoginSettings,
   usePutOrgLoginSettings,
 } from '../../lib/queries/org-login-settings'
 import type {
   Group,
+  HostnameHealth,
   Org,
   OrgHostname,
   OrgMember,
@@ -871,6 +878,8 @@ function CustomDomainsPanel({ org }: { org: Org }) {
         <AddHostnameForm orgId={orgId} />
       </div>
 
+      <BrandingSection orgId={orgId} />
+
       <LoginMethodsSection orgId={orgId} />
     </div>
   )
@@ -886,16 +895,38 @@ function OrgHostnameRow({
   const verify = useVerifyOrgHostname(orgId)
   const del = useDeleteOrgHostname(orgId)
   const [error, setError] = useState<string | null>(null)
+  const [failedAttempts, setFailedAttempts] = useState(0)
   const [confirmOpen, setConfirmOpen] = useState(false)
   const isActive = hostname.status === 'active'
+  // Auto-run the health probe once for Active rows; pending rows check on demand.
+  const health = useOrgHostnameHealth(orgId, hostname.hostname, isActive)
 
-  async function handleVerify() {
+  // Cancel-safe auto-retry: after a verification_failed, retry the verify a
+  // couple times on a short delay (DNS propagation), then stop. Cleared on
+  // unmount and whenever a fresh manual attempt resets the counter.
+  const retryRef = useRef<number | null>(null)
+  useEffect(() => {
+    if (isActive || failedAttempts === 0 || failedAttempts > 2) return
+    retryRef.current = window.setTimeout(() => {
+      void runVerify()
+    }, 4000)
+    return () => {
+      if (retryRef.current) window.clearTimeout(retryRef.current)
+    }
+    // runVerify is stable enough for this effect; keying on the attempt count
+    // is what schedules each retry.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [failedAttempts, isActive])
+
+  async function runVerify() {
     setError(null)
     try {
       await verify.mutateAsync(hostname.hostname)
+      setFailedAttempts(0)
     } catch (err) {
       if (err instanceof ApiError && err.code === 'verification_failed') {
         setError('DNS not found yet — propagation can take a few minutes.')
+        setFailedAttempts((n) => n + 1)
       } else if (err instanceof ApiError) {
         setError(err.message)
       } else {
@@ -903,6 +934,14 @@ function OrgHostnameRow({
       }
     }
   }
+
+  // A manual Verify resets the retry budget so the auto-retry chain restarts.
+  function handleVerify() {
+    setFailedAttempts(0)
+    void runVerify()
+  }
+
+  const retrying = !isActive && failedAttempts > 0 && failedAttempts <= 2
 
   return (
     <li
@@ -925,10 +964,14 @@ function OrgHostnameRow({
             type="button"
             variant="secondary"
             size="sm"
-            onClick={() => void handleVerify()}
+            onClick={handleVerify}
             disabled={verify.isPending}
           >
-            {verify.isPending ? 'Verifying…' : 'Verify'}
+            {verify.isPending || retrying
+              ? 'Verifying…'
+              : failedAttempts > 0
+                ? 'Retry verify'
+                : 'Verify'}
           </Button>
         ) : null}
         <Button
@@ -944,9 +987,17 @@ function OrgHostnameRow({
         </Button>
       </div>
 
+      <HealthChips
+        health={health.data}
+        loading={health.isFetching}
+        error={health.isError}
+        onCheck={() => void health.refetch()}
+      />
+
       {error ? (
         <p role="alert" className="m-0 text-[length:var(--text-xs)] text-[var(--danger)]">
           {error}
+          {failedAttempts > 2 ? ' Records still not visible — double-check them and retry.' : ''}
         </p>
       ) : null}
 
@@ -1043,6 +1094,197 @@ function DnsRecord({
       </pre>
     </div>
   )
+}
+
+// DNS + HTTPS health chips for a custom domain. Lazy: nothing fires until the
+// "Check" button (or the auto-run for Active rows) triggers the probe. A failed
+// check shows the backend's `note` so the admin knows what's wrong.
+function HealthChips({
+  health,
+  loading,
+  error,
+  onCheck,
+}: {
+  health: HostnameHealth | undefined
+  loading: boolean
+  error: boolean
+  onCheck: () => void
+}) {
+  return (
+    <div className="flex items-center gap-[var(--space-2)] flex-wrap">
+      <Button type="button" variant="ghost" size="sm" onClick={onCheck} disabled={loading}>
+        {loading ? 'Checking…' : 'Check'}
+      </Button>
+      {error ? (
+        <span className="text-[length:var(--text-xs)] text-[var(--danger)]">
+          Health check failed.
+        </span>
+      ) : health ? (
+        <>
+          <Badge variant={health.dns_ok ? 'accent' : 'muted'}>
+            {health.dns_ok ? 'DNS ✓' : `DNS ${health.note ?? '✗'}`}
+          </Badge>
+          <Badge variant={health.https_ok ? 'accent' : 'muted'}>
+            {health.https_ok ? 'HTTPS ✓' : `HTTPS ${!health.dns_ok ? '—' : (health.note ?? '✗')}`}
+          </Badge>
+          {health.dns_ok && health.addrs.length > 0 ? (
+            <span className="text-[length:var(--text-xs)] text-[var(--text-muted)] font-[family-name:var(--font-mono)] truncate max-w-full">
+              {health.addrs.join(', ')}
+            </span>
+          ) : null}
+        </>
+      ) : null}
+    </div>
+  )
+}
+
+// Branding overrides for the org's custom-domain login screen (and, via
+// host-context, the whole UI on that domain): a logo URL and an accent color.
+// Both optional — empty clears the override. Surfaces the backend's 400
+// validation (https-only logo; hex/oklch()/rgb() accent). The accent input
+// shows a live swatch using the entered value as an inline background — that's
+// runtime user data, not a hardcoded token.
+function BrandingSection({ orgId }: { orgId: number }) {
+  const branding = useOrgBranding(orgId)
+  const put = usePutOrgBranding(orgId)
+  const [logoUrl, setLogoUrl] = useState('')
+  const [accent, setAccent] = useState('')
+  const [error, setError] = useState<string | null>(null)
+  const [saved, setSaved] = useState(false)
+  // Prefill from the loaded branding once.
+  const [hydratedFor, setHydratedFor] = useState<number | null>(null)
+  if (branding.data && hydratedFor !== orgId) {
+    setLogoUrl(branding.data.logo_url)
+    setAccent(branding.data.accent)
+    setHydratedFor(orgId)
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    setError(null)
+    setSaved(false)
+    try {
+      await put.mutateAsync({ logo_url: logoUrl.trim(), accent: accent.trim() })
+      setSaved(true)
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 400) {
+        // The backend validates both fields; map by which one is non-empty/bad.
+        setError(brandingValidationMessage(logoUrl.trim(), accent.trim(), err))
+      } else if (err instanceof ApiError) {
+        setError(err.message)
+      } else {
+        setError('Failed to save branding.')
+      }
+    }
+  }
+
+  return (
+    <section className="flex flex-col gap-[var(--space-3)] pt-[var(--space-5)] border-t border-[var(--border-subtle)]">
+      <header className="flex flex-col gap-[var(--space-1)]">
+        <h2 className="m-0 flex items-center gap-[var(--space-2)] font-[family-name:var(--font-sans)] text-[length:var(--text-base)] text-[var(--text-primary)]">
+          <Palette width={14} height={14} />
+          Branding
+        </h2>
+        <p className="m-0 text-[length:var(--text-sm)] text-[var(--text-muted)] leading-[var(--leading-relaxed)]">
+          White-label your custom-domain sign-in screen with your logo and accent
+          color. Leave a field blank to use the tela default.
+        </p>
+      </header>
+
+      <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-[var(--space-3)]">
+        <div className="flex flex-col gap-[var(--space-1)]">
+          <label
+            htmlFor={`org-logo-${orgId}`}
+            className="text-[length:var(--text-xs)] uppercase tracking-wider text-[var(--text-muted)] font-[family-name:var(--font-sans)]"
+          >
+            Logo URL
+          </label>
+          <div className="flex items-center gap-[var(--space-2)]">
+            <div className="flex-1 min-w-0">
+              <Input
+                id={`org-logo-${orgId}`}
+                type="url"
+                inputMode="url"
+                autoComplete="off"
+                placeholder="https://example.com/logo.svg"
+                value={logoUrl}
+                onChange={(e) => setLogoUrl(e.target.value)}
+              />
+            </div>
+            {logoUrl.trim() ? (
+              // Live preview of the entered logo — runtime data, broken/empty
+              // URLs simply don't render.
+              <img
+                src={logoUrl.trim()}
+                alt="Logo preview"
+                className="block max-h-[var(--space-7)] w-auto rounded-[var(--radius-xs)] border border-[var(--border-subtle)]"
+              />
+            ) : null}
+          </div>
+        </div>
+
+        <div className="flex flex-col gap-[var(--space-1)]">
+          <label
+            htmlFor={`org-accent-${orgId}`}
+            className="text-[length:var(--text-xs)] uppercase tracking-wider text-[var(--text-muted)] font-[family-name:var(--font-sans)]"
+          >
+            Accent color
+          </label>
+          <div className="flex items-center gap-[var(--space-2)]">
+            <div className="flex-1 min-w-0">
+              <Input
+                id={`org-accent-${orgId}`}
+                autoComplete="off"
+                placeholder="#4f46e5 or oklch(…)"
+                value={accent}
+                onChange={(e) => setAccent(e.target.value)}
+              />
+            </div>
+            {accent.trim() ? (
+              // Swatch fed by the entered value (runtime data). An invalid color
+              // just paints transparent — harmless preview.
+              <span
+                aria-hidden
+                style={{ background: accent.trim() }}
+                className="block h-[var(--space-6)] w-[var(--space-6)] shrink-0 rounded-[var(--radius-xs)] border border-[var(--border-subtle)]"
+              />
+            ) : null}
+          </div>
+        </div>
+
+        {error ? (
+          <p role="alert" className="m-0 text-[length:var(--text-xs)] text-[var(--danger)]">
+            {error}
+          </p>
+        ) : saved ? (
+          <p className="m-0 text-[length:var(--text-xs)] text-[var(--text-muted)]">Saved.</p>
+        ) : null}
+
+        <div>
+          <Button type="submit" variant="secondary" size="sm" disabled={put.isPending}>
+            {put.isPending ? 'Saving…' : 'Save branding'}
+          </Button>
+        </div>
+      </form>
+    </section>
+  )
+}
+
+// Pick the right validation message for a 400 from PUT /branding. The backend
+// returns one error code; we tailor the copy by which field is non-empty
+// (an empty field can't be the offender — '' clears the override).
+function brandingValidationMessage(
+  logoUrl: string,
+  accent: string,
+  err: ApiError,
+): string {
+  if (logoUrl && !/^https:\/\//i.test(logoUrl)) {
+    return 'Logo URL must start with https://'
+  }
+  if (accent) {
+    return 'Accent must be a hex (#rrggbb) or an oklch()/rgb() color.'
+  }
+  return err.message
 }
 
 function AddHostnameForm({ orgId }: { orgId: number }) {

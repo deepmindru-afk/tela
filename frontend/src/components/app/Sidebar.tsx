@@ -5,7 +5,7 @@ import { PagesTree } from './PagesTree'
 import { SpacesList } from './SpacesList'
 import { FavoritesSidebarSection } from './FavoritesSidebarSection'
 import { UserMenu } from './UserMenu'
-import { BrandMark } from '../BrandMark'
+import { BrandLogo } from '../BrandLogo'
 import { Button } from '../ui/button'
 import { emitOpenNewPage } from '../../lib/newPageEvent'
 import { emitOpenPalette } from '../../lib/paletteEvent'
@@ -40,10 +40,12 @@ export function Sidebar({ open = false }: { open?: boolean }) {
         <Link
           to="/"
           aria-label="tela — home"
-          className="mb-[var(--space-2)] inline-flex items-center gap-[var(--space-2)] px-[var(--space-1)] text-[length:var(--text-base)] font-medium leading-none tracking-[-0.01em] text-[var(--text-primary)] no-underline transition-opacity duration-[var(--duration-fast)] hover:opacity-80"
+          className="mb-[var(--space-2)] inline-flex items-center px-[var(--space-1)] no-underline transition-opacity duration-[var(--duration-fast)] hover:opacity-80"
         >
-          <BrandMark size={20} />
-          tela
+          <BrandLogo
+            size={20}
+            className="text-[length:var(--text-base)] font-medium leading-none tracking-[-0.01em]"
+          />
         </Link>
         <Button
           asChild
