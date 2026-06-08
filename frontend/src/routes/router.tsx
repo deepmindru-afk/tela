@@ -13,6 +13,7 @@ import {
 } from '@tanstack/react-router'
 import { FilePlus, FileQuestion, Menu } from 'lucide-react'
 import { AppCommandHost } from '../components/app/AppCommandHost'
+import { BrandLogo } from '../components/BrandLogo'
 import { NotificationBell } from '../components/app/NotificationBell'
 import { EmptyState } from '../components/ui/empty-state'
 import { OrgManageView } from '../components/app/OrgManageView'
@@ -28,6 +29,7 @@ import {
   CardTitle,
 } from '../components/ui/card'
 import { queryClient } from '../lib/queryClient'
+import { useOrgAccent } from '../lib/useOrgAccent'
 import {
   authKeys,
   fetchMe,
@@ -75,6 +77,9 @@ function ensureSetupStatus(): Promise<boolean> {
 // shell, so we can't bake the shell into the root component anymore.
 const rootRoute = createRootRoute({
   component: function Root() {
+    // White-label accent injection, app-wide and as early as the root mounts —
+    // covers every surface (auth + app + public) under one effect.
+    useOrgAccent()
     return <Outlet />
   },
   notFoundComponent: function NotFound() {
@@ -154,9 +159,9 @@ const appLayoutRoute = createRoute({
               <Link
                 to="/"
                 aria-label="tela home"
-                className="inline-block rounded-[var(--radius-xs)] text-[var(--text-primary)] no-underline transition-opacity duration-[var(--duration-fast)] hover:opacity-70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+                className="inline-flex rounded-[var(--radius-xs)] no-underline transition-opacity duration-[var(--duration-fast)] hover:opacity-70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
               >
-                tela
+                <BrandLogo size={20} />
               </Link>
             </h1>
             <div className="flex items-center gap-[var(--space-2)]">

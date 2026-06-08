@@ -84,15 +84,27 @@ func (s *Server) SSOStart(w http.ResponseWriter, r *http.Request) {
 		orgID            int64
 	)
 	if provider == "org" {
-		domain := normalizeDomain(r.URL.Query().Get("domain"))
-		if domain == "" {
-			domain = emailDomain(normalizeEmail(r.URL.Query().Get("email")))
+		var (
+			conn orgSSOConn
+			ok   bool
+			err  error
+		)
+		// On the org's own custom domain we already know which org this is, so
+		// the SSO flow needs no email/domain prompt — resolve straight from the
+		// host context. Off a custom domain, fall back to email/domain matching.
+		if oc, hasOrg := auth.OrgContextFromContext(ctx); hasOrg {
+			conn, ok, err = s.orgSSOByID(ctx, oc.OrgID)
+		} else {
+			domain := normalizeDomain(r.URL.Query().Get("domain"))
+			if domain == "" {
+				domain = emailDomain(normalizeEmail(r.URL.Query().Get("email")))
+			}
+			if domain == "" {
+				writeError(w, http.StatusBadRequest, "bad_request", "a domain or email is required")
+				return
+			}
+			conn, ok, err = s.orgSSOByDomain(ctx, domain)
 		}
-		if domain == "" {
-			writeError(w, http.StatusBadRequest, "bad_request", "a domain or email is required")
-			return
-		}
-		conn, ok, err := s.orgSSOByDomain(ctx, domain)
 		if err != nil {
 			writeError(w, http.StatusInternalServerError, "internal", "lookup sso failed")
 			return
@@ -101,7 +113,7 @@ func (s *Server) SSOStart(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusNotFound, "not_found", "no SSO is configured for that domain")
 			return
 		}
-		pp, err := buildOrgProvider(ctx, conn.Issuer, conn.ClientID, conn.ClientSecret)
+		pp, err := buildOrgProvider(ctx, s.linkOrigin(r), conn.Issuer, conn.ClientID, conn.ClientSecret)
 		if err != nil {
 			writeError(w, http.StatusBadGateway, "sso_unavailable", "could not reach the SSO provider")
 			return
@@ -161,7 +173,7 @@ func (s *Server) SSOCallback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	p, err := s.providerForCallback(ctx, provider, st.OrgID)
+	p, err := s.providerForCallback(ctx, s.linkOrigin(r), provider, st.OrgID)
 	if err != nil {
 		ssoFail(w, r, "the SSO provider is unavailable")
 		return
@@ -216,7 +228,7 @@ func (s *Server) SSOCallback(w http.ResponseWriter, r *http.Request) {
 // providerForCallback re-materializes the provider for a callback: the social
 // registry for a named provider, or a freshly built org provider from the
 // org_sso row carried in the state.
-func (s *Server) providerForCallback(ctx context.Context, provider string, orgID int64) (*ssoProvider, error) {
+func (s *Server) providerForCallback(ctx context.Context, origin, provider string, orgID int64) (*ssoProvider, error) {
 	if provider != "org" {
 		p, ok := s.sso.lookup(provider)
 		if !ok {
@@ -231,7 +243,9 @@ func (s *Server) providerForCallback(ctx context.Context, provider string, orgID
 	if !ok {
 		return nil, errors.New("org sso not found")
 	}
-	return buildOrgProvider(ctx, conn.Issuer, conn.ClientID, conn.ClientSecret)
+	// origin must match SSOStart's so the redirect_uri byte-matches at token
+	// exchange (OIDC requirement). Same host round-trips through the IdP.
+	return buildOrgProvider(ctx, origin, conn.Issuer, conn.ClientID, conn.ClientSecret)
 }
 
 // identityFromOIDC verifies the id_token (signature, audience, nonce, and the

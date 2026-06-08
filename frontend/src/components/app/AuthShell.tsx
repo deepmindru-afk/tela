@@ -1,31 +1,45 @@
 import type { ReactNode } from 'react'
 import { ThemeSwitcher } from '../ThemeSwitcher'
-import { BrandMark } from '../BrandMark'
+import { BrandLogo } from '../BrandLogo'
+import { PoweredByTela } from '../PoweredByTela'
+import { useHostContext } from '../../lib/queries/host-context'
 
 // Shared chrome for the unauthenticated auth surfaces (login / register /
 // verify / forgot / reset). Mirrors the original login page layout so all the
 // auth pages read as one family: a thin branded header and a centered card.
 export function AuthShell({ children }: { children: ReactNode }) {
+  // On an org's custom domain BrandLogo white-labels the header (logo / org
+  // name); on the canonical host it shows tela. Degrades to tela while loading
+  // / on error (org null). Only the canonical-host mark links home.
+  const org = useHostContext().data?.org ?? null
+  const brandClass =
+    'm-0 text-[length:var(--text-lg)] leading-[var(--leading-tight)]'
   return (
     <div className="min-h-dvh flex flex-col bg-[var(--surface-1)] text-[var(--text-primary)]">
       <header className="flex items-center justify-between px-[var(--space-6)] py-[var(--space-3)] border-b border-[var(--border-subtle)] shrink-0">
-        {/* The landing lives at "/" (served by Caddy, not an SPA route), so this
-            is a real navigation with the ?home=1 hatch — not a router Link, which
-            would resolve "/" in-app and bounce back. */}
-        <a
-          href="/?home=1"
-          aria-label="tela — home"
-          className="m-0 inline-flex items-center gap-[var(--space-2)] text-[length:var(--text-lg)] leading-[var(--leading-tight)] font-[family-name:var(--font-sans)] text-[var(--text-primary)] no-underline"
-        >
-          <BrandMark size={22} />
-          tela
-        </a>
+        {org ? (
+          <BrandLogo size={22} className={brandClass} />
+        ) : (
+          /* The landing lives at "/" (served by Caddy, not an SPA route), so
+             this is a real navigation with the ?home=1 hatch — not a router
+             Link, which would resolve "/" in-app and bounce back. */
+          <a href="/?home=1" aria-label="tela — home" className="no-underline">
+            <BrandLogo size={22} className={brandClass} />
+          </a>
+        )}
         <ThemeSwitcher />
       </header>
       <main className="relative flex-1 flex items-center justify-center p-[var(--space-7)]">
         <div aria-hidden className="tela-auth-backdrop" />
         <div className="relative w-full max-w-[25rem]">{children}</div>
       </main>
+      {/* On a custom domain, a discreet product credit (renders nothing on the
+          canonical host, which is already tela-branded). */}
+      {org ? (
+        <footer className="shrink-0 flex justify-center pb-[var(--space-6)]">
+          <PoweredByTela />
+        </footer>
+      ) : null}
     </div>
   )
 }

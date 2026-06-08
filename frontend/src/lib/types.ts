@@ -297,6 +297,69 @@ export interface OrgDomain {
   created_at: string
 }
 
+// A custom login domain (vanity hostname) an org can attach to white-label its
+// sign-in screen — e.g. wiki.example.com. DISTINCT from OrgDomain above: that's
+// an email-domain auto-join mapping (identity → membership); THIS is a DNS
+// hostname that serves the org's own login surface. Mirrors backend's
+// OrgHostname. `status` is 'pending' until DNS verification passes, then
+// 'active'. The txt_*/cname_target fields are the DNS records the admin must
+// add; verified_at is null while pending.
+export interface OrgHostname {
+  hostname: string
+  status: 'pending' | 'active'
+  txt_name: string
+  txt_value: string
+  cname_target: string
+  verified_at: string | null
+  created_at: string
+}
+
+// Per-org toggles for which sign-in methods its custom-domain login screen
+// offers. GET/PUT /api/orgs/{id}/login-settings. The backend rejects disabling
+// BOTH when the org has no SSO configured (you'd lock everyone out).
+export interface OrgLoginSettings {
+  password_enabled: boolean
+  social_enabled: boolean
+}
+
+// GET /api/host-context — PUBLIC, host-derived. `org` is null on the canonical
+// host and the owning org on a custom domain; `login` drives which sign-in
+// affordances the (white-labeled) login screen shows. Mirrors backend's
+// hostContextDTO. `logo_url`/`accent` carry the org's white-label branding and
+// are '' when there's no override (fall back to the org name / default theme).
+export interface HostContext {
+  org: {
+    id: number
+    name: string
+    slug: string
+    logo_url: string
+    accent: string
+  } | null
+  login: {
+    password_enabled: boolean
+    social_enabled: boolean
+    org_sso_available: boolean
+  }
+}
+
+// GET/PUT /api/orgs/{id}/branding — an org's white-label overrides. Both '' to
+// clear. PUT validates: logo_url must be https://; accent must be a hex
+// (#rrggbb) or an oklch()/rgb()/rgba() color (400 bad_request otherwise).
+export interface OrgBranding {
+  logo_url: string
+  accent: string
+}
+
+// GET /api/orgs/{id}/hostnames/{hostname}/health — a live probe of a custom
+// domain: whether DNS resolves to us and HTTPS terminates. `note` carries a
+// human hint when a check fails. Mirrors backend's hostnameHealthDTO.
+export interface HostnameHealth {
+  dns_ok: boolean
+  addrs: string[]
+  https_ok: boolean
+  note?: string
+}
+
 // One way a user reaches a space (GET /api/spaces/{id}/access). Mirrors
 // backend's accessSource. name is the org/group name; absent for direct.
 export interface AccessSource {
