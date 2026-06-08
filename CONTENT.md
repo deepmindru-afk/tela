@@ -204,6 +204,15 @@ Section order is the narrative arc. Tier = visual prominence (1 = hero/max, 4 = 
 - **Self-host escape hatch (short, the demoted pillar):** `Prefer to run it yourself? You can. tela is open and self-hostable — Docker Compose, your Postgres, your disk, your markdown. Read exactly what runs before you run it.`  CTA: `Read the docs` → `docs/` / README.
 - **Honesty line:** `Orgs are admin-provisioned (not open self-service signup) and social login isn't wired yet — by design for now. The access model is documented and the auth code is open.`
 
+### 8b. Pricing — "Simple plans. Your markdown either way."  — Tier 2  (added 2026-06: tiers shipped)
+- **Purpose:** Show the plan ladder without hype. The product now meters per-account tiers (personal + org); pricing makes the ladder legible. The thesis: tiers change *limits*, never the product — same wiki, search, and agent connector on every plan.
+- **Headline (H2):** `Simple plans. Your markdown either way.`
+- **Lede:** `A personal account and every organization carry their own tier. Tiers only change the limits — the wiki, the search, and the agent connector are the same.`
+- **Personal tiers (cards):** `Free` (3 spaces · 100 pages/space · 100 MB) · `Plus` (25 · 1,000 · 5 GB).
+- **Organization tiers (cards):** `Free` (10 · 500 · 1 GB · 5 members) · `Team` *(recommended — the one earned-indigo card)* (100 · unlimited pages · 50 GB · 50 members) · `Enterprise` (unlimited everything; `Get in touch`).
+- **Every-plan-includes line:** `Semantic + full-text search · MCP connector for Claude & ChatGPT · Real-time multiplayer editing · Plain markdown you own — export anytime.`
+- **Honesty line:** numbers mirror the backend `plans` table (the source of truth); no self-serve billing yet — plans are operator-assigned, and the CTA starts you on the hosted instance free.
+
 ### 9. Credibility — "Open. Live. In the directories."  — Tier 3  (transparency as proof; NO fake logos)
 - **Headline (H2):** `Why trust it? Don't — read it and run it.`
 - **Three proof tiles (transparency, not testimonials):**

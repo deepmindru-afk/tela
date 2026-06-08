@@ -1,0 +1,243 @@
+---
+// Pricing — plans for a personal account and for an organization. Mirrors the
+// product's tiers (backend plans table). Honest + low-hype: every plan is the
+// same markdown you own; tiers only change the limits. Indigo is earned on the
+// one recommended org tier. Cards stack on mobile.
+const includes = [
+  'Semantic + full-text search',
+  'MCP connector for Claude & ChatGPT',
+  'Real-time multiplayer editing',
+  'Plain markdown you own — export anytime',
+];
+
+const personal = [
+  {
+    name: 'Free',
+    blurb: 'Personal notes and trying tela.',
+    specs: ['3 spaces', '100 pages / space', '100 MB storage'],
+    cta: 'Get started',
+    href: 'https://tela.cagdas.io',
+    featured: false,
+  },
+  {
+    name: 'Plus',
+    blurb: 'For power users who live in their wiki.',
+    specs: ['25 spaces', '1,000 pages / space', '5 GB storage'],
+    cta: 'Get started',
+    href: 'https://tela.cagdas.io',
+    featured: false,
+  },
+];
+
+const org = [
+  {
+    name: 'Free',
+    blurb: 'A small team getting started.',
+    specs: ['10 spaces', '500 pages / space', '1 GB storage', '5 members'],
+    cta: 'Get started',
+    href: 'https://tela.cagdas.io',
+    featured: false,
+  },
+  {
+    name: 'Team',
+    blurb: 'A growing team that runs on its docs.',
+    specs: ['100 spaces', 'Unlimited pages', '50 GB storage', '50 members'],
+    cta: 'Get started',
+    href: 'https://tela.cagdas.io',
+    featured: true,
+  },
+  {
+    name: 'Enterprise',
+    blurb: 'SSO, audit, and scale. Talk to us.',
+    specs: ['Unlimited spaces', 'Unlimited pages', 'Unlimited storage', 'Unlimited members'],
+    cta: 'Get in touch',
+    href: 'https://tela.cagdas.io',
+    featured: false,
+  },
+];
+---
+<section id="pricing" class="section">
+  <div class="section-head reveal-up">
+    <p class="kicker"><span class="kicker-dot"></span>Pricing</p>
+    <h2 class="h2">Simple plans. Your markdown either way.</h2>
+    <p class="lede">
+      A personal account and every organization carry their own tier. Tiers only change
+      the limits — <strong>the wiki, the search, and the agent connector are the same</strong>.
+    </p>
+  </div>
+
+  <div class="tiers reveal-up">
+    <p class="tier-group-label">Personal</p>
+    <div class="grid grid-2">
+      {personal.map((p) => (
+        <article class={`price-card${p.featured ? ' price-card--featured' : ''}`}>
+          <header class="price-head">
+            <h3 class="price-name">{p.name}</h3>
+            {p.featured ? <span class="price-tag">Recommended</span> : null}
+          </header>
+          <p class="price-blurb">{p.blurb}</p>
+          <ul class="price-specs">
+            {p.specs.map((s) => <li>{s}</li>)}
+          </ul>
+          <a href={p.href} class={p.featured ? 'price-cta price-cta--primary' : 'price-cta'} target="_blank" rel="noopener">{p.cta}</a>
+        </article>
+      ))}
+    </div>
+  </div>
+
+  <div class="tiers reveal-up">
+    <p class="tier-group-label">Organization</p>
+    <div class="grid grid-3">
+      {org.map((p) => (
+        <article class={`price-card${p.featured ? ' price-card--featured' : ''}`}>
+          <header class="price-head">
+            <h3 class="price-name">{p.name}</h3>
+            {p.featured ? <span class="price-tag">Recommended</span> : null}
+          </header>
+          <p class="price-blurb">{p.blurb}</p>
+          <ul class="price-specs">
+            {p.specs.map((s) => <li>{s}</li>)}
+          </ul>
+          <a href={p.href} class={p.featured ? 'price-cta price-cta--primary' : 'price-cta'} target="_blank" rel="noopener">{p.cta}</a>
+        </article>
+      ))}
+    </div>
+  </div>
+
+  <p class="price-includes reveal-up">
+    Every plan includes {includes.join(' · ')}.
+  </p>
+</section>
+
+<style>
+  .tiers { margin-bottom: 2.5rem; }
+  .tiers:last-of-type { margin-bottom: 0; }
+
+  .tier-group-label {
+    margin: 0 0 1rem;
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--fg-faint);
+  }
+
+  .grid { display: grid; gap: 1rem; }
+  .grid-2 { grid-template-columns: repeat(2, 1fr); }
+  .grid-3 { grid-template-columns: repeat(3, 1fr); }
+
+  .price-card {
+    display: flex;
+    flex-direction: column;
+    gap: 0.85rem;
+    padding: 1.5rem;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    background: var(--surface);
+  }
+  /* Indigo earned on the one recommended tier. */
+  .price-card--featured {
+    border-color: var(--pill-border);
+    background: var(--brand-wash);
+    box-shadow: var(--shadow-frame, none);
+  }
+
+  .price-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+  }
+  .price-name {
+    margin: 0;
+    font-family: var(--font-display);
+    font-size: var(--text-xl);
+    font-weight: 600;
+    letter-spacing: var(--tracking-tight);
+    color: var(--fg);
+  }
+  .price-tag {
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--brand-strong);
+    border: 1px solid var(--pill-border);
+    border-radius: var(--radius-sm);
+    padding: 0.15rem 0.5rem;
+    white-space: nowrap;
+  }
+
+  .price-blurb {
+    margin: 0;
+    font-size: var(--text-sm);
+    line-height: var(--leading-normal);
+    color: var(--fg-soft);
+  }
+
+  .price-specs {
+    list-style: none;
+    margin: 0;
+    padding: 0.5rem 0 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    flex: 1;
+  }
+  .price-specs li {
+    font-family: var(--font-mono);
+    font-size: var(--text-sm);
+    color: var(--fg);
+    padding-left: 1.1rem;
+    position: relative;
+  }
+  .price-specs li::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0.5em;
+    width: 0.35rem;
+    height: 0.35rem;
+    border-radius: 50%;
+    background: var(--brand);
+  }
+
+  .price-cta {
+    margin-top: 0.5rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.6rem 1rem;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--cta-ghost-border);
+    color: var(--fg);
+    background: transparent;
+    font-size: var(--text-sm);
+    font-weight: 500;
+    text-decoration: none;
+    transition: border-color var(--dur) var(--ease-out), background var(--dur) var(--ease-out);
+  }
+  .price-cta:hover { border-color: var(--brand); background: var(--surface); }
+  .price-cta--primary {
+    background: var(--cta-bg);
+    border-color: transparent;
+    color: var(--cta-fg);
+  }
+  .price-cta--primary:hover { background: var(--cta-bg-hover); }
+
+  .price-includes {
+    margin: 2.5rem auto 0;
+    max-width: 64ch;
+    text-align: center;
+    font-size: var(--text-sm);
+    line-height: var(--leading-normal);
+    color: var(--fg-faint);
+  }
+
+  @media (max-width: 900px) {
+    .grid-3 { grid-template-columns: 1fr 1fr; }
+  }
+  @media (max-width: 620px) {
+    .grid-2, .grid-3 { grid-template-columns: 1fr; }
+  }
+</style>
