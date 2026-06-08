@@ -180,7 +180,110 @@ func TestOrgHostnameValidation(t *testing.T) {
 	cdPost(t, c, base, `{"hostname":"docs.example.com"}`, http.StatusConflict, nil)
 }
 
+// Host-context drives login-screen branding + which sign-in methods show, and
+// the password toggle is enforced server-side on the org's domain.
+func TestHostContextAndLoginSettings(t *testing.T) {
+	ts, d := newWiredServer(t)
+	seedUser(t, d, "admin", "adminpass1", true)
+	seedUser(t, d, "member", "memberpass1", false)
+	org := seedOrg(t, d, "Acme", "acme")
+	if _, err := d.Exec(
+		`INSERT INTO org_hostnames (hostname, org_id, status, verify_token) VALUES ($1,$2,'active',$3)`,
+		"wiki.example.com", org, "tok"); err != nil {
+		t.Fatalf("seed hostname: %v", err)
+	}
+	admin := loginClient(t, ts, "admin", "adminpass1")
+
+	// On the custom host: org present, both methods enabled by default.
+	var hc hostContextDTO
+	getHost(t, http.DefaultClient, ts.URL+"/api/host-context", "wiki.example.com", http.StatusOK, &hc)
+	if hc.Org == nil || hc.Org.Name != "Acme" || !hc.Login.PasswordEnabled || !hc.Login.SocialEnabled {
+		t.Fatalf("custom-host context = %+v", hc)
+	}
+	// On the canonical host: no org.
+	var hc2 hostContextDTO
+	getHost(t, http.DefaultClient, ts.URL+"/api/host-context", "", http.StatusOK, &hc2)
+	if hc2.Org != nil {
+		t.Fatalf("canonical host context should have no org: %+v", hc2)
+	}
+
+	// Disable password sign-in for the org.
+	cdPut(t, admin, ts.URL+"/api/orgs/"+itoa(org)+"/login-settings",
+		`{"password_enabled":false,"social_enabled":true}`, http.StatusOK)
+
+	getHost(t, http.DefaultClient, ts.URL+"/api/host-context", "wiki.example.com", http.StatusOK, &hc)
+	if hc.Login.PasswordEnabled {
+		t.Fatalf("password should be disabled after PUT: %+v", hc.Login)
+	}
+
+	// Server-side enforcement: password login on the org's host is refused.
+	code := postHostStatus(t, ts.URL+"/api/auth/login", "wiki.example.com",
+		`{"username":"member","password":"memberpass1"}`)
+	if code != http.StatusForbidden {
+		t.Fatalf("password login on disabled host = %d, want 403", code)
+	}
+	// ...but it still works on the canonical host.
+	code = postHostStatus(t, ts.URL+"/api/auth/login", "", `{"username":"member","password":"memberpass1"}`)
+	if code != http.StatusOK {
+		t.Fatalf("password login on canonical = %d, want 200", code)
+	}
+
+	// Can't disable every method without SSO configured.
+	cdPut(t, admin, ts.URL+"/api/orgs/"+itoa(org)+"/login-settings",
+		`{"password_enabled":false,"social_enabled":false}`, http.StatusBadRequest)
+}
+
 // --- small test helpers (itoa lives in attachments_test.go) ---
+
+func cdPut(t *testing.T, c *http.Client, url, body string, wantStatus int) {
+	t.Helper()
+	req, _ := http.NewRequest(http.MethodPut, url, strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := c.Do(req)
+	if err != nil {
+		t.Fatalf("PUT %s: %v", url, err)
+	}
+	resp.Body.Close()
+	if resp.StatusCode != wantStatus {
+		t.Fatalf("PUT %s = %d, want %d", url, resp.StatusCode, wantStatus)
+	}
+}
+
+func getHost(t *testing.T, c *http.Client, url, host string, wantStatus int, out any) {
+	t.Helper()
+	req, _ := http.NewRequest(http.MethodGet, url, nil)
+	if host != "" {
+		req.Host = host
+	}
+	resp, err := c.Do(req)
+	if err != nil {
+		t.Fatalf("GET %s (host %q): %v", url, host, err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != wantStatus {
+		t.Fatalf("GET %s (host %q) = %d, want %d", url, host, resp.StatusCode, wantStatus)
+	}
+	if out != nil {
+		if err := json.NewDecoder(resp.Body).Decode(out); err != nil {
+			t.Fatalf("decode %s: %v", url, err)
+		}
+	}
+}
+
+func postHostStatus(t *testing.T, url, host, body string) int {
+	t.Helper()
+	req, _ := http.NewRequest(http.MethodPost, url, strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	if host != "" {
+		req.Host = host
+	}
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("POST %s (host %q): %v", url, host, err)
+	}
+	resp.Body.Close()
+	return resp.StatusCode
+}
 
 func cdPost(t *testing.T, c *http.Client, url, body string, wantStatus int, out any) {
 	t.Helper()

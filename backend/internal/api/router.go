@@ -362,6 +362,12 @@ func registerRoutes(srv *Server, mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/orgs/{id}/hostnames", srv.AddOrgHostname)
 	mux.HandleFunc("POST /api/orgs/{id}/hostnames/{hostname}/verify", srv.VerifyOrgHostname)
 	mux.HandleFunc("DELETE /api/orgs/{id}/hostnames/{hostname}", srv.DeleteOrgHostname)
+	// Per-org login-method toggles (org_login_settings.go), org-admin.
+	mux.HandleFunc("GET /api/orgs/{id}/login-settings", srv.GetOrgLoginSettings)
+	mux.HandleFunc("PUT /api/orgs/{id}/login-settings", srv.PutOrgLoginSettings)
+	// Host context: org branding + enabled sign-in methods for the request's
+	// host. Public (host-derived, pre-login) — see IsPublicPath.
+	mux.HandleFunc("GET /api/host-context", srv.HostContext)
 	// Caddy on-demand-TLS ask endpoint (tls_check.go). Public (internal-network
 	// only — see IsPublicPath and the proxy 404 for /api/internal/ from the WAN).
 	mux.HandleFunc("GET /api/internal/tls-check", srv.TLSCheck)

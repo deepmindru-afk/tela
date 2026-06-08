@@ -99,6 +99,14 @@ func (s *Server) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// A custom-domain org that disabled the password method blocks it server-
+	// side too, not just by hiding the form (the SPA reads the same flag from
+	// /api/host-context). Instance admins are exempt as above.
+	if isAdmin != 1 && s.passwordLoginBlockedByHost(r) {
+		writeError(w, http.StatusForbidden, "sso_required", "password sign-in is disabled on this domain")
+		return
+	}
+
 	// Apply auto-join domains on every sign-in so a domain mapping added after
 	// the user already verified still takes effect (idempotent, best-effort).
 	if email.Valid {

@@ -252,6 +252,11 @@ func IsPublicPath(p string) bool {
 	if strings.HasPrefix(p, "/api/internal/") {
 		return true
 	}
+	// Host context (org branding + sign-in methods for the request host). The
+	// SPA fetches it pre-login to brand the login screen, so it must be public.
+	if p == "/api/host-context" {
+		return true
+	}
 	// Cloud control plane — managed services (RAG embed proxy, entitlements)
 	// that a connected self-hoster's instance calls over HTTP. Bypasses
 	// Middleware because the cloud handlers self-authenticate the bearer PAT via
