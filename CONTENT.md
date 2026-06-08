@@ -204,6 +204,14 @@ Section order is the narrative arc. Tier = visual prominence (1 = hero/max, 4 = 
 - **Self-host escape hatch (short, the demoted pillar):** `Prefer to run it yourself? You can. tela is open and self-hostable — Docker Compose, your Postgres, your disk, your markdown. Read exactly what runs before you run it.`  CTA: `Read the docs` → `docs/` / README.
 - **Honesty line:** `Orgs are admin-provisioned (not open self-service signup) and social login isn't wired yet — by design for now. The access model is documented and the auth code is open.`
 
+### 8a. Publish — "Your wiki doubles as a public site."  — Tier 2  (added 2026-06: public-spaces blog shipped)
+- **Purpose:** Surface the public/publishing story — a space flipped to `visibility=public` becomes a no-login, magazine-style blog (docs/public-spaces.md). Distinct from the per-page **share links** in the bento.
+- **Headline (H2):** `Your wiki doubles as a public site.`
+- **Lede:** flip a space public → no-login magazine blog (docs/changelog/handbook) with RSS + SEO; same plain markdown underneath, nothing duplicated/exported.
+- **Visual:** a blog front-page mock — masthead (monogram avatar + standfirst + RSS chip) + post cards (cover w/ graph-paper grid + faded monogram, meta `date · reading-time · tag`, title, excerpt). Mirrors the real reader.
+- **Capabilities:** `No-login public reader` · `RSS feed per space` · `OG, JSON-LD & sitemap for SEO` · `Author home at /u/handle`.
+- **Honesty line:** read-only by design — making a space public grants no write access; owner flips it on and can flip it back.
+
 ### 8b. Pricing — "Simple plans. Your markdown either way."  — Tier 2  (added 2026-06: tiers shipped)
 - **Purpose:** Show the plan ladder without hype. The product now meters per-account tiers (personal + org); pricing makes the ladder legible. The thesis: tiers change *limits*, never the product — same wiki, search, and agent connector on every plan.
 - **Headline (H2):** `Simple plans. Your markdown either way.`
