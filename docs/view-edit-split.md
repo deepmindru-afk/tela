@@ -15,13 +15,28 @@ Status: **in progress** (design locked; core shipped). Owner: see git blame.
 - ✅ **View-first `PageView`** — read view by default; `PageEditor` (collab)
   mounts only on `?edit=1` / draft. Edit ⇄ Done toggle. Verified in-app: view
   loads no editor chunk, no `/yjs`, no websocket.
+- ✅ **Comments in view** (read + reply) — `PageViewer` reuses `CommentsPanel`
+  (composer hidden; reply/resolve work) + inline highlights via the CSS Custom
+  Highlight API (`useCommentHighlights`, paint-only) resolving anchors with the
+  shared `resolveAnchor`.
+- ✅ **Directive blocks** — pull-quote, embed (provider iframe via shared
+  `lib/markdown/embed.ts`), file, timeline render at full fidelity. Tabs too.
 - ✅ **Anti-drift gate** — `scripts/blocks-manifest.mjs` requires every block to
   declare a view-render status (VIEW_RENDERED / VIEW_DEGRADES).
-- ⏳ **Pending** — comments in view (read+reply, phase 4); dedicated renderers
-  for the degrading directive blocks (pull-quote, embed, file, kanban,
-  stat-grid, timeline, calendar) + collapsible; swapping `/read`, `/public`,
-  `/share` to `MarkdownView`; the runtime render-parity test (the gate is
-  classification-only for now — FE has no test infra yet).
+- ⏳ **Pending follow-ups**
+  - Computed/rare blocks still graceful-degrade (content preserved): **kanban**
+    (drag board), **stat-grid** (tiles), **calendar** (month grid), and
+    **collapsible** (`<details>` raw-HTML grouping). Gate-tracked in
+    VIEW_DEGRADES.
+  - **Swap `/read`, `/public`, `/share` to `MarkdownView`** + remove the editor's
+    `readOnly`/share branches. Non-trivial: `ReaderShell` builds its TOC,
+    heading anchors, footnote post-processing and scroll-spy off the editor's
+    `view.dom`, and share-mode needs out-of-scope wikilinks rendered as plain
+    text — all must be ported to `MarkdownView`'s DOM. Deferred to protect the
+    SEO/public surface (a half-port would break the reader TOC).
+  - New-comment-from-selection in view (a non-PM selection→anchor capture).
+  - Runtime render-parity test (gate is classification-only; FE has no test
+    infra yet).
 
 ## Why
 
