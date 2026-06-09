@@ -396,11 +396,14 @@ function PageViewer({
         </div>
       </header>
 
+      {/* The scroller spans the full width (so wheel over the empty gutters
+          scrolls the page); the 48rem reading column is an inner wrapper. */}
       <div
         ref={contentRef}
         onClick={onContentClick}
-        className="flex-1 overflow-y-auto flex flex-col gap-[var(--space-4)] p-[var(--space-7)] max-w-[48rem] w-full self-center min-h-0"
+        className="flex-1 overflow-y-auto min-h-0"
       >
+        <div className="flex flex-col gap-[var(--space-4)] p-[var(--space-7)] max-w-[48rem] w-full mx-auto">
         <WikilinkHoverPreview containerRef={contentRef} />
         <h1
           className={cn(
@@ -436,6 +439,7 @@ function PageViewer({
         <BacklinksSection pageId={page.id} />
 
         <LocalGraphCard pageId={page.id} />
+        </div>
       </div>
 
       <DeletePageConfirmDialog

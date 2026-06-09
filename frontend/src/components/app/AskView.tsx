@@ -11,6 +11,7 @@ import { useAskDocs } from '../../lib/queries/ask'
 import { navigateToPage } from '../../lib/pageHitItem'
 import { ApiError, ASK_UNAVAILABLE_CODES, type SemanticHit } from '../../lib/api'
 import { SearchResult } from './SearchResult'
+import { MarkdownView } from '../view/MarkdownView'
 
 interface AskSearchParams {
   space?: number
@@ -191,9 +192,9 @@ export function AskRoute() {
           <div className="flex flex-col gap-[var(--space-5)]">
             <Card>
               <CardBody>
-                <p className="m-0 whitespace-pre-wrap text-[length:var(--text-base)] leading-[var(--leading-relaxed)] text-[var(--text-primary)] font-[family-name:var(--font-sans)]">
-                  {ask.data.answer}
-                </p>
+                {/* Answers come back as markdown (bold, lists, …) — render
+                    them through the shared read-view renderer, not as text. */}
+                <MarkdownView body={ask.data.answer} />
               </CardBody>
             </Card>
             {sources.length > 0 ? (

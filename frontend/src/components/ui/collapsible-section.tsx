@@ -44,6 +44,17 @@ export function CollapsibleSection({
     setOpen(next)
     if (next) setHasOpened(true)
     if (persistKey) window.localStorage.setItem(persistKey, next ? '1' : '0')
+    if (next) {
+      // These sections sit at the bottom of the page, so the body usually
+      // expands below the fold. Scroll the section fully into view once the
+      // body has mounted (double rAF: mountOnOpen children render next frame).
+      const el = e.currentTarget
+      requestAnimationFrame(() =>
+        requestAnimationFrame(() =>
+          el.scrollIntoView({ block: 'nearest', behavior: 'smooth' }),
+        ),
+      )
+    }
   }
 
   return (
