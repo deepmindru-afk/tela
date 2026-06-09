@@ -17,12 +17,19 @@ import {
 } from '../../lib/markdown/transforms/callouts'
 import { buildMermaidElement } from '../../lib/diagrams/mermaid'
 import { buildChartWidget } from '../../lib/diagrams/chart'
+import { wikilinkSlug } from '../../lib/markdown/transforms/wikilink'
 import { cn } from '../../lib/utils'
 
-// Context for renderers that need page-scoped data (excalidraw PNG URL today;
-// wikilinks/comments later). Provided by MarkdownView.
+// Context for renderers that need page-scoped data (excalidraw PNG URL, wikilink
+// resolution; comments later). Provided by MarkdownView.
 interface ViewContextValue {
   pageId?: number
+  // Resolve a wikilink slug → target page id (null = broken). Omitted (e.g. in
+  // a standalone preview) → wikilinks render as neutral styled spans, no href.
+  resolveWikilink?: (slug: string) => number | null
+  // Build an href for a resolved page id (route differs per surface: app vs
+  // public vs share).
+  pageHref?: (pageId: number) => string
 }
 const ViewContext = createContext<ViewContextValue>({})
 
@@ -153,6 +160,34 @@ function ExcalidrawView({
         loading="lazy"
       />
     </div>
+  )
+}
+
+function WikilinkView({ target, alias }: { target: string; alias: string | null }) {
+  const { resolveWikilink, pageHref } = useContext(ViewContext)
+  const slug = wikilinkSlug(target)
+  const label = alias || target
+  if (resolveWikilink && pageHref) {
+    const id = resolveWikilink(slug)
+    if (id != null) {
+      return (
+        <a className="tela-wikilink" href={pageHref(id)} data-wikilink-slug={slug}>
+          {label}
+        </a>
+      )
+    }
+    // Resolver present but no match → broken (matches the editor's styling).
+    return (
+      <span className="tela-wikilink tela-wikilink--broken" data-wikilink-slug={slug}>
+        {label}
+      </span>
+    )
+  }
+  // No resolver (preview / out-of-scope) → neutral styled span, no navigation.
+  return (
+    <span className="tela-wikilink" data-wikilink-slug={slug}>
+      {label}
+    </span>
   )
 }
 
@@ -303,6 +338,14 @@ function renderNode(node: MdNode, key: number | string): ReactNode {
           {renderChildren(node)}
         </mark>
       )
+    case 'wikilink':
+      return (
+        <WikilinkView
+          key={key}
+          target={String(node.target ?? '')}
+          alias={node.alias == null ? null : String(node.alias)}
+        />
+      )
     case 'math':
       return <TexMath key={key} value={String(node.value ?? '')} display />
     case 'inlineMath':
@@ -332,15 +375,24 @@ function calloutType(raw: unknown): CalloutType {
 export function MarkdownView({
   body,
   pageId,
+  resolveWikilink,
+  pageHref,
   className,
 }: {
   body: string
-  /** Page id — needed to build the excalidraw PNG URL (and later wikilinks). */
+  /** Page id — needed to build the excalidraw PNG URL. */
   pageId?: number
+  /** Resolve a wikilink slug → target page id (null = broken). */
+  resolveWikilink?: (slug: string) => number | null
+  /** Build an href for a resolved page id (surface-specific routing). */
+  pageHref?: (pageId: number) => string
   className?: string
 }) {
   const tree = useMemo(() => parsePageMarkdown(body), [body])
-  const ctx = useMemo<ViewContextValue>(() => ({ pageId }), [pageId])
+  const ctx = useMemo<ViewContextValue>(
+    () => ({ pageId, resolveWikilink, pageHref }),
+    [pageId, resolveWikilink, pageHref],
+  )
   return (
     <ViewContext.Provider value={ctx}>
       <div className={cn('tela-milkdown', className)}>

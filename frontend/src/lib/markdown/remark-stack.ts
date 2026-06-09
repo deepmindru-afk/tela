@@ -7,6 +7,7 @@ import type { Root } from 'mdast'
 import { calloutsRemark } from './transforms/callouts'
 import { highlightRemark } from './transforms/highlight'
 import { excalidrawRemark } from './transforms/excalidraw'
+import { wikilinkRemark } from './transforms/wikilink'
 
 // Single parse source for the read-only VIEW renderer (docs/view-edit-split.md).
 //
@@ -29,6 +30,7 @@ function getProcessor() {
       .use(remarkDirective)
       .use(calloutsRemark)
       .use(highlightRemark as never)
+      .use(wikilinkRemark as never)
       .use(excalidrawRemark) as unknown as Processor<Root, Root, Root, Root, string>
   }
   return processor

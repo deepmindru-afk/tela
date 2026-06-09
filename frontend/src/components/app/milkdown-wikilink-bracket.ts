@@ -2,9 +2,24 @@ import { $ctx, $nodeSchema, $prose, $remark } from '@milkdown/kit/utils'
 import { Plugin } from '@milkdown/kit/prose/state'
 import { Decoration, DecorationSet } from '@milkdown/kit/prose/view'
 import type { Node as ProseNode } from '@milkdown/kit/prose/model'
-import { findAndReplace } from 'mdast-util-find-and-replace'
-import { pageSlug } from '../../lib/slug'
+import {
+  wikilinkRemark,
+  wikilinkSlug,
+} from '../../lib/markdown/transforms/wikilink'
 export { buildWikilinkResolveIndex } from '../../lib/slug'
+
+// `[[Name]]` parsing + slug live in lib/markdown/transforms/wikilink.ts
+// (Milkdown-free, shared with the view renderer). This file keeps the editor
+// atom schema + resolve/decoration wiring. Re-export the slug for importers.
+export { wikilinkSlug }
+
+// Shape of the `wikilink` mdast node (produced by wikilinkRemark) as the
+// schema's parseMarkdown runner reads it.
+interface MdastWikilink {
+  type: string
+  target?: unknown
+  alias?: unknown
+}
 import {
   wikilinkModeCtx,
   type WikilinkDecorationMode,
@@ -38,68 +53,6 @@ import {
 
 // `[[Target]]`, `[[Target|Alias]]`, `[[Target#Heading]]`. Inner text has no
 // nested brackets — mirrors the backend wikiBracketRE.
-const BRACKET_RE = /\[\[([^[\]]+?)\]\]/g
-
-interface WikilinkParts {
-  target: string
-  alias: string | null
-}
-
-// Split the inner text into target + optional display alias. The alias (after
-// `|`) is display-only; a `#heading` suffix stays inside target (round-tripped,
-// sliced off only for slug resolution).
-function splitWikilink(inner: string): WikilinkParts {
-  const bar = inner.indexOf('|')
-  if (bar >= 0) {
-    const alias = inner.slice(bar + 1).trim()
-    return { target: inner.slice(0, bar).trim(), alias: alias.length > 0 ? alias : null }
-  }
-  return { target: inner.trim(), alias: null }
-}
-
-// Slug used for resolution: drop any `#heading`, then slugify the title exactly
-// as the backend does (parity with pageSlug → resolveWikiTitleSlugs).
-export function wikilinkSlug(target: string): string {
-  const hash = target.indexOf('#')
-  return pageSlug(hash >= 0 ? target.slice(0, hash) : target)
-}
-
-// ---- parse + serialize -----------------------------------------------------
-
-interface MdastWikilink {
-  type: 'wikilink'
-  target: string
-  alias: string | null
-}
-
-// Regular function so unified binds `this` to the processor, letting us register
-// the to-markdown handler for our custom `wikilink` node (remark-stringify can't
-// serialize an unknown node otherwise). Typed loosely + cast at the $remark
-// boundary — the unified/mdast generics don't line up across the kit re-exports.
-function wikilinkRemark(this: { data: () => Record<string, unknown> }) {
-  const data = this.data()
-  const toMarkdownExtensions = (data.toMarkdownExtensions ||
-    (data.toMarkdownExtensions = [])) as Array<{ handlers: Record<string, unknown> }>
-  toMarkdownExtensions.push({
-    handlers: {
-      wikilink: (node: MdastWikilink) =>
-        node.alias ? `[[${node.target}|${node.alias}]]` : `[[${node.target}]]`,
-    },
-  })
-  return (tree: unknown) => {
-    findAndReplace(tree as never, [
-      [
-        BRACKET_RE,
-        (_full: string, inner: string) => {
-          const { target, alias } = splitWikilink(inner)
-          // `[[ ]]` / `[[|x]]` — nothing to link; leave the literal text.
-          if (target === '') return false as never
-          return { type: 'wikilink', target, alias } as never
-        },
-      ],
-    ])
-  }
-}
 
 export const wikilinkBracketRemarkPlugin = $remark(
   'telaWikilinkBracket',
