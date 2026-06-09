@@ -66,6 +66,29 @@ const PLUGIN_BLOCKS = {
   'milkdown-wikilink-bracket': ['wikilink'],
 }
 
+// VIEW-RENDER COVERAGE (docs/view-edit-split.md). The read-only view renderer
+// (frontend/src/components/view/MarkdownView.tsx) must render every authorable
+// block — either with a dedicated renderer (VIEW_RENDERED) or via an explicitly
+// accepted graceful-degrade-to-children (VIEW_DEGRADES). Every manifest block id
+// must be in exactly one set, so a NEW block can't ship rendering in the editor
+// but silently broken in the view. Promoting a block from degrades → rendered
+// means writing its renderer in MarkdownView, then moving its id here.
+const VIEW_RENDERED = new Set([
+  'h1', 'h2', 'h3',
+  'bullet-list', 'ordered-list', 'task-list',
+  'quote', 'callout', 'highlight',
+  'code', 'table', 'divider', 'footnote', 'date', 'emoji', 'image',
+  'equation', 'inline-math',
+  'mermaid', 'chart', 'excalidraw',
+  'wikilink', 'tabs',
+])
+// Rendered as children (content preserved, chrome not yet ported). Tracked so
+// the gap is explicit and reviewable, never silent.
+const VIEW_DEGRADES = new Set([
+  'pull-quote', 'collapsible', 'kanban', 'stat-grid', 'timeline', 'calendar',
+  'embed', 'file',
+])
+
 function loadSource() {
   const raw = JSON.parse(readFileSync(SRC, 'utf8'))
   if (!Array.isArray(raw.blocks)) fail(`${SRC} has no "blocks" array`)
@@ -111,6 +134,23 @@ function checkCoverage(blocks) {
       if (!b[k]) problems.push(`block "${b.id ?? '?'}" missing field "${k}"`)
     }
     if (b.agent && !b.when) problems.push(`agent block "${b.id}" missing "when"`)
+  }
+
+  // Every authorable block must declare a view-render status (rendered or
+  // explicitly degrading) — no block silently unhandled by the view renderer.
+  for (const id of ids) {
+    const r = VIEW_RENDERED.has(id)
+    const d = VIEW_DEGRADES.has(id)
+    if (r && d) problems.push(`block "${id}" is in BOTH VIEW_RENDERED and VIEW_DEGRADES`)
+    if (!r && !d) {
+      problems.push(
+        `block "${id}" has no view-render status — add it to VIEW_RENDERED (with a renderer in MarkdownView.tsx) or VIEW_DEGRADES in scripts/blocks-manifest.mjs`,
+      )
+    }
+  }
+  // No stale ids in the view sets.
+  for (const id of [...VIEW_RENDERED, ...VIEW_DEGRADES]) {
+    if (!ids.has(id)) problems.push(`view set references unknown block id "${id}"`)
   }
 
   if (problems.length) fail('coverage failed:\n  - ' + problems.join('\n  - '))
