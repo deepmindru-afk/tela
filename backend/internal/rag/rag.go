@@ -33,18 +33,27 @@ type Config struct {
 	EmbedModel string // default qwen3-embedding:0.6b (1024-d)
 	EmbedToken string // optional bearer (a tela PAT) when EmbedURL is the managed cloud endpoint
 	Dim        int    // expected embedding dimension (advisory; column is vector(1024))
+
+	// Reranking (optional second-stage precision). Empty RerankURL => disabled
+	// (hybrid+RRF order is returned as-is). When set, the top fused candidates are
+	// re-scored by a cross-encoder before the final trim.
+	RerankURL   string // full /rerank endpoint (Cohere/Jina-compatible shape)
+	RerankModel string
+	RerankToken string
 }
 
-// ConfigFromEnv reads TELA_RAG_EMBED_URL / _MODEL / _TOKEN / _DIM. The default
-// model tracks the prod embed instance (qwen3-embedding:0.6b, 1024-d); override
-// per deployment with TELA_RAG_EMBED_MODEL. _TOKEN is set only when pointing at
-// tela cloud's managed embed endpoint.
+// ConfigFromEnv reads the TELA_RAG_* env. The default embed model tracks the prod
+// instance (qwen3-embedding:0.6b, 1024-d). Reranking is off unless
+// TELA_RAG_RERANK_URL is set.
 func ConfigFromEnv() Config {
 	return Config{
-		EmbedURL:   os.Getenv("TELA_RAG_EMBED_URL"),
-		EmbedModel: getenv("TELA_RAG_EMBED_MODEL", "qwen3-embedding:0.6b"),
-		EmbedToken: os.Getenv("TELA_RAG_EMBED_TOKEN"),
-		Dim:        atoiDefault(os.Getenv("TELA_RAG_EMBED_DIM"), 1024),
+		EmbedURL:    os.Getenv("TELA_RAG_EMBED_URL"),
+		EmbedModel:  getenv("TELA_RAG_EMBED_MODEL", "qwen3-embedding:0.6b"),
+		EmbedToken:  os.Getenv("TELA_RAG_EMBED_TOKEN"),
+		Dim:         atoiDefault(os.Getenv("TELA_RAG_EMBED_DIM"), 1024),
+		RerankURL:   os.Getenv("TELA_RAG_RERANK_URL"),
+		RerankModel: os.Getenv("TELA_RAG_RERANK_MODEL"),
+		RerankToken: os.Getenv("TELA_RAG_RERANK_TOKEN"),
 	}
 }
 
@@ -56,12 +65,14 @@ type Embedder interface {
 	Model() string
 }
 
-// Service bundles the DB handle, config, and the active embedder. A nil
-// embedder means the feature is disabled.
+// Service bundles the DB handle, config, the active embedder, and an optional
+// reranker. A nil embedder means the feature is disabled; a nil reranker means
+// the fused order is returned as-is.
 type Service struct {
 	db  *sql.DB
 	cfg Config
 	emb Embedder
+	rr  Reranker
 
 	// Auto-reindex queue (see autoreindex.go). pending maps page id → debounce
 	// deadline; nil until StartAutoReindex runs. attempts tracks consecutive
@@ -79,6 +90,9 @@ func NewService(db *sql.DB, cfg Config) *Service {
 	s := &Service{db: db, cfg: cfg}
 	if cfg.EmbedURL != "" {
 		s.emb = NewOllamaEmbedder(cfg.EmbedURL, cfg.EmbedModel, cfg.EmbedToken)
+	}
+	if cfg.RerankURL != "" {
+		s.rr = NewHTTPReranker(cfg.RerankURL, cfg.RerankModel, cfg.RerankToken)
 	}
 	return s
 }

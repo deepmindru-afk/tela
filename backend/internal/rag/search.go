@@ -2,6 +2,7 @@ package rag
 
 import (
 	"context"
+	"log/slog"
 	"sort"
 	"strconv"
 	"strings"
@@ -76,6 +77,22 @@ func (s *Service) Search(ctx context.Context, userID int64, q string, spaceID *i
 	add(vec)
 
 	sort.SliceStable(order, func(i, j int) bool { return score[order[i]] > score[order[j]] })
+
+	// Optional second-stage rerank: re-score the top fused candidates with a
+	// cross-encoder, then trim. Lexical-only mode skips it (no semantic intent to
+	// resolve). Best-effort — a rerank failure falls back to the RRF order.
+	if s.RerankEnabled() && mode != "lexical" && len(order) > 1 {
+		cand := order
+		if len(cand) > rerankCandidates {
+			cand = cand[:rerankCandidates]
+		}
+		if reordered, err := s.rerankIDs(ctx, userID, q, cand, spaceID, score); err != nil {
+			slog.Warn("rag: rerank failed, using fused order", "err", err)
+		} else {
+			order = append(reordered, order[len(cand):]...)
+		}
+	}
+
 	if len(order) > limit {
 		order = order[:limit]
 	}
