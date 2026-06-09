@@ -53,6 +53,11 @@ services:
       TELA_RAG_EMBED_URL:    ${TELA_RAG_EMBED_URL:-}
       TELA_RAG_EMBED_MODEL:  ${TELA_RAG_EMBED_MODEL:-}
       TELA_RAG_EMBED_DIM:    ${TELA_RAG_EMBED_DIM:-}
+      # Managed AI / "ask your docs" (internal/llm). Unset → /api/rag/ask 503s.
+      # OpenAI-compatible base incl. /v1 (a remote Ollama's /v1 or any provider).
+      TELA_LLM_URL:    ${TELA_LLM_URL:-}
+      TELA_LLM_MODEL:  ${TELA_LLM_MODEL:-}
+      TELA_LLM_TOKEN:  ${TELA_LLM_TOKEN:-}
       TELA_WORKOS_ISSUER:    ${TELA_WORKOS_ISSUER:-}
       TELA_MCP_RESOURCE:     ${TELA_MCP_RESOURCE:-}
       WORKOS_API_KEY:        ${WORKOS_API_KEY:-}
