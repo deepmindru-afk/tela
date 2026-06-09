@@ -3,11 +3,14 @@ package main
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
 	"syscall"
 	"time"
 
@@ -78,6 +81,10 @@ func main() {
 			// when the model name is unchanged but the embedder setup moved.
 			runReindexAll(d, os.Args[2:])
 			return
+		case "rag-eval":
+			// Score retrieval against a golden set (recall@k / MRR / nDCG).
+			runRAGEval(d, os.Args[2:])
+			return
 		case "create-admin":
 			runCreateAdmin(d, os.Args[2:])
 			return
@@ -88,7 +95,7 @@ func main() {
 			runListUsers(d)
 			return
 		default:
-			fatal("unknown subcommand (known: reindex-all, create-admin, set-plan, list-users)", "subcommand", os.Args[1])
+			fatal("unknown subcommand (known: reindex-all, rag-eval, create-admin, set-plan, list-users)", "subcommand", os.Args[1])
 		}
 	}
 
@@ -212,4 +219,93 @@ func runReindexAll(d *sql.DB, args []string) {
 	if sum.Failed > 0 {
 		slog.Warn("reindex-all: completed with failures", "failed_pages", sum.Failed)
 	}
+}
+
+// runRAGEval scores retrieval against a golden set of (query → expected page)
+// cases and prints recall@k / MRR / nDCG. The harness that makes every future
+// retrieval change measurable instead of vibes-based.
+//
+//	tela rag-eval --set golden.json [--k 10] [--mode hybrid] [--user <id>]
+//
+// The golden set is a JSON array of {query, expect_pages?, expect_substr?,
+// space_id?}. Scoring runs through the same access-scoped Search users hit, so
+// --user must be able to read the spaces under test (defaults to the lowest user
+// id — typically the bootstrap admin).
+func runRAGEval(d *sql.DB, args []string) {
+	setPath, mode := "", "hybrid"
+	k, userID := 10, int64(0)
+	for i := 0; i < len(args); i++ {
+		switch args[i] {
+		case "--set":
+			i++
+			if i < len(args) {
+				setPath = args[i]
+			}
+		case "--k":
+			i++
+			if i < len(args) {
+				k, _ = strconv.Atoi(args[i])
+			}
+		case "--mode":
+			i++
+			if i < len(args) {
+				mode = args[i]
+			}
+		case "--user":
+			i++
+			if i < len(args) {
+				userID, _ = strconv.ParseInt(args[i], 10, 64)
+			}
+		default:
+			fatal("rag-eval: unknown flag (known: --set, --k, --mode, --user)", "flag", args[i])
+		}
+	}
+	if setPath == "" {
+		fatal("rag-eval: --set <golden.json> is required")
+	}
+
+	cfg := rag.ConfigFromEnv()
+	svc := rag.NewService(d, cfg)
+	if !svc.Enabled() {
+		fatal("rag-eval: embedder not configured (set TELA_RAG_EMBED_URL)")
+	}
+
+	raw, err := os.ReadFile(setPath)
+	if err != nil {
+		fatal("rag-eval: read golden set", "err", err)
+	}
+	var cases []rag.EvalCase
+	if err := json.Unmarshal(raw, &cases); err != nil {
+		fatal("rag-eval: parse golden set", "err", err)
+	}
+
+	ctx := context.Background()
+	if userID == 0 {
+		if err := d.QueryRowContext(ctx, `SELECT id FROM users ORDER BY id LIMIT 1`).Scan(&userID); err != nil {
+			fatal("rag-eval: no user to evaluate as (pass --user)", "err", err)
+		}
+	}
+
+	res, err := svc.Evaluate(ctx, userID, cases, k, mode)
+	if err != nil {
+		fatal("rag-eval", "err", err)
+	}
+
+	fmt.Printf("\nRAG eval — %d cases, mode=%s, k=%d, user=%d, model=%s\n",
+		res.Cases, res.Mode, res.K, userID, svc.EmbedModel())
+	fmt.Printf("  recall@%d = %.3f    MRR = %.3f    nDCG@%d = %.3f\n\n", res.K, res.RecallAtK, res.MRR, res.K, res.NDCG)
+	fmt.Printf("  %-5s %-5s %s\n", "hit", "rank", "query")
+	for _, c := range res.PerCase {
+		mark, rank := "✗", "-"
+		if c.Hit {
+			mark = "✓"
+			rank = strconv.Itoa(c.FirstRank)
+		}
+		q := c.Query
+		if len(q) > 64 {
+			q = q[:61] + "…"
+		}
+		fmt.Printf("  %-5s %-5s %s\n", mark, rank, q)
+	}
+	fmt.Println()
 }
