@@ -45,6 +45,8 @@ interface CommentsPanelProps {
   // when showResolved is true).
   showResolved: boolean
   onShowResolvedChange: (next: boolean) => void
+  // When false, the new-comment composer is hidden (read view — no selection).
+  canCompose?: boolean
 }
 
 export function CommentsPanel({
@@ -59,6 +61,9 @@ export function CommentsPanel({
   orphanIds,
   showResolved,
   onShowResolvedChange,
+  // Hidden in read view, where there's no editor selection to anchor a new
+  // comment to (reading + replying to existing threads still works).
+  canCompose = true,
 }: CommentsPanelProps) {
   // Backend orders threads ASC by created_at; show newest at top in the panel.
   const commentsQuery = useComments({ pageId })
@@ -159,12 +164,14 @@ export function CommentsPanel({
         </SheetHeader>
 
         <SheetBody className="flex flex-col gap-[var(--space-4)]">
-          <CommentComposer
-            hasSelection={hasSelection}
-            captureAnchor={captureAnchor}
-            anchorPreview={anchorPreview}
-            onSubmit={handleCreateRoot}
-          />
+          {canCompose ? (
+            <CommentComposer
+              hasSelection={hasSelection}
+              captureAnchor={captureAnchor}
+              anchorPreview={anchorPreview}
+              onSubmit={handleCreateRoot}
+            />
+          ) : null}
 
           {commentsQuery.isLoading ? (
             <p className="m-0 text-[length:var(--text-sm)] text-[var(--text-muted)] font-[family-name:var(--font-sans)]">

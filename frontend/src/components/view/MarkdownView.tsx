@@ -20,6 +20,8 @@ import {
 import { buildMermaidElement } from '../../lib/diagrams/mermaid'
 import { buildChartWidget } from '../../lib/diagrams/chart'
 import { wikilinkSlug } from '../../lib/markdown/transforms/wikilink'
+import type { CommentThread } from '../../lib/comments/use-comments'
+import { useCommentHighlights } from '../../lib/comments/useCommentHighlights'
 import { cn } from '../../lib/utils'
 
 // Context for renderers that need page-scoped data (excalidraw PNG URL, wikilink
@@ -465,6 +467,8 @@ export function MarkdownView({
   pageId,
   resolveWikilink,
   pageHref,
+  commentThreads,
+  onCommentClick,
   className,
 }: {
   body: string
@@ -474,6 +478,10 @@ export function MarkdownView({
   resolveWikilink?: (slug: string) => number | null
   /** Build an href for a resolved page id (surface-specific routing). */
   pageHref?: (pageId: number) => string
+  /** Comment threads to paint as inline highlights (read view). */
+  commentThreads?: CommentThread[] | null
+  /** Open a thread when its highlighted passage is clicked. */
+  onCommentClick?: (threadId: number) => void
   className?: string
 }) {
   const tree = useMemo(() => parsePageMarkdown(body), [body])
@@ -481,6 +489,8 @@ export function MarkdownView({
     () => ({ pageId, resolveWikilink, pageHref }),
     [pageId, resolveWikilink, pageHref],
   )
+  const contentRef = useRef<HTMLDivElement>(null)
+  useCommentHighlights(contentRef, commentThreads, onCommentClick)
   return (
     <ViewContext.Provider value={ctx}>
       <div className={cn('tela-milkdown', className)}>
@@ -489,7 +499,12 @@ export function MarkdownView({
             collapse to spaces (correct for a static HTML view) instead of
             rendering as hard line breaks. Drops out with the `.tela-prose`
             extraction. */}
-        <div className="ProseMirror" data-tela-view="" style={{ whiteSpace: 'normal' }}>
+        <div
+          ref={contentRef}
+          className="ProseMirror"
+          data-tela-view=""
+          style={{ whiteSpace: 'normal' }}
+        >
           {renderChildren(tree as unknown as MdNode)}
         </div>
       </div>

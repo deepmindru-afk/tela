@@ -2237,6 +2237,24 @@
      + dotted underline) or remote-peer selections (--collab-cursor-N at
      25% alpha) when they overlap. Click is delegated through PM's
      handleClick — see anchor-decoration.ts. */
+  /* Comment-anchor highlights in the read-only view (MarkdownView) are painted
+     via the CSS Custom Highlight API (useCommentHighlights) — no DOM nodes, so
+     only ::highlight-supported properties apply (background/text-decoration).
+     Mirrors the editor's .tela-comment-anchor accent. */
+  ::highlight(tela-comment-view) {
+    background-color: color-mix(
+      in srgb,
+      var(--comment-anchor-color) 20%,
+      transparent
+    );
+    text-decoration-line: underline;
+    text-decoration-color: color-mix(
+      in srgb,
+      var(--comment-anchor-color) 70%,
+      transparent
+    );
+  }
+
   .tela-milkdown .ProseMirror .tela-comment-anchor {
     background: color-mix(
       in srgb,

@@ -236,11 +236,25 @@ function PageViewer({
   )
   const roleResolved = me.data != null && members.data != null
   const isViewer = roleResolved && myMembership?.role === 'viewer'
+  const isSpaceOwner = myMembership?.role === 'owner'
   const canEdit = roleResolved && !isViewer
 
   const [graphOpen, setGraphOpen] = useState(false)
   const [deleteOpen, setDeleteOpen] = useState(false)
+  const [commentsOpen, setCommentsOpen] = useState(false)
+  const [showResolvedComments, setShowResolvedComments] = useState(false)
   const contentRef = useRef<HTMLDivElement>(null)
+
+  // Comments are read + reply in view (new-comment-from-selection is edit-only
+  // for now). The panel + inline highlights are gated to non-viewers, matching
+  // the editor.
+  const commentsEnabled = roleResolved && !isViewer
+  const commentsQuery = useComments({ pageId: page.id, enabled: commentsEnabled })
+  const openThreadCount = useMemo(
+    () => commentsQuery.data?.filter((t) => !t.root.resolved).length ?? null,
+    [commentsQuery.data],
+  )
+  const commentThreads = commentsQuery.data ?? null
 
   // Wikilink resolution (slug → id), space-scoped, like the editor builds it.
   const allPagesQuery = useAllPages()
@@ -311,6 +325,26 @@ function PageViewer({
           {roleResolved ? <FavoriteStar pageId={page.id} /> : null}
           {roleResolved ? <FollowButton pageId={page.id} /> : null}
           <PageProperties props={page.props} />
+          {commentsEnabled ? (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              aria-label="Comments"
+              onClick={() => {
+                setGraphOpen(false)
+                setCommentsOpen(true)
+              }}
+              className="h-[var(--space-8)] px-[var(--space-3)]"
+            >
+              <MessageSquare width={16} height={16} />
+              {openThreadCount != null ? (
+                <span>Comments ({openThreadCount})</span>
+              ) : (
+                <span>Comments</span>
+              )}
+            </Button>
+          ) : null}
           {roleResolved ? (
             <Button
               type="button"
@@ -318,7 +352,10 @@ function PageViewer({
               size="sm"
               aria-label="Graph"
               title="Graph — this page's connections"
-              onClick={() => setGraphOpen(true)}
+              onClick={() => {
+                setCommentsOpen(false)
+                setGraphOpen(true)
+              }}
               className="h-[var(--space-8)] w-[var(--space-8)] p-0"
             >
               <Share2 width={16} height={16} />
@@ -377,6 +414,11 @@ function PageViewer({
           pageId={page.id}
           resolveWikilink={resolveWikilink}
           pageHref={pageHref}
+          commentThreads={commentsEnabled ? commentThreads : null}
+          onCommentClick={() => {
+            setGraphOpen(false)
+            setCommentsOpen(true)
+          }}
           className={EDITOR_MIN_H}
         />
 
@@ -406,9 +448,30 @@ function PageViewer({
           onOpenChange={setGraphOpen}
         />
       ) : null}
+
+      {commentsEnabled && me.data ? (
+        <CommentsPanel
+          pageId={page.id}
+          open={commentsOpen}
+          onOpenChange={setCommentsOpen}
+          // New-comment-from-selection is edit-only for now; the view composer
+          // stays disabled (no selection) but reading + replying work.
+          hasSelection={false}
+          captureAnchor={() => null}
+          anchorPreview={null}
+          canCompose={false}
+          me={{ id: me.data.id, username: me.data.username }}
+          isSpaceOwner={isSpaceOwner}
+          orphanIds={EMPTY_ORPHAN_IDS}
+          showResolved={showResolvedComments}
+          onShowResolvedChange={setShowResolvedComments}
+        />
+      ) : null}
     </div>
   )
 }
+
+const EMPTY_ORPHAN_IDS: Set<number> = new Set()
 
 // PageActionsMenu — the header "•••" overflow. Keeps the bar to its frequent
 // actions (Comments, Share) and tucks the rest here, Confluence-style. "Copy
