@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, type QueryClient } from '@tanstack/react-query'
 import type { ApiErrorBody } from '../types'
 
 // Public-space read queries for /public/spaces/... routes. Like the share
@@ -112,6 +112,19 @@ export function usePublicSpacePage(spaceId: number, pageId: number, enabled = tr
     retry: false,
     staleTime: 60_000,
     enabled,
+  })
+}
+
+// Intent-preload the public page body on link hover (the reader route's loader)
+// so the click renders from cache. Mirrors usePublicSpacePage's key + queryFn.
+export function prefetchPublicSpacePage(
+  qc: QueryClient,
+  spaceId: number,
+  pageId: number,
+): void {
+  void qc.prefetchQuery({
+    queryKey: publicKeys.page(spaceId, pageId),
+    queryFn: () => publicFetch(`/api/public/spaces/${spaceId}/pages/${pageId}`),
   })
 }
 

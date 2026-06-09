@@ -40,7 +40,9 @@ import {
 import { spaceKeys } from '../lib/queries/spaces'
 import { api } from '../lib/api'
 import { writeLastPage } from '../lib/lastPage'
-import { useCreatePage, usePages } from '../lib/queries/pages'
+import { prefetchPage, useCreatePage, usePages } from '../lib/queries/pages'
+import { prefetchPublicSpacePage } from '../lib/queries/public'
+import { prefetchMilkdownEditor } from '../lib/prefetchEditor'
 import { LoginPage } from './login'
 import { RegisterPage } from './register'
 import { SetupPage } from './setup'
@@ -520,6 +522,14 @@ const pageRoute = createRoute({
     // the detail and clears the key on 404.
     writeLastPage({ spaceId: params.spaceId, pageId: params.pageId })
   },
+  loader: ({ params }) => {
+    // Intent-preload (hover) warms the page body + the Milkdown editor chunk so
+    // the click paints from cache instead of waiting on a cold fetch+download.
+    // Both are fire-and-forget — they never block navigation. Uses the
+    // queryClient singleton directly (this router's context convention).
+    prefetchPage(queryClient, params.pageId)
+    prefetchMilkdownEditor()
+  },
   component: function PageRouteComponent() {
     const { spaceId, pageId } = useParams({
       from: '/_app/spaces/$spaceId/pages/$pageId/{-$slug}',
@@ -603,6 +613,10 @@ const readRoute = createRoute({
     const here = (location.href || '/').replace(window.location.origin, '')
     throw redirect({ to: '/login', search: { next: here } })
   },
+  loader: ({ params }) => {
+    prefetchPage(queryClient, params.pageId)
+    prefetchMilkdownEditor()
+  },
   component: lazyRouteComponent(() => import('./read'), 'ReadRoute'),
 })
 
@@ -663,6 +677,10 @@ const publicReaderRoute = createRoute({
     pageId: String(params.pageId),
     slug: params.slug,
   }),
+  loader: ({ params }) => {
+    prefetchPublicSpacePage(queryClient, params.spaceId, params.pageId)
+    prefetchMilkdownEditor()
+  },
   component: lazyRouteComponent(() => import('./public'), 'PublicReaderRoute'),
 })
 
