@@ -7,6 +7,7 @@ import { ThemeSwitcher } from '../ThemeSwitcher'
 import { BrandMark } from '../BrandMark'
 import { Button } from '../ui/button'
 import { cn } from '../../lib/utils'
+import { useTelaHomeHref } from '../../lib/queries/host-context'
 
 interface SharePageNode {
   id: number
@@ -29,6 +30,7 @@ interface ShareLayoutProps {
 // the tree has more than the root page). NO command palette, NO comments,
 // NO all-spaces switcher — those are deliberately absent in share-mode.
 export function ShareLayout({ token, share, children }: ShareLayoutProps) {
+  const telaHome = useTelaHomeHref()
   const treeEnabled = share.include_descendants
   const tree = useShareTree(token, treeEnabled)
   const pages = tree.data?.pages ?? []
@@ -42,7 +44,7 @@ export function ShareLayout({ token, share, children }: ShareLayoutProps) {
               "Sign in" link, the share-mode wordmark escapes the SPA rather
               than client-routing into an authed/app surface. */}
           <a
-            href="/"
+            href={telaHome}
             aria-label="tela home"
             className="inline-flex items-center gap-[var(--space-2)] rounded-[var(--radius-xs)] text-[var(--text-primary)] no-underline transition-opacity duration-[var(--duration-fast)] hover:opacity-70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
           >

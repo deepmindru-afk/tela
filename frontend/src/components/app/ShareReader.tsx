@@ -7,6 +7,7 @@ import { Button } from '../ui/button'
 import { DownloadPdfButton } from './DownloadPdfButton'
 import { ReaderShell } from './ReaderShell'
 import { ShareSidebar } from './ShareLayout'
+import { useTelaHomeHref } from '../../lib/queries/host-context'
 
 interface ShareReaderViewProps {
   token: string
@@ -35,6 +36,7 @@ export function ShareReaderView({
   inScopePageIds,
 }: ShareReaderViewProps) {
   const navigate = useNavigate()
+  const telaHome = useTelaHomeHref()
   // When gotenberg loads /share/<tok>?theme=dark for a PDF, apply it (once,
   // pre-paint). No-op for human viewers (no ?theme=), so their theme is kept.
   useState(() => applyPdfThemeParam())
@@ -83,7 +85,7 @@ export function ShareReaderView({
            reason as Sign in below: share-mode escapes the SPA rather than
            client-routing into an authed/app surface. */
         <a
-          href="/"
+          href={telaHome}
           aria-label="tela home"
           className="inline-block rounded-[var(--radius-xs)] font-[family-name:var(--font-sans)] text-[length:var(--text-base)] font-medium text-[var(--text-primary)] no-underline transition-opacity duration-[var(--duration-fast)] hover:opacity-70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
         >

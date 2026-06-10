@@ -20,10 +20,12 @@ function withHostContext(ctx: HostContext) {
 
 const canonical: HostContext = {
   org: null,
+  canonical_base: '',
   login: { password_enabled: true, social_enabled: true, org_sso_available: false },
 }
 const onOrgDomain: HostContext = {
   org: { id: 1, name: 'Acme Corp', slug: 'acme', logo_url: '', accent: '' },
+  canonical_base: '',
   login: { password_enabled: true, social_enabled: true, org_sso_available: true },
 }
 

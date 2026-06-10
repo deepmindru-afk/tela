@@ -15,6 +15,7 @@ import { PublicReaderView } from '../components/app/PublicReader'
 import { PublicSpaceIndex } from '../components/app/PublicSpaceIndex'
 import { ThemeSwitcher } from '../components/ThemeSwitcher'
 import { Card, CardDescription, CardHeader, CardTitle } from '../components/ui/card'
+import { useTelaHomeHref } from '../lib/queries/host-context'
 
 // Public-space reader route — child of `rootRoute` (NOT appLayoutRoute) because
 // it's unauthenticated: a logged-out reader views a public space here. Data
@@ -22,12 +23,13 @@ import { Card, CardDescription, CardHeader, CardTitle } from '../components/ui/c
 // is a plain 404, not a bounce to /login.
 
 function PublicShell({ children }: { children: React.ReactNode }) {
+  const telaHome = useTelaHomeHref()
   return (
     <div className="min-h-dvh flex flex-col bg-[var(--surface-1)] text-[var(--text-primary)]">
       <header className="flex items-center justify-between px-[var(--space-6)] py-[var(--space-3)] border-b border-[var(--border-subtle)] shrink-0">
         <h1 className="m-0 text-[length:var(--text-lg)] leading-[var(--leading-tight)] font-[family-name:var(--font-sans)]">
           <a
-            href="/"
+            href={telaHome}
             aria-label="tela home"
             className="inline-block rounded-[var(--radius-xs)] text-[var(--text-primary)] no-underline transition-opacity duration-[var(--duration-fast)] hover:opacity-70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
           >

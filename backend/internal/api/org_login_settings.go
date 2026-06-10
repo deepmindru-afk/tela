@@ -49,6 +49,10 @@ type hostLoginDTO struct {
 type hostContextDTO struct {
 	Org   *hostOrgDTO  `json:"org"`
 	Login hostLoginDTO `json:"login"`
+	// The instance's one true origin (TELA_PUBLIC_BASE_URL). On an org custom
+	// domain the SPA points tela-brand links here instead of the current host
+	// (a relative "/" would land on the org domain's root). '' in dev.
+	CanonicalBase string `json:"canonical_base"`
 }
 
 // HostContext — GET /api/host-context. Public (host-derived, pre-login). The
@@ -58,7 +62,10 @@ type hostContextDTO struct {
 // full default method set; the SPA then uses the instance-wide providers list.
 func (s *Server) HostContext(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	out := hostContextDTO{Login: hostLoginDTO{PasswordEnabled: true, SocialEnabled: true}}
+	out := hostContextDTO{
+		Login:         hostLoginDTO{PasswordEnabled: true, SocialEnabled: true},
+		CanonicalBase: canonicalBaseURL(),
+	}
 
 	oc, ok := auth.OrgContextFromContext(ctx)
 	if !ok {

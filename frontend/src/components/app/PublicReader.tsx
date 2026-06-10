@@ -22,6 +22,7 @@ import {
 import { DownloadPdfButton } from './DownloadPdfButton'
 import { ReaderShell } from './ReaderShell'
 import { pageSummary } from './SummaryHint'
+import { useTelaHomeHref } from '../../lib/queries/host-context'
 
 interface PublicReaderViewProps {
   space: PublicSpacePayload
@@ -48,6 +49,7 @@ export function PublicReaderView({
   updatedAt,
 }: PublicReaderViewProps) {
   const navigate = useNavigate()
+  const telaHome = useTelaHomeHref()
 
   // SEO/social head for this public article: an author summary in frontmatter
   // wins, else the body lead. Canonical is the current (pretty) reader URL.
@@ -180,7 +182,7 @@ export function PublicReaderView({
             />
           ) : null}
           <a
-            href="/"
+            href={telaHome}
             aria-label="tela home"
             className="inline-block rounded-[var(--radius-xs)] font-[family-name:var(--font-sans)] text-[length:var(--text-base)] font-medium text-[var(--text-primary)] no-underline transition-opacity duration-[var(--duration-fast)] hover:opacity-70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
           >

@@ -6,6 +6,7 @@ import type { HostContext } from '../types'
 // always renders something usable (never strands behind a white-label probe).
 const DEFAULT_HOST_CONTEXT: HostContext = {
   org: null,
+  canonical_base: '',
   login: {
     password_enabled: true,
     social_enabled: true,
@@ -44,4 +45,13 @@ export function useHostContext() {
     retry: false,
     placeholderData: DEFAULT_HOST_CONTEXT,
   })
+}
+
+// Brand-link target for the "tela" wordmark: the instance's canonical origin
+// when the page is being served from some other host (an org custom domain —
+// a relative "/" there lands on the org domain's root), else the local root.
+export function useTelaHomeHref(): string {
+  const ctx = useHostContext()
+  const base = ctx.data?.canonical_base ?? ''
+  return base && base !== window.location.origin ? base : '/'
 }

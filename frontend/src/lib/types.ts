@@ -341,6 +341,7 @@ export interface HostContext {
     logo_url: string
     accent: string
   } | null
+  canonical_base: string
   login: {
     password_enabled: boolean
     social_enabled: boolean
