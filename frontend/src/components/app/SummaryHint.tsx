@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import { Text } from 'lucide-react'
 import { cn } from '../../lib/utils'
 import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip'
@@ -20,39 +21,49 @@ export function pageSummary(
   return null
 }
 
-export interface SummaryHintProps {
-  summary: string
-  /** Positioning within the caller's `group relative` title wrapper. */
-  className?: string
+export interface SummaryTitleProps {
+  /** No summary → children render bare, zero added chrome. */
+  summary: string | null
+  /** Positioning of the gutter icon within the title row. */
+  hintClassName?: string
+  /** The title element (h1). */
+  children: ReactNode
 }
 
 /**
- * SummaryHint — a quiet affordance for a page's summary. An icon sits in the
- * title's left gutter, invisible until the title row is hovered (or the
- * button is focused); hovering/focusing it opens a readable summary card
- * beside the title. Callers render it only when a summary exists and place it
- * inside a `group relative` wrapper around the title.
+ * SummaryTitle — wraps a page title and, when the page declares a summary,
+ * makes the whole title row a hover target: an icon fades into the left
+ * gutter as the affordance, and hovering anywhere on the title (or focusing
+ * the icon) opens a readable summary card beside it.
  */
-export function SummaryHint({ summary, className }: SummaryHintProps) {
+export function SummaryTitle({
+  summary,
+  hintClassName,
+  children,
+}: SummaryTitleProps) {
+  if (!summary) return <>{children}</>
   return (
     <Tooltip>
       <TooltipTrigger asChild>
-        <button
-          type="button"
-          aria-label="Page summary"
-          className={cn(
-            'items-center justify-center h-[var(--space-6)] w-[var(--space-6)]',
-            'rounded-[var(--radius-sm)] border-none bg-transparent p-0 cursor-default',
-            'text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-2)]',
-            'opacity-0 transition-opacity duration-[var(--duration-fast)]',
-            'group-hover:opacity-100 focus-visible:opacity-100',
-            'data-[state=delayed-open]:opacity-100 data-[state=instant-open]:opacity-100',
-            'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]',
-            className,
-          )}
-        >
-          <Text width={14} height={14} />
-        </button>
+        <div className="group relative">
+          <button
+            type="button"
+            aria-label="Page summary"
+            className={cn(
+              'items-center justify-center h-[var(--space-6)] w-[var(--space-6)]',
+              'rounded-[var(--radius-sm)] border-none bg-transparent p-0 cursor-default',
+              'text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-2)]',
+              'opacity-0 transition-opacity duration-[var(--duration-fast)]',
+              'group-hover:opacity-100 focus-visible:opacity-100',
+              'group-data-[state=delayed-open]:opacity-100 group-data-[state=instant-open]:opacity-100',
+              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]',
+              hintClassName,
+            )}
+          >
+            <Text width={14} height={14} />
+          </button>
+          {children}
+        </div>
       </TooltipTrigger>
       <TooltipContent
         side="bottom"

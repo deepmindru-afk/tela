@@ -27,7 +27,7 @@ import {
   DropdownMenuTrigger,
 } from '../ui/dropdown-menu'
 import { ToggleGroup, ToggleGroupItem } from '../ui/toggle'
-import { SummaryHint } from './SummaryHint'
+import { SummaryTitle } from './SummaryHint'
 import { WikilinkHoverPreview } from './wikilink-hover-preview'
 import { MarkdownView } from '../view/MarkdownView'
 
@@ -572,15 +572,12 @@ export function ReaderShell({
               {coverImage ? (
                 <img className="reader-cover" src={coverImage} alt="" />
               ) : null}
-              <div className="group relative">
-                {summary ? (
-                  <SummaryHint
-                    summary={summary}
-                    className="absolute top-[var(--space-2)] left-[calc(-1*(var(--space-6)+var(--space-1)))] hidden sm:inline-flex"
-                  />
-                ) : null}
+              <SummaryTitle
+                summary={summary ?? null}
+                hintClassName="absolute top-[var(--space-2)] left-[calc(-1*(var(--space-6)+var(--space-1)))] hidden sm:inline-flex"
+              >
                 <h1 className="reader-title">{title || 'Untitled'}</h1>
-              </div>
+              </SummaryTitle>
               {attachmentStrip}
               <div className="reader-meta">
                 {byline ? (

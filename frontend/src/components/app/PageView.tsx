@@ -40,7 +40,7 @@ import { useRevision } from '../../lib/queries/page-revisions'
 import { AttachmentStrip } from './AttachmentStrip'
 import { CommentsPanel } from './CommentsPanel'
 import { PageProperties } from './PageProperties'
-import { SummaryHint, pageSummary } from './SummaryHint'
+import { SummaryTitle, pageSummary } from './SummaryHint'
 import { LocalGraphCard } from './LocalGraphCard'
 import { LocalGraphPanel } from './LocalGraphPanel'
 import { PresenceAvatars } from './presence-avatars'
@@ -397,13 +397,10 @@ function PageViewer({
       >
         <div className="flex flex-col gap-[var(--space-4)] p-[var(--space-7)] max-w-[48rem] w-full mx-auto">
         <WikilinkHoverPreview containerRef={contentRef} />
-        <div className="group relative">
-          {summary ? (
-            <SummaryHint
-              summary={summary}
-              className="absolute top-[var(--space-3)] left-[calc(-1*(var(--space-6)+var(--space-1)))] hidden sm:inline-flex"
-            />
-          ) : null}
+        <SummaryTitle
+          summary={summary}
+          hintClassName="absolute top-[var(--space-3)] left-[calc(-1*(var(--space-6)+var(--space-1)))] hidden sm:inline-flex"
+        >
           <h1
             className={cn(
               'm-0 px-[var(--space-2)] py-[var(--space-2)]',
@@ -413,7 +410,7 @@ function PageViewer({
           >
             {page.title || 'Untitled page'}
           </h1>
-        </div>
+        </SummaryTitle>
 
         <AttachmentStrip pageId={page.id} />
 
