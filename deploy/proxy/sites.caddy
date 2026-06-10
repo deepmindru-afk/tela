@@ -221,7 +221,7 @@
 		# mistaken for a {handle}. Mirror of the top-level routes in
 		# frontend/src/routes/router.tsx (and nginx.conf's allowlist). /share, /public,
 		# /u, /discover are noindex'd or indexable upstream and never reach here.
-		@app_routes path /login /register /verify-email /forgot-password /reset-password /settings /settings/* /spaces /spaces/* /search /read/* /print/* /graph /graph/* /n /n/* /ask /setup
+		@app_routes path /login /register /verify-email /forgot-password /reset-password /settings /settings/* /spaces /spaces/* /search /print/* /graph /graph/* /n /n/* /ask /setup
 		handle @app_routes {
 			header X-Robots-Tag "noindex"
 			reverse_proxy {$TELA_UPSTREAM_FRONTEND:frontend:80}

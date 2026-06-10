@@ -497,8 +497,8 @@ const spaceIndexRoute = createRoute({
 // so `?draft=` survives canonicalisation between them.
 function validatePageSearch(
   search: Record<string, unknown>,
-): { draft?: number; edit?: boolean } {
-  const out: { draft?: number; edit?: boolean } = {}
+): { draft?: number; edit?: boolean; view?: 'read' } {
+  const out: { draft?: number; edit?: boolean; view?: 'read' } = {}
   const raw = search.draft
   if (raw != null) {
     const n = typeof raw === 'number' ? raw : Number(raw)
@@ -508,6 +508,11 @@ function validatePageSearch(
   // Accept boolean true and the string forms the router may serialize/round-trip.
   const e = search.edit
   if (e === true || e === 1 || e === '1' || e === 'true') out.edit = true
+  // ?view=read opens the distraction-free reader as a full-bleed overlay on the
+  // canonical page URL — a view-modifier like ?edit, not a separate route, so the
+  // page URL's slug / copy-share / OG behaviour is preserved. ?edit wins when
+  // both are present (see PageView precedence).
+  if (search.view === 'read') out.view = 'read'
   return out
 }
 
@@ -599,32 +604,10 @@ const shareDescendantRoute = createRoute({
   ),
 })
 
-// Reading mode (#3). Authenticated, but a child of `rootRoute` (NOT
-// appLayoutRoute) so the reader renders full-bleed without the sidebar/header
-// shell. Reuses the same ensureMe gate as the app layout — an unauthenticated
-// visitor is bounced to /login with a `next` back to the reader URL.
-const readRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: '/read/$spaceId/$pageId',
-  parseParams: (raw) => ({
-    spaceId: Number(raw.spaceId),
-    pageId: Number(raw.pageId),
-  }),
-  stringifyParams: (params) => ({
-    spaceId: String(params.spaceId),
-    pageId: String(params.pageId),
-  }),
-  beforeLoad: async ({ location }) => {
-    const user = await ensureMe()
-    if (user) return
-    const here = (location.href || '/').replace(window.location.origin, '')
-    throw redirect({ to: '/login', search: { next: here } })
-  },
-  loader: ({ params }) => {
-    prefetchPage(queryClient, params.pageId)
-  },
-  component: lazyRouteComponent(() => import('./read'), 'ReadRoute'),
-})
+// Authenticated reading mode is no longer a route. It's `?view=read` on the
+// canonical page URL (see validatePageSearch + PageView), rendered as a
+// full-bleed overlay — so the reader keeps the page's slug, copy-share and OG
+// behaviour instead of living at a separate, slug-less /read/{space}/{page}.
 
 // Cross-tenant public-space discovery directory (/discover). Child of rootRoute
 // (NO ensureMe gate — the network view is readable logged-out). Sort + offset
@@ -733,7 +716,6 @@ const routeTree = rootRoute.addChildren([
   publicUserRoute,
   publicSpaceIndexRoute,
   publicReaderRoute,
-  readRoute,
   printRoute,
   // Registered AFTER every explicit route so a static path (/login, /discover,
   // /share, /public, …) always out-matches the single-segment handle route.

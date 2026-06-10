@@ -23,7 +23,8 @@ Status: **in progress** (design locked; core shipped). Owner: see git blame.
   `lib/markdown/embed.ts`), file, timeline render at full fidelity. Tabs too.
 - ✅ **Anti-drift gate** — `scripts/blocks-manifest.mjs` requires every block to
   declare a view-render status (VIEW_RENDERED / VIEW_DEGRADES).
-- ✅ **Read surfaces** — `/read`, `/public`, `/share` (all via `ReaderShell`)
+- ✅ **Read surfaces** — `?view=read` (authed full-bleed reader overlay on the
+  canonical page URL), `/public`, `/share` (all via `ReaderShell`)
   render through `MarkdownView` too: no editor chunk, no Yjs on the public/SEO
   surface. TOC / heading anchors / footnotes / scroll-spy / PDF-ready run off
   MarkdownView's DOM via an `onReady` callback; reader wikilinks keep the
@@ -100,7 +101,7 @@ pages.body (markdown, canonical)
 - `view`: render `<MarkdownView body={page.body} … />`. No collab, no editor chunk. Body paints from the cached `usePage` data immediately → kills the ~180 ms blank.
 - `edit`: render the existing collab `MilkdownEditor` (`collabPageId=page.id`). Entered via the Edit button (gated on editor/owner role — reuse `isViewer`/`roleResolved`, `PageView.tsx:333–351`). The Y.Doc/provider create-on-enter, destroy-on-exit (drive the existing lifecycle at `milkdown-editor.tsx:367–384` / `1014–1021` by mode instead of mount).
 - `?edit=1` syncs mode across refresh; Edit/Done toggles it. Back-button returns to view.
-- The existing **"Read mode"** menu item (navigates to `/read`) becomes redundant for the app and can be retired once view is the default.
+- The **"Read mode"** button now sets `?view=read` on the canonical page URL (a full-bleed reader overlay), not a separate `/read/{space}/{page}` route — so the reader keeps the page's slug / copy-share / OG behaviour. The standalone `/read` route was retired.
 
 ### Read surfaces fold in (bonus)
 

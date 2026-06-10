@@ -55,6 +55,13 @@ import { WikilinkHoverPreview } from './wikilink-hover-preview'
 const ShareManagerSheet = lazy(() =>
   import('./ShareManagerSheet').then((m) => ({ default: m.ShareManagerSheet })),
 )
+
+// Full-bleed reader (?view=read). Lazy so ReaderShell + its TOC/scroll-spy/
+// print-stylesheet machinery stay off the main entry chunk until a reader opens
+// it — same split the retired /read route used to give us.
+const PageReader = lazy(() =>
+  import('./PageReader').then((m) => ({ default: m.PageReader })),
+)
 import {
   prefetchPage,
   useAllPages,
@@ -144,7 +151,7 @@ export function PageView({ spaceId, pageId }: PageViewProps) {
   const navigate = useNavigate()
   // M9.3 — soft-draft mode is opted into via `?draft=$revId`. The param is
   // typed by the route's validateSearch in router.tsx.
-  const { draft: draftRevId, edit: editParam } = useSearch({
+  const { draft: draftRevId, edit: editParam, view } = useSearch({
     from: '/_app/spaces/$spaceId/pages/$pageId/{-$slug}',
   })
   const { slug: currentSlug } = useParams({
@@ -190,6 +197,8 @@ export function PageView({ spaceId, pageId }: PageViewProps) {
   // reading instant — no editor chunk, no Yjs/collab, no /yjs round-trip — and
   // stops a reader from being one keystroke into editing. Entering edit mounts
   // PageEditor (collab spins up); leaving unmounts it (collab tears down).
+  // Precedence: edit wins over ?view=read — you can't be reading and editing at
+  // once, and an explicit Edit intent shouldn't be swallowed by a stale ?view.
   if (editParam || draftRevId != null) {
     return (
       <PageEditor
@@ -199,6 +208,18 @@ export function PageView({ spaceId, pageId }: PageViewProps) {
         draftRevId={draftRevId ?? null}
         onDeleted={onDeleted}
       />
+    )
+  }
+  // ?view=read — distraction-free reader as a full-bleed overlay above the app
+  // shell (which stays mounted underneath, so closing is instant). A view-state
+  // on the canonical URL, mirroring ?edit; closing just drops the param.
+  if (view === 'read') {
+    return (
+      <div className="fixed inset-0 z-50 bg-[var(--surface-1)]">
+        <Suspense fallback={null}>
+          <PageReader spaceId={spaceId} pageId={page.data.id} />
+        </Suspense>
+      </div>
     )
   }
   return (
@@ -369,8 +390,13 @@ function PageViewer({
               title="Read mode — distraction-free reading view"
               onClick={() =>
                 void navigate({
-                  to: '/read/$spaceId/$pageId',
-                  params: { spaceId, pageId: page.id },
+                  to: '/spaces/$spaceId/pages/$pageId/{-$slug}',
+                  params: {
+                    spaceId,
+                    pageId: page.id,
+                    slug: pageSlug(page.title) || undefined,
+                  },
+                  search: (prev) => ({ ...prev, view: 'read' }),
                 })
               }
               className="h-[var(--space-8)] px-[var(--space-3)]"

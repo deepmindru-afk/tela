@@ -49,14 +49,19 @@ interface ReadModeViewProps {
   updatedAt: string
 }
 
-// Authenticated reading mode. Wikilinks resolve against the full page set and
-// keep the reader open by hopping to /read/{space}/{page}; Esc / the close
-// button return to the editor.
+// Authenticated reading mode. Rendered as a full-bleed overlay over the page at
+// `?view=read`. Wikilinks keep the reader open by hopping to the target page
+// with `?view=read`; Esc / the close button drop the param and fall back to the
+// page's normal view.
 function ReadModeView({ spaceId, pageId, title, summary, body, updatedAt }: ReadModeViewProps) {
   const navigate = useNavigate()
-  const editorRoute = {
+  // Close target: the same canonical page URL minus `?view=read`. Empty `search`
+  // clears the param (the route's validateSearch drops everything it doesn't
+  // know), so this lands on the default read view rather than the editor.
+  const closeRoute = {
     to: '/spaces/$spaceId/pages/$pageId/{-$slug}' as const,
     params: { spaceId, pageId, slug: undefined },
+    search: {},
   }
 
   // Alive page ids power broken-wikilink rendering; the full list also resolves
@@ -87,15 +92,16 @@ function ReadModeView({ spaceId, pageId, title, summary, body, updatedAt }: Read
       const sp = spaceByPageId.get(targetPageId)
       if (sp == null) return
       void navigate({
-        to: '/read/$spaceId/$pageId',
-        params: { spaceId: sp, pageId: targetPageId },
+        to: '/spaces/$spaceId/pages/$pageId/{-$slug}',
+        params: { spaceId: sp, pageId: targetPageId, slug: undefined },
+        search: { view: 'read' },
       })
     },
     [navigate, spaceByPageId],
   )
 
   const onEscape = useCallback(() => {
-    void navigate(editorRoute)
+    void navigate(closeRoute)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [navigate, spaceId, pageId])
 
@@ -122,7 +128,7 @@ function ReadModeView({ spaceId, pageId, title, summary, body, updatedAt }: Read
           aria-label="Close reading mode"
           className="h-[var(--space-8)] w-[var(--space-8)] p-0"
         >
-          <Link {...editorRoute}>
+          <Link {...closeRoute}>
             <X width={16} height={16} />
           </Link>
         </Button>
