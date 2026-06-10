@@ -164,10 +164,6 @@ type askRequest struct {
 	Limit    int    `json:"limit"`
 }
 
-// askMaxChunks caps how many retrieved chunks ground the answer (and bounds the
-// prompt size) regardless of what the caller asks for.
-const askMaxChunks = 8
-
 // RAGAsk handles POST /api/rag/ask {question, space_id?, limit?}
 // "Ask your docs": retrieve the top chunks via the EXISTING hybrid search
 // (scoped to the caller's space_access — same anti-leak path as RAGSearch),

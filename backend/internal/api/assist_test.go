@@ -96,6 +96,52 @@ func TestRAGAnswerToPage_CreatesCitedPage(t *testing.T) {
 	}
 }
 
+func TestBuildAskContext_ExpandsHubAndFallsBack(t *testing.T) {
+	// 6 pages in rank order. Pages 1–4 expand by rank; page 5 (rank 4, single
+	// chunk) must fall back to its chunk; page 6 (LAST by rank but a dense hub —
+	// the "kafka registry" shape) must still expand via the density rule.
+	pageIDs := []int64{1, 2, 3, 4, 5, 6}
+	best := map[int64]rag.Hit{}
+	bodies := map[int64]string{}
+	contents := map[int64]string{}
+	count := map[int64]int{}
+	for _, pid := range pageIDs {
+		best[pid] = rag.Hit{PageID: pid, ChunkID: pid * 10, Title: "Page" + strconv.FormatInt(pid, 10),
+			HeadingPath: "Sec" + strconv.FormatInt(pid, 10), Snippet: "snip"}
+		bodies[pid] = "FULLBODY" + strconv.FormatInt(pid, 10) + " whole page text"
+		contents[pid*10] = "CHUNK" + strconv.FormatInt(pid, 10) + " fragment"
+		count[pid] = 1
+	}
+	count[6] = askDenseChunks // page 6 is the dense hub despite ranking last
+
+	block, pageHits := buildAskContext(pageIDs, best, count, bodies, contents)
+
+	// Top-ranked pages expanded to full body.
+	if !strings.Contains(block, "FULLBODY1") {
+		t.Errorf("top page not expanded: %q", block)
+	}
+	// Page 5: not top-rank, not dense → chunk fallback, with heading path in header.
+	if strings.Contains(block, "FULLBODY5") || !strings.Contains(block, "CHUNK5") {
+		t.Errorf("page 5 should fall back to its chunk, got: %q", block)
+	}
+	if !strings.Contains(block, "Page5 — Sec5") {
+		t.Errorf("chunk-fallback header should carry heading path: %q", block)
+	}
+	// Page 6: the density rescue — expanded to full body even though it ranks last.
+	if !strings.Contains(block, "FULLBODY6") {
+		t.Errorf("dense hub page (rank last) was not expanded — the table-rescue case: %q", block)
+	}
+	// Per-page hits align with the [n] numbering (one per page, in order).
+	if len(pageHits) != 6 {
+		t.Fatalf("want 6 page hits, got %d", len(pageHits))
+	}
+	for i, h := range pageHits {
+		if h.PageID != pageIDs[i] {
+			t.Errorf("pageHits[%d] = page %d, want %d", i, h.PageID, pageIDs[i])
+		}
+	}
+}
+
 func TestRAGAsk_Followups(t *testing.T) {
 	ts, d, srv := newRagServer(t)
 	srv.llm = llm.NewServiceWithCompleter(&fakeCompleter{answer: "Use make deploy to ship."})

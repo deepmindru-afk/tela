@@ -98,3 +98,45 @@ func (s *Service) ChunkContents(ctx context.Context, userID int64, ids []int64, 
 	}
 	return out, rows.Err()
 }
+
+// PageBodies returns the full markdown body for a set of page ids, keyed by page
+// id, authorized through the same space_access anti-leak join as ChunkContents.
+// Out-of-scope or missing ids are silently omitted. Used by "ask your docs" for
+// parent-document retrieval: when a retrieved chunk points at a page, the ask
+// path can feed the LLM the WHOLE page so an answer that lives in a table/list
+// the chunker split (e.g. a "services using X" registry) survives intact.
+func (s *Service) PageBodies(ctx context.Context, userID int64, ids []int64, spaceID *int64) (map[int64]string, error) {
+	if len(ids) == 0 {
+		return map[int64]string{}, nil
+	}
+	qb := &queryBuilder{}
+	uid := qb.arg(userID)
+	ph := make([]string, len(ids))
+	for i, id := range ids {
+		ph[i] = qb.arg(id)
+	}
+	query := `
+		SELECT p.id, p.body
+		  FROM pages p
+		  JOIN (SELECT DISTINCT space_id FROM space_access WHERE user_id = ` + uid + `) sm
+		    ON sm.space_id = p.space_id
+		 WHERE p.deleted_at IS NULL AND p.id IN (` + strings.Join(ph, ",") + `)`
+	if spaceID != nil {
+		query += ` AND p.space_id = ` + qb.arg(*spaceID)
+	}
+	rows, err := s.db.QueryContext(ctx, query, qb.args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := make(map[int64]string, len(ids))
+	for rows.Next() {
+		var id int64
+		var body string
+		if err := rows.Scan(&id, &body); err != nil {
+			return nil, err
+		}
+		out[id] = body
+	}
+	return out, rows.Err()
+}

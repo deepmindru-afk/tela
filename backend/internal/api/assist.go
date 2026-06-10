@@ -21,44 +21,121 @@ import (
 //
 // RAGAsk is refactored onto these too (so the seam is exercised, not bypassed).
 
-// askContext retrieves the top chunks for query and renders the numbered, cited
-// excerpt block that grounds every generative feature, plus the hits (for source
-// citation) and the top fused score. An empty hits slice means "nothing
-// retrieved" — callers decide whether to proceed.
+// Parent-document retrieval knobs for the ask path. Chunk retrieval finds the
+// right neighbourhood, but an answer that spans a whole page — most painfully a
+// "services using X" registry TABLE the chunker had to split — can't be
+// reconstructed from one ~1400-char fragment. So the ask path pulls a deeper
+// chunk pool, dedups to pages, and feeds the LLM the WHOLE body of the pages that
+// matter, falling back to chunk text for the long tail.
+const (
+	// askRetrieveDepth: how many chunks to pull for the ask path (vs askMaxChunks
+	// for plain search). Deeper so a topical hub page surfaces even when a
+	// cross-encoder buried its terse table low.
+	askRetrieveDepth = 24
+	// askExpandTopRank: always expand the top-N pages by rank (precision — the
+	// clearly-relevant pages get read in full).
+	askExpandTopRank = 4
+	// askDenseChunks: ...AND expand any page contributing at least this many
+	// chunks to the pool. A page the corpus discusses densely for this query is
+	// its hub (the Kafka registry page for "which projects use kafka"); read it
+	// whole even if its best chunk ranked low. This is what rescues split tables.
+	askDenseChunks = 3
+	// askPageBodyCap / askExpandBudget bound the cost: per-page and cumulative
+	// rune caps on expanded full bodies. Past the budget, pages degrade to their
+	// chunk text. ~28k chars ≈ 7k tokens — full answers, bounded context.
+	askPageBodyCap  = 9000
+	askExpandBudget = 28000
+	// askMaxPages caps how many distinct pages we render at all (expanded or not).
+	askMaxPages = 12
+)
+
+// askContext retrieves grounding for query and renders the numbered, cited
+// excerpt block that feeds every generative feature, plus the per-page hits (for
+// source citation, aligned to the [n] numbering) and the top fused score. It
+// dedups chunks to pages and expands topically-central pages to their full body
+// (see the knobs above). An empty hits slice means "nothing retrieved".
 func (s *Server) askContext(ctx context.Context, userID int64, query string, spaceID *int64, limit int) (string, []rag.Hit, float64, error) {
-	if limit <= 0 || limit > askMaxChunks {
-		limit = askMaxChunks
+	depth := askRetrieveDepth
+	if limit > depth {
+		depth = limit
 	}
-	hits, err := s.rag.Search(ctx, userID, query, spaceID, limit, "hybrid")
+	hits, err := s.rag.Search(ctx, userID, query, spaceID, depth, "hybrid")
 	if err != nil {
 		return "", nil, 0, err
 	}
 	if len(hits) == 0 {
 		return "", nil, 0, nil
 	}
-	ids := make([]int64, len(hits))
-	for i, h := range hits {
-		ids[i] = h.ChunkID
+	// Best hit + chunk count per page, in rank order of first appearance.
+	pageIDs := make([]int64, 0, len(hits))
+	count := map[int64]int{}
+	best := map[int64]rag.Hit{}
+	chunkIDs := make([]int64, 0, len(hits))
+	for _, h := range hits {
+		if _, seen := best[h.PageID]; !seen {
+			best[h.PageID] = h
+			pageIDs = append(pageIDs, h.PageID)
+			chunkIDs = append(chunkIDs, h.ChunkID)
+		}
+		count[h.PageID]++
 	}
-	contents, err := s.rag.ChunkContents(ctx, userID, ids, spaceID)
+	bodies, err := s.rag.PageBodies(ctx, userID, pageIDs, spaceID)
 	if err != nil {
 		return "", nil, 0, err
 	}
+	contents, err := s.rag.ChunkContents(ctx, userID, chunkIDs, spaceID)
+	if err != nil {
+		return "", nil, 0, err
+	}
+	block, pageHits := buildAskContext(pageIDs, best, count, bodies, contents)
+	return block, pageHits, hits[0].Score, nil
+}
+
+// buildAskContext renders the numbered excerpt block from ranked pages, expanding
+// topically-central pages (top-by-rank or dense hubs) to their full body and
+// falling back to chunk text otherwise. Pure (no I/O) so it's unit-testable.
+// Returns the block and the per-page hits aligned to the [n] numbering.
+func buildAskContext(pageIDs []int64, best map[int64]rag.Hit, count map[int64]int, bodies, contents map[int64]string) (string, []rag.Hit) {
 	var b strings.Builder
-	for i, h := range hits {
-		fmt.Fprintf(&b, "[%d] %s", i+1, h.Title)
-		if h.HeadingPath != "" {
-			fmt.Fprintf(&b, " — %s", h.HeadingPath)
+	pageHits := make([]rag.Hit, 0, len(pageIDs))
+	spent, n := 0, 0
+	for rank, pid := range pageIDs {
+		if n >= askMaxPages {
+			break
+		}
+		h := best[pid]
+		n++
+		full, hasBody := bodies[pid]
+		expand := hasBody && full != "" && spent < askExpandBudget &&
+			(rank < askExpandTopRank || count[pid] >= askDenseChunks)
+
+		fmt.Fprintf(&b, "[%d] %s", n, h.Title)
+		if !expand && h.HeadingPath != "" {
+			fmt.Fprintf(&b, " — %s", h.HeadingPath) // heading path only adds context to a fragment
 		}
 		b.WriteString("\n")
+
 		body := h.Snippet
-		if full, ok := contents[h.ChunkID]; ok && full != "" {
-			body = full
+		if expand {
+			body = clampRunes(full, askPageBodyCap)
+			spent += len(body)
+		} else if c, ok := contents[h.ChunkID]; ok && c != "" {
+			body = c
 		}
 		b.WriteString(body)
 		b.WriteString("\n\n")
+		pageHits = append(pageHits, h)
 	}
-	return b.String(), hits, hits[0].Score, nil
+	return b.String(), pageHits
+}
+
+// clampRunes truncates s to at most n runes (never splitting a rune).
+func clampRunes(s string, n int) string {
+	r := []rune(s)
+	if len(r) <= n {
+		return s
+	}
+	return string(r[:n])
 }
 
 // askComplete applies the compute caps (rate + monthly) and runs the LLM,
