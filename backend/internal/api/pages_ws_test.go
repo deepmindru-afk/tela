@@ -597,6 +597,93 @@ func TestIntegration_WSPage_AwarenessRebroadcastsToOthersNotSender(t *testing.T)
 	}
 }
 
+// TestIntegration_WSPage_DiagramRebroadcastsAndNeverPersists locks the
+// ephemeral live-Excalidraw invariant: a tag 0x07 frame from peer A reaches
+// peer B verbatim (relay), A never sees its own echo, and the frame NEVER
+// lands in page_yjs_updates / page_yjs_snapshots. The scene's canonical home
+// is pages.body; this channel is pure transient transport. If a future change
+// routes diagram traffic through appendUpdate, this test fails — which is the
+// whole point (it's the drift tripwire for invariant 2).
+func TestIntegration_WSPage_DiagramRebroadcastsAndNeverPersists(t *testing.T) {
+	ts, d := newWSWiredServer(t)
+	owner := seedUser(t, d, "owner", "ownerpw1", false)
+	editor := seedUser(t, d, "editor", "editorpw1", false)
+	space := seedSpace(t, d, "S", "s", owner)
+	seedMember(t, d, space, editor, roleEditor)
+	pageID := seedPage(t, d, space, "P")
+
+	ownerC := loginClient(t, ts, "owner", "ownerpw1")
+	editorC := loginClient(t, ts, "editor", "editorpw1")
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	a, _, err := websocket.Dial(ctx, wsURLFor(ts, pageID),
+		&websocket.DialOptions{HTTPClient: ownerC})
+	if err != nil {
+		t.Fatalf("dial a: %v", err)
+	}
+	defer a.CloseNow()
+	b, _, err := websocket.Dial(ctx, wsURLFor(ts, pageID),
+		&websocket.DialOptions{HTTPClient: editorC})
+	if err != nil {
+		t.Fatalf("dial b: %v", err)
+	}
+	defer b.CloseNow()
+
+	if _, _, err := a.Read(ctx); err != nil {
+		t.Fatalf("a sync-init: %v", err)
+	}
+	if _, _, err := b.Read(ctx); err != nil {
+		t.Fatalf("b sync-init: %v", err)
+	}
+
+	payload := []byte(`{"k":"abc","t":"s","e":[]}`)
+	if err := a.Write(ctx, websocket.MessageBinary, encodeFrame(tagDiagram, payload)); err != nil {
+		t.Fatalf("a write diagram: %v", err)
+	}
+
+	typ, got, err := b.Read(ctx)
+	if err != nil {
+		t.Fatalf("b read: %v", err)
+	}
+	if typ != websocket.MessageBinary || len(got) < 1 || got[0] != tagDiagram {
+		t.Fatalf("b got tag=%x typ=%d, want diagram", got, typ)
+	}
+	if !bytes.Equal(got[1:], payload) {
+		t.Fatalf("b payload = %x, want %x", got[1:], payload)
+	}
+
+	// Tripwire: the diagram frame must NOT be persisted anywhere.
+	time.Sleep(50 * time.Millisecond)
+	var nUpd, nSnap int
+	if err := d.QueryRow(`SELECT COUNT(*) FROM page_yjs_updates WHERE page_id = $1`, pageID).Scan(&nUpd); err != nil {
+		t.Fatalf("count updates: %v", err)
+	}
+	if nUpd != 0 {
+		t.Fatalf("diagram frame leaked into page_yjs_updates (%d rows)", nUpd)
+	}
+	if err := d.QueryRow(`SELECT COUNT(*) FROM page_yjs_snapshots WHERE page_id = $1`, pageID).Scan(&nSnap); err != nil {
+		t.Fatalf("count snapshots: %v", err)
+	}
+	if nSnap != 0 {
+		t.Fatalf("diagram frame leaked into page_yjs_snapshots (%d rows)", nSnap)
+	}
+
+	// Sender (A) must NOT see its own diagram frame echoed: send a regular
+	// update from B and expect A to receive THAT next, with nothing in between.
+	if err := b.Write(ctx, websocket.MessageBinary, encodeFrame(tagUpdate, []byte("ping"))); err != nil {
+		t.Fatalf("b write update: %v", err)
+	}
+	typ, got, err = a.Read(ctx)
+	if err != nil {
+		t.Fatalf("a read: %v", err)
+	}
+	if typ != websocket.MessageBinary || len(got) < 1 || got[0] != tagUpdate {
+		t.Fatalf("a got tag=%x, want update (diagram frame must not have echoed)", got)
+	}
+}
+
 // TestIntegration_WSPage_UnknownTagIgnored: forward-compat — an unknown tag
 // is silently dropped, the conn stays open, and a subsequent valid update
 // still round-trips.

@@ -43,6 +43,20 @@ import (
 //	                                      in the room. Never persisted —
 //	                                      awareness state lives only as long
 //	                                      as the ws sessions that produced it.
+//	0x07  diagram          peer↔server : ephemeral live-Excalidraw channel.
+//	                                      Pure fan-out, identical to awareness:
+//	                                      opaque payload rebroadcast to every
+//	                                      OTHER peer, NEVER persisted. The
+//	                                      Excalidraw scene stays canonical in
+//	                                      pages.body (the atom fence); this
+//	                                      channel only carries the firehose of
+//	                                      mid-draw element deltas + pointers
+//	                                      between peers who have the diagram
+//	                                      open. Convergence + writeback are
+//	                                      client-side, so the server learns
+//	                                      nothing about diagram content — which
+//	                                      is exactly why drawing-rate traffic
+//	                                      never touches page_yjs_updates.
 //
 // Any unknown tag is ignored — keeps the protocol forward-extensible.
 
@@ -55,6 +69,9 @@ const (
 	// tagReset server→peer: the page body was rewritten out-of-band (an agent
 	// MCP write); the peer must drop its stale Y.Doc and reload from pages.body.
 	tagReset byte = 0x06
+	// tagDiagram peer↔server: ephemeral live-Excalidraw relay — see protocol
+	// doc above. Relay-only, never persisted.
+	tagDiagram byte = 0x07
 )
 
 // wsReadLimit bounds a single inbound ws message. Yjs full-state sync vectors
@@ -531,6 +548,12 @@ func (s *Server) handleWSFrame(ctx context.Context, rm *room, sender *peer, fram
 		// The server is opaque to y-protocols/awareness payload format — peers
 		// decode it on receipt via applyAwarenessUpdate.
 		broadcastToOthers(ctx, rm, sender, encodeFrame(tagAwareness, payload))
+	case tagDiagram:
+		// Ephemeral live-Excalidraw relay: pure fan-out, never persisted. The
+		// scene's canonical home is pages.body; this only carries mid-draw
+		// deltas between peers. Deliberately NOT appendUpdate'd — that is the
+		// invariant the TestWSDiagramNotPersisted gate locks in.
+		broadcastToOthers(ctx, rm, sender, encodeFrame(tagDiagram, payload))
 	default:
 		// Unknown / future tag: ignore so the protocol stays forward-extensible.
 	}
