@@ -140,3 +140,57 @@ func (s *Service) PageBodies(ctx context.Context, userID int64, ids []int64, spa
 	}
 	return out, rows.Err()
 }
+
+// HubPage is a topical-hub candidate: a page and how many of its chunks match
+// ANY query term (OR semantics), plus a representative chunk for fallback.
+type HubPage struct {
+	PageID  int64
+	Title   string
+	ChunkID int64
+	Count   int
+}
+
+// HubPages returns the pages whose chunks mention the query terms most often,
+// ordered by that count. Deliberately OR-matched (not the AND of plainto_tsquery
+// that lexicalRank/search use): for an aggregate question like "which projects
+// use kafka", the authoritative answer is the page that is ABOUT kafka (every
+// chunk mentions it), which an AND over "project & use & kafka" misses and a
+// precision reranker buries. The ask path uses this rerank-independent signal to
+// decide which whole pages to expand. Same space_access anti-leak join as the
+// rest of read.go. Empty/stopword-only queries match nothing (return no rows).
+func (s *Service) HubPages(ctx context.Context, userID int64, query string, spaceID *int64, limit int) ([]HubPage, error) {
+	if limit <= 0 {
+		limit = 8
+	}
+	qb := &queryBuilder{}
+	uid := qb.arg(userID)
+	q := qb.arg(query)
+	// plainto_tsquery sanitises the input to `'a' & 'b' & …`; swapping & → | turns
+	// it into an OR query without any hand-built (injectable) tsquery string.
+	sql := `
+		SELECT p.id, p.title, min(pc.id), count(*)
+		  FROM page_chunks pc
+		  JOIN pages p ON p.id = pc.page_id AND p.deleted_at IS NULL
+		  JOIN (SELECT DISTINCT space_id FROM space_access WHERE user_id = ` + uid + `) sm
+		    ON sm.space_id = p.space_id
+		 WHERE pc.content_tsv @@ replace(plainto_tsquery('english', ` + q + `)::text, '&', '|')::tsquery`
+	if spaceID != nil {
+		sql += ` AND p.space_id = ` + qb.arg(*spaceID)
+	}
+	sql += ` GROUP BY p.id, p.title ORDER BY count(*) DESC, p.id LIMIT ` + qb.arg(limit)
+
+	rows, err := s.db.QueryContext(ctx, sql, qb.args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []HubPage
+	for rows.Next() {
+		var h HubPage
+		if err := rows.Scan(&h.PageID, &h.Title, &h.ChunkID, &h.Count); err != nil {
+			return nil, err
+		}
+		out = append(out, h)
+	}
+	return out, rows.Err()
+}

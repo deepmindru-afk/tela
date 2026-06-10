@@ -116,3 +116,59 @@ func TestChunkContents_ScopedToAccess(t *testing.T) {
 		t.Fatal("LEAK: bob read content of a chunk in a space he can't access")
 	}
 }
+
+// TestHubPages_ORMatchesTopicalHub proves the hub probe ranks the page that's
+// ABOUT the topic first via OR semantics — the aggregate-question case an AND
+// query (plainto_tsquery) misses. The "Kafka" page mentions kafka in every
+// chunk; an unrelated page shares only one query word ("services").
+func TestHubPages_ORMatchesTopicalHub(t *testing.T) {
+	d := testdb.New(t)
+	ctx := context.Background()
+	alice := newUser(t, d, "alice")
+	sp := newSpace(t, d, "alpha", alice)
+	hub := newPage(t, d, sp, "Kafka",
+		"## Brokers\nThe kafka broker cluster runs on three nodes and every service connects to kafka for its event stream and config bus over the kafka protocol here.\n\n"+
+			"## Services Using Kafka\nThe following services consume from kafka: alpha, bravo, and charlie each subscribe to kafka topics and process kafka messages continuously.\n\n"+
+			"## Topics\nKafka topics are organised by domain; each kafka topic has a producer and a consumer group reading from the kafka log in order to stay current.")
+	other := newPage(t, d, sp, "Services Directory",
+		"## List\nA plain directory of services and their owners and on-call rotation, with contact details and team names, containing no messaging or event infrastructure at all.")
+
+	svc := NewServiceWithEmbedder(d, &fakeEmbedder{})
+	for _, p := range []int64{hub, other} {
+		if _, err := svc.ReindexPage(ctx, p); err != nil {
+			t.Fatalf("index: %v", err)
+		}
+	}
+
+	hubs, err := svc.HubPages(ctx, alice, "which services use kafka", nil, 8)
+	if err != nil {
+		t.Fatalf("HubPages: %v", err)
+	}
+	if len(hubs) == 0 || hubs[0].PageID != hub {
+		t.Fatalf("expected the Kafka page as top hub, got %+v", hubs)
+	}
+	if hubs[0].Count < 2 {
+		t.Errorf("kafka hub should match multiple chunks (OR over terms), got count=%d", hubs[0].Count)
+	}
+}
+
+// TestHubPages_ScopedToAccess — the hub probe must honor space_access too.
+func TestHubPages_ScopedToAccess(t *testing.T) {
+	d := testdb.New(t)
+	ctx := context.Background()
+	alice := newUser(t, d, "alice")
+	bob := newUser(t, d, "bob")
+	sp := newSpace(t, d, "alpha", alice)
+	page := newPage(t, d, sp, "Kafka", "## A\nkafka kafka kafka")
+	svc := NewServiceWithEmbedder(d, &fakeEmbedder{})
+	if _, err := svc.ReindexPage(ctx, page); err != nil {
+		t.Fatalf("index: %v", err)
+	}
+	hubs, err := svc.HubPages(ctx, bob, "kafka", nil, 8)
+	if err != nil {
+		t.Fatalf("HubPages: %v", err)
+	}
+	if len(hubs) != 0 {
+		t.Fatalf("LEAK: bob saw a hub page in a space he can't access: %+v", hubs)
+	}
+}
