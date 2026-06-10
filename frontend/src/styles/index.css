@@ -132,6 +132,11 @@
     transform: translate(-50%, -50%);
     width: 100%;
     max-width: min(32rem, calc(100vw - var(--space-7)));
+    /* Cap to the viewport and scroll — a tall dialog (e.g. the space share
+       sheet) otherwise overflows top + bottom with no way to reach it. dvh
+       keeps it clear of mobile browser chrome. */
+    max-height: calc(100dvh - 2 * var(--space-7));
+    overflow-y: auto;
     background: var(--surface-1);
     color: var(--text-primary);
     border: 1px solid var(--border-subtle);
