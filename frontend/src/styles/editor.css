@@ -10,14 +10,17 @@
        (min-height ~320px) and overflow-paint on top of the Child-pages /
        Backlinks sections beneath it (sections rendered on top of each other). */
     flex-shrink: 0;
-    /* …and grow to fill any leftover column height, so the contenteditable's
-       click-area (the .ProseMirror flex:1 chain below) extends past the last
-       line down to the footer sections. Without this the editable box stops at
-       the text, so clicking the whitespace under a short doc lands nowhere and
-       you have to hunt for the last line. ProseMirror's own hit-testing then
-       places the caret at the end — no click-interception JS to keep in sync
-       with the block set. shrink:0 stays, so the editor still can't shrink and
-       overlap the sections. */
+  }
+  /* Grow ONLY the real editor to fill leftover column height, so the
+     contenteditable's click-area (the .ProseMirror flex:1 chain below) extends
+     past the last line down to the footer sections — clicking the whitespace
+     under a short doc then lands the caret at the end via ProseMirror's own
+     hit-testing (no click-interception JS to keep in sync with the block set).
+     Scoped to a *editable* ProseMirror because MarkdownView reuses the
+     `.tela-milkdown .ProseMirror` classes as a read-only styling hook (it has
+     `data-tela-view`, no `contenteditable`); without this scope the static read
+     body would grow too and open a gap above Child-pages/Backlinks. */
+  .tela-milkdown:has(.ProseMirror[contenteditable='true']) {
     flex-grow: 1;
   }
   .tela-milkdown [data-milkdown-root] {
@@ -34,8 +37,6 @@
     font-variant-ligatures: none;
     -webkit-font-variant-ligatures: none;
     padding: var(--space-2);
-    /* The whole filled box reads as editable, not just the text lines. */
-    cursor: text;
     font-family: var(--font-sans);
     font-size: var(--text-base);
     line-height: var(--leading-normal);
