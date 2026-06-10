@@ -24,6 +24,16 @@ var headingRE = regexp.MustCompile(`^(#{1,6})\s+(.*\S)\s*$`)
 // can never fail a reindex.
 const maxChunkChars = 1400
 
+// minChunkChars is the floor below which a section is too thin to stand alone as
+// a retrievable unit. Such a section is heading-dominated: embedded by itself it
+// matches any query sharing its heading word while answering nothing (the
+// "## Kafka Topics → None." failure — a stub that crowded out the pages that
+// actually use Kafka). Below this, a section is merged into an adjacent one
+// instead of emitted alone. Conservative on purpose — only true stubs fall under
+// it — so the rule lifts retrieval without blurring substantive short sections on
+// other corpora.
+const minChunkChars = 120
+
 // ChunkMarkdown splits a page body into heading-aware chunks. Each chunk carries
 // the heading breadcrumb it lives under; the page title + breadcrumb is folded
 // into EmbedText so every embedded chunk is self-contained (contextual
@@ -39,12 +49,7 @@ func ChunkMarkdown(pageTitle, body string) []Chunk {
 		fenceTok string
 	)
 
-	flush := func() {
-		content := strings.TrimSpace(strings.Join(buf, "\n"))
-		buf = buf[:0]
-		if content == "" {
-			return
-		}
+	emit := func(content string) {
 		parts := make([]string, 0, len(stack))
 		for _, s := range stack {
 			if s != "" {
@@ -62,6 +67,28 @@ func ChunkMarkdown(pageTitle, body string) []Chunk {
 			Content:     content,
 			EmbedText:   ctx + "\n\n" + content,
 		})
+	}
+
+	// carry holds a sub-threshold section's text to fold into the NEXT flush, so a
+	// thin heading-dominated stub never becomes its own embedded chunk (see
+	// minChunkChars). Merge-forward keeps the text in the corpus, lexically and
+	// semantically, but without the standalone poison vector.
+	carry := ""
+	flush := func() {
+		content := strings.TrimSpace(strings.Join(buf, "\n"))
+		buf = buf[:0]
+		if content == "" {
+			return
+		}
+		if carry != "" {
+			content = carry + "\n\n" + content
+			carry = ""
+		}
+		if len(content) < minChunkChars {
+			carry = content // too thin to stand alone — defer into the next section
+			return
+		}
+		emit(content)
 	}
 
 	for _, ln := range lines {
@@ -97,12 +124,28 @@ func ChunkMarkdown(pageTitle, body string) []Chunk {
 			}
 		}
 
+		// A markdown table row starts with `|`; never force-flush mid-table, or a
+		// split leaves a single orphaned row (e.g. one cell of a "services using X"
+		// registry) that's useless out of context. Headings still break tables;
+		// tables don't span them. An over-cap table rides the embedder's
+		// shrink-retry (the contextual prefix + leading rows sit at the head).
+		inTable := strings.HasPrefix(trimmed, "|")
 		buf = append(buf, ln)
-		if !inFence && bufLen(buf) >= maxChunkChars {
+		if !inFence && !inTable && bufLen(buf) >= maxChunkChars {
 			flush()
 		}
 	}
 	flush()
+	// A thin trailing section has nothing to merge forward into; fold it back into
+	// the last chunk, or emit it alone if it's the whole (tiny) page.
+	if carry != "" {
+		if n := len(out); n > 0 {
+			out[n-1].Content += "\n\n" + carry
+			out[n-1].EmbedText += "\n\n" + carry
+		} else {
+			emit(carry)
+		}
+	}
 	return out
 }
 
