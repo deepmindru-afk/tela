@@ -147,6 +147,23 @@
 		reverse_proxy {$TELA_UPSTREAM_FRONTEND:frontend:80}
 	}
 
+	# In-app page deep links (/spaces/{id}/pages/{id}/...) are what people copy
+	# from the address bar to share. Bot UAs get a server-rendered OG card by
+	# rewriting to that page's /p/{id} permalink (backend HandlePublicShare →
+	# title-only card, branded to the org's custom domain when the page has one);
+	# humans fall through to the app SPA below, unchanged. noindex (these are
+	# app deep links). Keep the UA regex + capture in sync with botUASubstrings
+	# in backend/internal/api/public_share.go.
+	@page_bots {
+		path_regexp pageog ^/spaces/[0-9]+/pages/([0-9]+)(?:/.*)?$
+		header_regexp User-Agent "(?i)(slackbot-linkexpanding|twitterbot|facebookexternalhit|facebookcatalog|discordbot|telegrambot|linkedinbot|whatsapp|mastodon|cardyb|slack-imgproxy|pinterest|bot/|bot\s)"
+	}
+	handle @page_bots {
+		header X-Robots-Tag "noindex"
+		rewrite * /p/{re.pageog.1}
+		reverse_proxy {$TELA_UPSTREAM_BACKEND:backend:8080}
+	}
+
 	# Public sitemap (backend-generated from public spaces/pages/author-homes).
 	handle /sitemap-public.xml {
 		rewrite * /api/public/sitemap.xml
@@ -293,6 +310,20 @@ https:// {
 	}
 	handle /share/* {
 		reverse_proxy {$TELA_UPSTREAM_FRONTEND:frontend:80}
+	}
+
+	# In-app page deep links shared from this org's white-label domain: bot UAs
+	# get a server-rendered OG card (rewritten to /p/{id}, branded to this domain
+	# via the page's org); humans fall through to the app SPA below. Block-scoped
+	# noindex already applies. Mirror of the canonical block; keep the UA regex in
+	# sync with botUASubstrings in backend/internal/api/public_share.go.
+	@page_bots {
+		path_regexp pageog ^/spaces/[0-9]+/pages/([0-9]+)(?:/.*)?$
+		header_regexp User-Agent "(?i)(slackbot-linkexpanding|twitterbot|facebookexternalhit|facebookcatalog|discordbot|telegrambot|linkedinbot|whatsapp|mastodon|cardyb|slack-imgproxy|pinterest|bot/|bot\s)"
+	}
+	handle @page_bots {
+		rewrite * /p/{re.pageog.1}
+		reverse_proxy {$TELA_UPSTREAM_BACKEND:backend:8080}
 	}
 
 	# Everything else = the app SPA (login lands here, branded for the org).
