@@ -453,6 +453,7 @@ export function CommandPalette({
   // the next open.
   useEffect(() => {
     if (open) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional seed on open
       setSearch(prefixForMode(initialMode ?? 'pages'))
     } else {
       setSearch('')
@@ -462,6 +463,7 @@ export function CommandPalette({
   // External search push (e.g., a command switching into help mode). Nonce
   // forces the effect to re-fire even when the same value is requested twice.
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- external search push is an imperative request
     if (searchRequest) setSearch(searchRequest.value)
   }, [searchRequest])
 

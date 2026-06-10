@@ -25,6 +25,7 @@ import {
 // because its page list is already cached on first `[[`). See the SlashView
 // comment block for the full rationale.
 
+// eslint-disable-next-line react-refresh/only-export-components -- milkdown plugin slice lives with its view
 export const emojiAutocompletePlugin = slashFactory('tela-emoji')
 
 interface EmojiTrigger {
@@ -167,10 +168,12 @@ export function EmojiAutocompleteView() {
   })
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- clamps the active row when the list shrinks
     setActiveIdx((i) => (i >= items.length ? 0 : i))
   }, [items.length])
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- resets the active row on query change
     setActiveIdx(0)
   }, [query])
 

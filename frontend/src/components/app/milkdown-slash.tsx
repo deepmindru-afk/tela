@@ -33,6 +33,7 @@ import { insertEmbed } from './milkdown-embed'
 import { openEmojiPicker } from './milkdown-emoji'
 import { SLASH_BLOCKS } from './blocks-manifest'
 
+// eslint-disable-next-line react-refresh/only-export-components -- milkdown plugin slice lives with its view
 export const slashPlugin = slashFactory('tela-slash')
 
 interface SlashCommand {
@@ -260,6 +261,7 @@ export function SlashView() {
     const shouldShow = next != null && view.hasFocus() && view.editable
     if (!shouldShow) {
       setShow(el, false)
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- syncs PM slash state, identity-guarded
       setSlashState((prev) =>
         prev.visible ? { visible: false, query: '' } : prev,
       )
@@ -299,6 +301,7 @@ export function SlashView() {
   })
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- resets the active row on list change
     setActiveIdx(0)
   }, [query, items.length])
 

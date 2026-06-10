@@ -1,3 +1,13 @@
+/* eslint-disable react-hooks/refs --
+   This file deliberately treats refs as render-readable stable state:
+   `collabRef` is lazily initialized during render (the React-sanctioned
+   lazy-init escape — a Y.Doc + provider must exist before the first editor
+   build and stay identity-stable across parent re-renders or collab state
+   would be trashed), and `callbacks`/`isLeaderRef`/`editableRef` are the
+   latest-value sync pattern read from PM callbacks that are wired once at
+   editor build. Restructuring to satisfy the rule would change init/teardown
+   timing in the most regression-prone file in the app for no behavioral
+   gain. */
 import { Suspense, lazy, memo, useEffect, useRef, useState } from 'react'
 import {
   Editor,

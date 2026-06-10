@@ -989,12 +989,19 @@ function PageEditor({ page, spaceId, draftRevId, onDeleted }: PageEditorProps) {
     void save({ title: trimmed })
   }, [title, save, isDraftMode])
 
+  // Latest body, readable from onBlur — which is wired into Milkdown's
+  // listener once at mount and would otherwise close over a stale value.
+  // Updated in the change handler (the only body writer outside draft
+  // seeding, where blur-save is suppressed anyway), not during render.
+  const bodyRef = useRef(body)
+
   // Debounced body auto-save: schedule a save 500ms after the last keystroke;
   // blur cancels the timer and fires immediately if there's a pending change.
   // In draft mode we still update local `body` state but suppress the
   // debounced save — user commits via the explicit Save button.
   const handleBodyChange = useCallback(
     (next: string) => {
+      bodyRef.current = next
       setBody(next)
       if (isDraftMode) return
       cancelPendingSave()
@@ -1006,11 +1013,6 @@ function PageEditor({ page, spaceId, draftRevId, onDeleted }: PageEditorProps) {
     },
     [save, cancelPendingSave, isDraftMode],
   )
-
-  // Read latest body via ref so onBlur, which is wired into Milkdown's
-  // listener once at mount, always sees the most recent value.
-  const bodyRef = useRef(body)
-  bodyRef.current = body
 
   const handleBodyBlur = useCallback(() => {
     if (isDraftMode) return

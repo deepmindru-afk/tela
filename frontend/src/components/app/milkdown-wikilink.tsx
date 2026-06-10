@@ -29,6 +29,7 @@ import {
 // lives in milkdown-wikilink-decoration.ts (separate file so react-refresh
 // allows a non-component constant export alongside this React view).
 
+// eslint-disable-next-line react-refresh/only-export-components -- milkdown plugin slice lives with its view
 export const wikilinkPlugin = slashFactory('tela-wikilink')
 
 // ---------- Trigger detection ------------------------------------------------
@@ -271,6 +272,7 @@ export function WikilinkView() {
     const next = readWikilinkState(view)
     if (next == null) {
       dismissedOffsetRef.current = null
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- syncs PM picker state, identity-guarded
       setPickerState((prev) =>
         prev.visible
           ? { visible: false, query: '', openOffset: -1, trigger: 'bracket' }
@@ -307,10 +309,12 @@ export function WikilinkView() {
   // Reset the highlighted row whenever the filtered list changes — protects
   // against an out-of-range index when the user narrows the query.
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- clamps the active row when the list shrinks
     setActiveIdx((i) => (i >= items.length ? 0 : i))
   }, [items.length])
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- resets the active row on query change
     setActiveIdx(0)
   }, [query])
 

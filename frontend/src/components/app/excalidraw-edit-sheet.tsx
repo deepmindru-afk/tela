@@ -302,6 +302,7 @@ export function ExcalidrawEditSheet({
   const [settled, setSettled] = useState(false)
   useEffect(() => {
     if (!open) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional reset on close
       setSettled(false)
       return
     }

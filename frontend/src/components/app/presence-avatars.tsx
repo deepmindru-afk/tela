@@ -112,6 +112,7 @@ function useMountedPeers(peers: AwarenessPeer[]): PillEntry[] {
   const [entries, setEntries] = useState<PillEntry[]>([])
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- enter/leave phase machine derived from the peers prop
     setEntries((prev) => {
       const next: PillEntry[] = []
       const byUserId = new Map(prev.map((e) => [e.peer.user.id, e]))

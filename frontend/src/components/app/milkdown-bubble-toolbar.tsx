@@ -29,6 +29,7 @@ import { Input } from '../ui/input'
 import { setPos, setShow } from './milkdown-floating'
 import { cn } from '../../lib/utils'
 
+// eslint-disable-next-line react-refresh/only-export-components -- milkdown plugin slice lives with its view
 export const bubblePlugin = tooltipFactory('tela-bubble')
 
 // Selection bubble-toolbar. Appears above a non-empty text selection and lets
@@ -153,6 +154,7 @@ export function BubbleToolbarView() {
       return
     }
     setShow(el, true)
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- syncs PM selection state, identity-guarded
     setActive((prev) => {
       const next = computeActive(view.state)
       return sameActive(prev, next) ? prev : next
