@@ -29,6 +29,20 @@
     your AI already is, vs a chat bolted into a wiki you'd have to open).
   - The landing COMPONENTS hold the authoritative final word-level wording; the section copy
     below captures intent/direction and may trail the components by a refinement pass.
+
+  2026-06-10 UPDATE (shipped since the last landing pass — agreed with the user):
+  - NEW SECTION "Ask your docs" (§3a, between Retrieval §3 and the pivot §4): tela's own
+    first-party AI — a human asks in plain language in-app and gets an answer grounded in
+    their pages WITH CITATIONS; agents ground the same way via the connector. Framed as its
+    own thing (both human + agent), distinct from the Claude/ChatGPT connector story.
+  - MCP tool count is now 24 (was 20): +4 knowledge-intelligence tools — related_pages,
+    suggest_links, find_overlaps, knowledge_gaps (live on the hosted instance). Never write
+    "20 tools" again — it's a stale fact now.
+  - PRICING: tiers now also meter a monthly AI-answer allowance (Free 50 · Plus 1,000 · Team
+    2,000 · Enterprise unlimited) — the metered dimension behind ask-your-docs. Every new
+    account auto-starts a 30-day Plus trial. "Tiers change limits, not features" still holds:
+    semantic search + ask-your-docs are on every plan; the monthly allowance is the limit.
+  - FACT FIX: the live embedder is qwen3-embedding:0.6b (1024-d), not mxbai-embed-large.
 -->
 
 # Content Contract — tela  (LOCKED)
@@ -42,7 +56,7 @@ One-page marketing landing page. Standalone, anchored sections. Hosted instance 
 - **Competitive alternatives:** Notion / Confluence (closed SaaS wikis — proprietary block store, "AI" bolted on as a chat sidebar, no real agent read/write); a folder of markdown in a git repo + grep; Obsidian/Logseq (single-player, local); "we keep docs in Slack/Google Docs and can't find anything." For the agent angle specifically, the alternative is *pasting context into the chat by hand every session* and hoping the model finds the right doc by keyword.
 - **Unique attributes (+ proof):**
   - **Your agents search your docs by meaning, not just keywords.** tela chunks every page (heading-aware), embeds it, and serves **hybrid retrieval** — keyword (Postgres full-text) and vector similarity (pgvector) fused with reciprocal-rank fusion. Agents call `semantic_search` and `read_chunk` to pull the *right section*, with citations, instead of the whole document. *Proof: the RAG service is open (`internal/rag`); `semantic_search` is a live MCP tool.*
-  - **A real remote MCP server — usable inside Claude and ChatGPT.** Not a local CLI shim. `https://tela.cagdas.io/api/mcp` is a Streamable-HTTP MCP server with OAuth 2.1 sign-in (one click, no token to paste) and **20 scoped tools** that wrap the same API the UI uses. Submitted to the Claude and ChatGPT connector directories. *Proof: the OAuth + tool surface is open (`internal/api/mcp*.go`); the connector signs you in with your tela account.*
+  - **A real remote MCP server — usable inside Claude and ChatGPT.** Not a local CLI shim. `https://tela.cagdas.io/api/mcp` is a Streamable-HTTP MCP server with OAuth 2.1 sign-in (one click, no token to paste) and **24 scoped tools** that wrap the same API the UI uses — including knowledge-intelligence tools (`related_pages`, `suggest_links`, `find_overlaps`) that keep the wiki connected. Submitted to the Claude and ChatGPT connector directories. *Proof: the OAuth + tool surface is open (`internal/api/mcp*.go`); the connector signs you in with your tela account.*
   - **Markdown is canonical forever — under a block editor that feels like Notion.** `pages.body` is plain markdown text; there is no block table, no proprietary format. The editor is full block-editing — drag-to-reorder, slash menu, turn-into, callouts, tables, diagrams — and every block operation round-trips straight back to clean markdown. *Proof: "no block table" is an architectural rule; drag = a markdown line reorder; bulk import/export is first-class.*
   - **Secure and team-shaped out of the box.** Single sign-on (WorkOS), email-verified accounts (Argon2id), organizations and sub-team groups, per-space roles with hard invariants, and scoped API keys that are HMAC-stored, expiring, space-pinnable, and fully audited. *Proof: the access model is documented (`docs/access-model.md`) and the auth/key code is open.*
   - **Real multiplayer + comments that survive edits.** Live collaborative editing over Yjs, rebased onto the canonical markdown on save; comments anchor to a `{prefix, exact, suffix}` text window so they don't drift when the doc is reflowed. *Proof: collab transport in `lib/collab`; anchoring model in architecture.md.*
@@ -64,7 +78,7 @@ One-page marketing landing page. Standalone, anchored sections. Hosted instance 
   - Parity test ("who else could say this?"): Notion can't (proprietary store, chat sidebar, no semantic MCP read/write for your agent). A git-repo-of-markdown can't (no retrieval, no live editing, no agent API). Obsidian can't (single-player, no team MCP server). It passes.
 - **One-liner (BrandScript):** Technical teams running AI agents struggle because their knowledge base is something the agent can't actually search or write; tela is a markdown team wiki with semantic retrieval and a built-in MCP server, so agents reason over the team's docs — by meaning, with citations — from inside Claude and ChatGPT, instead of starting from zero every session.
 - **Supporting pillars (4 — each → one page section):**
-  1. **The agent layer — MCP, inside Claude & ChatGPT.** Remote Streamable-HTTP MCP server, OAuth one-click connect, 20 scoped tools over the same API. Proof: open MCP code; live connector.
+  1. **The agent layer — MCP, inside Claude & ChatGPT.** Remote Streamable-HTTP MCP server, OAuth one-click connect, 24 scoped tools over the same API. Proof: open MCP code; live connector.
   2. **Retrieval that reasons — semantic + keyword, fused.** Heading-aware chunking, embeddings, hybrid (pgvector + Postgres full-text) RRF retrieval; agents pull the right section with citations. Proof: open `internal/rag`; `semantic_search` tool.
   3. **A real wiki underneath.** Notion-grade block editing on canonical markdown; live multiplayer; text-anchored comments; history; sharing. Proof: "no block table" rule; collab transport.
   4. **Secure, team-shaped, yours.** SSO, orgs + groups, per-space RBAC, scoped + audited keys; hosted for you, self-host if you want. Proof: open access model + auth code.
@@ -80,7 +94,7 @@ One-page marketing landing page. Standalone, anchored sections. Hosted instance 
 
 **We are precise, dev-credible, and quietly confident — we are NOT hypey, salesy, or vague.**
 
-Write like an engineer wrote it for other engineers: claims are falsifiable, specifics over adjectives, show the thing instead of describing it. Confidence comes from proof, not volume. (The internal shorthand "superpowers on your data" is the *spirit*; in copy it shows up as concrete mechanisms — semantic retrieval, 20 tools, a connector you click — never as the word "superpower".)
+Write like an engineer wrote it for other engineers: claims are falsifiable, specifics over adjectives, show the thing instead of describing it. Confidence comes from proof, not volume. (The internal shorthand "superpowers on your data" is the *spirit*; in copy it shows up as concrete mechanisms — semantic retrieval, 24 tools, a connector you click — never as the word "superpower".)
 
 | Trait | Do | Don't |
 |---|---|---|
@@ -117,7 +131,7 @@ Section order is the narrative arc. Tier = visual prominence (1 = hero/max, 4 = 
 ### 2. The agent layer — "Use it inside Claude and ChatGPT."  — Tier 1  (THE STAR; FAB)
 - **Purpose:** Prove the headline. The section that wins or loses the page.
 - **Headline (H2, question-led for AEO):** `What can an agent actually do with tela?`
-- **Answer-first block (40–60 words):** `Everything your team can. tela runs a remote MCP server with 20 scoped tools over the same API the UI uses: search by meaning, read pages and sections, create and update, move, comment, manage spaces. Connect it in Claude or ChatGPT with one OAuth sign-in — no token to paste — or point any MCP client at the same URL.`
+- **Answer-first block (40–60 words):** `Everything your team can. tela runs a remote MCP server with 24 scoped tools over the same API the UI uses: search by meaning, read pages and sections, create and update, move, comment, surface related pages, manage spaces. Connect it in Claude or ChatGPT with one OAuth sign-in — no token to paste — or point any MCP client at the same URL.`
 - **Show the connect flow (3 steps, real):**
   1. In Claude or ChatGPT, add a connector → `https://tela.cagdas.io/api/mcp`
   2. Sign in with your tela account (OAuth 2.1 — PKCE, no token pasted)
@@ -136,10 +150,10 @@ Section order is the narrative arc. Tier = visual prominence (1 = hero/max, 4 = 
   ```
   - Caption: `For Claude Code, Cursor, or your own agent. Scoped token, same server.`
 - **Tool catalog (compact, real names — pick ~9 to show, group by scope):**
-  - `read` — `semantic_search` (meaning + keyword, fused) · `search` (full-text, ranked) · `read_chunk` · `get_page` · `list_pages` · `list_backlinks`
+  - `read` — `semantic_search` (meaning + keyword, fused) · `search` (full-text, ranked) · `read_chunk` · `related_pages` · `suggest_links` · `get_page` · `list_pages` · `list_backlinks`
   - `write` — `create_page` · `update_page` (auto-snapshots a revision) · `add_comment` (text-anchored) · `move_page`
-  - `admin` — space + key management
-  - Footnote: `20 tools total. Keys are scoped read / write / admin and can be pinned to a single space. Interactive result cards render in-chat.`
+  - `admin` — space + key management · `find_overlaps` / `knowledge_gaps` (knowledge-intelligence)
+  - Footnote: `24 tools total. Keys are scoped read / write / admin and can be pinned to a single space. Interactive result cards render in-chat.`
 - **Why-you-care line (FAB benefit):** `Your agent stops starting from zero. It retrieves the right section of the team's docs by meaning, cites it, writes back what it learns — and the next session, human or agent, picks up there.`
 - **CTA (transitional):** `See the tool catalog` → `mcp/README.md` (or `/mcp`) on the site/GitHub.
 
@@ -151,7 +165,18 @@ Section order is the narrative arc. Tier = visual prominence (1 = hero/max, 4 = 
 - **Two-line "for humans / for agents" split:**
   - **For humans:** `Instant search in the command palette — titles, bodies, and meaning. Jump anywhere.`
   - **For agents:** `semantic_search + read_chunk over the same index — the agent pulls the section that answers the question, with a citation back to the page.`
-- **Honesty note (build + copy):** semantic/vector retrieval runs against an embedding endpoint you point tela at (an Ollama-compatible embedder; `mxbai-embed-large` in the live instance). Keyword full-text needs nothing extra. Say this plainly — "semantic search needs an embedder endpoint; on the hosted instance it's already on." Never imply embeddings run with zero setup on a fresh self-host.
+- **Honesty note (build + copy):** semantic/vector retrieval runs against an embedding endpoint you point tela at (an Ollama-compatible embedder; `qwen3-embedding:0.6b`, 1024-d, in the live instance). Keyword full-text needs nothing extra. Say this plainly — "semantic search needs an embedder endpoint; on the hosted instance it's already on." Never imply embeddings run with zero setup on a fresh self-host.
+- No CTA (momentum carries to ask-your-docs, then the pivot).
+
+### 3a. Ask your docs — "Ask a question. Get an answer from your own pages."  — Tier 1  (tela's first-party AI; FAB)
+- **Purpose:** Retrieval's natural next step, and a capability the page was silent on: tela's *own* AI (not just Claude/ChatGPT via MCP). A human asks in plain language in-app and gets a written answer grounded in their pages, **with citations**. Framed as its own thing — both human and agent — distinct from the connector story.
+- **Headline (H2, question-led):** `Ask a question. Get an answer from your own pages.`
+- **Answer-first block:** `A step past search: ask in plain language and tela pulls the relevant sections, then writes a direct answer with citations — grounded only in pages you're allowed to read. When your docs don't cover it, it says so instead of guessing.`
+- **Show it (visual for the build):** an "ask" card — the question at top, a written answer with inline `[n]` citation markers, then the cited **source pages** listed below (page title ▸ heading · space). Real-feeling content (the rollback/incident theme, consistent with §3), never lorem. No JSON, no scores.
+- **Two front doors (both framing — the user's call):**
+  - **For your team:** `Ask inside tela — a question box over every space you can read; you get a written answer and links to the exact pages it came from.`
+  - **For your agent:** `Claude and ChatGPT ground their answers the same way through the connector — pulling the relevant sections and citing the source page, scoped to your access.`
+- **Honesty note (build + copy):** managed AI is included on the hosted instance, **metered by the plan's monthly answer allowance** (see §8b); self-hosting, bring your own — point tela at any OpenAI-compatible LLM. The model answers strictly from retrieved excerpts and abstains when they don't cover the question. Never imply ask-your-docs runs with zero setup on a fresh self-host (it needs an embedder *and* an LLM).
 - No CTA (momentum carries to the pivot).
 
 ### 4. Not-just-AI pivot — "The retrieval only matters because the wiki is real."  — Tier 2  (reassurance pivot)
@@ -213,14 +238,15 @@ Section order is the narrative arc. Tier = visual prominence (1 = hero/max, 4 = 
 - **Honesty line:** read-only by design — making a space public grants no write access; owner flips it on and can flip it back.
 
 ### 8b. Pricing — "Simple plans. Your markdown either way."  — Tier 2  (added 2026-06: tiers shipped)
-- **Purpose:** Show the plan ladder without hype. The product now meters per-account tiers (personal + org); pricing makes the ladder legible. The thesis: tiers change *limits*, never the product — same wiki, search, and agent connector on every plan.
+- **Purpose:** Show the plan ladder without hype. The product meters per-account tiers (personal + org); pricing makes the ladder legible. The thesis: tiers change *limits* — now including a **monthly AI-answer allowance** — never the product. Same wiki, search, ask-your-docs, and agent connector on every plan.
 - **Headline (H2):** `Simple plans. Your markdown either way.`
-- **Lede:** `A personal account and every organization carry their own tier. Tiers only change the limits — the wiki, the search, and the agent connector are the same.`
-- **Personal tiers (cards):** `Free` (3 spaces · 100 pages/space · 100 MB) · `Plus` (25 · 1,000 · 5 GB).
-- **Organization tiers (cards):** `Free` (10 · 500 · 1 GB · 5 members) · `Team` *(recommended — the one earned-indigo card)* (100 · unlimited pages · 50 GB · 50 members) · `Enterprise` (unlimited everything; `Get in touch`).
-- **Every-plan-includes (checklist band — tiers change limits, never features):** `Semantic (RAG) + full-text search · MCP connector for Claude & ChatGPT · Local folder sync over WebDAV · Real-time multiplayer editing · SSO, organizations & per-space roles · Plain markdown you own — export anytime.`
+- **Lede:** `A personal account and every organization carry their own tier. Tiers only change the limits — spaces, storage, and how many AI answers a month — while the wiki, the search, and the agent connector are the same on every plan.`
+- **Trial note (pill under the lede):** `Every new account starts on a 30-day Plus trial — full AI limits, no card.` (Real: registration auto-applies a 30-day `personal_plus` trial that downgrades to free at expiry.)
+- **Personal tiers (cards):** `Free` (3 spaces · 100 pages/space · 100 MB · 50 AI answers/mo) · `Plus` (25 · 1,000 · 5 GB · 1,000 AI answers/mo).
+- **Organization tiers (cards):** `Free` (10 · 500 · 1 GB · 5 members · 50 AI answers/mo) · `Team` *(recommended — the one earned-indigo card)* (100 · unlimited pages · 50 GB · 50 members · 2,000 AI answers/mo) · `Enterprise` (unlimited everything; `Get in touch`).
+- **Every-plan-includes (checklist band — tiers change limits, never features):** `Semantic search + ask your docs, with citations · MCP connector for Claude & ChatGPT · Local folder sync over WebDAV · Real-time multiplayer editing · SSO, organizations & per-space roles · Plain markdown you own — export anytime.`
 - **Self-host callout:** `Or run it yourself` — `tela is open source and self-hostable — Docker Compose, your Postgres, your disk, your markdown. No seats to buy and no limits but the ones you set.` CTA `Self-host it` → GitHub.
-- **Honesty line:** numbers mirror the backend `plans` table (the source of truth); no self-serve billing yet — plans are operator-assigned, and the CTA starts you on the hosted instance free.
+- **Honesty line:** numbers (incl. AI answers/month) mirror the backend `plans` table (the source of truth); the AI allowance meters generative LLM calls (ask-your-docs) — semantic *search* itself isn't capped. No self-serve billing yet — plans are operator-assigned, and the CTA starts you on the hosted instance free.
 
 ### 9. Credibility — "Open. Live. In the directories."  — Tier 3  (transparency as proof; NO fake logos)
 - **Headline (H2):** `Why trust it? Don't — read it and run it.`
@@ -233,7 +259,8 @@ Section order is the narrative arc. Tier = visual prominence (1 = hero/max, 4 = 
 ### 10. FAQ / objections  — Tier 3  (question-led H2s, answer-first prose; NO FAQPage schema)
 - `Does it work inside Claude and ChatGPT?` → `Yes. tela runs a remote MCP server with OAuth sign-in; add it as a connector in Claude or ChatGPT (it's submitted to both directories) and your agent searches, reads, and writes your wiki — scoped to your account. Code agents like Claude Code or Cursor point at the same URL with a token.`
 - `How is search different from a normal wiki?` → `tela does hybrid retrieval: keyword full-text (Postgres) and vector similarity (pgvector) fused with reciprocal-rank fusion, over heading-aware chunks. Agents get semantic_search + read_chunk, so they retrieve the section that answers the question — not just keyword matches — with a citation.`
-- `Do I need to run an embedder?` → `Only for semantic/vector search, and only on self-host — point tela at an Ollama-compatible embedder (the live instance uses mxbai-embed-large). Keyword full-text needs nothing extra.`
+- `Can it answer questions, not just find pages?` → `Yes — "ask your docs". Ask in plain language; tela retrieves the relevant sections and writes an answer with citations to the source pages, grounded only in what your account can read, and abstains when your docs don't cover it. Humans ask in-app; agents ground the same way through the connector. Managed AI on the hosted instance is metered by your plan's monthly allowance.`
+- `Do I need to run an embedder?` → `Only on self-host: semantic/vector search needs an Ollama-compatible embedder (the live instance uses qwen3-embedding:0.6b), and ask-your-docs also needs an LLM. Keyword full-text needs nothing extra.`
 - `Is it really markdown, with all that block editing?` → `Yes. The editor is full block editing — drag, slash menu, turn-into, tables, diagrams — but pages.body is plain markdown. There is no block table; reordering a block reorders markdown lines. Import a directory, export anytime.`
 - `Can I edit in my own editor — Obsidian, VS Code?` → `Yes. Mount a space as a local folder over WebDAV and sync it with rclone, then edit in any editor. Pages round-trip as plain markdown and non-markdown files (images, PDFs, diagrams) sync too — local folder and tela stay in step both ways.`
 - `How do agents authenticate?` → `OAuth 2.1 for the Claude/ChatGPT connectors (one sign-in, no token to paste), or a scoped personal access token (tela_pat_…) for code agents. Keys are read/write/admin, expirable, pinnable to one space, and audited.`

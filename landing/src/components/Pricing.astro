@@ -1,12 +1,11 @@
 ---
 // Pricing — plans for a personal account and for an organization. Mirrors the
-// product's tiers (backend plans table). Honest + low-hype: every plan is the
-// same markdown you own; tiers only change the limits. Indigo is earned on the
-// one recommended org tier. Cards stack on mobile.
-// Every tier ships the whole product — tiers only change limits, never features.
-// These are the real, shipped pillars (see the feature showcase + docs).
+// product's tiers (backend plans table). Honest + low-hype: every plan ships the
+// whole product; tiers only change the limits — spaces, storage, members, and the
+// monthly AI-answer allowance. Indigo is earned on the one recommended org tier.
+// Numbers (incl. AI answers/month) mirror the backend plans table; keep in sync.
 const includes = [
-  'Semantic (RAG) + full-text search',
+  'Semantic search + ask your docs, with citations',
   'MCP connector for Claude & ChatGPT',
   'Local folder sync over WebDAV',
   'Real-time multiplayer editing',
@@ -20,7 +19,7 @@ const personal = [
     price: '$0',
     period: 'free forever',
     blurb: 'Personal notes and trying tela.',
-    specs: ['3 spaces', '100 pages / space', '100 MB storage'],
+    specs: ['3 spaces', '100 pages / space', '100 MB storage', '50 AI answers / month'],
     cta: 'Get started',
     href: 'https://tela.cagdas.io',
     featured: false,
@@ -30,7 +29,7 @@ const personal = [
     price: '$8',
     period: 'per month',
     blurb: 'For power users who live in their wiki.',
-    specs: ['25 spaces', '1,000 pages / space', '5 GB storage'],
+    specs: ['25 spaces', '1,000 pages / space', '5 GB storage', '1,000 AI answers / month'],
     cta: 'Get started',
     href: 'https://tela.cagdas.io',
     featured: false,
@@ -43,7 +42,7 @@ const org = [
     price: '$0',
     period: 'up to 5 members',
     blurb: 'A small team getting started.',
-    specs: ['10 spaces', '500 pages / space', '1 GB storage', '5 members'],
+    specs: ['10 spaces', '500 pages / space', '1 GB storage', '5 members', '50 AI answers / month'],
     cta: 'Get started',
     href: 'https://tela.cagdas.io',
     featured: false,
@@ -53,7 +52,7 @@ const org = [
     price: '$6',
     period: 'per member / month',
     blurb: 'A growing team that runs on its docs.',
-    specs: ['100 spaces', 'Unlimited pages', '50 GB storage', '50 members'],
+    specs: ['100 spaces', 'Unlimited pages', '50 GB storage', '50 members', '2,000 AI answers / month'],
     cta: 'Get started',
     href: 'https://tela.cagdas.io',
     featured: true,
@@ -63,7 +62,7 @@ const org = [
     price: 'Custom',
     period: "let's talk",
     blurb: 'SSO, audit, and scale for a big team.',
-    specs: ['Unlimited spaces', 'Unlimited pages', 'Unlimited storage', 'Unlimited members'],
+    specs: ['Unlimited spaces', 'Unlimited pages', 'Unlimited storage', 'Unlimited members', 'Unlimited AI'],
     cta: 'Get in touch',
     href: 'https://tela.cagdas.io',
     featured: false,
@@ -75,8 +74,13 @@ const org = [
     <p class="kicker"><span class="kicker-dot"></span>Pricing</p>
     <h2 class="h2">Simple plans. Your markdown either way.</h2>
     <p class="lede">
-      A personal account and every organization carry their own tier. Tiers only change
-      the limits — <strong>the wiki, the search, and the agent connector are the same</strong>.
+      A personal account and every organization carry their own tier. Tiers only change the
+      limits — spaces, storage, and how many AI answers a month — while
+      <strong>the wiki, the search, and the agent connector are the same on every plan</strong>.
+    </p>
+    <p class="trial-note">
+      <span class="trial-dot"></span>
+      Every new account starts on a <strong>30-day Plus trial</strong> — full AI limits, no card.
     </p>
   </div>
 
@@ -147,6 +151,27 @@ const org = [
 </section>
 
 <style>
+  .trial-note {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: 1rem;
+    padding: 0.4rem 0.8rem 0.4rem 0.7rem;
+    border: 1px solid var(--pill-border);
+    border-radius: var(--radius-full);
+    background: var(--brand-wash);
+    font-size: var(--text-sm);
+    color: var(--fg-soft);
+  }
+  .trial-note strong { color: var(--fg); font-weight: 600; }
+  .trial-dot {
+    width: 6px; height: 6px;
+    border-radius: var(--radius-full);
+    background: var(--brand);
+    box-shadow: var(--glow-brand);
+    flex: none;
+  }
+
   .tiers { margin-bottom: 2.5rem; }
   .tiers:last-of-type { margin-bottom: 0; }
 

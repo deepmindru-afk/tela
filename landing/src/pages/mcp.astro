@@ -1,8 +1,8 @@
 ---
 import Prose from '../layouts/Prose.astro';
 
-// Tool roster mirrors backend/internal/api/mcp_tools.go (20 tools, 10 read / 10
-// write). Keep in sync when the tool surface changes.
+// Tool roster mirrors backend/internal/api/mcp_tools.go (24 tools: 10 read, 10
+// write, 4 knowledge). Keep in sync when the tool surface changes.
 const readTools = [
   ['list_spaces', 'List the spaces you can access.'],
   ['get_space', 'Read a space and its metadata.'],
@@ -27,6 +27,12 @@ const writeTools = [
   ['import_mira', 'Import an external URL as a page.'],
   ['submit_feedback', 'Send feedback to the maintainers.'],
 ];
+const knowledgeTools = [
+  ['related_pages', 'Pages semantically related to one (see-also).'],
+  ['suggest_links', 'Suggest links from draft text to existing pages.'],
+  ['find_overlaps', 'Find pages with overlapping or duplicate content.'],
+  ['knowledge_gaps', 'Top questions the docs couldn’t answer (admin).'],
+];
 ---
 
 <Prose
@@ -34,7 +40,7 @@ const writeTools = [
   description="Connect Claude, ChatGPT or any MCP client to tela: a markdown wiki your agents can read, search and write over HTTP with OAuth."
   kicker="Documentation"
   heading="The tela MCP server"
-  updated="June 5, 2026"
+  updated="June 10, 2026"
   ogImagePath="/og-mcp.png"
 >
   <script type="application/ld+json" is:inline slot="head" set:html={JSON.stringify({
@@ -47,7 +53,7 @@ const writeTools = [
         description: 'Connect Claude, ChatGPT or any MCP client to tela: a markdown wiki your agents can read, search and write over HTTP with OAuth.',
         url: 'https://tela.cagdas.io/mcp/',
         inLanguage: 'en',
-        dateModified: '2026-06-05',
+        dateModified: '2026-06-10',
         author: { '@id': 'https://tela.cagdas.io/#org' },
         publisher: { '@id': 'https://tela.cagdas.io/#org' },
         about: { '@id': 'https://tela.cagdas.io/#software' },
@@ -120,9 +126,10 @@ const writeTools = [
 
   <h2>Tools</h2>
   <p>
-    Twenty tools, with read and write cleanly separated. Every tool carries a
-    human-readable title and read/write annotations; writes are scoped by your
-    token's permissions.
+    Twenty-four tools, with read and write cleanly separated. Every tool carries
+    a human-readable title and read/write annotations; writes are scoped by your
+    token's permissions. The knowledge tools help an agent keep the wiki
+    connected — surfacing related pages, suggesting links, and flagging overlap.
   </p>
 
   <h3>Read</h3>
@@ -135,6 +142,13 @@ const writeTools = [
   <h3>Write</h3>
   <ul class="tool-grid">
     {writeTools.map(([name, desc]) => (
+      <li><code>{name}</code><span class="desc">{desc}</span></li>
+    ))}
+  </ul>
+
+  <h3>Knowledge</h3>
+  <ul class="tool-grid">
+    {knowledgeTools.map(([name, desc]) => (
       <li><code>{name}</code><span class="desc">{desc}</span></li>
     ))}
   </ul>
