@@ -11,6 +11,7 @@ import (
 	"github.com/zcag/tela/backend/internal/mailer"
 	"github.com/zcag/tela/backend/internal/rag"
 	"github.com/zcag/tela/backend/internal/settings"
+	"github.com/zcag/tela/backend/internal/summarize"
 )
 
 // Server bundles dependencies shared across HTTP handlers.
@@ -70,6 +71,13 @@ type Server struct {
 	// Tests inject a fake completer by overwriting this field.
 	llm *llm.Service
 
+	// summarize is the auto-summary service (LLM-generated props.summary +
+	// page_summaries bookkeeping). Built on llm, so it shares its enablement:
+	// disabled — but never nil — when TELA_LLM_URL is unset. Page writes call
+	// s.summarize.Queue alongside s.rag.QueueReindex. Tests inject a service
+	// with a fake completer by overwriting this field.
+	summarize *summarize.Service
+
 	// oauth is the MCP endpoint's OAuth 2.1 Resource-Server config (WorkOS JWT
 	// acceptance + Protected Resource Metadata). nil = disabled (PAT-only),
 	// unless TELA_WORKOS_ISSUER is set. Tests inject a configured one.
@@ -122,6 +130,8 @@ func New(db *sql.DB) *Server {
 		sso:          loadSSOProviders(context.Background()),
 		seedWelcome:  os.Getenv("TELA_DISABLE_WELCOME_SEED") == "",
 	}
+	// Built after the literal so it can share the llm handle (same enablement).
+	s.summarize = summarize.NewService(db, s.llm)
 	// Sweep stale share-rate-limit buckets every shareRateWindow so the
 	// limiter map cannot grow unbounded under adversarial load. Tied to
 	// context.Background() — the goroutine outlives non-graceful tests, which
@@ -133,6 +143,9 @@ func New(db *sql.DB) *Server {
 	// Background auto-reindex worker (no-op when the embedder is unconfigured).
 	// Page writes call s.rag.QueueReindex; this drains the debounced queue.
 	s.rag.StartAutoReindex(context.Background())
+	// Background auto-summarize worker, the generation sibling (no-op when the
+	// LLM is unconfigured). Page writes call s.summarize.Queue.
+	s.summarize.Start(context.Background())
 	return s
 }
 

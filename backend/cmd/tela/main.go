@@ -17,7 +17,9 @@ import (
 	"github.com/zcag/tela/backend/internal/api"
 	"github.com/zcag/tela/backend/internal/auth"
 	"github.com/zcag/tela/backend/internal/db"
+	"github.com/zcag/tela/backend/internal/llm"
 	"github.com/zcag/tela/backend/internal/rag"
+	"github.com/zcag/tela/backend/internal/summarize"
 )
 
 // shutdownGrace is how long http.Server.Shutdown waits for in-flight requests
@@ -81,6 +83,11 @@ func main() {
 			// when the model name is unchanged but the embedder setup moved.
 			runReindexAll(d, os.Args[2:])
 			return
+		case "summarize-all":
+			// Generate (or backfill) the LLM summary for every page. Hash-skip
+			// makes it resumable; --force regenerates everything.
+			runSummarizeAll(d, os.Args[2:])
+			return
 		case "rag-eval":
 			// Score retrieval against a golden set (recall@k / MRR / nDCG).
 			runRAGEval(d, os.Args[2:])
@@ -95,7 +102,7 @@ func main() {
 			runListUsers(d)
 			return
 		default:
-			fatal("unknown subcommand (known: reindex-all, rag-eval, create-admin, set-plan, list-users)", "subcommand", os.Args[1])
+			fatal("unknown subcommand (known: reindex-all, summarize-all, rag-eval, create-admin, set-plan, list-users)", "subcommand", os.Args[1])
 		}
 	}
 
@@ -218,6 +225,40 @@ func runReindexAll(d *sql.DB, args []string) {
 	}
 	if sum.Failed > 0 {
 		slog.Warn("reindex-all: completed with failures", "failed_pages", sum.Failed)
+	}
+}
+
+// runSummarizeAll generates the LLM summary for every page in every space
+// against the configured chat model, logging per-space progress (in the
+// summarize package), then returns. Serial; the LLM calls dominate wall-clock.
+// Resumable by virtue of the hash-skip; pass --force to regenerate everything
+// (summary_lock pages stay untouched either way).
+func runSummarizeAll(d *sql.DB, args []string) {
+	force := false
+	for _, a := range args {
+		switch a {
+		case "--force", "-f":
+			force = true
+		default:
+			fatal("summarize-all: unknown flag (known: --force)", "flag", a)
+		}
+	}
+
+	cfg := llm.ConfigFromEnv()
+	if cfg.URL == "" {
+		fatal("summarize-all: TELA_LLM_URL is not set — nothing to generate with")
+	}
+	svc := summarize.NewService(d, llm.NewService(cfg))
+	if !svc.Enabled() {
+		fatal("summarize-all: llm disabled")
+	}
+
+	sum, err := svc.SummarizeAll(context.Background(), force)
+	if err != nil {
+		fatal("summarize-all", "err", err)
+	}
+	if sum.Failed > 0 {
+		slog.Warn("summarize-all: completed with failures", "failed_pages", sum.Failed)
 	}
 }
 

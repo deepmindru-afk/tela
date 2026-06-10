@@ -272,6 +272,11 @@ func registerRoutes(srv *Server, mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/rag/suggest-links", srv.RAGSuggestLinks)
 	mux.HandleFunc("GET /api/rag/overlaps", srv.RAGOverlaps)
 	mux.HandleFunc("GET /api/rag/gaps", srv.RAGGaps)
+	// Auto-summaries (internal/summarize). Status mirrors /api/rag/freshness
+	// (always 200 + enabled flag); the queue action mirrors reindex (membership,
+	// 503 when the LLM is unconfigured).
+	mux.HandleFunc("GET /api/summaries/status", srv.SummariesStatus)
+	mux.HandleFunc("POST /api/spaces/{id}/summarize", srv.SummarizeSpace)
 	// Ask-first generative surface.
 	mux.HandleFunc("POST /api/rag/draft", srv.RAGDraft)
 	mux.HandleFunc("POST /api/rag/answer-to-page", srv.RAGAnswerToPage)

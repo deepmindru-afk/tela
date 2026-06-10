@@ -221,9 +221,11 @@ func (s *Server) importMiraCore(ctx context.Context, u *auth.User, k *auth.APIKe
 	if err := tx.Commit(); err != nil {
 		return models.Page{}, "", &apiErr{http.StatusInternalServerError, "internal", "commit failed"}
 	}
-	// Index the imported page's content (debounced; no-op when RAG is off). The
-	// pre-extraction handler skipped this — imported pages are now searchable.
+	// Index + summarize the imported page's content (debounced; each a no-op
+	// when its service is off). The pre-extraction handler skipped this —
+	// imported pages are now searchable.
 	s.rag.QueueReindex(id)
+	s.summarize.Queue(id)
 	return page, "", nil
 }
 
