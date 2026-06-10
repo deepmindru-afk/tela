@@ -538,7 +538,9 @@ export function ReaderShell({
 
       <div className="reader-body">
         {sidebar}
-        <div ref={scrollRef} className="reader-scroll">
+        {/* Roving target for the j/k keyboard layer (see lib/keys): in a
+            reader, j/k scroll and [ / ] jump headings. */}
+        <div ref={scrollRef} className="reader-scroll" data-keynav-region="reader">
           <div className="reader-grid">
             {toc.length > 1 ? (
               <nav className="reader-toc" aria-label="On this page">

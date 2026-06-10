@@ -128,6 +128,9 @@ export function PagesTree({ spaceId, activePageId }: PagesTreeProps) {
 
   return (
     <section
+      // Roving target for the j/k keyboard layer (see lib/keys). Page rows are
+      // marked data-keynav-item below; the engine walks the visible ones.
+      data-keynav-region="nav"
       className="flex flex-col gap-[var(--space-1)] px-[var(--space-3)] pt-[var(--space-4)] pb-[var(--space-3)] mt-[var(--space-2)] flex-1 min-h-0 overflow-y-auto border-t border-[var(--border-subtle)]"
       aria-labelledby="sidebar-pages-heading"
     >
@@ -342,6 +345,7 @@ function PageNode({
 
         <button
           type="button"
+          data-keynav-item
           aria-current={active ? 'page' : undefined}
           onMouseEnter={() => prefetchPage(qc, node.id)}
           onFocus={() => prefetchPage(qc, node.id)}

@@ -34,6 +34,7 @@ export const SearchResult = forwardRef<HTMLButtonElement, SearchResultProps>(
       <button
         ref={ref}
         type="button"
+        data-keynav-item
         onClick={onSelect}
         className={cn(
           'w-full text-left',

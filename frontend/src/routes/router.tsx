@@ -13,6 +13,7 @@ import {
 } from '@tanstack/react-router'
 import { FilePlus, FileQuestion, Menu } from 'lucide-react'
 import { AppCommandHost } from '../components/app/AppCommandHost'
+import { KeymapHost } from '../components/app/KeymapHost'
 import { BrandLogo } from '../components/BrandLogo'
 import { NotificationBell } from '../components/app/NotificationBell'
 import { EmptyState } from '../components/ui/empty-state'
@@ -81,7 +82,15 @@ const rootRoute = createRootRoute({
     // White-label accent injection, app-wide and as early as the root mounts —
     // covers every surface (auth + app + public) under one effect.
     useOrgAccent()
-    return <Outlet />
+    return (
+      <>
+        <Outlet />
+        {/* App-wide vim-style keyboard layer + `?` cheatsheet. At the root so
+            it covers every surface (authed shell, reader overlay, public
+            reader); it runs no queries, so it's safe outside the _app gate. */}
+        <KeymapHost />
+      </>
+    )
   },
   notFoundComponent: function NotFound() {
     return (

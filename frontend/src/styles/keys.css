@@ -1,0 +1,11 @@
+/* Keyboard-layer roving cursor. The j/k engine (lib/keys) focuses a row and
+   marks it [data-keynav-active]; script focus doesn't reliably trip
+   :focus-visible, so we draw an explicit accent ring here to guarantee a
+   visible cursor. Tokens only. */
+@layer components {
+  [data-keynav-active] {
+    outline: 2px solid var(--accent);
+    outline-offset: -2px;
+    border-radius: var(--radius-sm);
+  }
+}

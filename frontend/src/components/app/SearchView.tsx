@@ -248,6 +248,9 @@ export function SearchRoute() {
       </Card>
 
       <section
+        // Roving target for the j/k keyboard layer (see lib/keys); outranks the
+        // sidebar so j/k drives results while on /search.
+        data-keynav-region="list"
         aria-label="Search results"
         className="flex flex-col gap-[var(--space-1)] min-h-0"
       >
