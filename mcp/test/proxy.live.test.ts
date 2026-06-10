@@ -14,6 +14,7 @@
 // (backend/internal/api/mcp_test.go).
 
 import { describe, expect, it, beforeAll, afterAll } from "vitest";
+import { spawn } from "node:child_process";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { existsSync } from "node:fs";
@@ -29,6 +30,7 @@ const ADMIN_PASSWORD = process.env.TELA_ADMIN_PASSWORD ?? "testpassword123";
 let sessionCookie = "";
 let spaceId = 0;
 let pageId = 0;
+let apiKey = "";
 let client: Client;
 
 async function waitForHealth(timeoutMs = 120_000): Promise<void> {
@@ -72,7 +74,7 @@ beforeAll(async () => {
   await waitForHealth();
   await login();
   const ts = Date.now().toString(36);
-  const apiKey = (
+  apiKey = (
     await sessionJSON<{ api_key: { key: string } }>("POST", "/api/api_keys", {
       name: "proxy-integration-test",
       scope: "admin",
@@ -131,4 +133,46 @@ describe("tela-mcp stdio↔HTTP proxy", () => {
     const text = (res.contents[0] as { text?: string }).text ?? "";
     expect(text).toContain("hello through the proxy");
   });
+
+  // Regression: the proxy MUST forward host→backend messages strictly in order.
+  // The high-level Client above waits for the initialize *response* before
+  // sending `notifications/initialized`, so it never races. A host that pipes
+  // `initialize` + `initialized` back-to-back used to make the proxy fire both
+  // POSTs concurrently; when `initialized`'s 202 opened the standalone SSE GET
+  // before `initialize`'s response had set the session id, that GET went out
+  // sessionless, the backend 400'd it, and the SDK tore the session down
+  // ("Connection closed", -32000). Drive raw stdio to assert the session
+  // survives an unbuffered handshake and a follow-up request still answers.
+  it("survives a back-to-back initialize+initialized handshake (no session teardown)", async () => {
+    const child = spawn(process.execPath, [binPath], {
+      env: { ...process.env, TELA_BASE_URL: BASE_URL, TELA_API_KEY: apiKey },
+      stdio: ["pipe", "pipe", "pipe"],
+    });
+    try {
+      let stdout = "";
+      child.stdout.on("data", (d) => (stdout += d.toString()));
+      const send = (o: unknown) => child.stdin.write(JSON.stringify(o) + "\n");
+
+      // No await between these — exactly the ordering that exposed the race.
+      send({
+        jsonrpc: "2.0",
+        id: 1,
+        method: "initialize",
+        params: { protocolVersion: "2025-06-18", capabilities: {}, clientInfo: { name: "race", version: "0" } },
+      });
+      send({ jsonrpc: "2.0", method: "notifications/initialized" });
+      send({ jsonrpc: "2.0", id: 2, method: "tools/list", params: {} });
+
+      const deadline = Date.now() + 20_000;
+      while (Date.now() < deadline && !stdout.includes('"id":2')) {
+        await new Promise((r) => setTimeout(r, 100));
+      }
+      // The tools/list response (id:2) only arrives if the session was NOT torn
+      // down by a sessionless SSE GET — i.e. the in-order forwarding fix holds.
+      expect(stdout).toContain('"id":2');
+      expect(stdout).toContain("list_spaces");
+    } finally {
+      child.kill();
+    }
+  }, 30_000);
 });

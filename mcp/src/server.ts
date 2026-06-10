@@ -43,9 +43,24 @@ function shutdown(): void {
   void Promise.allSettled([local.close(), remote.close()]).then(() => process.exit(0));
 }
 
-// host (stdin) → backend
+// host (stdin) → backend, forwarded STRICTLY IN ORDER.
+//
+// There's no Protocol/Client layer here to gate the handshake, so we must
+// preserve send ordering ourselves. The StreamableHTTP transport learns the
+// session id from the `initialize` POST *response*, then opens the standalone
+// server→client SSE stream the instant it sees the `notifications/initialized`
+// POST return 202 — using whatever session id it has at that moment. If we
+// fired both POSTs concurrently (fire-and-forget), `initialized` could 202
+// before `initialize` resolved, so the SSE GET would go out with no
+// `Mcp-Session-Id`; the backend rejects that GET with 400 and the SDK tears the
+// session down ("Connection closed", -32000). Chaining each send after the
+// previous one resolves guarantees `initialize` has set the session id before
+// `initialized` triggers the SSE GET. send() resolves at response-headers time
+// (the answer still streams back over SSE independently), so this orders
+// dispatch without serializing the actual tool responses.
+let sendChain: Promise<void> = Promise.resolve();
 local.onmessage = (msg: JSONRPCMessage) => {
-  remote.send(msg).catch((err) => {
+  sendChain = sendChain.then(() => remote.send(msg)).catch((err) => {
     console.error("tela-mcp: forward to backend failed:", err);
     shutdown();
   });
