@@ -47,6 +47,9 @@ const (
 	askExpandBudget = 28000
 	// askMaxPages caps how many distinct pages we render at all (expanded or not).
 	askMaxPages = 12
+	// askHubProbe: depth of the rerank-independent lexical pass used to detect
+	// topical-hub pages (whole-page answers the reranker would bury).
+	askHubProbe = 30
 )
 
 // askContext retrieves grounding for query and renders the numbered, cited
@@ -78,6 +81,22 @@ func (s *Server) askContext(ctx context.Context, userID int64, query string, spa
 			chunkIDs = append(chunkIDs, h.ChunkID)
 		}
 		count[h.PageID]++
+	}
+	// Topical-hub signal (rerank-INDEPENDENT). The precision reranker optimises
+	// per-chunk relevance and demotes terse tables, so a page whose WHOLE body
+	// answers an aggregate question (a "services using X" registry) can have every
+	// one of its chunks ranked low — present but never expanded. A cheap lexical
+	// pass surfaces such hubs by chunk-frequency; fold it into the expansion count,
+	// and pull in a strong hub the reranker dropped entirely.
+	if hub, herr := s.rag.Search(ctx, userID, query, spaceID, askHubProbe, "lexical"); herr == nil {
+		for _, h := range hub {
+			count[h.PageID]++
+			if _, seen := best[h.PageID]; !seen && count[h.PageID] >= askDenseChunks {
+				best[h.PageID] = h
+				pageIDs = append(pageIDs, h.PageID)
+				chunkIDs = append(chunkIDs, h.ChunkID)
+			}
+		}
 	}
 	bodies, err := s.rag.PageBodies(ctx, userID, pageIDs, spaceID)
 	if err != nil {
