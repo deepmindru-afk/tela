@@ -36,7 +36,7 @@ function ExcalidrawPreview({ sceneHash, altText, empty }: ExcalidrawPreviewProps
       data-scene-hash={sceneHash}
       data-alt-text={altText}
     >
-      <img src={PLACEHOLDER_SVG} alt={altText || 'Excalidraw diagram'} loading="lazy" />
+      <img src={PLACEHOLDER_SVG} alt={altText || 'Drawing'} loading="lazy" />
     </div>
   )
 }
@@ -66,6 +66,6 @@ export const Empty: Story = {
 }
 
 export const NoAltText: Story = {
-  name: 'Populated with no alt text (fallback to "Excalidraw diagram")',
+  name: 'Populated with no alt text (fallback to "Drawing")',
   args: { sceneHash: 'abcdef0123456789', altText: '' },
 }

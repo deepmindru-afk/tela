@@ -208,7 +208,7 @@ export const excalidrawSchema = $nodeSchema('excalidraw', (ctx) => ({
         'img',
         {
           src: `/api/diagrams/${pageId}/${sceneHash}.png`,
-          alt: altText || 'Excalidraw diagram',
+          alt: altText || 'Drawing',
           loading: 'lazy',
         },
       ],

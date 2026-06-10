@@ -179,7 +179,7 @@ function ExcalidrawView({
     <div className="tela-excalidraw" data-scene-hash={sceneHash}>
       <img
         src={`/api/diagrams/${pageId}/${sceneHash}.png`}
-        alt={altText || 'Excalidraw diagram'}
+        alt={altText || 'Drawing'}
         loading="lazy"
       />
     </div>
