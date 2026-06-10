@@ -390,6 +390,10 @@ export function ExcalidrawEditSheet({
   const committingRef = useRef(false)
   // Idle-debounce timer for live-collab checkpoints.
   const checkpointTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // Flips false on unmount. A queued checkpoint that fires after the sheet
+  // closes would read the torn-down Excalidraw (which returns an EMPTY scene)
+  // and blank the saved drawing — guard every deferred commit on this.
+  const mountedRef = useRef(true)
   const initialData = parseInitialData(initialJSON)
   const theme = useExcalidrawTheme()
 
@@ -494,6 +498,14 @@ export function ExcalidrawEditSheet({
       const appState = sanitizeAppState(snap?.appState ?? {})
       const files = snap?.files ?? null
 
+      // A background checkpoint must never blank a diagram: an empty read is far
+      // more likely a torn-down/transient API than a real "delete everything".
+      // Intentional emptying still persists via an explicit Save or close-commit
+      // (which aren't silent).
+      if (opts.silent && elements.length === 0) {
+        return
+      }
+
       const canonical = JSON.stringify({ elements, appState })
       const sceneHash = await computeSceneHash(canonical)
 
@@ -566,15 +578,36 @@ export function ExcalidrawEditSheet({
     if (checkpointTimerRef.current != null) clearTimeout(checkpointTimerRef.current)
     checkpointTimerRef.current = setTimeout(() => {
       checkpointTimerRef.current = null
+      // Sheet gone (and Excalidraw torn down) → never checkpoint; the close
+      // already committed the real scene and the API would now read empty.
+      if (!mountedRef.current) return
       if (!session.isCheckpointLeader()) return
       void commitRef.current({ close: false, silent: true })
     }, CHECKPOINT_IDLE_MS)
   }
 
+  // Cancel any pending checkpoint on unmount so it can't fire against a
+  // destroyed canvas and overwrite the saved drawing with a blank PNG.
+  useEffect(() => {
+    return () => {
+      mountedRef.current = false
+      if (checkpointTimerRef.current != null) {
+        clearTimeout(checkpointTimerRef.current)
+        checkpointTimerRef.current = null
+      }
+    }
+  }, [])
+
   // Close intent (Cancel button, Esc, overlay click). In a live-collab session
   // there is no "discard" — your edits are already shared — so closing commits
   // a final time. Solo mode keeps the classic discard-on-cancel behaviour.
   function handleClose(): void {
+    // Drop any armed checkpoint — the close-commit below persists the real
+    // scene; a late checkpoint could only fire against a torn-down canvas.
+    if (checkpointTimerRef.current != null) {
+      clearTimeout(checkpointTimerRef.current)
+      checkpointTimerRef.current = null
+    }
     if (session) {
       void commitScene({ close: true })
     } else {
