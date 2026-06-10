@@ -2,10 +2,13 @@ import { useState } from 'react'
 import { useNavigate } from '@tanstack/react-router'
 import {
   Building2,
+  ChevronRight,
   FileDown,
   Globe,
   Lock,
   MoreHorizontal,
+  Pin,
+  PinOff,
   Plus,
   RotateCw,
   Users,
@@ -17,6 +20,7 @@ import {
   useSpaces,
   useUpdateSpace,
 } from '../../lib/queries/spaces'
+import { usePinnedSpaces, useTogglePinSpace } from '../../lib/queries/pinned-spaces'
 import type { Space } from '../../lib/types'
 import { Button } from '../ui/button'
 import { Card, CardBody, CardFooter } from '../ui/card'
@@ -50,10 +54,18 @@ interface SpacesListProps {
   activeSpaceId: number | null
 }
 
+// Past this many non-pinned spaces the list folds behind an "All spaces"
+// disclosure so the sidebar stops growing without bound. Pinning anything also
+// triggers the fold (you've signalled which spaces you want kept up top).
+const COLLAPSE_THRESHOLD = 6
+
 export function SpacesList({ activeSpaceId }: SpacesListProps) {
   const navigate = useNavigate()
   const spaces = useSpaces()
+  const pinned = usePinnedSpaces()
+  const togglePin = useTogglePinSpace()
   const [newOpen, setNewOpen] = useState(false)
+  const [allOpen, setAllOpen] = useLocalStorageBool('tela.sidebar.allSpacesOpen', false)
 
   // Per-space stale-page counts for the sidebar dots. Only when the embedder is
   // enabled (else everything reads unindexed — noise on a dark instance).
@@ -65,73 +77,159 @@ export function SpacesList({ activeSpaceId }: SpacesListProps) {
     }
   }
 
-  return (
-    <section
-      className="flex flex-col gap-[var(--space-1)] px-[var(--space-3)] pt-[var(--space-4)]"
-      aria-labelledby="sidebar-spaces-heading"
-    >
-      <div className="flex items-center justify-between pl-[var(--space-2)] pr-[var(--space-1)]">
-        <h2
-          id="sidebar-spaces-heading"
-          className="m-0 text-[length:var(--text-xs)] uppercase tracking-wider text-[var(--text-muted)] font-[family-name:var(--font-sans)]"
-        >
-          Spaces
-        </h2>
-        <Button
-          variant="ghost"
-          size="sm"
-          aria-label="New space"
-          onClick={() => setNewOpen(true)}
-          className="h-[var(--space-6)] w-[var(--space-6)] p-0"
-        >
-          <Plus width={14} height={14} />
-        </Button>
-      </div>
+  // Partition into the Pinned group (in pin-recency order) and the rest (the
+  // alphabetical order useSpaces() already gives us).
+  const all = spaces.data ?? []
+  const pinnedIds = new Set(pinned.data ?? [])
+  const byId = new Map(all.map((s) => [s.id, s]))
+  const pinnedSpaces = (pinned.data ?? [])
+    .map((id) => byId.get(id))
+    .filter((s): s is Space => s != null)
+  const rest = all.filter((s) => !pinnedIds.has(s.id))
 
-      {spaces.isLoading ? <SpacesSkeleton /> : null}
-
-      {spaces.isError ? (
-        <SpacesError onRetry={() => void spaces.refetch()} />
-      ) : null}
-
-      {spaces.data && spaces.data.length === 0 ? (
-        <Card className="bg-[var(--surface-1)]">
-          <CardBody className="px-[var(--space-4)] py-[var(--space-3)] gap-[var(--space-1)]">
-            <p className="m-0 text-[length:var(--text-sm)] font-medium text-[var(--text-primary)]">
-              No spaces yet
-            </p>
-            <p className="m-0 text-[length:var(--text-xs)] text-[var(--text-muted)] leading-[var(--leading-relaxed)]">
-              Create a space to get started.
-            </p>
-          </CardBody>
-          <CardFooter className="px-[var(--space-4)] pt-0 pb-[var(--space-3)]">
-            <Button
-              variant="primary"
-              size="sm"
-              className="w-full"
-              onClick={() => setNewOpen(true)}
-            >
-              <Plus width={14} height={14} /> New space
-            </Button>
-          </CardFooter>
-        </Card>
-      ) : null}
-
-      {spaces.data?.map((space) => (
-        <SpaceRow
-          key={space.id}
-          space={space}
-          active={space.id === activeSpaceId}
-          stalePages={staleBySpace.get(space.id) ?? 0}
-          onSelect={() => {
-            void navigate({ to: '/spaces/$spaceId', params: { spaceId: space.id } })
-          }}
-        />
-      ))}
-
-      <NewSpaceDialog open={newOpen} onOpenChange={setNewOpen} />
-    </section>
+  const renderRow = (space: Space) => (
+    <SpaceRow
+      key={space.id}
+      space={space}
+      active={space.id === activeSpaceId}
+      stalePages={staleBySpace.get(space.id) ?? 0}
+      pinned={pinnedIds.has(space.id)}
+      onTogglePin={() =>
+        togglePin.mutate({ spaceId: space.id, isPinned: pinnedIds.has(space.id) })
+      }
+      onSelect={() =>
+        void navigate({ to: '/spaces/$spaceId', params: { spaceId: space.id } })
+      }
+    />
   )
+
+  // Fold the rest once it's long, or once anything is pinned. Below that, the
+  // classic always-open flat list. The active space stays visible even when the
+  // fold is closed (rendered above the disclosure).
+  const folded = rest.length > COLLAPSE_THRESHOLD || pinnedSpaces.length > 0
+  const activeInRest = rest.find((s) => s.id === activeSpaceId)
+
+  return (
+    <>
+      {pinnedSpaces.length > 0 ? (
+        <section
+          className="flex flex-col gap-[var(--space-1)] px-[var(--space-3)] pt-[var(--space-4)]"
+          aria-labelledby="sidebar-pinned-heading"
+        >
+          <h2
+            id="sidebar-pinned-heading"
+            className="m-0 pl-[var(--space-2)] text-[length:var(--text-xs)] uppercase tracking-wider text-[var(--text-muted)] font-[family-name:var(--font-sans)]"
+          >
+            Pinned
+          </h2>
+          {pinnedSpaces.map(renderRow)}
+        </section>
+      ) : null}
+
+      <section
+        className="flex flex-col gap-[var(--space-1)] px-[var(--space-3)] pt-[var(--space-4)]"
+        aria-labelledby="sidebar-spaces-heading"
+      >
+        <div className="flex items-center justify-between pl-[var(--space-2)] pr-[var(--space-1)]">
+          {folded ? (
+            <button
+              type="button"
+              onClick={() => setAllOpen(!allOpen)}
+              aria-expanded={allOpen}
+              className="group flex items-center gap-[var(--space-1)] bg-transparent border-0 p-0 cursor-pointer outline-none text-[length:var(--text-xs)] uppercase tracking-wider text-[var(--text-muted)] hover:text-[var(--text-primary)] font-[family-name:var(--font-sans)]"
+            >
+              <ChevronRight
+                width={12}
+                height={12}
+                aria-hidden
+                className={cn('transition-transform', allOpen && 'rotate-90')}
+              />
+              <span>All spaces</span>
+              <span className="tabular-nums normal-case tracking-normal">
+                ({rest.length})
+              </span>
+            </button>
+          ) : (
+            <h2
+              id="sidebar-spaces-heading"
+              className="m-0 text-[length:var(--text-xs)] uppercase tracking-wider text-[var(--text-muted)] font-[family-name:var(--font-sans)]"
+            >
+              Spaces
+            </h2>
+          )}
+          <Button
+            variant="ghost"
+            size="sm"
+            aria-label="New space"
+            onClick={() => setNewOpen(true)}
+            className="h-[var(--space-6)] w-[var(--space-6)] p-0"
+          >
+            <Plus width={14} height={14} />
+          </Button>
+        </div>
+
+        {spaces.isLoading ? <SpacesSkeleton /> : null}
+
+        {spaces.isError ? (
+          <SpacesError onRetry={() => void spaces.refetch()} />
+        ) : null}
+
+        {spaces.data && spaces.data.length === 0 ? (
+          <Card className="bg-[var(--surface-1)]">
+            <CardBody className="px-[var(--space-4)] py-[var(--space-3)] gap-[var(--space-1)]">
+              <p className="m-0 text-[length:var(--text-sm)] font-medium text-[var(--text-primary)]">
+                No spaces yet
+              </p>
+              <p className="m-0 text-[length:var(--text-xs)] text-[var(--text-muted)] leading-[var(--leading-relaxed)]">
+                Create a space to get started.
+              </p>
+            </CardBody>
+            <CardFooter className="px-[var(--space-4)] pt-0 pb-[var(--space-3)]">
+              <Button
+                variant="primary"
+                size="sm"
+                className="w-full"
+                onClick={() => setNewOpen(true)}
+              >
+                <Plus width={14} height={14} /> New space
+              </Button>
+            </CardFooter>
+          </Card>
+        ) : null}
+
+        {/* Keep your current space visible even when the fold is closed. */}
+        {folded && !allOpen && activeInRest ? renderRow(activeInRest) : null}
+
+        {folded ? (allOpen ? rest.map(renderRow) : null) : rest.map(renderRow)}
+
+        <NewSpaceDialog open={newOpen} onOpenChange={setNewOpen} />
+      </section>
+    </>
+  )
+}
+
+// localStorage-backed boolean, mirroring useExpandedNodes' read/write guards.
+// Collapsing on reload (private mode / quota) is acceptable, so failures fall
+// back to the default.
+function useLocalStorageBool(key: string, fallback: boolean) {
+  const [value, setValue] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return fallback
+    try {
+      const raw = window.localStorage.getItem(key)
+      return raw == null ? fallback : raw === '1'
+    } catch {
+      return fallback
+    }
+  })
+  const set = (next: boolean) => {
+    setValue(next)
+    try {
+      window.localStorage.setItem(key, next ? '1' : '0')
+    } catch {
+      // ignore
+    }
+  }
+  return [value, set] as const
 }
 
 function SpacesSkeleton() {
@@ -165,10 +263,19 @@ interface SpaceRowProps {
   space: Space
   active: boolean
   stalePages: number
+  pinned: boolean
+  onTogglePin: () => void
   onSelect: () => void
 }
 
-function SpaceRow({ space, active, stalePages, onSelect }: SpaceRowProps) {
+function SpaceRow({
+  space,
+  active,
+  stalePages,
+  pinned,
+  onTogglePin,
+  onSelect,
+}: SpaceRowProps) {
   const [renameOpen, setRenameOpen] = useState(false)
   const [shareOpen, setShareOpen] = useState(false)
   const [deleteOpen, setDeleteOpen] = useState(false)
@@ -248,6 +355,18 @@ function SpaceRow({ space, active, stalePages, onSelect }: SpaceRowProps) {
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
+          <DropdownMenuItem onSelect={onTogglePin}>
+            {pinned ? (
+              <>
+                <PinOff width={14} height={14} /> Unpin
+              </>
+            ) : (
+              <>
+                <Pin width={14} height={14} /> Pin
+              </>
+            )}
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
           <DropdownMenuItem onSelect={() => setRenameOpen(true)}>Rename</DropdownMenuItem>
           <DropdownMenuItem onSelect={() => setShareOpen(true)}>
             <UsersRound width={14} height={14} /> Share

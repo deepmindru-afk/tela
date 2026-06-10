@@ -48,15 +48,16 @@ export function Sidebar({ open = false }: { open?: boolean }) {
             className="text-[length:var(--text-base)] font-medium leading-none tracking-[-0.01em]"
           />
         </Link>
+        {/* Ask is the landmark feature — give it the prominent (filled) treatment. */}
         <Button
           asChild
-          variant="ghost"
+          variant="primary"
           size="sm"
           className="w-full justify-start"
         >
-          <Link to="/" aria-label="Home" title="Home">
-            <Home width={14} height={14} />
-            <span className="flex-1 text-left">Home</span>
+          <Link to="/ask" aria-label="Ask your docs" title="Ask your docs">
+            <Sparkles width={14} height={14} />
+            <span className="flex-1 text-left">Ask</span>
           </Link>
         </Button>
         <Button
@@ -77,17 +78,6 @@ export function Sidebar({ open = false }: { open?: boolean }) {
           </kbd>
         </Button>
         <Button
-          asChild
-          variant="ghost"
-          size="sm"
-          className="w-full justify-start"
-        >
-          <Link to="/ask" aria-label="Ask your docs" title="Ask your docs">
-            <Sparkles width={14} height={14} />
-            <span className="flex-1 text-left">Ask</span>
-          </Link>
-        </Button>
-        <Button
           variant="ghost"
           size="sm"
           className="w-full justify-start"
@@ -104,28 +94,30 @@ export function Sidebar({ open = false }: { open?: boolean }) {
             {newPageShortcut}
           </kbd>
         </Button>
-        <Button
-          asChild
-          variant="ghost"
-          size="sm"
-          className="w-full justify-start"
-        >
-          <Link to="/graph" aria-label="Graph view" title="Graph view">
-            <Share2 width={14} height={14} />
-            <span className="flex-1 text-left">Graph</span>
-          </Link>
-        </Button>
-        <Button
-          asChild
-          variant="ghost"
-          size="sm"
-          className="w-full justify-start"
-        >
-          <a href={DOCS.home} target="_blank" rel="noopener" aria-label="Documentation" title="Documentation">
-            <BookOpen width={14} height={14} />
-            <span className="flex-1 text-left">Docs</span>
-          </a>
-        </Button>
+        {/* Low-frequency destinations collapse into one compact icon row. */}
+        <div className="flex items-center gap-[var(--space-1)] pt-[var(--space-1)]">
+          <Button asChild variant="ghost" size="sm" className="flex-1">
+            <Link to="/" aria-label="Home" title="Home">
+              <Home width={14} height={14} />
+            </Link>
+          </Button>
+          <Button asChild variant="ghost" size="sm" className="flex-1">
+            <Link to="/graph" aria-label="Graph view" title="Graph view">
+              <Share2 width={14} height={14} />
+            </Link>
+          </Button>
+          <Button asChild variant="ghost" size="sm" className="flex-1">
+            <a
+              href={DOCS.home}
+              target="_blank"
+              rel="noopener"
+              aria-label="Documentation"
+              title="Documentation"
+            >
+              <BookOpen width={14} height={14} />
+            </a>
+          </Button>
+        </div>
       </div>
       <FavoritesSidebarSection activePageId={activePageId} />
       <SpacesList activeSpaceId={activeSpaceId} />
