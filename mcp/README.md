@@ -85,4 +85,4 @@ Exhaustive per-tool coverage lives in the Go backend's e2e MCP tests
 
 ## License
 
-MIT.
+AGPL-3.0-only.

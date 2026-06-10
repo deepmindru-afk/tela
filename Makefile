@@ -34,6 +34,10 @@ EXPORT_BUILD := TELA_VERSION=$(TELA_VERSION) TELA_COMMIT=$(TELA_COMMIT)
 # with the `tela` dev database. Port 55433 avoids clashing with a host Postgres.
 DEV_PG_CONTAINER := tela-dev-pg
 DEV_DATABASE_URL := postgres://tela:tela@localhost:55433/tela?sslmode=disable
+# Dev backend port. Override (`make dev DEV_BE_PORT=18080`) when something
+# else on the box already holds :8080 — be-dev binds it and fe-dev points the
+# vite /api proxy at it, so the pair stays consistent.
+DEV_BE_PORT ?= 8080
 # Maintenance DSN the test harness connects to in order to CREATE/DROP per-test DBs.
 TEST_DATABASE_URL := postgres://tela:tela@localhost:55433/postgres?sslmode=disable
 
@@ -74,7 +78,7 @@ DEPLOY_IMAGE_ENV   = TELA_BACKEND_IMAGE=$(TELA_REGISTRY)/tela-backend:$(TELA_COM
                      TELA_FRONTEND_IMAGE=$(TELA_REGISTRY)/tela-frontend:$(TELA_COMMIT)
 
 .PHONY: up down logs build clean dev be-dev fe-dev storybook help test-mcp-integration \
-        test dev-db dev-db-clean setup backup restore \
+        test dev-db dev-db-clean setup backup restore blocks-gen blocks-gate \
         landing-dev landing-build landing-gate landing-clean \
         deploy deploy-backend deploy-frontend deploy-landing deploy-offline registry-up _push \
         release-mcp reset-prod-db health-gate
@@ -189,7 +193,7 @@ dev-db:
 	done
 
 be-dev: dev-db
-	cd backend && TELA_DATABASE_URL="$(DEV_DATABASE_URL)" go run ./cmd/tela
+	cd backend && TELA_ADDR=":$(DEV_BE_PORT)" TELA_DATABASE_URL="$(DEV_DATABASE_URL)" go run ./cmd/tela
 
 # Backend unit/integration tests against a real Postgres (the testdb harness
 # clones a fresh throwaway database per test). Boots dev-db first. Runs the
@@ -213,7 +217,7 @@ dev-db-clean:
 	-docker rm -f $(DEV_PG_CONTAINER)
 
 fe-dev:
-	cd frontend && npm run dev
+	cd frontend && TELA_PROXY_TARGET="http://localhost:$(DEV_BE_PORT)" npm run dev
 
 dev:
 	@echo "Starting backend (be-dev) and frontend (fe-dev) in parallel — Ctrl-C stops both."
@@ -451,8 +455,9 @@ endif
 #  (2) npm strips a `bin` value starting with `./` — package.json must use
 #      "tela-mcp": "dist/server.js" (no leading ./). We dry-run publish first.
 #  (3) registry @latest has CDN lag — verify with `npm view … versions` after.
-#  (4) ESM entrypoint guard must realpathSync both sides or npx-via-symlink
-#      exits 0 silently — that's a code concern, covered by mcp's own smoke test.
+#  (4) server.js runs its proxy at top level (bin-only entrypoint, no import
+#      guard — fine today). If an importable API is ever added, the ESM guard
+#      must realpathSync both sides or npx-via-symlink exits 0 silently.
 BUMP ?= patch
 release-mcp:
 	@set -eu; \

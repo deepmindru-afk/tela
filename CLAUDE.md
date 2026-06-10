@@ -11,10 +11,10 @@ A self-hostable, markdown-native team wiki: Go + PostgreSQL backend, React/TS fr
 ## Layout
 
 - `backend/` — Go. Module `github.com/zcag/tela/backend`, entry `cmd/tela`. `internal/{api,auth,db,mdimport,miraimport,models,testdb}`. **PostgreSQL** via the `pgx/v5` stdlib driver — DB access is hand-written `database/sql` (positional `$1` placeholders), **no sqlc, no ORM**. Migrations are embedded `NNNN_name.sql` files (forward-only, no down) in `internal/db/migrations`, run automatically by `db.Migrate()` on boot. `0001_init.sql` is a Postgres baseline squashed from the retired SQLite migration history (the live DB held no data worth keeping). Datetimes are TEXT in `'YYYY-MM-DD HH:MM:SS'` UTC (default `tela_now()`), booleans are INTEGER 0/1 — both kept from the SQLite era so Go scans + the frontend `parseSqliteTs` path are unchanged.
-- `frontend/` — React 19 + Vite + TS + Tailwind v4 + Radix + Milkdown (`@milkdown/kit`) + TanStack Query + TanStack Router + Orama + cmdk + Lucide + Storybook. `src/{components,lib,routes,styles}` + `App.tsx`/`main.tsx`. State is TanStack Query (zustand is in package.json but **unused**).
+- `frontend/` — React 19 + Vite + TS + Tailwind v4 + Radix + Milkdown (`@milkdown/kit`) + TanStack Query + TanStack Router + Orama + cmdk + Lucide + Storybook. `src/{components,lib,routes,styles}` + `App.tsx`/`main.tsx`. State is TanStack Query.
 - `mcp/` — **thin stdio↔HTTP proxy** to the backend's built-in MCP server (`/api/mcp`). As of v0.7 the tool/resource surface lives in the Go backend (`internal/api/mcp*.go`), NOT here — this package is a dumb pipe that forwards the MCP protocol over stdio with the PAT as a bearer header (so there's no second implementation to drift). Published as `tela-mcp` on npm. Modern hosts skip it and use HTTP transport directly. See `mcp/README.md` + `docs/mcp-rewrite.md`.
 - `deploy/` — docker-compose + `proxy/Caddyfile`. `.env` is gitignored (narrow line, not `*.env`); `.env.example` is committed.
-- `landing/` — standalone **marketing landing page** (Astro + Tailwind v4 + OKLCH tokens, self-hosted Geist). Separate static build from the app; `backend/`+`frontend/` are untouched. Locked contracts at repo root: `CONTENT.md` (copy), `DESIGN.md` (look), `ACCEPTANCE.md` (gates). Targets: `make landing-dev` / `landing-build` / `landing-gate`. Tokens in `landing/src/styles/tokens.css` are its own source of truth — never hardcode color/px (the token-conformance gate enforces it). See `landing/README.md`. Caddy serves `landing/dist/` at the apex `/` (the app keeps `/login`, `/spaces`, `/share/*`, `/api/*`); ship it with `make deploy-landing` (builds + recreates the proxy so it re-reads the static mount).
+- `landing/` — standalone **marketing landing page** (Astro + Tailwind v4 + OKLCH tokens, self-hosted Geist). Separate static build from the app; `backend/`+`frontend/` are untouched. Locked contracts at repo root: `CONTENT.md` (copy), `DESIGN.md` (look), `ACCEPTANCE.md` (gates). Targets: `make landing-dev` / `landing-build` / `landing-gate`. Tokens in `landing/src/styles/tokens.css` are its own source of truth — never hardcode color/px (the token-conformance gate enforces it). See `landing/README.md`. Caddy serves `landing/dist/` at the apex `/` (the app keeps `/login`, `/spaces`, `/share/*`, `/api/*`); ship it with `make deploy-landing` (split shape: builds, rsyncs `landing/dist/` to the box, reloads the external edge; the standalone stack instead bakes the landing into the proxy image — recreate via `make up`).
 
 ## Conventions
 
@@ -48,7 +48,7 @@ The backend requires **Postgres** — `make dev` / `make be-dev` boot a local co
 
 - Backend: `make test` (boots the dev Postgres, then `go test ./...`). Or run `go test ./...` directly with `TELA_TEST_DATABASE_URL` set to a maintenance DSN (a reachable db like `postgres`). Each test gets its own throwaway database via `internal/testdb.New(t)` (CREATE DATABASE → migrate → drop on cleanup) — full isolation, and the old `:memory:`-is-per-connection hazard is gone (a pool against one real PG is shared across connections). HTTP tests via `Handler(d)` + helpers `newWiredServer(t)`, `loginClient`, `newWiredServerOnDisk` (the on-disk variants are now aliases — kept for callers).
 - MCP: the backend MCP surface is tested in Go (`backend/internal/api/mcp_test.go`, run by `make test`). The `mcp/` proxy has one live E2E (`npm run test:integration`, needs a running backend; `make test-mcp-integration` boots one). CI runs the integration suite.
-- Frontend: **no test infra** (no jsdom/vitest). FE unit-test briefs bounce until a config is added.
+- Frontend: vitest **browser-mode** is configured (`vite.config.ts`, `@storybook/addon-vitest` + Playwright provider — runs Storybook stories as tests), but there are **no standalone unit tests yet**. New FE unit tests are feasible; add them as vitest files or story-based tests rather than bouncing the brief.
 
 ## Gotchas (learned the hard way — full list in docs/architecture.md)
 
@@ -68,7 +68,3 @@ The backend requires **Postgres** — `make dev` / `make be-dev` boot a local co
 - **FE public/share hooks use raw `fetch()`, not `api()`** — `api()` redirects to `/login` on 401, but in share-mode 401 means "password required".
 - **Milkdown `SlashProvider` debounce wedges under React+Yjs** — don't drive `provider.update()` from a render effect; manage `dataset.show` + position manually (see architecture.md).
 - **MCP release hazards:** verify `npm version` actually created the commit+tag; `bin` paths must not start with `./` (npm strips them); ESM entrypoint guard must `realpathSync` (npx symlinks). Details in architecture.md.
-
-## Known drift
-
-- `package.json` lists `zustand` but it is not imported anywhere — state is TanStack Query. Remove the dep or start using it.
