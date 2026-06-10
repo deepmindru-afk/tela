@@ -360,6 +360,25 @@ function PageViewer({
               inherited={page.exposure?.inherited ?? false}
             />
           ) : null}
+          {roleResolved ? (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              aria-label="Read mode"
+              title="Read mode — distraction-free reading view"
+              onClick={() =>
+                void navigate({
+                  to: '/read/$spaceId/$pageId',
+                  params: { spaceId, pageId: page.id },
+                })
+              }
+              className="h-[var(--space-8)] px-[var(--space-3)]"
+            >
+              <BookOpen width={16} height={16} />
+              <span>Read mode</span>
+            </Button>
+          ) : null}
           {canEdit ? (
             <Button
               type="button"
@@ -537,16 +556,6 @@ function PageActionsMenu({
           <Hash width={14} height={14} /> Copy short link
         </DropdownMenuItem>
         <DropdownMenuSeparator />
-        <DropdownMenuItem
-          onSelect={() =>
-            void navigate({
-              to: '/read/$spaceId/$pageId',
-              params: { spaceId, pageId },
-            })
-          }
-        >
-          <BookOpen width={14} height={14} /> Read mode
-        </DropdownMenuItem>
         <DropdownMenuItem
           onSelect={() =>
             void navigate({ to: '/graph', search: { focus: pageId } })
