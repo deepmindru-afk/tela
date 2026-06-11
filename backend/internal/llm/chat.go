@@ -17,21 +17,25 @@ import (
 // /api/cloud/llm/v1, which speaks the same shape — so this one client serves
 // both BYO and cloud-backed, no separate cloud completer type.
 type OpenAIClient struct {
-	base   string // includes the /v1 (or equivalent) prefix; we append /chat/completions
-	model  string
-	token  string // optional bearer; set when base points at tela's managed endpoint
-	client *http.Client
+	base      string // includes the /v1 (or equivalent) prefix; we append /chat/completions
+	model     string
+	token     string // optional bearer; set when base points at tela's managed endpoint
+	maxTokens int    // completion length cap; 0 => unbounded (provider default)
+	client    *http.Client
 }
 
 // NewOpenAIClient builds a client for an OpenAI-compatible chat endpoint. token
 // is optional: empty for a direct provider/Ollama, or a tela PAT when base
-// points at tela cloud's managed LLM proxy.
-func NewOpenAIClient(base, model, token string) *OpenAIClient {
+// points at tela cloud's managed LLM proxy. maxTokens caps the completion length
+// (0 => provider default); bounding it keeps a slow local model from generating
+// for minutes and tripping the request/idle timeout.
+func NewOpenAIClient(base, model, token string, maxTokens int) *OpenAIClient {
 	return &OpenAIClient{
-		base:   strings.TrimRight(base, "/"),
-		model:  model,
-		token:  token,
-		client: &http.Client{Timeout: 120 * time.Second},
+		base:      strings.TrimRight(base, "/"),
+		model:     model,
+		token:     token,
+		maxTokens: maxTokens,
+		client:    &http.Client{Timeout: 120 * time.Second},
 	}
 }
 
@@ -51,9 +55,10 @@ type chatMessage struct {
 }
 
 type chatRequest struct {
-	Model    string        `json:"model"`
-	Messages []chatMessage `json:"messages"`
-	Stream   bool          `json:"stream"`
+	Model     string        `json:"model"`
+	Messages  []chatMessage `json:"messages"`
+	Stream    bool          `json:"stream"`
+	MaxTokens int           `json:"max_tokens,omitempty"`
 }
 
 type chatResponse struct {
@@ -73,7 +78,7 @@ func (c *OpenAIClient) Complete(ctx context.Context, systemPrompt, userPrompt st
 	}
 	msgs = append(msgs, chatMessage{Role: "user", Content: userPrompt})
 
-	body, _ := json.Marshal(chatRequest{Model: c.model, Messages: msgs, Stream: false})
+	body, _ := json.Marshal(chatRequest{Model: c.model, Messages: msgs, Stream: false, MaxTokens: c.maxTokens})
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.base+"/chat/completions", bytes.NewReader(body))
 	if err != nil {
 		return "", err

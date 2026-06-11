@@ -14,22 +14,28 @@ import (
 	"context"
 	"errors"
 	"os"
+	"strconv"
+	"strings"
 )
 
 // Config is the env-driven configuration. URL empty => feature disabled.
 type Config struct {
-	URL   string // OpenAI-compatible base, e.g. http://ollama-host:11434/v1, or tela cloud's /api/cloud/llm/v1
-	Model string // chat model, e.g. qwen2.5:7b
-	Token string // optional bearer (a tela PAT) when URL is the managed cloud endpoint
+	URL       string // OpenAI-compatible base, e.g. http://ollama-host:11434/v1, or tela cloud's /api/cloud/llm/v1
+	Model     string // chat model, e.g. qwen2.5:7b
+	Token     string // optional bearer (a tela PAT) when URL is the managed cloud endpoint
+	MaxTokens int    // completion length cap (0 => provider default)
 }
 
-// ConfigFromEnv reads TELA_LLM_URL / _MODEL / _TOKEN. _TOKEN is set only when
-// pointing URL at tela cloud's managed LLM endpoint.
+// ConfigFromEnv reads TELA_LLM_URL / _MODEL / _TOKEN / _MAX_TOKENS. _TOKEN is set
+// only when pointing URL at tela cloud's managed LLM endpoint. _MAX_TOKENS caps
+// answer length (default 1024) so a slow local model can't generate for minutes
+// and trip the request timeout; set 0 to disable the cap.
 func ConfigFromEnv() Config {
 	return Config{
-		URL:   os.Getenv("TELA_LLM_URL"),
-		Model: getenv("TELA_LLM_MODEL", "qwen2.5:7b"),
-		Token: os.Getenv("TELA_LLM_TOKEN"),
+		URL:       os.Getenv("TELA_LLM_URL"),
+		Model:     getenv("TELA_LLM_MODEL", "qwen2.5:7b"),
+		Token:     os.Getenv("TELA_LLM_TOKEN"),
+		MaxTokens: atoiDefault(os.Getenv("TELA_LLM_MAX_TOKENS"), 1024),
 	}
 }
 
@@ -53,7 +59,7 @@ type Service struct {
 func NewService(cfg Config) *Service {
 	s := &Service{cfg: cfg}
 	if cfg.URL != "" {
-		s.cl = NewOpenAIClient(cfg.URL, cfg.Model, cfg.Token)
+		s.cl = NewOpenAIClient(cfg.URL, cfg.Model, cfg.Token, cfg.MaxTokens)
 	}
 	return s
 }
@@ -89,4 +95,20 @@ func getenv(k, def string) string {
 		return v
 	}
 	return def
+}
+
+// atoiDefault parses s as an int, falling back to def on empty/invalid. A
+// negative value (e.g. "-1") is treated as "no cap" → 0.
+func atoiDefault(s string, def int) int {
+	if s == "" {
+		return def
+	}
+	n, err := strconv.Atoi(strings.TrimSpace(s))
+	if err != nil {
+		return def
+	}
+	if n < 0 {
+		return 0
+	}
+	return n
 }
