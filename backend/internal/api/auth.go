@@ -80,6 +80,15 @@ func (s *Server) Login(w http.ResponseWriter, r *http.Request) {
 
 	ok, _ := auth.VerifyPassword(req.Password, hash)
 	if userMissing || !ok {
+		// Failed sign-in. Name the real account when the identifier matched one
+		// (wrong password); otherwise log the attempted identifier (no user row).
+		var aid *int64
+		label := identifier
+		if !userMissing {
+			aid = &userID
+			label = username
+		}
+		s.recordRequestEvent(r, eventInput{Type: evtAuthLoginFailed, ActorUserID: aid, ActorLabel: label, Detail: "invalid credentials: " + identifier})
 		writeError(w, http.StatusUnauthorized, "unauthorized", "invalid credentials")
 		return
 	}
@@ -87,6 +96,7 @@ func (s *Server) Login(w http.ResponseWriter, r *http.Request) {
 	// Email accounts must confirm before they can sign in. Legacy/bootstrap
 	// rows with no email are exempt.
 	if email.Valid && !emailVerified.Valid {
+		s.recordRequestEvent(r, eventInput{Type: evtAuthLoginFailed, ActorUserID: &userID, ActorLabel: username, Detail: "blocked: email unverified"})
 		writeError(w, http.StatusForbidden, "email_unverified", "confirm your email before signing in")
 		return
 	}
@@ -95,6 +105,7 @@ func (s *Server) Login(w http.ResponseWriter, r *http.Request) {
 	// user is funnelled through their SSO provider. Instance admins are exempt
 	// so a misconfigured enforced connection can't lock the operator out.
 	if email.Valid && isAdmin != 1 && s.passwordLoginBlocked(ctx, email.String) {
+		s.recordRequestEvent(r, eventInput{Type: evtAuthLoginFailed, ActorUserID: &userID, ActorLabel: username, Detail: "blocked: SSO required"})
 		writeError(w, http.StatusForbidden, "sso_required", "your organization requires single sign-on")
 		return
 	}
@@ -103,6 +114,7 @@ func (s *Server) Login(w http.ResponseWriter, r *http.Request) {
 	// side too, not just by hiding the form (the SPA reads the same flag from
 	// /api/host-context). Instance admins are exempt as above.
 	if isAdmin != 1 && s.passwordLoginBlockedByHost(r) {
+		s.recordRequestEvent(r, eventInput{Type: evtAuthLoginFailed, ActorUserID: &userID, ActorLabel: username, Detail: "blocked: password sign-in disabled on domain"})
 		writeError(w, http.StatusForbidden, "sso_required", "password sign-in is disabled on this domain")
 		return
 	}
@@ -119,6 +131,7 @@ func (s *Server) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	auth.SetSessionCookie(w, sid)
+	s.recordRequestEvent(r, eventInput{Type: evtAuthLogin, ActorUserID: &userID, ActorLabel: username})
 	writeJSON(w, http.StatusOK, map[string]any{
 		"user": authUserDTO{
 			ID:              userID,
@@ -134,6 +147,16 @@ func (s *Server) Login(w http.ResponseWriter, r *http.Request) {
 // even when no cookie is present — logout is idempotent.
 func (s *Server) Logout(w http.ResponseWriter, r *http.Request) {
 	if c, err := r.Cookie(auth.CookieName); err == nil && c.Value != "" {
+		// Resolve the session's user before deleting it so the logout event is
+		// attributed (the route runs without the session middleware's context).
+		var uid int64
+		var uname string
+		_ = s.DB.QueryRowContext(r.Context(),
+			`SELECT u.id, u.username FROM sessions ss JOIN users u ON u.id = ss.user_id WHERE ss.id = $1`,
+			c.Value).Scan(&uid, &uname)
+		if uid != 0 {
+			s.recordRequestEvent(r, eventInput{Type: evtAuthLogout, ActorUserID: &uid, ActorLabel: uname})
+		}
 		_ = auth.DeleteSession(r.Context(), s.DB, c.Value)
 	}
 	auth.SetSessionCookie(w, "")

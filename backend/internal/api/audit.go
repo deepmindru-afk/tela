@@ -37,6 +37,19 @@ func writeAudit(ctx context.Context, ex emailTokenExec, actorID *int64, action, 
 		actorID, action, targetKind, targetID, detail); err != nil {
 		slog.Error("audit write failed", "action", action, "err", err)
 	}
+	// Mirror into the unified events feed (access.<action>). access_audit stays
+	// the canonical, un-GC'd access trail; this is the row the Events screen reads.
+	var tid *int64
+	if targetID != 0 {
+		tid = &targetID
+	}
+	recordEvent(ctx, ex, eventInput{
+		Type:        "access." + action,
+		ActorUserID: actorID,
+		TargetKind:  targetKind,
+		TargetID:    tid,
+		Detail:      detail,
+	})
 }
 
 // audit records an action performed by the request's authenticated user.

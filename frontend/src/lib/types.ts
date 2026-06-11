@@ -411,6 +411,23 @@ export interface AccessAuditEntry {
   created_at: string
 }
 
+// One row of the unified activity feed (GET /api/admin/events). Mirrors the
+// backend eventDTO. `type` is e.g. 'auth.login', 'page.view', 'access.<action>',
+// 'ask', 'api.request'. Labels are denormalized so the feed renders join-free.
+export interface EventEntry {
+  id: number
+  type: string
+  actor_user_id: number | null
+  actor_label: string
+  target_kind: string
+  target_id: number | null
+  target_label: string
+  detail: string
+  ip: string
+  user_agent: string
+  created_at: string
+}
+
 // Three-rung scope ceiling on a personal access token. See
 // backend/internal/auth/api_key.go — `admin` implies write+read, `write`
 // implies read.

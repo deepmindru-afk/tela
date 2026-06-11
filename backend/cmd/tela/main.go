@@ -140,6 +140,8 @@ func main() {
 	// 6h. Cancels with rootCtx so the ticker exits before AuditWriter.Close
 	// runs and the process exits.
 	auth.StartAuditGC(rootCtx, d)
+	// Unified events-feed retention GC (TELA_EVENTS_RETENTION_DAYS, default 180d).
+	api.StartEventsGC(rootCtx, d)
 
 	httpSrv := &http.Server{Addr: addr, Handler: handler}
 	serverErr := make(chan error, 1)

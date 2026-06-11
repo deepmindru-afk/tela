@@ -144,6 +144,7 @@ func registerRoutes(srv *Server, mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/pages/bodies", srv.ListPageBodies)
 	mux.HandleFunc("POST /api/pages", srv.CreatePage)
 	mux.HandleFunc("GET /api/pages/{id}", srv.GetPage)
+	mux.HandleFunc("POST /api/pages/{id}/view", srv.RecordPageView)
 	mux.HandleFunc("PATCH /api/pages/{id}", srv.UpdatePage)
 	mux.HandleFunc("DELETE /api/pages/{id}", srv.DeletePage)
 	mux.HandleFunc("POST /api/pages/{id}/move", srv.MovePage)
@@ -287,6 +288,7 @@ func registerRoutes(srv *Server, mux *http.ServeMux) {
 	mux.HandleFunc("PATCH /api/admin/users/{id}", srv.PatchAdminUser)
 	mux.HandleFunc("DELETE /api/admin/users/{id}", srv.DeleteAdminUser)
 	mux.HandleFunc("GET /api/admin/users/{id}/activity", srv.ListUserActivity)
+	mux.HandleFunc("GET /api/admin/events", srv.ListEvents)
 	mux.HandleFunc("GET /api/admin/settings", srv.GetInstanceSettings)
 	mux.HandleFunc("PATCH /api/admin/settings", srv.PatchInstanceSettings)
 

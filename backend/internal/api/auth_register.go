@@ -168,6 +168,7 @@ func (s *Server) VerifyEmail(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	auth.SetSessionCookie(w, sid)
+	s.recordRequestEvent(r, eventInput{Type: evtAuthLogin, ActorUserID: &userID, ActorLabel: username, Detail: "via email verification"})
 	writeJSON(w, http.StatusOK, map[string]any{"user": dto})
 }
 

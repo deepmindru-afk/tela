@@ -5,6 +5,7 @@ import { MiraImportSection } from '../components/app/MiraImportSection'
 import { SettingsApiKeysTab } from '../components/app/SettingsApiKeysTab'
 import { SettingsBillingTab } from '../components/app/SettingsBillingTab'
 import { SettingsAuditTab } from '../components/app/SettingsAuditTab'
+import { SettingsEventsTab } from '../components/app/SettingsEventsTab'
 import { SettingsNotificationsTab } from '../components/app/SettingsNotificationsTab'
 import { SettingsOrgsTab } from '../components/app/SettingsOrgsTab'
 import { SettingsProfileTab } from '../components/app/SettingsProfileTab'
@@ -80,6 +81,14 @@ const AUDIT_TAB: SettingsTab = {
   render: () => <SettingsAuditTab />,
 }
 
+// Unified activity feed — every event on the instance, filterable. Instance-admin
+// only. The firehose to Audit's focused access-control view.
+const EVENTS_TAB: SettingsTab = {
+  id: 'events',
+  label: 'Events',
+  render: () => <SettingsEventsTab />,
+}
+
 // Instance-wide runtime config (settings substrate) — instance-admin only.
 const INSTANCE_TAB: SettingsTab = {
   id: 'instance',
@@ -131,7 +140,7 @@ export function SettingsPage() {
     (orgs.data?.some((o) => o.my_role === 'admin') ?? false)
   const tabs = useMemo<SettingsTab[]>(() => {
     if (me.data?.is_instance_admin) {
-      return [PROFILE_TAB, NOTIFICATIONS_TAB, BILLING_TAB, IMPORT_TAB, SEARCH_INDEX_TAB, SUMMARIES_TAB, SYNC_TAB, API_KEYS_TAB, USERS_TAB, ORGS_TAB, INSTANCE_TAB, AUDIT_TAB]
+      return [PROFILE_TAB, NOTIFICATIONS_TAB, BILLING_TAB, IMPORT_TAB, SEARCH_INDEX_TAB, SUMMARIES_TAB, SYNC_TAB, API_KEYS_TAB, USERS_TAB, ORGS_TAB, INSTANCE_TAB, EVENTS_TAB, AUDIT_TAB]
     }
     if (isOrgAdmin) {
       return [PROFILE_TAB, NOTIFICATIONS_TAB, BILLING_TAB, IMPORT_TAB, SEARCH_INDEX_TAB, SUMMARIES_TAB, SYNC_TAB, ORG_ADMIN_TAB]

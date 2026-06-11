@@ -3,6 +3,7 @@ package api
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
@@ -211,6 +212,10 @@ func (s *Server) RAGAsk(w http.ResponseWriter, r *http.Request) {
 	// Log every ask with its retrieval confidence (best-effort) — feeds the
 	// knowledge-gaps view, including the zero-hit case (a clear gap).
 	_ = s.rag.LogAsk(r.Context(), u.ID, spaceID, req.Question, len(hits), top)
+	s.recordRequestEvent(r, eventInput{
+		Type: evtAsk, ActorUserID: &u.ID, ActorLabel: u.Username,
+		Detail: fmt.Sprintf("%q (%d hits)", req.Question, len(hits)),
+	})
 	if len(hits) == 0 {
 		writeJSON(w, http.StatusOK, map[string]any{
 			"answer":  "I couldn't find anything in your documents to answer that.",

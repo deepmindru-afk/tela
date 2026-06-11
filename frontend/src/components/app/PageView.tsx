@@ -30,6 +30,7 @@ import {
 import type { EditorView } from '@milkdown/kit/prose/view'
 import { ApiError } from '../../lib/api'
 import { pushRecentPage } from '../../lib/recentPages'
+import { recordPageView } from '../../lib/recordPageView'
 import { buildWikilinkResolveIndex, pageSlug } from '../../lib/slug'
 import type { TelaProvider } from '../../lib/collab/tela-provider'
 import { captureAnchor, type CommentAnchor } from '../../lib/comments/anchor'
@@ -174,6 +175,15 @@ export function PageView({ spaceId, pageId }: PageViewProps) {
       search: (prev) => prev,
     })
   }, [page.data, inThisSpace, persistedTitle, currentSlug, spaceId, pageId, navigate])
+
+  // Log a page view once the page has actually loaded — keyed on the resolved id
+  // so a title edit (or read/edit toggling) doesn't re-fire. Covers read, edit,
+  // and viewer paths below; hover-prefetch never mounts PageView, so it doesn't
+  // over-count. Fire-and-forget (see recordPageView).
+  const loadedPageId = page.data?.id
+  useEffect(() => {
+    if (loadedPageId != null) recordPageView(loadedPageId)
+  }, [loadedPageId])
 
   // 404 / wrong-space handling
   if (page.isError) {

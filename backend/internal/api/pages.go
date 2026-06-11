@@ -458,6 +458,10 @@ func (s *Server) createPageCore(ctx context.Context, u *auth.User, k *auth.APIKe
 	if _, err := insertPageRevision(ctx, s.DB, id, page.Body, page.Title, props, &createAuthor, createSource); err != nil {
 		slog.Error("page create revision failed", "page_id", id, "err", err)
 	}
+	recordEvent(ctx, s.DB, eventInput{
+		Type: evtPageCreate, ActorUserID: &createAuthor, TargetKind: "page",
+		TargetID: &id, TargetLabel: page.Title, Detail: createSource,
+	})
 	// Index + summarize the new page's content (debounced, async; each a no-op
 	// when its service is off). Lives in the core so both POST /api/pages and
 	// the MCP create_page tool enqueue them.
@@ -493,6 +497,33 @@ func (s *Server) GetPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"page": p, "exposure": exp})
+}
+
+// RecordPageView logs a logged-in page view into the unified Events feed —
+// POST /api/pages/{id}/view. A fire-and-forget beacon the SPA fires when a page
+// is actually displayed (not on hover-prefetch, which is why this is a separate
+// call from GetPage). Gated on the same page access as GetPage; always 204, and
+// a failed access check is swallowed so the beacon never affects the UI or leaks
+// page existence.
+func (s *Server) RecordPageView(w http.ResponseWriter, r *http.Request) {
+	id, ok := parseIDParam(w, r, "id")
+	if !ok {
+		return
+	}
+	u, ok := requireUser(w, r)
+	if !ok {
+		return
+	}
+	k, _ := auth.APIKeyFromContext(r.Context())
+	p, ae := s.getPageCore(r.Context(), u, k, id)
+	if ae == nil {
+		pid := p.ID
+		s.recordRequestEvent(r, eventInput{
+			Type: evtPageView, ActorUserID: &u.ID, ActorLabel: u.Username,
+			TargetKind: "page", TargetID: &pid, TargetLabel: p.Title,
+		})
+	}
+	w.WriteHeader(http.StatusNoContent)
 }
 
 // getPageCore is the transport-agnostic core behind GET /api/pages/{id} and the
@@ -654,6 +685,11 @@ func (s *Server) afterPageWrite(ctx context.Context, existing, p models.Page, bo
 		if _, err := insertPageRevision(ctx, s.DB, p.ID, p.Body, p.Title, p.Props, &authorID, source); err != nil {
 			slog.Error("page snapshot revision failed", "page_id", p.ID, "err", err)
 		}
+		pid := p.ID
+		recordEvent(ctx, s.DB, eventInput{
+			Type: evtPageEdit, ActorUserID: &authorID, TargetKind: "page",
+			TargetID: &pid, TargetLabel: p.Title, Detail: source,
+		})
 		s.rag.QueueReindex(p.ID)
 		s.summarize.Queue(p.ID)
 	}

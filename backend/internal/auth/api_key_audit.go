@@ -3,6 +3,7 @@ package auth
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"sync"
@@ -184,6 +185,18 @@ func (aw *AuditWriter) run() {
 			msg.ev.APIKeyID, msg.ev.Method, msg.ev.Path, msg.ev.StatusCode); err != nil {
 			slog.Error("auth: api_key audit insert failed",
 				"key_id", msg.ev.APIKeyID, "method", msg.ev.Method, "path", msg.ev.Path, "status", msg.ev.StatusCode, "err", err)
+		}
+		// Mirror into the unified events feed (api.request). Actor + label resolve
+		// from the key's owner in the same INSERT…SELECT (no extra round-trip);
+		// high-volume but bounded by the events retention GC.
+		detail := fmt.Sprintf("%s %s → %d", msg.ev.Method, msg.ev.Path, msg.ev.StatusCode)
+		if _, err := aw.db.ExecContext(context.Background(),
+			`INSERT INTO events (type, actor_user_id, actor_label, target_kind, target_id, detail)
+			 SELECT 'api.request', k.user_id, COALESCE(u.username, ''), 'api_key', k.id, $2
+			   FROM api_keys k LEFT JOIN users u ON u.id = k.user_id
+			  WHERE k.id = $1`,
+			msg.ev.APIKeyID, detail); err != nil {
+			slog.Error("auth: api_key event insert failed", "key_id", msg.ev.APIKeyID, "err", err)
 		}
 	}
 }
