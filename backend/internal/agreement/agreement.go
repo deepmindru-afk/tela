@@ -21,6 +21,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
 	"strconv"
 	"strings"
 	"sync"
@@ -43,6 +44,7 @@ type Service struct {
 	db  *sql.DB
 	llm *llm.Service
 	rag *rag.Service
+	on  bool // TELA_AGREEMENT opt-out (default on)
 
 	queueMu  sync.Mutex
 	pending  map[int64]time.Time
@@ -50,15 +52,28 @@ type Service struct {
 }
 
 // NewService builds the service. Never fails; constructed disabled when the LLM
-// or embedder is off so api.Server can hold a non-nil handle.
+// or embedder is off (or TELA_AGREEMENT=0) so api.Server can hold a non-nil handle.
 func NewService(db *sql.DB, l *llm.Service, r *rag.Service) *Service {
-	return &Service{db: db, llm: l, rag: r}
+	return &Service{db: db, llm: l, rag: r, on: agreementOptIn()}
 }
 
-// Enabled reports whether both halves it needs are configured: a chat model (to
-// judge) and the embedder (to find neighbours).
+// agreementOptIn reads the TELA_AGREEMENT switch. The pass runs by default
+// whenever the LLM + embedder are configured (same convention as summarize); set
+// TELA_AGREEMENT=0 (or false/off/no) to keep it dark without disabling your LLM —
+// the escape hatch for the extra per-page LLM cost on a self-hosted instance.
+func agreementOptIn() bool {
+	switch strings.ToLower(strings.TrimSpace(os.Getenv("TELA_AGREEMENT"))) {
+	case "0", "false", "off", "no":
+		return false
+	default:
+		return true
+	}
+}
+
+// Enabled reports whether the pass should run: not opted out, a chat model to
+// judge, and the embedder (its stored vectors) to find neighbours.
 func (s *Service) Enabled() bool {
-	return s != nil && s.llm.Enabled() && s.rag != nil && s.rag.Enabled()
+	return s != nil && s.on && s.llm.Enabled() && s.rag != nil && s.rag.Enabled()
 }
 
 // Model returns the active chat model name ("" when disabled).
