@@ -121,6 +121,15 @@ export interface RelatedPage {
   updated_at: string
 }
 
+// The "who/what last touched this" signal for the epistemic trust strip, from
+// GET /api/pages/{id}/provenance. Computed (read-only) from the latest revision.
+export interface PageProvenance {
+  source: 'human' | 'agent' | 'sync'
+  raw_source?: string
+  editor?: string
+  edited_at: string
+}
+
 export interface CreateSpaceInput {
   name: string
   slug?: string

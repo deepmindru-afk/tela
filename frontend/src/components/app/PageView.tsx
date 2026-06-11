@@ -104,6 +104,7 @@ import {
 import { cn } from '../../lib/utils'
 import { BacklinksSection } from './BacklinksSection'
 import { RelatedPagesSection } from './RelatedPagesSection'
+import { PageTrustStrip } from './PageTrustStrip'
 import { MarkdownView } from '../view/MarkdownView'
 import { prefetchMilkdownEditor } from '../../lib/prefetchEditor'
 import { useFileDownload } from './use-file-download'
@@ -467,6 +468,12 @@ function PageViewer({
             {page.title || 'Untitled page'}
           </h1>
         </SummaryTitle>
+
+        <PageTrustStrip
+          pageId={page.id}
+          updatedAt={page.updated_at}
+          props={page.props}
+        />
 
         <AttachmentStrip pageId={page.id} />
 

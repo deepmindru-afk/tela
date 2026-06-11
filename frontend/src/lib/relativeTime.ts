@@ -35,6 +35,15 @@ export function relativeTimeFromSqlite(s: string, now: Date = new Date()): strin
   return `${Math.floor(seconds / YEAR)} years ago`
 }
 
+// Whole-and-fractional days since a SQLite-native UTC timestamp. Lives here (not
+// in a component) so the unavoidable `new Date()` clock read stays out of render
+// — React's purity lint forbids calling impure functions during a render pass.
+export function daysSinceSqlite(s: string, now: Date = new Date()): number {
+  const t = parseSqliteTs(s).getTime()
+  if (Number.isNaN(t)) return 0
+  return Math.max(0, (now.getTime() - t) / (DAY * 1000))
+}
+
 // Render a SQLite-native UTC timestamp as a compact local date (YYYY-MM-DD)
 // for the 'Created' column. Uses `toLocaleDateString('en-CA')` to get a
 // stable ISO-shape regardless of viewer locale (en-CA renders as

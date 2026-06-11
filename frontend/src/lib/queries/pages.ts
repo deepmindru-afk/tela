@@ -14,6 +14,7 @@ import type {
   Page,
   PageExposure,
   PageListItem,
+  PageProvenance,
   PageTreeNode,
   RelatedPage,
   UpdatePageInput,
@@ -47,6 +48,8 @@ export const pageKeys = {
     [...pageKeys.detail(pageId), 'backlinks'] as const,
   related: (pageId: number) =>
     [...pageKeys.detail(pageId), 'related'] as const,
+  provenance: (pageId: number) =>
+    [...pageKeys.detail(pageId), 'provenance'] as const,
 }
 
 interface UsePagesArgs {
@@ -156,6 +159,25 @@ export function useRelatedPages(
       )
       return related
     },
+    enabled: pageId != null,
+  })
+}
+
+// Page provenance for the epistemic trust strip — GET /api/pages/{id}/provenance.
+// The latest revision's authorship class (human/agent/sync). Bus-invalidated on
+// page mutation so it flips back to "human" the moment a person edits an
+// agent-written page.
+export function useProvenance(pageId: number | null | undefined) {
+  const qc = useQueryClient()
+  useEffect(() => {
+    if (pageId == null) return
+    return subscribeToPageMutation(() => {
+      void qc.invalidateQueries({ queryKey: pageKeys.provenance(pageId) })
+    })
+  }, [qc, pageId])
+  return useQuery({
+    queryKey: pageId != null ? pageKeys.provenance(pageId) : pageKeys.provenance(-1),
+    queryFn: () => api<PageProvenance>(`/api/pages/${pageId}/provenance`),
     enabled: pageId != null,
   })
 }
