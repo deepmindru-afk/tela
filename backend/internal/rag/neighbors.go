@@ -1,6 +1,9 @@
 package rag
 
-import "context"
+import (
+	"context"
+	"database/sql"
+)
 
 // Same-space semantic neighbours — the input to the agreement/contradiction pass
 // (internal/agreement). Unlike RelatedPages this is NOT user-scoped: it's a
@@ -29,14 +32,17 @@ func (s *Service) PageNeighborsInSpace(ctx context.Context, pageID int64, limit 
 	}
 	maxDist := 1 - minSim
 
-	// Centroid of the target page (NULL when it has no embedded chunks).
-	var centroid string
-	err := s.db.QueryRowContext(ctx, `
+	// Centroid of the target page (NULL when it has no embedded chunks → skip
+	// gracefully with no neighbours, rather than erroring on the NULL scan).
+	var centroid sql.NullString
+	if err := s.db.QueryRowContext(ctx, `
 		SELECT avg(embedding)::text FROM page_chunks WHERE page_id = $1 AND embedding IS NOT NULL`,
 		pageID,
-	).Scan(&centroid)
-	if err != nil || centroid == "" {
+	).Scan(&centroid); err != nil {
 		return nil, err
+	}
+	if !centroid.Valid {
+		return nil, nil
 	}
 
 	rows, err := s.db.QueryContext(ctx, `
@@ -49,7 +55,7 @@ func (s *Service) PageNeighborsInSpace(ctx context.Context, pageID int64, limit 
 		 GROUP BY p.id, p.title, p.body
 		HAVING MIN(pc.embedding <=> $2::vector) <= $3
 		 ORDER BY dist ASC
-		 LIMIT $4`, pageID, centroid, maxDist, limit)
+		 LIMIT $4`, pageID, centroid.String, maxDist, limit)
 	if err != nil {
 		return nil, err
 	}

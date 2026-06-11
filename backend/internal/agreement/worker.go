@@ -127,6 +127,7 @@ func (s *Service) staleSweepLoop(ctx context.Context) {
 		return
 	case <-time.After(sweepInitialDelay):
 	}
+	s.sweepStale(ctx) // initial backfill right after the boot delay, not a full interval later
 	t := time.NewTicker(sweepInterval)
 	defer t.Stop()
 	for {
