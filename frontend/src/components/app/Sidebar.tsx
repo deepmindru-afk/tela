@@ -67,16 +67,16 @@ export function Sidebar({ open = false }: { open?: boolean }) {
           </kbd>
         </Button>
         {/* Below the search field: one uniform row language. Ask is the landmark
-            feature — it stands out via a soft accent tint, not a loud fill, so the
-            rail stays calm and cohesive. */}
+            feature — distinguished ONLY by its accent sparkle icon; the label is
+            normal text like every other row, so it never reads as "selected". */}
         <Button
           asChild
           variant="ghost"
           size="sm"
-          className="w-full justify-start font-medium text-[var(--accent)] bg-[var(--sidebar-item-active)] hover:text-[var(--accent)] hover:bg-[color-mix(in_oklch,var(--accent)_20%,transparent)]"
+          className="w-full justify-start"
         >
           <Link to="/ask" aria-label="Ask your docs" title="Ask your docs">
-            <Sparkles width={14} height={14} />
+            <Sparkles width={14} height={14} className="text-[var(--accent)]" />
             <span className="flex-1 text-left">Ask</span>
           </Link>
         </Button>
