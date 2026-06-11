@@ -5,6 +5,7 @@ import { useBacklinks } from '../../lib/queries/pages'
 import { HighlightedSnippet } from '../../lib/highlightSnippet'
 import { disambiguateBreadcrumbs } from '../../lib/disambiguateBreadcrumbs'
 import { CollapsibleSection } from '../ui/collapsible-section'
+import { usePageHoverPreview } from './wikilink-hover-preview'
 import { cn } from '../../lib/utils'
 
 interface BacklinksSectionProps {
@@ -13,6 +14,7 @@ interface BacklinksSectionProps {
 
 export function BacklinksSection({ pageId }: BacklinksSectionProps) {
   const { data, isLoading, isError } = useBacklinks(pageId)
+  const preview = usePageHoverPreview()
   const rows = useMemo(() => disambiguateBreadcrumbs(data ?? []), [data])
 
   // Loading / error / empty all render nothing — backlinks are non-essential
@@ -29,6 +31,7 @@ export function BacklinksSection({ pageId }: BacklinksSectionProps) {
         {rows.map((row) => (
           <li key={row.item.page_id} className="m-0 p-0 list-none">
             <Link
+              {...preview.triggerProps(row.item.page_id, row.item.title)}
               to="/spaces/$spaceId/pages/$pageId/{-$slug}"
               params={{
                 spaceId: row.item.space_id,
@@ -84,6 +87,7 @@ export function BacklinksSection({ pageId }: BacklinksSectionProps) {
           </li>
         ))}
       </ul>
+      {preview.card}
     </CollapsibleSection>
   )
 }

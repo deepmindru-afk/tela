@@ -26,6 +26,7 @@ import { useAskDocsStream } from '../../lib/queries/ask'
 import { navigateToPage } from '../../lib/pageHitItem'
 import { ApiError, ASK_UNAVAILABLE_CODES, type SemanticHit } from '../../lib/api'
 import { SearchResult } from './SearchResult'
+import { usePageHoverPreview } from './wikilink-hover-preview'
 import { MarkdownView } from '../view/MarkdownView'
 
 interface AskSearchParams {
@@ -83,6 +84,7 @@ export function AskRoute() {
 
   const [question, setQuestion] = useState('')
   const ask = useAskDocsStream()
+  const preview = usePageHoverPreview()
 
   // Dedupe chunk-level sources to one row per page (hits arrive score-ordered,
   // so the first chunk per page is its strongest citation).
@@ -276,8 +278,10 @@ export function AskRoute() {
                     excerpt={h.snippet}
                     updatedAt={h.updated_at}
                     onSelect={() => navigateToPage(h.space_id, h.page_id)}
+                    hoverProps={preview.triggerProps(h.page_id, h.title)}
                   />
                 ))}
+                {preview.card}
               </div>
             ) : null}
             {ask.status === 'done' && ask.followups.length > 0 ? (

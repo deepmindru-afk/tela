@@ -1,6 +1,7 @@
 import { forwardRef, useMemo } from 'react'
 import { cn } from '../../lib/utils'
 import { relativeTimeFromSqlite } from '../../lib/relativeTime'
+import type { PageHoverTriggerProps } from './wikilink-hover-preview'
 
 export interface SearchResultProps {
   title: string
@@ -14,6 +15,10 @@ export interface SearchResultProps {
   // don't need to pre-format.
   updatedAt: string
   onSelect: () => void
+  // Optional page-link hover preview (peek the page's summary on hover/focus).
+  // Spread from a parent's usePageHoverPreview().triggerProps(pageId). Omit to
+  // opt out (e.g. the search route, which doesn't preview).
+  hoverProps?: PageHoverTriggerProps
 }
 
 // Owned result-row primitive for the dedicated /search route. Composes to one
@@ -23,7 +28,7 @@ export interface SearchResultProps {
 // the rest of the app.
 export const SearchResult = forwardRef<HTMLButtonElement, SearchResultProps>(
   function SearchResult(
-    { title, breadcrumb, excerpt, updatedAt, onSelect },
+    { title, breadcrumb, excerpt, updatedAt, onSelect, hoverProps },
     ref,
   ) {
     const rel = useMemo(
@@ -36,6 +41,7 @@ export const SearchResult = forwardRef<HTMLButtonElement, SearchResultProps>(
         type="button"
         data-keynav-item
         onClick={onSelect}
+        {...hoverProps}
         className={cn(
           'w-full text-left',
           'flex flex-col gap-[var(--space-1)]',

@@ -3,6 +3,7 @@ import { Link } from '@tanstack/react-router'
 import { FileText, Sparkles } from 'lucide-react'
 import { useRelatedPages } from '../../lib/queries/pages'
 import { useSpaces } from '../../lib/queries/spaces'
+import { usePageHoverPreview } from './wikilink-hover-preview'
 import { cn } from '../../lib/utils'
 
 interface RelatedPagesSectionProps {
@@ -22,6 +23,7 @@ interface RelatedPagesSectionProps {
 // it never adds noise to a page with no semantic neighbours.
 export function RelatedPagesSection({ pageId, spaceId }: RelatedPagesSectionProps) {
   const { data, isLoading, isError } = useRelatedPages(pageId)
+  const preview = usePageHoverPreview()
   const spacesQuery = useSpaces()
   const spaceName = useMemo(() => {
     const m = new Map<number, string>()
@@ -57,6 +59,7 @@ export function RelatedPagesSection({ pageId, spaceId }: RelatedPagesSectionProp
           return (
             <li key={row.page_id} className="m-0 p-0 list-none">
               <Link
+                {...preview.triggerProps(row.page_id, row.title)}
                 to="/spaces/$spaceId/pages/$pageId/{-$slug}"
                 params={{
                   spaceId: row.space_id,
@@ -115,6 +118,7 @@ export function RelatedPagesSection({ pageId, spaceId }: RelatedPagesSectionProp
           )
         })}
       </ul>
+      {preview.card}
     </section>
   )
 }
