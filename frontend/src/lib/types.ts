@@ -130,6 +130,25 @@ export interface PageProvenance {
   edited_at: string
 }
 
+// One same-space page that contradicts the current one (agreement Slice 2).
+export interface PageDispute {
+  page_id: number
+  title: string
+  reason: string
+}
+
+// The corroboration/contradiction read for the trust strip, from
+// GET /api/pages/{id}/agreement. `computed` is false until the background worker
+// has produced a result (unconfigured instance / brand-new page) — distinct from
+// a computed zero.
+export interface PageAgreement {
+  computed: boolean
+  corroborate: number
+  dispute: number
+  disputes: PageDispute[]
+  computed_at?: string
+}
+
 export interface CreateSpaceInput {
   name: string
   slug?: string

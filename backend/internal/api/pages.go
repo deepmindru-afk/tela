@@ -467,6 +467,7 @@ func (s *Server) createPageCore(ctx context.Context, u *auth.User, k *auth.APIKe
 	// the MCP create_page tool enqueue them.
 	s.rag.QueueReindex(id)
 	s.summarize.Queue(id)
+	s.agreement.Queue(id)
 	// Notify anyone @-mentioned in the new page's body (post-commit, best-effort).
 	s.notifyPageMentions(ctx, u, id, req.SpaceID, page.Title, page.Body)
 	// The author follows their new page, so they hear about others' edits to it.
@@ -692,6 +693,7 @@ func (s *Server) afterPageWrite(ctx context.Context, existing, p models.Page, bo
 		})
 		s.rag.QueueReindex(p.ID)
 		s.summarize.Queue(p.ID)
+		s.agreement.Queue(p.ID)
 	}
 	// When the body is rewritten out-of-band (MCP agent, file sync), drop the Yjs
 	// collab overlay so live + next editors re-seed from the new body instead of

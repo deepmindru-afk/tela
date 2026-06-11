@@ -150,6 +150,7 @@ func registerRoutes(srv *Server, mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/pages/{id}/move", srv.MovePage)
 	mux.HandleFunc("GET /api/pages/{id}/backlinks", srv.Backlinks)
 	mux.HandleFunc("GET /api/pages/{id}/provenance", srv.PageProvenance)
+	mux.HandleFunc("GET /api/pages/{id}/agreement", srv.PageAgreement)
 	mux.HandleFunc("GET /api/graph", srv.GraphData)
 	// Persisted Yjs state for instant editor paint (member-gated). The editor
 	// applies this on mount so content shows without waiting for the WS sync.

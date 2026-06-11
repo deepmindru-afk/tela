@@ -1,5 +1,13 @@
-import { AlertTriangle, Bot, Clock, RefreshCw, User } from 'lucide-react'
-import { useProvenance } from '../../lib/queries/pages'
+import {
+  AlertTriangle,
+  Bot,
+  Clock,
+  RefreshCw,
+  ShieldAlert,
+  ShieldCheck,
+  User,
+} from 'lucide-react'
+import { useAgreement, useProvenance } from '../../lib/queries/pages'
 import { daysSinceSqlite, relativeTimeFromSqlite } from '../../lib/relativeTime'
 import { cn } from '../../lib/utils'
 
@@ -39,6 +47,7 @@ export function PageTrustStrip({
   props?: Record<string, unknown>
 }) {
   const prov = useProvenance(pageId)
+  const agree = useAgreement(pageId)
 
   const ageDays = daysSinceSqlite(updatedAt)
   const reviewEvery = numProp(props, 'review_every_days')
@@ -46,6 +55,7 @@ export function PageTrustStrip({
   const stale = overdue || ageDays > STALE_DAYS
   const source = prov.data?.source
   const editor = prov.data?.editor
+  const ag = agree.data?.computed ? agree.data : null
 
   return (
     <div className="flex flex-wrap items-center gap-x-[var(--space-3)] gap-y-[var(--space-1)] text-[length:var(--text-xs)] text-[var(--text-muted)] font-[family-name:var(--font-sans)]">
@@ -80,6 +90,28 @@ export function PageTrustStrip({
       ) : source === 'human' && editor ? (
         <span className="inline-flex items-center gap-[var(--space-1)]">
           <User width={12} height={12} aria-hidden /> by {editor}
+        </span>
+      ) : null}
+
+      {/* Corroboration — quiet/reassuring (the page is backed by others). */}
+      {ag && ag.corroborate > 0 ? (
+        <span className="inline-flex items-center gap-[var(--space-1)]">
+          <ShieldCheck width={12} height={12} aria-hidden /> {ag.corroborate}{' '}
+          corroborating
+        </span>
+      ) : null}
+
+      {/* Contradiction — the case worth noticing; danger tone, with the
+          disputing pages + reasons in the tooltip. */}
+      {ag && ag.dispute > 0 ? (
+        <span
+          className="inline-flex items-center gap-[var(--space-1)] text-[var(--danger)]"
+          title={ag.disputes
+            .map((d) => (d.reason ? `${d.title} — ${d.reason}` : d.title))
+            .join('\n')}
+        >
+          <ShieldAlert width={12} height={12} aria-hidden /> {ag.dispute} may
+          dispute this
         </span>
       ) : null}
     </div>

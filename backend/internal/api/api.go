@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"os"
 
+	"github.com/zcag/tela/backend/internal/agreement"
 	"github.com/zcag/tela/backend/internal/auth"
 	"github.com/zcag/tela/backend/internal/llm"
 	"github.com/zcag/tela/backend/internal/mailer"
@@ -78,6 +79,12 @@ type Server struct {
 	// with a fake completer by overwriting this field.
 	summarize *summarize.Service
 
+	// agreement is the corroboration/contradiction service for the epistemic
+	// trust strip (page_agreement bookkeeping). Built on llm + rag, so it shares
+	// their enablement: disabled — but never nil — unless BOTH a chat model and
+	// the embedder are configured. Page writes call s.agreement.Queue.
+	agreement *agreement.Service
+
 	// oauth is the MCP endpoint's OAuth 2.1 Resource-Server config (WorkOS JWT
 	// acceptance + Protected Resource Metadata). nil = disabled (PAT-only),
 	// unless TELA_WORKOS_ISSUER is set. Tests inject a configured one.
@@ -132,6 +139,9 @@ func New(db *sql.DB) *Server {
 	}
 	// Built after the literal so it can share the llm handle (same enablement).
 	s.summarize = summarize.NewService(db, s.llm)
+	// Agreement shares llm + rag (needs both: a model to judge, embeddings to
+	// find neighbours). Page writes call s.agreement.Queue alongside summarize.
+	s.agreement = agreement.NewService(db, s.llm, s.rag)
 	// Sweep stale share-rate-limit buckets every shareRateWindow so the
 	// limiter map cannot grow unbounded under adversarial load. Tied to
 	// context.Background() — the goroutine outlives non-graceful tests, which
@@ -146,6 +156,8 @@ func New(db *sql.DB) *Server {
 	// Background auto-summarize worker, the generation sibling (no-op when the
 	// LLM is unconfigured). Page writes call s.summarize.Queue.
 	s.summarize.Start(context.Background())
+	// Background agreement worker (no-op unless both llm + embedder are on).
+	s.agreement.Start(context.Background())
 	return s
 }
 

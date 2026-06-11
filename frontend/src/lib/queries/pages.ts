@@ -14,6 +14,7 @@ import type {
   Page,
   PageExposure,
   PageListItem,
+  PageAgreement,
   PageProvenance,
   PageTreeNode,
   RelatedPage,
@@ -50,6 +51,8 @@ export const pageKeys = {
     [...pageKeys.detail(pageId), 'related'] as const,
   provenance: (pageId: number) =>
     [...pageKeys.detail(pageId), 'provenance'] as const,
+  agreement: (pageId: number) =>
+    [...pageKeys.detail(pageId), 'agreement'] as const,
 }
 
 interface UsePagesArgs {
@@ -178,6 +181,25 @@ export function useProvenance(pageId: number | null | undefined) {
   return useQuery({
     queryKey: pageId != null ? pageKeys.provenance(pageId) : pageKeys.provenance(-1),
     queryFn: () => api<PageProvenance>(`/api/pages/${pageId}/provenance`),
+    enabled: pageId != null,
+  })
+}
+
+// Page agreement (corroboration/contradiction) for the trust strip — GET
+// /api/pages/{id}/agreement. A cheap cached read; the LLM work happened in the
+// background worker. Bus-invalidated on page mutation so an edit re-pulls it once
+// the worker recomputes.
+export function useAgreement(pageId: number | null | undefined) {
+  const qc = useQueryClient()
+  useEffect(() => {
+    if (pageId == null) return
+    return subscribeToPageMutation(() => {
+      void qc.invalidateQueries({ queryKey: pageKeys.agreement(pageId) })
+    })
+  }, [qc, pageId])
+  return useQuery({
+    queryKey: pageId != null ? pageKeys.agreement(pageId) : pageKeys.agreement(-1),
+    queryFn: () => api<PageAgreement>(`/api/pages/${pageId}/agreement`),
     enabled: pageId != null,
   })
 }
