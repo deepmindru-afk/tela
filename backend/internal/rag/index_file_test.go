@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"testing"
+	"time"
 
 	"github.com/zcag/tela/backend/internal/testdb"
 )
@@ -72,4 +73,35 @@ func TestReindexFile(t *testing.T) {
 	if cnt != 0 {
 		t.Fatalf("soft-deleted file still has %d chunks", cnt)
 	}
+}
+
+// TestQueueReindexFile_Indexes proves the file trigger works end-to-end: enqueue
+// a file → the background worker extracts + indexes it (no explicit ReindexFile).
+func TestQueueReindexFile_Indexes(t *testing.T) {
+	withFastWindows(t)
+	d := testdb.New(t)
+	ctx, cancel := context.WithCancel(context.Background())
+	t.Cleanup(cancel)
+
+	var spaceID int64
+	if err := d.QueryRow(`INSERT INTO spaces (name, slug) VALUES ('S','fs') RETURNING id`).Scan(&spaceID); err != nil {
+		t.Fatal(err)
+	}
+	fileID := seedRagFile(t, d, spaceID, "doc.md", "text/markdown",
+		[]byte("# Topic\n\nThe Kafka pipeline streams events within a 200ms latency budget."))
+
+	svc := NewServiceWithEmbedder(d, &fakeEmbedder{})
+	svc.StartAutoReindex(ctx)
+	svc.QueueReindexFile(fileID)
+
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		var n int
+		d.QueryRow(`SELECT count(*) FROM file_chunks WHERE space_file_id=$1`, fileID).Scan(&n)
+		if n > 0 {
+			return
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+	t.Fatal("file never indexed via the queue")
 }

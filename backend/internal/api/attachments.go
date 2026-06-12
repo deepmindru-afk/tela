@@ -133,7 +133,7 @@ func (s *Server) uploadPageAttachmentCore(ctx context.Context, u *auth.User, k *
 	if ae := s.checkStorageQuota(ctx, page.SpaceID, int64(len(data))); ae != nil {
 		return attachmentOut{}, ae
 	}
-	sf, err := createPageUploadFile(ctx, s.DB, page.SpaceID, pageID, sanitizeUploadName(filename), data)
+	sf, err := s.createPageUploadFile(ctx, page.SpaceID, pageID, sanitizeUploadName(filename), data)
 	if err != nil {
 		return attachmentOut{}, &apiErr{http.StatusInternalServerError, "internal", "store attachment failed"}
 	}
@@ -169,6 +169,8 @@ func (s *Server) deletePageAttachmentCore(ctx context.Context, u *auth.User, k *
 	if n, _ := res.RowsAffected(); n == 0 {
 		return &apiErr{http.StatusNotFound, "not_found", "attachment not found on this page"}
 	}
+	// Soft-delete → ReindexFile sees deleted_at and clears the file's chunks.
+	s.rag.QueueReindexFile(fileID)
 	return nil
 }
 
@@ -263,7 +265,7 @@ func sanitizeUploadName(name string) string {
 // two pasted "image.png") get a `-<hash8>` suffix so the first embed keeps
 // working. The mime for a recognised raster image is taken from magic bytes (so
 // the inline-serve path is trustworthy), else inferred from name/sniff.
-func createPageUploadFile(ctx context.Context, db *sql.DB, spaceID, pageID int64, name string, data []byte) (spaceFile, error) {
+func (s *Server) createPageUploadFile(ctx context.Context, spaceID, pageID int64, name string, data []byte) (spaceFile, error) {
 	sum := sha256.Sum256(data)
 	hash := hex.EncodeToString(sum[:])
 	mimeType := detectImageMime(data)
@@ -271,22 +273,23 @@ func createPageUploadFile(ctx context.Context, db *sql.DB, spaceID, pageID int64
 		mimeType = detectFileMime(name, data)
 	}
 	finalName := name
-	if h, found, err := liveFileHashAt(ctx, db, spaceID, pageID, finalName); err != nil {
+	if h, found, err := liveFileHashAt(ctx, s.DB, spaceID, pageID, finalName); err != nil {
 		return spaceFile{}, err
 	} else if found {
 		if h == hash {
+			// Identical bytes already stored → idempotent, already indexed.
 			return spaceFile{spaceID: spaceID, parentID: &pageID, name: finalName, hash: hash, mime: mimeType, size: int64(len(data))}, nil
 		}
 		ext := path.Ext(name)
 		finalName = strings.TrimSuffix(name, ext) + "-" + hash[:8] + ext
-		if h2, f2, err := liveFileHashAt(ctx, db, spaceID, pageID, finalName); err != nil {
+		if h2, f2, err := liveFileHashAt(ctx, s.DB, spaceID, pageID, finalName); err != nil {
 			return spaceFile{}, err
 		} else if f2 && h2 == hash {
 			return spaceFile{spaceID: spaceID, parentID: &pageID, name: finalName, hash: hash, mime: mimeType, size: int64(len(data))}, nil
 		}
 	}
 	var sf spaceFile
-	err := db.QueryRowContext(ctx, `
+	err := s.DB.QueryRowContext(ctx, `
 		INSERT INTO space_files (space_id, parent_page_id, name, content_hash, mime, data, byte_size)
 		VALUES ($1, $2, $3, $4, $5, $6, $7)
 		RETURNING id`,
@@ -295,6 +298,9 @@ func createPageUploadFile(ctx context.Context, db *sql.DB, spaceID, pageID int64
 		return spaceFile{}, err
 	}
 	sf.spaceID, sf.parentID, sf.name, sf.hash, sf.mime, sf.size = spaceID, &pageID, finalName, hash, mimeType, int64(len(data))
+	// Store-and-announce: a new blob → enqueue text extraction + indexing (the
+	// file half of the RAG index). No-op when the embedder is unconfigured.
+	s.rag.QueueReindexFile(sf.id)
 	return sf, nil
 }
 

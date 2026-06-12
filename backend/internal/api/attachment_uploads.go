@@ -193,7 +193,7 @@ func (s *Server) UploadAttachmentBytes(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	sf, err := createPageUploadFile(ctx, s.DB, page.SpaceID, t.P, t.N, data)
+	sf, err := s.createPageUploadFile(ctx, page.SpaceID, t.P, t.N, data)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "internal", "store upload failed")
 		return

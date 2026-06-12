@@ -287,6 +287,11 @@ func (f *davSpaceWriteFile) flush() error {
 		return err
 	}
 	f.result = sf
+	// Store-and-announce: a synced file is the fourth ingress (after editor, MCP
+	// base64, handshake PUT) — enqueue indexing too. Unconditional: a no-op
+	// re-sync reindexes cheaply (the per-chunk vector cache skips the embedder),
+	// and the debounce coalesces rapid syncs.
+	f.fs.s.rag.QueueReindexFile(sf.id)
 	return nil
 }
 

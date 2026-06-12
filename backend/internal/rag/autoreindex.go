@@ -76,9 +76,28 @@ func (s *Service) StartAutoReindex(ctx context.Context) {
 	}
 	s.pending = make(map[int64]time.Time)
 	s.attempts = make(map[int64]int)
+	s.pendingFiles = make(map[int64]time.Time)
+	s.fileAttempts = make(map[int64]int)
 	s.queueMu.Unlock()
 	go s.reindexLoop(ctx)
 	go s.staleSweepLoop(ctx)
+}
+
+// QueueReindexFile is QueueReindex for a space_file (the file half of the
+// document index) — the trigger every upload path fires after a content change,
+// and a delete fires to clear chunks. Same debounce/coalesce/backoff machinery
+// as pages, keyed on file id.
+func (s *Service) QueueReindexFile(fileID int64) {
+	if !s.Enabled() {
+		return
+	}
+	s.queueMu.Lock()
+	defer s.queueMu.Unlock()
+	if s.pendingFiles == nil {
+		return // worker not started
+	}
+	s.pendingFiles[fileID] = time.Now().Add(reindexDebounce)
+	delete(s.fileAttempts, fileID)
 }
 
 func (s *Service) reindexLoop(ctx context.Context) {
@@ -97,6 +116,16 @@ func (s *Service) reindexLoop(ctx context.Context) {
 					s.requeueAfterFailure(id)
 				} else {
 					s.clearAttempts(id)
+				}
+			}
+			for _, id := range s.dueFileReindexes() {
+				rctx, cancel := context.WithTimeout(ctx, reindexTimeout)
+				_, err := s.ReindexFile(rctx, id)
+				cancel()
+				if err != nil {
+					s.requeueFileAfterFailure(id)
+				} else {
+					s.clearFileAttempts(id)
 				}
 			}
 		}
@@ -130,6 +159,50 @@ func (s *Service) requeueAfterFailure(pageID int64) {
 func (s *Service) clearAttempts(pageID int64) {
 	s.queueMu.Lock()
 	delete(s.attempts, pageID)
+	s.queueMu.Unlock()
+}
+
+// dueFileReindexes / requeueFileAfterFailure / clearFileAttempts mirror the page
+// trio for the file queue. Same debounce + exponential backoff, keyed on file id.
+
+func (s *Service) dueFileReindexes() []int64 {
+	now := time.Now()
+	s.queueMu.Lock()
+	defer s.queueMu.Unlock()
+	var due []int64
+	for id, deadline := range s.pendingFiles {
+		if !now.Before(deadline) {
+			due = append(due, id)
+			delete(s.pendingFiles, id)
+		}
+	}
+	return due
+}
+
+func (s *Service) requeueFileAfterFailure(fileID int64) {
+	s.queueMu.Lock()
+	if s.pendingFiles == nil {
+		s.queueMu.Unlock()
+		return
+	}
+	s.fileAttempts[fileID]++
+	n := s.fileAttempts[fileID]
+	shift := n - 1
+	if shift > 16 {
+		shift = 16
+	}
+	backoff := reindexRetryBase << uint(shift)
+	if backoff > reindexRetryMax || backoff <= 0 {
+		backoff = reindexRetryMax
+	}
+	s.pendingFiles[fileID] = time.Now().Add(backoff)
+	s.queueMu.Unlock()
+	slog.Warn("rag: file auto-reindex failed, will retry", "file_id", fileID, "attempt", n, "retry_in", backoff)
+}
+
+func (s *Service) clearFileAttempts(fileID int64) {
+	s.queueMu.Lock()
+	delete(s.fileAttempts, fileID)
 	s.queueMu.Unlock()
 }
 
