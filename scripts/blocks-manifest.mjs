@@ -51,6 +51,7 @@ const PLUGIN_BLOCKS = {
   'milkdown-chart': ['chart'],
   'milkdown-codeblock': ['code'],
   'milkdown-collapsibles': ['collapsible'],
+  'milkdown-deck': ['deck'],
   'milkdown-embed': ['embed'],
   'milkdown-excalidraw': ['excalidraw'],
   'milkdown-file': ['file'],
@@ -81,7 +82,7 @@ const VIEW_RENDERED = new Set([
   'code', 'table', 'divider', 'footnote', 'date', 'emoji', 'image',
   'equation', 'inline-math',
   'mermaid', 'chart', 'excalidraw',
-  'wikilink', 'tabs',
+  'wikilink', 'tabs', 'deck',
   'pull-quote', 'embed', 'file', 'timeline',
   'kanban', 'stat-grid', 'calendar', 'collapsible',
 ])

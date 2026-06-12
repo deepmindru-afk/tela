@@ -303,6 +303,31 @@ function TabsView({ nodes }: { nodes: MdNode[] }) {
   )
 }
 
+// Split a `:::deck` directive's children into slides on `---` (thematicBreak) —
+// mirrors the editor schema's parse runner (milkdown-deck.ts). N breaks → N+1
+// slide groups (leading/trailing/empty groups are kept so view ⇄ edit match).
+function groupSlides(children: MdNode[]): MdNode[][] {
+  const slides: MdNode[][] = [[]]
+  for (const child of children) {
+    if (child.type === 'thematicBreak') slides.push([])
+    else slides[slides.length - 1].push(child)
+  }
+  return slides
+}
+
+function DeckView({ nodes }: { nodes: MdNode[] }) {
+  const slides = useMemo(() => groupSlides(nodes), [nodes])
+  return (
+    <div className="tela-deck" data-deck="">
+      {slides.map((content, i) => (
+        <section key={i} className="tela-slide" data-slide="">
+          {content.map((n, j) => renderNode(n, j))}
+        </section>
+      ))}
+    </div>
+  )
+}
+
 // First non-empty text node in a directive body (the URL for embed/file).
 function directiveFirstText(node: MdNode): string {
   let found = ''
@@ -723,6 +748,7 @@ function renderNode(node: MdNode, key: number | string): ReactNode {
     case 'textDirective': {
       const name = String(node.name ?? '')
       if (name === 'tabs') return <TabsView key={key} nodes={node.children ?? []} />
+      if (name === 'deck') return <DeckView key={key} nodes={node.children ?? []} />
       if (name === 'quote') return <PullQuoteView key={key} node={node} />
       if (name === 'embed') return <EmbedView key={key} node={node} />
       if (name === 'file') return <FileView key={key} node={node} />
