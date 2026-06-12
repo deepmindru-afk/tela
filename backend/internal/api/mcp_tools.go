@@ -219,7 +219,7 @@ func (s *Server) registerMCPTools(server *mcp.Server) {
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "upload_attachment",
 		Title:       "Upload attachment",
-		Description: "Upload a file (base64) and attach it to a page (editor+) — an image, PDF, dataset, etc. Returns the serve URL plus a ready-to-paste `markdown` snippet; then call update_page or patch_page to place it in the body (images render inline as ![](…), other files as a download card). Payload is inline base64, so this is for reasonably-sized files — very large files exceed the protocol message limit.",
+		Description: "Upload a file (base64) and attach it to a page (editor+) — an image, PDF, dataset, etc. Returns the serve URL plus a ready-to-paste `markdown` snippet; then call update_page or patch_page to place it in the body (images render inline as ![](…), other files as a download card). The payload is inline base64 and rides through the model's context, so it is capped at 5 MB — keep it to small files (screenshots, charts, short PDFs). Upload larger files through the tela editor (drag-drop) instead.",
 		Annotations: &mcp.ToolAnnotations{DestructiveHint: &no, OpenWorldHint: &no},
 	}, s.mcpUploadAttachment)
 
@@ -1050,6 +1050,15 @@ func attachmentEmbedMarkdown(a attachmentOut) string {
 	return fmt.Sprintf(":::file{name=%q size=\"%d\"}\n%s\n:::", a.Name, a.ByteSize, a.URL)
 }
 
+// mcpInlineUploadCap bounds upload_attachment's base64 payload. Inline base64
+// rides through the model's context (a tool argument IS model content), so a
+// large blob bloats tokens + cost and can trip a host's content filter. Files
+// above this belong on a side channel — the editor drag-drop, or the planned
+// request_attachment_upload signed-PUT handshake — where the bytes never enter
+// the context. This is the *transport* limit; davFileMaxBytes (50 MiB) remains
+// the storage limit. A var so tests can shrink it without generating megabytes.
+var mcpInlineUploadCap = 5 << 20 // 5 MiB
+
 // decodeMCPBase64 decodes a base64 tool argument, tolerating a leading
 // `data:<mime>;base64,` URL prefix that agents often include.
 func decodeMCPBase64(s string) ([]byte, error) {
@@ -1107,6 +1116,11 @@ func (s *Server) mcpUploadAttachment(ctx context.Context, req *mcp.CallToolReque
 	data, err := decodeMCPBase64(in.DataBase64)
 	if err != nil {
 		return mcpErr(&apiErr{400, "bad_request", "data_base64 is not valid base64"}), uploadAttachmentOut{}, nil
+	}
+	if len(data) > mcpInlineUploadCap {
+		return mcpErr(&apiErr{413, "too_large", fmt.Sprintf(
+			"file is %.1f MB; inline base64 upload is capped at %d MB (it rides through the model context). Upload larger files via the tela editor (drag-drop), or the direct upload-URL flow.",
+			float64(len(data))/(1<<20), mcpInlineUploadCap>>20)}), uploadAttachmentOut{}, nil
 	}
 	a, ae := s.uploadPageAttachmentCore(ctx, u, k, in.PageID, in.Name, data)
 	if ae != nil {

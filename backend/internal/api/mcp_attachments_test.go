@@ -1,11 +1,14 @@
 package api
 
 import (
+	"bytes"
 	"context"
 	"encoding/base64"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/modelcontextprotocol/go-sdk/mcp"
 
 	"github.com/zcag/tela/backend/internal/auth"
 )
@@ -77,5 +80,51 @@ func TestMCP_AttachmentTools(t *testing.T) {
 	mcpCallJSON(t, ctx, sess, "list_attachments", map[string]any{"page_id": pageID}, &ls)
 	if len(ls.Attachments) != 0 {
 		t.Fatalf("list after delete = %+v", ls.Attachments)
+	}
+}
+
+// TestMCP_UploadAttachmentCap verifies the inline base64 cap rejects an oversize
+// payload (so a giant blob can't ride through the model context) while still
+// allowing small files. The cap is shrunk for the test to avoid shipping MBs.
+func TestMCP_UploadAttachmentCap(t *testing.T) {
+	ts, d := newWiredServer(t)
+	alice := seedUser(t, d, "alice", "alicepw12", false)
+	space := seedSpace(t, d, "Alice Space", "alice-space", alice)
+	var pageID int64
+	if err := d.QueryRow(`INSERT INTO pages (space_id, parent_id, title, body, position)
+	                       VALUES ($1, NULL, 'P', 'body', 0) RETURNING id`, space).Scan(&pageID); err != nil {
+		t.Fatalf("seed page: %v", err)
+	}
+
+	orig := mcpInlineUploadCap
+	mcpInlineUploadCap = 64
+	defer func() { mcpInlineUploadCap = orig }()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+	sess := mcpSession(t, ctx, ts, seedReadKey(t, d, alice, auth.ScopeWrite))
+
+	// 128 bytes > the (shrunk) 64-byte cap → tool error, nothing stored.
+	over := base64.StdEncoding.EncodeToString(bytes.Repeat([]byte("x"), 128))
+	res, err := sess.CallTool(ctx, &mcp.CallToolParams{Name: "upload_attachment", Arguments: map[string]any{
+		"page_id": pageID, "name": "big.bin", "data_base64": over,
+	}})
+	if err != nil {
+		t.Fatalf("call over-cap: %v", err)
+	}
+	if !res.IsError {
+		t.Fatalf("over-cap upload should be a tool error, got success")
+	}
+
+	// A small payload still succeeds under the same cap.
+	under := base64.StdEncoding.EncodeToString([]byte("hi"))
+	res2, err := sess.CallTool(ctx, &mcp.CallToolParams{Name: "upload_attachment", Arguments: map[string]any{
+		"page_id": pageID, "name": "small.txt", "data_base64": under,
+	}})
+	if err != nil {
+		t.Fatalf("call under-cap: %v", err)
+	}
+	if res2.IsError {
+		t.Fatalf("under-cap upload should succeed: %v", res2.Content)
 	}
 }
