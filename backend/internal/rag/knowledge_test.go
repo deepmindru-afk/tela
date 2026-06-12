@@ -79,8 +79,11 @@ func TestFindOverlaps_DetectsNearDuplicates(t *testing.T) {
 	ctx := context.Background()
 	u := newUser(t, d, "alice")
 	sp := newSpace(t, d, "alpha", u)
-	dupA := newPage(t, d, sp, "How to deploy", "## Steps\ndeploy release build server production ship rollout pipeline")
-	dupB := newPage(t, d, sp, "Deployment guide", "## Steps\ndeploy release build server production ship rollout pipeline")
+	// A genuine near-duplicate: same title + body, so a chunk pair is near-identical
+	// (what the chunk-level verifier keys on, not just close centroids).
+	dupBody := "## Steps\ndeploy release build server staging production ship rollout pipeline verify smoke healthcheck rollback runbook"
+	dupA := newPage(t, d, sp, "Deploying a release", dupBody)
+	dupB := newPage(t, d, sp, "Deploying a release", dupBody)
 	newPage(t, d, sp, "Banana bread", "## Recipe\nbananas flour sugar butter oven bake dessert")
 
 	svc := NewServiceWithEmbedder(d, &fakeEmbedder{})
@@ -88,19 +91,21 @@ func TestFindOverlaps_DetectsNearDuplicates(t *testing.T) {
 		t.Fatalf("index: %v", err)
 	}
 
-	pairs, err := svc.FindOverlaps(ctx, u, &sp, 0.5, 10)
+	pairs, err := svc.FindOverlaps(ctx, u, &sp, 0, 10)
 	if err != nil {
 		t.Fatalf("overlaps: %v", err)
 	}
-	if len(pairs) == 0 {
-		t.Fatal("no overlaps found for two near-identical pages")
+	// Only the real duplicate pair should surface — the unrelated page must not,
+	// even though a tight corpus can make centroids look close.
+	if len(pairs) != 1 {
+		t.Fatalf("got %d overlap pairs, want exactly the duplicate pair: %+v", len(pairs), pairs)
 	}
 	top := pairs[0]
 	gotPair := map[int64]bool{top.PageA: true, top.PageB: true}
 	if !gotPair[dupA] || !gotPair[dupB] {
 		t.Errorf("top overlap = (%d,%d), want the duplicate pair (%d,%d)", top.PageA, top.PageB, dupA, dupB)
 	}
-	if top.Similarity < 0.5 {
-		t.Errorf("overlap similarity %.3f below threshold", top.Similarity)
+	if top.Similarity < 0.92 {
+		t.Errorf("overlap similarity %.3f below duplicate threshold", top.Similarity)
 	}
 }

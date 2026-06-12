@@ -170,10 +170,10 @@ func (s *Server) spaceHealth(ctx context.Context, userID, spaceID int64) spaceHe
 		rows.Close()
 	}
 
-	// Possible duplicates — near-dup page pairs within this space. A HIGH threshold
-	// on purpose: the default 0.55 surfaces merely-related pages (noise for a
-	// "duplicates" list); 0.88 means genuinely near-identical, worth a merge look.
-	if dups, err := s.rag.FindOverlaps(ctx, userID, &spaceID, 0.88, 8); err == nil {
+	// Possible duplicates — pages that share a near-identical passage (chunk-level,
+	// the only signal that actually means "duplicate" — see rag.FindOverlaps).
+	// threshold 0 → its calibrated default.
+	if dups, err := s.rag.FindOverlaps(ctx, userID, &spaceID, 0, 8); err == nil {
 		h.Duplicates = dups
 	}
 	return h

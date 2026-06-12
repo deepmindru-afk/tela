@@ -110,7 +110,7 @@ func (s *Server) registerMCPTools(server *mcp.Server) {
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "find_overlaps",
 		Title:       "Find overlapping pages",
-		Description: "Near-duplicate page PAIRS (semantically close enough to be merge/redirect candidates) for wiki hygiene. Optional space_id restricts to one space; threshold (0..1, default 0.55) sets how similar counts as overlap.",
+		Description: "Near-duplicate page PAIRS that share a near-identical passage (real merge/redirect candidates) for wiki hygiene. Optional space_id restricts to one space; threshold (0..1, default 0.92) is the minimum chunk-level similarity to count as a duplicate.",
 		Annotations: readOnly,
 	}, s.mcpFindOverlaps)
 
@@ -614,7 +614,7 @@ func (s *Server) mcpSuggestLinks(ctx context.Context, req *mcp.CallToolRequest, 
 
 type findOverlapsIn struct {
 	SpaceID   *int64  `json:"space_id,omitempty" jsonschema:"optional space id to restrict to overlaps within one space"`
-	Threshold float64 `json:"threshold,omitempty" jsonschema:"min cosine similarity 0..1 to count as overlap (default 0.55)"`
+	Threshold float64 `json:"threshold,omitempty" jsonschema:"min chunk-level cosine similarity 0..1 to count as a duplicate (default 0.92)"`
 	Limit     int     `json:"limit,omitempty" jsonschema:"max pairs (default 50)"`
 }
 
