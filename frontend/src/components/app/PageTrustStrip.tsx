@@ -9,6 +9,8 @@ import {
 } from 'lucide-react'
 import { useAgreement, useProvenance } from '../../lib/queries/pages'
 import { daysSinceSqlite, relativeTimeFromSqlite } from '../../lib/relativeTime'
+import { navigateToPage } from '../../lib/pageHitItem'
+import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover'
 import { cn } from '../../lib/utils'
 
 // PageTrustStrip — the read-only "epistemic" byline under a page title: a quiet
@@ -38,10 +40,12 @@ function numProp(
 }
 
 export function PageTrustStrip({
+  spaceId,
   pageId,
   updatedAt,
   props,
 }: {
+  spaceId: number
   pageId: number
   updatedAt: string
   props?: Record<string, unknown>
@@ -101,18 +105,50 @@ export function PageTrustStrip({
         </span>
       ) : null}
 
-      {/* Contradiction — the case worth noticing; danger tone, with the
-          disputing pages + reasons in the tooltip. */}
+      {/* Contradiction — the case worth noticing; danger tone. Click opens a
+          read-only popover listing each conflicting page (navigable) + the reason
+          the model flagged. */}
       {ag && ag.dispute > 0 ? (
-        <span
-          className="inline-flex items-center gap-[var(--space-1)] text-[var(--danger)]"
-          title={ag.disputes
-            .map((d) => (d.reason ? `${d.title} — ${d.reason}` : d.title))
-            .join('\n')}
-        >
-          <ShieldAlert width={12} height={12} aria-hidden /> {ag.dispute} may
-          dispute this
-        </span>
+        <Popover>
+          <PopoverTrigger asChild>
+            <button
+              type="button"
+              className="inline-flex items-center gap-[var(--space-1)] text-[var(--danger)] bg-transparent border-0 p-0 cursor-pointer font-[family-name:var(--font-sans)] text-[length:var(--text-xs)] hover:underline focus-visible:outline-none focus-visible:underline"
+            >
+              <ShieldAlert width={12} height={12} aria-hidden /> {ag.dispute} may
+              dispute this
+            </button>
+          </PopoverTrigger>
+          <PopoverContent align="start">
+            <p className="m-0 mb-[var(--space-2)] text-[length:var(--text-xs)] uppercase tracking-wider text-[var(--text-muted)]">
+              Possible contradictions
+            </p>
+            <ul className="m-0 p-0 list-none flex flex-col gap-[var(--space-3)]">
+              {ag.disputes.map((d, i) => (
+                <li key={`${d.page_id}-${i}`} className="flex flex-col gap-[2px]">
+                  {d.page_id ? (
+                    <button
+                      type="button"
+                      onClick={() => navigateToPage(spaceId, d.page_id)}
+                      className="text-left text-[length:var(--text-sm)] text-[var(--accent)] font-medium bg-transparent border-0 p-0 cursor-pointer hover:underline"
+                    >
+                      {d.title || 'Untitled'}
+                    </button>
+                  ) : (
+                    <span className="text-[length:var(--text-sm)] text-[var(--text-primary)] font-medium">
+                      {d.title || 'Untitled'}
+                    </span>
+                  )}
+                  {d.reason ? (
+                    <span className="text-[length:var(--text-xs)] text-[var(--text-muted)] leading-[var(--leading-normal)]">
+                      {d.reason}
+                    </span>
+                  ) : null}
+                </li>
+              ))}
+            </ul>
+          </PopoverContent>
+        </Popover>
       ) : null}
     </div>
   )

@@ -470,6 +470,7 @@ function PageViewer({
         </SummaryTitle>
 
         <PageTrustStrip
+          spaceId={spaceId}
           pageId={page.id}
           updatedAt={page.updated_at}
           props={page.props}
