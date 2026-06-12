@@ -4,9 +4,9 @@ Base: `/api`. JSON in/out (imports are `multipart/form-data`). Auth is a session
 
 ## Errors
 
-Baseline envelope: `{ "error": "...", "code": "..." }`. Known codes: `bad_request`, `not_found`, `unauthorized`, `forbidden`, `conflict`, `cycle`, `last_admin`, `last_owner`, `internal`, `viewer_no_write`, `comment_*`, `revision_not_found`, `invalid_query`, `space_not_found`, `password_required`, `rate_limited`, `api_key_scope`, `api_key_space_scope`, `mira_password_required`.
+Baseline envelope: `{ "error": "...", "code": "..." }`. Known codes: `bad_request`, `not_found`, `unauthorized`, `forbidden`, `conflict`, `cycle`, `last_admin`, `last_owner`, `internal`, `viewer_no_write`, `comment_*`, `revision_not_found`, `invalid_query`, `space_not_found`, `password_required`, `rate_limited`, `api_key_scope`, `api_key_space_scope`.
 
-Extended exception: `mira_password_required` is a 403 with a third field `{ error, code, unlock }` (`unlock` = upstream unlock URL). REST clients consume it; the MCP wrapper strips extra fields. When adding a code that carries extra wire fields, document it here **and** check the MCP `safeParseEnvelope`.
+When adding a code that carries extra wire fields beyond `{ error, code }`, document it here **and** check the MCP `safeParseEnvelope`.
 
 ## Meta
 - `GET /api/health` — liveness.
@@ -62,7 +62,6 @@ See [`access-model.md`](access-model.md) for the canonical principal/grant/role 
 
 ## Import
 - `POST /api/spaces/{id}/import` — editor+, `multipart/form-data`: `parent_id`, `dry_run`, `files` (`.md`/zip). Flatten-root + README-as-index handling.
-- `POST /api/spaces/{id}/import-mira` — editor+, JSON `{ parent_id?, source_url? | payload? }` (exactly one of source_url/payload). URL fetch is https-only / allowlisted / no-redirect / capped.
 
 ## Public share
 - Management (editor+, session): `POST|GET /api/pages/{id}/shares`, `PATCH|DELETE /api/shares/{id}`.

@@ -8,8 +8,8 @@ highlights, collapsibles, wikilinks. But an agent writing a page over MCP only
 ever saw `body: "markdown body"` in the `create_page`/`update_page` schema. With
 no signal that the rich palette exists, agents fell back to generic CommonMark
 (headings, paragraphs, bullet lists) — correct, but flat. They can't use features
-they were never told about. Mira, by contrast, hands an agent a *typed block*
-palette, so richness is the path of least resistance there.
+they were never told about. A block-native editor that hands an agent a *typed
+block* palette, by contrast, makes richness the path of least resistance.
 
 The fix is **capability disclosure**: tell the agent, through the MCP surface it
 actually reads, what blocks exist and how to write them.

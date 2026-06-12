@@ -6,9 +6,8 @@
 // Yjs scope (Hard Rule #6): zero Yjs imports in this file.
 
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { api, ApiError } from '../api'
+import { ApiError } from '../api'
 import { emitPageMutation } from '../pageMutationEvent'
-import type { Page } from '../types'
 import { pageKeys } from './pages'
 
 // Mirrors backend/internal/mdimport.ImportedPage exactly. ParentID is nullable
@@ -122,42 +121,6 @@ export function useImportPages() {
           if (idx) void idx.refresh()
         })
       }
-    },
-  })
-}
-
-// M18.B.1 — mira single-page import. Wraps the M18.A.3 backend endpoint
-// POST /api/spaces/{id}/import-mira (JSON, NOT multipart). Exactly one of
-// `sourceUrl` / `payload` is required; the backend enforces XOR + 1 MiB caps
-// + https-only host allowlist + 5s upstream fetch timeout.
-export interface ImportMiraInput {
-  spaceId: number
-  parentId: number | null
-  sourceUrl?: string
-  payload?: unknown
-}
-
-async function postImportMira(input: ImportMiraInput): Promise<{ page: Page }> {
-  const body: Record<string, unknown> = { parent_id: input.parentId }
-  if (input.sourceUrl != null) body.source_url = input.sourceUrl
-  if (input.payload !== undefined) body.payload = input.payload
-  return api<{ page: Page }>(`/api/spaces/${input.spaceId}/import-mira`, {
-    method: 'POST',
-    body: JSON.stringify(body),
-  })
-}
-
-export function useImportMira() {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: postImportMira,
-    onSuccess: (_data, input) => {
-      void qc.invalidateQueries({ queryKey: pageKeys.space(input.spaceId) })
-      emitPageMutation()
-      void import('../search/body-index').then((m) => {
-        const idx = m.getLoadedBodyIndex(input.spaceId)
-        if (idx) void idx.refresh()
-      })
     },
   })
 }

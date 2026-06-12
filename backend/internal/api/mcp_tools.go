@@ -2,7 +2,6 @@ package api
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"strconv"
 	"strings"
@@ -23,8 +22,8 @@ func (s *Server) registerMCPTools(server *mcp.Server) {
 	// Hints default to OPEN/DESTRUCTIVE when absent (MCP spec: OpenWorldHint and
 	// DestructiveHint default true), so every tool sets them explicitly — both
 	// directories reject tools whose advertised hints don't match behavior. tela
-	// is a closed world (its own DB) except import_mira, which fetches external
-	// URLs. *bool so the value survives the SDK's omitempty.
+	// is a closed world (its own DB): every tool sets OpenWorldHint false. *bool
+	// so the value survives the SDK's omitempty.
 	no, yes := false, true
 	readOnly := &mcp.ToolAnnotations{ReadOnlyHint: true, OpenWorldHint: &no}
 
@@ -198,13 +197,6 @@ func (s *Server) registerMCPTools(server *mcp.Server) {
 		Description: "Delete a space AND all its pages, comments, revisions and share links. Owner only. Irreversible.",
 		Annotations: &mcp.ToolAnnotations{DestructiveHint: &yes, OpenWorldHint: &no},
 	}, s.mcpDeleteSpace)
-
-	mcp.AddTool(server, &mcp.Tool{
-		Name:        "import_mira",
-		Title:       "Import mira page",
-		Description: "Import a single mira page into a space as a new page (editor+). Provide source_url (https, allowlisted host, fetched server-side) OR an inline payload (raw mira block JSON) — exactly one. A password-protected source returns an unlock link.",
-		Annotations: &mcp.ToolAnnotations{DestructiveHint: &no, OpenWorldHint: &yes},
-	}, s.mcpImportMira)
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "submit_feedback",
@@ -980,44 +972,6 @@ func (s *Server) mcpDeleteSpace(ctx context.Context, req *mcp.CallToolRequest, i
 		return mcpErr(ae), okOut{}, nil
 	}
 	return nil, okOut{OK: true}, nil
-}
-
-// ---- import_mira ---------------------------------------------------------
-
-type importMiraIn struct {
-	SpaceID        int64  `json:"space_id" jsonschema:"id of the space to import into"`
-	ParentID       *int64 `json:"parent_id,omitempty" jsonschema:"optional parent page id"`
-	SourceURL      string `json:"source_url,omitempty" jsonschema:"https mira page URL (allowlisted host, fetched server-side); mutually exclusive with payload"`
-	Payload        any    `json:"payload,omitempty" jsonschema:"inline mira block JSON; mutually exclusive with source_url"`
-	IdempotencyKey string `json:"idempotency_key,omitempty" jsonschema:"optional client-generated key; a retry with the same key returns the original result instead of importing a duplicate page (safe retries after a dropped connection)"`
-}
-
-func (s *Server) mcpImportMira(ctx context.Context, req *mcp.CallToolRequest, in importMiraIn) (*mcp.CallToolResult, getPageOut, error) {
-	u, k := mcpIdentity(req)
-	if u == nil {
-		return mcpUnauthErr(), getPageOut{}, nil
-	}
-	if ae := mcpRequireWrite(k); ae != nil {
-		return mcpErr(ae), getPageOut{}, nil
-	}
-	return mcpIdempotent(ctx, s.DB, u.ID, in.IdempotencyKey, "import_mira", func() (*mcp.CallToolResult, getPageOut, error) {
-		var payload []byte
-		if in.Payload != nil {
-			payload, _ = json.Marshal(in.Payload)
-		}
-		page, unlock, ae := s.importMiraCore(ctx, u, k, in.SpaceID, in.ParentID, in.SourceURL, payload)
-		if unlock != "" {
-			// Password-protected source — surface the unlock link as a tool error so
-			// the agent can prompt the user to unlock it.
-			b, _ := json.Marshal(map[string]any{"error": ae.Message, "code": ae.Code, "status": ae.Status, "unlock": unlock})
-			return &mcp.CallToolResult{IsError: true, Content: []mcp.Content{&mcp.TextContent{Text: string(b)}}}, getPageOut{}, nil
-		}
-		if ae != nil {
-			return mcpErr(ae), getPageOut{}, nil
-		}
-		out := getPageOut{Page: mcpPage{Page: page, URL: mcpPageURL(page)}}
-		return nil, out, nil
-	})
 }
 
 // ---- submit_feedback (any scope, no mcpRequireWrite) ---------------------

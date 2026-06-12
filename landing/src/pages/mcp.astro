@@ -24,7 +24,7 @@ const writeTools = [
   ['move_page', 'Re-parent or reorder a page.'],
   ['delete_page', 'Delete a page.'],
   ['add_comment', 'Comment on a page.'],
-  ['import_mira', 'Import an external URL as a page.'],
+  ['patch_page', 'Apply a section-scoped edit to a page.'],
   ['submit_feedback', 'Send feedback to the maintainers.'],
 ];
 const knowledgeTools = [
@@ -181,7 +181,6 @@ const knowledgeTools = [
     <li><strong>Semantic search needs an embedder.</strong> <code>semantic_search</code> and <code>read_chunk</code> return <code>503</code> if the instance has no embedding model configured. Full-text <code>search</code> and <code>search_bodies</code> always work.</li>
     <li><strong>Large pages are capped.</strong> <code>get_page</code> and <code>fetch</code> truncate bodies beyond ~80k characters and set <code>truncated: true</code>; read specific sections with <code>semantic_search</code> + <code>read_chunk</code>.</li>
     <li><strong>Writes need editor permission.</strong> Create/update/delete tools require editor access on the target space; a read-scoped token or a viewer account can't write.</li>
-    <li><strong>import_mira is allowlisted.</strong> It fetches only operator-configured hosts over HTTPS, server-side, following no redirects.</li>
   </ul>
 
   <h2>Troubleshooting</h2>

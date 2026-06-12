@@ -34,8 +34,6 @@ const INFRA = new Set([
   'milkdown-floating', // slash/bubble positioning helper
   'milkdown-image-upload', // upload transport for the `image` block (markdown is plain)
   'milkdown-list-indent', // Tab/Shift-Tab list nest/un-nest keymap (no node)
-  'milkdown-mira-paste', // paste interop
-  'milkdown-mira-paste-popover', // paste interop UI
   'milkdown-modifier-click', // cmd/ctrl-click navigation
   'milkdown-slash', // the slash menu itself
   'milkdown-templates', // composed snippets, not a block type

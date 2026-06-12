@@ -51,9 +51,8 @@ func (s *Server) MCPHandler() http.Handler {
 	authed := sdkauth.RequireBearerToken(s.mcpVerifier, opts)(streamable)
 	// Cap the request body: the SDK's streamable handler imposes no limit and the
 	// endpoint is mounted public, so without this a client could POST a multi-GB
-	// JSON-RPC body (memory-exhaustion DoS) — and it re-asserts import_mira's size
-	// intent on the inline-payload path. SSE GET streams carry no request body, so
-	// this only bounds the POST bodies.
+	// JSON-RPC body (memory-exhaustion DoS). SSE GET streams carry no request
+	// body, so this only bounds the POST bodies.
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		r.Body = http.MaxBytesReader(w, r.Body, mcpMaxRequestBytes)
 		authed.ServeHTTP(w, r)
@@ -61,7 +60,7 @@ func (s *Server) MCPHandler() http.Handler {
 }
 
 // mcpMaxRequestBytes bounds a single MCP HTTP request body. Generous enough for
-// a batched JSON-RPC call + the 1 MiB import_mira payload, with headroom.
+// a batched JSON-RPC call, with headroom.
 const mcpMaxRequestBytes = 4 << 20 // 4 MiB
 
 // newMCPServer constructs the MCP server and registers the tool + resource

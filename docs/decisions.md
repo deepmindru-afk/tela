@@ -35,5 +35,5 @@ Self-hosted personal/small-team. Users + spaces + roles, but no orgs/billing; op
 ## D11 — Secrets are HMAC keys, stable across deploys
 `TELA_SHARE_SECRET` and `TELA_API_KEY_SECRET` key the share-cookie and PAT HMACs. → rotating either invalidates outstanding share cookies / PATs; they must be set (blank silently produces forgeable tokens) and kept stable.
 
-## D12 — mira import is fetch-hardened
-Server-side fetch of attacker-influenced URLs is an SSRF risk. https-only, host allowlist, no redirects, size/time/content-type caps. → safe enough for the threat model; note the allowlist is host-string only (no IP-range guard) — never allowlist a host resolving to a private IP.
+## D12 — mira import is fetch-hardened *(superseded — feature removed)*
+The mira single-page import was removed entirely (a personal-infra integration with no general-product value; agents can fetch + `create_page` directly). The original decision: server-side fetch of attacker-influenced URLs is an SSRF risk, hardened with https-only, host allowlist, no redirects, size/time/content-type caps. The same SSRF-hardening posture now lives only in the `/api/unfurl` paste-a-link title fetch (`unfurl.go`), which additionally enforces a dial-time private-IP guard.

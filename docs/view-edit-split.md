@@ -91,7 +91,7 @@ pages.body (markdown, canonical)
                  collab (Y.Doc + TelaProvider) created on enter-edit, destroyed on exit
 ```
 
-- **View** ships none of: Yjs, slash/bubble/block-handle, emoji picker/autocomplete, image-upload, mira-paste, url-unfurl, `@excalidraw/excalidraw` (view shows the server PNG at `/api/diagrams/{pageId}/{sceneHash}.png`). It lazy-loads only what a given doc needs (katex, mermaid, echarts for math/diagram/chart blocks present).
+- **View** ships none of: Yjs, slash/bubble/block-handle, emoji picker/autocomplete, image-upload, url-unfurl, `@excalidraw/excalidraw` (view shows the server PNG at `/api/diagrams/{pageId}/{sceneHash}.png`). It lazy-loads only what a given doc needs (katex, mermaid, echarts for math/diagram/chart blocks present).
 - **Edit** is unchanged in capability; it just stops being the read path.
 
 ## Mode model (PageView)

@@ -19,9 +19,9 @@ import { Input } from '../ui/input'
 // Not `milkdown-`prefixed on purpose so it sits outside the blocks-gate plugin
 // scan (same as excalidraw-edit-sheet.tsx).
 //
-// Positioning mirrors milkdown-mira-paste-popover.tsx: position:fixed, JS-set
-// left/top from the captured caret coords, one rAF re-measure to flip up /
-// clamp inside the viewport. Dismiss on Escape (capture phase) + outside click.
+// Positioning follows the editor's floating-popover pattern: position:fixed,
+// JS-set left/top from the captured caret coords, one rAF re-measure to flip up
+// / clamp inside the viewport. Dismiss on Escape (capture phase) + outside click.
 
 export interface EmojiPickerProps {
   anchor: { left: number; top: number; bottom: number }
@@ -57,8 +57,8 @@ export function EmojiPicker({ anchor, onSelect, onClose }: EmojiPickerProps) {
     [ready, query],
   )
 
-  // Initial placement before paint, then one rAF flip/clamp — identical to the
-  // mira paste popover so editor popovers behave consistently.
+  // Initial placement before paint, then one rAF flip/clamp — consistent with
+  // the other editor popovers.
   useLayoutEffect(() => {
     const el = rootRef.current
     if (!el) return

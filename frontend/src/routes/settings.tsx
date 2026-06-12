@@ -1,7 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useSearch } from '@tanstack/react-router'
 import { ImportSection } from '../components/app/ImportSection'
-import { MiraImportSection } from '../components/app/MiraImportSection'
 import { SettingsApiKeysTab } from '../components/app/SettingsApiKeysTab'
 import { SettingsBillingTab } from '../components/app/SettingsBillingTab'
 import { SettingsAuditTab } from '../components/app/SettingsAuditTab'
@@ -40,13 +39,7 @@ const NOTIFICATIONS_TAB: SettingsTab = {
 const IMPORT_TAB: SettingsTab = {
   id: 'import',
   label: 'Import',
-  render: () => (
-    <>
-      <ImportSection />
-      <hr className="border-0 border-t border-[var(--border-subtle)]" />
-      <MiraImportSection />
-    </>
-  ),
+  render: () => <ImportSection />,
 }
 
 const API_KEYS_TAB: SettingsTab = {

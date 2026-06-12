@@ -19,8 +19,8 @@ import (
 // (an authenticated convenience that makes an outbound request — never public,
 // so it can't be abused as an open SSRF proxy).
 //
-// SSRF defense (this is fetching ARBITRARY user-supplied URLs, so unlike the
-// mira import it can't use a host allowlist):
+// SSRF defense (this is fetching ARBITRARY user-supplied URLs, so it can't use
+// a host allowlist):
 //   - http/https only.
 //   - A connect-time Control hook rejects any dial to a private / loopback /
 //     link-local / unspecified IP. Checking at dial time (not after a separate

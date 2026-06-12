@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from '@storybook/react-vite'
 
 // Static render of the `:::stats` tile DOM (the classes the decoration plugin
 // adds: tela-stat-figure / tela-stat-trend-{up,down,flat} / tela-stat-desc) so
-// the mira-style hierarchy — big number + small unit, coloured trend, muted
+// the stat-tile hierarchy — big number + small unit, coloured trend, muted
 // description — can be reviewed across themes without mounting the editor.
 
 interface Tile {

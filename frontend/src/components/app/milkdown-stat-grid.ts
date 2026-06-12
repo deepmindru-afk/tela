@@ -136,7 +136,7 @@ export const statGridSchema = $nodeSchema('stat_grid', () => ({
   },
 }))
 
-// Classify each stat-tile body paragraph so CSS can give the tile mira-style
+// Classify each stat-tile body paragraph so CSS can give the tile its visual
 // hierarchy: the first paragraph is the value (a big bold number + a small muted
 // unit, via the bold/non-bold split in CSS); a paragraph led by a trend glyph
 // (↑/↓/→ or +/-N) becomes a coloured trend line; the rest are muted description

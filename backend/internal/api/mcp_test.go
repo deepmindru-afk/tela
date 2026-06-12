@@ -89,9 +89,9 @@ func TestMCP_SpikeListSpaces(t *testing.T) {
 	}
 	// Every tool needs a Title (Claude directory eligibility) and annotations.
 	// openWorldHint MUST be set explicitly (the SDK omitempty default is "true",
-	// i.e. open-world — wrong for tela's closed DB). Only import_mira is open.
+	// i.e. open-world — wrong for tela's closed DB, which is open-world-free).
 	// Both directories reject hints that don't match behavior, so guard them.
-	openWorld := map[string]bool{"import_mira": true}
+	openWorld := map[string]bool{}
 	for _, tl := range tools.Tools {
 		if tl.Title == "" {
 			t.Errorf("tool %q has no Title", tl.Name)
@@ -116,7 +116,7 @@ func TestMCP_SpikeListSpaces(t *testing.T) {
 		"list_spaces", "get_space", "list_pages", "get_page", "list_backlinks",
 		"search", "search_bodies", "semantic_search", "read_chunk", "fetch",
 		"create_page", "update_page", "delete_page", "move_page", "add_comment",
-		"create_space", "update_space", "delete_space", "import_mira", "submit_feedback",
+		"create_space", "update_space", "delete_space", "submit_feedback",
 	} {
 		if !got[want] {
 			t.Errorf("tool %q not advertised", want)
@@ -405,24 +405,6 @@ func TestMCP_WriteTools(t *testing.T) {
 	mcpCallJSON(t, ctx, sess, "submit_feedback", map[string]any{"subject": "nice", "body": "the mcp is great"}, &fb)
 	if fb.Feedback.ID == 0 {
 		t.Fatalf("submit_feedback: %+v", fb.Feedback)
-	}
-
-	// import_mira (inline payload) → creates a page from mira block JSON.
-	var im getPageOut
-	mcpCallJSON(t, ctx, sess, "import_mira", map[string]any{
-		"space_id": spaceID,
-		"payload": map[string]any{
-			"template": "page",
-			"blocks": []any{map[string]any{
-				"type": "heading_1",
-				"heading_1": map[string]any{"rich_text": []any{map[string]any{
-					"type": "text", "text": map[string]any{"content": "Imported"},
-				}}},
-			}},
-		},
-	}, &im)
-	if im.Page.ID == 0 || im.Page.Title == "" {
-		t.Fatalf("import_mira: %+v", im.Page)
 	}
 
 	// delete_page → ok.

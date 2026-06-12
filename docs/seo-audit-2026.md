@@ -133,7 +133,7 @@ Ranked by impact × ease. Duplicate findings (e.g. SQLite drift, missing sitemap
 **Findings:** (see §4 for exact corrected wording)
 - **[Critical] SQLite/FTS5 storage + search claims** — `llms.txt:3,5,12`; `llms-full.txt:10,15,51`. Reality: PostgreSQL via pgx, ranked Postgres FTS (`ts_rank_cd` over `pages.search_tsv`, migrations 0003/0004). Tells self-hosters "no Postgres" — which breaks their deploy.
 - **[High] "One binary / single Go binary"** — `llms.txt:3`; `llms-full.txt:3,10,15,42,45,47,51`. Postgres is a separate required container; also violates the project rule against marketing single-binary.
-- **[High] Tool count wrong (17→20) + non-existent `import_markdown`** — `llms.txt:5`; `llms-full.txt:7,12,50`. Real tool is `import_mira`; 20 tools registered in `mcp_tools.go`.
+- **[High] Tool count wrong + non-existent `import_markdown`** — `llms.txt:5`; `llms-full.txt:7,12,50`. There is no `import_markdown` MCP tool; use the real registered roster in `mcp_tools.go` for the count.
 - **[Med] "search (FTS5)" / "real full-text search" undersell semantic search** — `llms-full.txt:12,47`. `semantic_search`/`read_chunk` ship (vector+keyword RRF with citations) — the strongest GEO hook, buried.
 - **[Low] llms.txt not discoverable beyond URL-guessing** — contested by design (no provider commits to reading it); fix the facts, don't chase discoverability.
 - **[Low] Organization `sameAs` omits X/LinkedIn/docs; no `softwareVersion`/`dateModified`** — add only identities that genuinely exist; `aggregateRating` correctly absent.
@@ -167,7 +167,7 @@ Every factually wrong/stale **public** claim, with exact location and corrected 
 | `landing/public/llms-full.txt:3` | "…one binary." | "…Self-host with docker compose. Your data, your server." |
 | `landing/public/llms-full.txt:7,50` | "17 tools" | "20 tools" (or "~20 scoped tools" to avoid drift) |
 | `landing/public/llms-full.txt:10` | "storage and full-text search are SQLite + FTS5 — no Postgres"; "single binary" | "Go backend + PostgreSQL; full-text search is Postgres tsvector (ts_rank_cd), with optional semantic search via an embedder. docker compose up." |
-| `landing/public/llms-full.txt:12` | "search (FTS5)"; "import_markdown (bulk)" | "search (ranked Postgres full-text) and semantic_search (vector+keyword RRF, cited chunks)"; replace `import_markdown` with `import_mira`, add `semantic_search`/`read_chunk`/`fetch`/`move_page`/`submit_feedback` |
+| `landing/public/llms-full.txt:12` | "search (FTS5)"; "import_markdown (bulk)" | "search (ranked Postgres full-text) and semantic_search (vector+keyword RRF, cited chunks)"; drop the non-existent `import_markdown`, add `semantic_search`/`read_chunk`/`fetch`/`move_page`/`submit_feedback` |
 | `landing/public/llms-full.txt:15` | "Storage + full-text search: SQLite + FTS5"; "compiled to a single binary" | "Backend: Go + PostgreSQL. Search: ranked Postgres full-text (tsvector) + optional semantic/RAG." |
 | `landing/public/llms-full.txt:42,45,47` | "one binary you run yourself" / "in a single binary you run yourself" | "you run it yourself with docker compose, no per-seat pricing, your data on your disk" |
 | `landing/public/llms-full.txt:47` | "real full-text search" | "ranked full-text plus semantic search with citations" |

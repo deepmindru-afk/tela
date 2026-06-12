@@ -185,7 +185,7 @@ props-only edit does not itself force a new revision. This is the honest v1 scop
 | Surface | Change |
 |---|---|
 | **Schema** | `0005_page_props.sql`: `pages.props` + GIN; `page_revisions.props`. |
-| **Import** (`mdimport/frontmatter.go`, `markdown.go`, `import_mira.go`) | `StripFrontmatter` → full `yaml.v3` parse returning `(body, props)`; title still seeds via existing precedence; persist `props`. |
+| **Import** (`mdimport/frontmatter.go`, `markdown.go`) | `StripFrontmatter` → full `yaml.v3` parse returning `(body, props)`; title still seeds via existing precedence; persist `props`. |
 | **Emit** (new helper) | `EmitFrontmatter(page)` — emit-only set (`id`/`title`/`slug`/`link`/`created`/`updated`) from columns + bag, canonical order; always emits the system block. |
 | **Model / CRUD** (`models.go`, `pages.go`) | `Page.Props`; create/update accept props (Replace) + absorb body frontmatter (invariant); props-only guard; revision writes capture props. Only `selectPageByID`/`selectPageByIDTx` scan the full model — the other ~13 `FROM pages` reads are narrow and untouched. |
 | **MCP** (`mcp_tools.go`) | `get_page`/`create_page`/`update_page` carry props; `list_pages` gains containment filtering (`props @>`). The agent payoff. Rides the REST cores — no duplicate logic. |
@@ -206,7 +206,6 @@ props-only edit does not itself force a new revision. This is the honest v1 scop
 - **Test fallout:** `frontmatter_test.go`, `markdown_test.go`, import tests. The
   locked behaviors must still pass — dir-name title override, title precedence,
   frontmatter-stripped-from-body, `(2)/(3)` dedupe.
-- **mira import** carries no frontmatter (JSON→markdown); it just gets `'{}'`.
 
 ## Phasing
 

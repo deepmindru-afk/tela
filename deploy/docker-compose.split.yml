@@ -80,11 +80,6 @@ services:
       TELA_WEBDAV_DELETE_FLOOR:    ${TELA_WEBDAV_DELETE_FLOOR:-}
       TELA_WEBDAV_DELETE_FRACTION: ${TELA_WEBDAV_DELETE_FRACTION:-}
       TELA_WEBDAV_FILE_MAX_BYTES:  ${TELA_WEBDAV_FILE_MAX_BYTES:-}
-      # mira-import host allowlist (https-only host strings, comma list — never
-      # IPs/localhost). The compose default mirrors the code default because the
-      # backend treats EMPTY as fail-closed (no hosts) — without :-mira.cagdas.io
-      # this passthrough would break imports on deploys that omit the var.
-      TELA_MIRA_ALLOWED_HOSTS: ${TELA_MIRA_ALLOWED_HOSTS:-mira.cagdas.io}
       # Ops knobs (empty = default).
       TELA_LOG_FORMAT:           ${TELA_LOG_FORMAT:-}
       TELA_API_KEY_AUDIT_DAYS:   ${TELA_API_KEY_AUDIT_DAYS:-}

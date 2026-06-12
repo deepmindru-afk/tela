@@ -98,7 +98,7 @@ export function enhanceReadonlyTable(table: HTMLTableElement): void {
   if (!headRow || !tbody) return
   const headCells = Array.from(headRow.cells)
   if (headCells.length === 0) return
-  // Only earn the sort/filter chrome on genuinely large tables (mira's ~8-row
+  // Only earn the sort/filter chrome on genuinely large tables (8-row
   // threshold) — small comparison tables stay clean.
   if (tbody.rows.length < 8) return
   table.dataset.telaEnhanced = '1'

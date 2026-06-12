@@ -56,7 +56,7 @@ and MCP surface them identically (agents key on the `code`). They're injected at
 | limit | gate | wired into |
 |---|---|---|
 | spaces | `checkSpaceQuota` | `createSpaceCore` (REST + MCP) |
-| pages / space | `checkPageQuota` / `checkPageQuotaN` | `createPageCore`, `importMiraCore`, `ImportSpace` (n=files), cross-space `applyMoveTx` (n=subtree) |
+| pages / space | `checkPageQuota` / `checkPageQuotaN` | `createPageCore`, `ImportSpace` (n=files), cross-space `applyMoveTx` (n=subtree) |
 | storage | `checkStorageQuota` | `UploadPageAttachment`, WebDAV file PUT (charges net-new bytes) |
 | seats | `checkSeatQuota` | `AddOrgMember` |
 

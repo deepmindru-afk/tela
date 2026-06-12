@@ -138,12 +138,6 @@ import {
   wikilinkNavigateCtx,
   type WikilinkNavigateHandler,
 } from './milkdown-modifier-click'
-import {
-  createMiraPastePlugin,
-  miraPasteRequestCtx,
-  type MiraPasteRequest,
-} from './milkdown-mira-paste'
-import { MiraPastePopover } from './milkdown-mira-paste-popover'
 import { createAttachmentDropPlugin } from './milkdown-image-upload'
 import { fileSchema } from './milkdown-file'
 import { createUrlUnfurlPlugin } from './milkdown-url-unfurl'
@@ -261,11 +255,6 @@ export interface MilkdownEditorProps {
   // editor by page id, so a page switch unmounts/remounts. Also used by the
   // M13.3b Edit Sheet for PUT /api/pages/{pageId}/diagrams.
   pageId?: number
-  // M18.B.2 — space id for the mira paste-hook's import call
-  // (POST /api/spaces/{spaceId}/import-mira). When unset (or in share / view
-  // modes) the paste-hook isn't registered and the URL falls through to the
-  // default paste-as-link behavior.
-  spaceId?: number
 }
 
 // Reconnecting banner copy.
@@ -291,7 +280,6 @@ function MilkdownEditorInner({
   showResolvedAnchors = false,
   wikilinkMode = 'edit',
   pageId = 0,
-  spaceId,
 }: MilkdownEditorProps) {
   const pluginViewFactory = usePluginViewFactory()
 
@@ -341,29 +329,14 @@ function MilkdownEditorInner({
     null,
   )
 
-  // M18.B.2 — mira paste-hook popover state. `null` = no active paste; the
-  // PM plugin sets a request via the `miraPasteRequestCtx` callback when a
-  // tight `https://mira.cagdas.io/p/<slug>` URL is pasted into the editor.
-  const [miraPastePopover, setMiraPastePopover] =
-    useState<MiraPasteRequest | null>(null)
-
   // `/`-triggered emoji picker. The slash "Emoji" item fires the
   // `emojiPickerOpenCtx` handler (set below to this setter in editable modes),
   // which captures the caret coords + position; the picker inserts back there.
   const [emojiPicker, setEmojiPicker] = useState<EmojiPickerRequest | null>(
     null,
   )
-  // The plugin is only wired in editable, non-share, page-id-known modes. In
-  // any other mode the URL falls through to the default paste-as-link path
-  // (see milkdown-mira-paste.ts for the guards).
-  const miraPasteEnabled =
-    wikilinkMode !== 'share' &&
-    !readOnly &&
-    pageId > 0 &&
-    spaceId != null
-
-  // Image-upload paste/drop. Editable, non-share, page-known (space id not
-  // needed — the upload route is page-scoped). Same gating shape as mira paste.
+  // Image-upload paste/drop. Editable, non-share, page-known (the upload route
+  // is page-scoped).
   const imageUploadEnabled =
     wikilinkMode !== 'share' && !readOnly && pageId > 0
 
@@ -616,15 +589,6 @@ function MilkdownEditorInner({
           wikilinkMode !== 'share' && !readOnly,
         )
         ctx.set(wikilinkNavigateCtx.key, wikilinkNavigate)
-        // M18.B.2 — mira paste-hook. Off in share / view / no-page modes; the
-        // null ctx slice short-circuits the plugin's `handlePaste` so the URL
-        // falls through to the default paste-as-link behavior. The handler
-        // captures `setMiraPastePopover` from useState, which is reference-
-        // stable, so capturing once at editor-build time is correct.
-        ctx.set(
-          miraPasteRequestCtx.key,
-          miraPasteEnabled ? (req) => setMiraPastePopover(req) : null,
-        )
         ctx.set(imageAttr.key, () => ({ loading: 'lazy' }))
         // M12.1 — register only the curated grammar set (24 langs) on the
         // shared refractor/core singleton. The plugin's static import of
@@ -664,30 +628,20 @@ function MilkdownEditorInner({
         })
         ctx.update(prosePluginsCtx, (existing) => [...existing, selectionBridge])
 
-        // M18.B.2 — mira paste-hook. Prepended to `prosePluginsCtx` so the
-        // plugin's `handlePaste` runs FIRST in PM's plugin chain. Order
-        // matters in collab mode: y-prosemirror's ySync plugin reacts to
-        // insertions, so the paste-hook needs to suppress the default paste
-        // BEFORE the collab plugins see it. Returning false (non-mira paste)
-        // lets the chain fall through to the default markdown link rendering.
-        // Paste-a-bare-URL → titled link. Registered BEFORE the mira hook so
-        // that after both prepends the order is [..., mira, urlUnfurl, ...] —
-        // mira intercepts its own URLs first; urlUnfurl handles the rest.
-        // Still ahead of the default clipboard parse. Gated editable+non-share.
+        // Paste-a-bare-URL → titled link. Prepended to `prosePluginsCtx` so
+        // the plugin's `handlePaste` runs ahead of the default clipboard parse.
+        // Order matters in collab mode: y-prosemirror's ySync plugin reacts to
+        // insertions, so the paste-hook must suppress the default paste BEFORE
+        // the collab plugins see it. Gated editable+non-share.
         if (wikilinkMode !== 'share' && !readOnly) {
           const urlUnfurl = createUrlUnfurlPlugin()
           ctx.update(prosePluginsCtx, (existing) => [urlUnfurl, ...existing])
         }
 
-        if (miraPasteEnabled) {
-          const miraPaste = createMiraPastePlugin(ctx)
-          ctx.update(prosePluginsCtx, (existing) => [miraPaste, ...existing])
-        }
-
         // Image paste/drop → upload → ![](url). Prepended so it intercepts
         // image files before the default clipboard handler turns them into
-        // nothing. Image files and mira/URL pastes are disjoint clipboard
-        // payloads, so ordering against the mira hook above is immaterial.
+        // nothing. Image files and URL pastes are disjoint clipboard payloads,
+        // so ordering against the URL hook above is immaterial.
         if (imageUploadEnabled) {
           const attachmentDrop = createAttachmentDropPlugin(pageId)
           ctx.update(prosePluginsCtx, (existing) => [attachmentDrop, ...existing])
@@ -898,12 +852,7 @@ function MilkdownEditorInner({
       // share-mode and viewer-mode).
       .use(modifierClickEnabledCtx)
       .use(wikilinkNavigateCtx)
-      .use(modifierClickPlugin)
-      // M18.B.2 — mira paste-hook ctx slice. The PM plugin itself is added
-      // to `prosePluginsCtx` in the config block above when paste-hook is
-      // enabled; the ctx slice is registered unconditionally so reading it
-      // in the plugin's `handlePaste` is always safe.
-      .use(miraPasteRequestCtx),
+      .use(modifierClickPlugin),
   )
 
   // Autofocus the body ONCE on first ready — never again. `get` from useEditor
@@ -1256,24 +1205,6 @@ function MilkdownEditorInner({
             }}
           />
         </Suspense>
-      ) : null}
-      {miraPastePopover && spaceId != null ? (
-        <MiraPastePopover
-          url={miraPastePopover.url}
-          anchor={miraPastePopover.anchor}
-          spaceId={spaceId}
-          parentPageId={pageId}
-          onImportComplete={(page) => {
-            miraPastePopover.insertWikilink(page.id, page.title)
-            setMiraPastePopover(null)
-          }}
-          onKeepAsLink={() => {
-            miraPastePopover.insertPlainLink()
-          }}
-          onCancel={() => {
-            setMiraPastePopover(null)
-          }}
-        />
       ) : null}
       {emojiPicker ? (
         <EmojiPicker

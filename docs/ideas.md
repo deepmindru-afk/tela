@@ -1,9 +1,8 @@
 # Ideas worth looking into
 
-A running shortlist of features worth evaluating for tela. Pulled from the full
-feature-ideas board — **https://mira.cagdas.io/p/tela-feature-ideas** — where every
-idea is numbered, scored, and grouped (10 themes + a by-horizon kanban). The `#N`
-here is that board number, so anything is easy to cross-reference back.
+A running shortlist of features worth evaluating for tela, drawn from a larger
+scored feature-ideas set (numbered, grouped into 10 themes). The `#N` is that
+set's stable id, so an idea is easy to cross-reference.
 
 > Shortlisted 2026-05-31. These are candidates to look into — not committed scope.
 > "Source" = the tool(s) the idea is mined from ("novel" = net-new to the category).

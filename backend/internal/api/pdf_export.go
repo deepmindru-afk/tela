@@ -228,7 +228,7 @@ func (s *Server) streamPDF(w http.ResponseWriter, r *http.Request, pageURL, titl
 }
 
 // renderPDF POSTs to gotenberg's Chromium URL→PDF route. Plain client (internal
-// trusted service — unlike the SSRF-guarded mira fetch). Waits on the reader's
+// trusted service, so no SSRF guard needed). Waits on the reader's
 // window.__telaPdfReady flag so async content (mermaid/katex/diagrams/fonts) is
 // painted before capture, and uploads a footer template (page title + N of M).
 func renderPDF(ctx context.Context, pageURL, title string) ([]byte, error) {

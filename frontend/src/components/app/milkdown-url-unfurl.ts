@@ -8,7 +8,7 @@ import type { EditorView } from '@milkdown/kit/prose/view'
 //
 // Markdown-canonical: this is a stock `[text](href)` link — no proprietary
 // embed/bookmark card (those don't round-trip). Wired only in editable,
-// non-share mode, and AFTER the mira paste-hook so mira URLs still import.
+// non-share mode.
 
 const URL_RE = /^https?:\/\/[^\s]+$/
 
