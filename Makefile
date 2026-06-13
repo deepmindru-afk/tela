@@ -75,7 +75,8 @@ REG_SOCK           := /tmp/tela-registry-tunnel.sock
 SPLIT              := docker compose -f deploy/docker-compose.split.yml
 # Image refs the box's compose resolves to (pinned to this checkout's commit).
 DEPLOY_IMAGE_ENV   = TELA_BACKEND_IMAGE=$(TELA_REGISTRY)/tela-backend:$(TELA_COMMIT) \
-                     TELA_FRONTEND_IMAGE=$(TELA_REGISTRY)/tela-frontend:$(TELA_COMMIT)
+                     TELA_FRONTEND_IMAGE=$(TELA_REGISTRY)/tela-frontend:$(TELA_COMMIT) \
+                     TELA_DECK_IMAGE=$(TELA_REGISTRY)/tela-deck:$(TELA_COMMIT)
 
 .PHONY: up down logs build clean dev be-dev fe-dev storybook help test-mcp-integration \
         test dev-db dev-db-clean setup backup restore blocks-gen blocks-gate \
@@ -354,12 +355,13 @@ _push:
 # recreates the split stack → health-gate verifies /api/version reports this commit.
 # Push your commit first (the gate compares the box's running commit to local HEAD).
 deploy: registry-up
-	@echo "[deploy] building backend+frontend ($(TELA_COMMIT))…"
+	@echo "[deploy] building backend+frontend+deck ($(TELA_COMMIT))…"
 	docker build --build-arg VERSION=$(TELA_VERSION) --build-arg COMMIT=$(TELA_COMMIT) \
 	  -t $(TELA_REGISTRY)/tela-backend:$(TELA_COMMIT) -t $(TELA_REGISTRY)/tela-backend:latest backend
 	docker build -t $(TELA_REGISTRY)/tela-frontend:$(TELA_COMMIT) -t $(TELA_REGISTRY)/tela-frontend:latest frontend
+	docker build -t $(TELA_REGISTRY)/tela-deck:$(TELA_COMMIT) -t $(TELA_REGISTRY)/tela-deck:latest deck
 	$(MAKE) landing-build
-	@$(MAKE) _push PUSH_IMAGES="tela-backend tela-frontend" TELA_COMMIT=$(TELA_COMMIT)
+	@$(MAKE) _push PUSH_IMAGES="tela-backend tela-frontend tela-deck" TELA_COMMIT=$(TELA_COMMIT)
 	@echo "[deploy] syncing landing + sites.caddy → $(REMOTE):$(REMOTE_WEB)…"
 	ssh $(REMOTE) 'mkdir -p $(REMOTE_WEB)/tela-landing $(REMOTE_WEB)/tela'
 	rsync -a --delete landing/dist/ $(REMOTE):$(REMOTE_WEB)/tela-landing/
@@ -406,17 +408,18 @@ deploy-landing:
 # uplink (sends whole images, no layer dedup) — that's the point of `make deploy`.
 deploy-offline:
 	@test -n "$(REMOTE)" || { echo "set REMOTE=<ssh-host> (or in deploy/deploy.env)"; exit 1; }
-	@echo "[deploy-offline] building backend+frontend ($(TELA_COMMIT)) locally…"
+	@echo "[deploy-offline] building backend+frontend+deck ($(TELA_COMMIT)) locally…"
 	docker build --build-arg VERSION=$(TELA_VERSION) --build-arg COMMIT=$(TELA_COMMIT) -t tela-backend:latest backend
 	docker build -t tela-frontend:latest frontend
+	docker build -t tela-deck:latest deck
 	$(MAKE) landing-build
 	@echo "[deploy-offline] streaming full images → $(REMOTE)…"
-	docker save tela-backend:latest tela-frontend:latest | ssh $(REMOTE) docker load
+	docker save tela-backend:latest tela-frontend:latest tela-deck:latest | ssh $(REMOTE) docker load
 	ssh $(REMOTE) 'mkdir -p $(REMOTE_WEB)/tela-landing $(REMOTE_WEB)/tela'
 	rsync -a --delete landing/dist/ $(REMOTE):$(REMOTE_WEB)/tela-landing/
 	rsync -a deploy/proxy/sites.caddy $(REMOTE):$(REMOTE_WEB)/tela/sites.caddy
 	ssh $(REMOTE) 'cd $(REMOTE_DIR) && git pull --ff-only && \
-	  TELA_BACKEND_IMAGE=tela-backend:latest TELA_FRONTEND_IMAGE=tela-frontend:latest TELA_PULL_POLICY=never \
+	  TELA_BACKEND_IMAGE=tela-backend:latest TELA_FRONTEND_IMAGE=tela-frontend:latest TELA_DECK_IMAGE=tela-deck:latest TELA_PULL_POLICY=never \
 	  $(SPLIT) up -d'
 	@if [ -n "$(EDGE_CONTAINER)" ]; then \
 	  ssh $(REMOTE) 'docker exec $(EDGE_CONTAINER) caddy reload --config /etc/caddy/Caddyfile' || true; fi

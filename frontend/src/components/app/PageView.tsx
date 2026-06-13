@@ -23,6 +23,7 @@ import {
   MoreHorizontal,
   Pencil,
   Plus,
+  Presentation,
   Share2,
   Trash2,
   TriangleAlert,
@@ -62,6 +63,12 @@ const ShareManagerSheet = lazy(() =>
 // it — same split the retired /read route used to give us.
 const PageReader = lazy(() =>
   import('./PageReader').then((m) => ({ default: m.PageReader })),
+)
+const DeckPresenter = lazy(() =>
+  import('./DeckPresenter').then((m) => ({ default: m.DeckPresenter })),
+)
+const DeckEditor = lazy(() =>
+  import('./DeckEditor').then((m) => ({ default: m.DeckEditor })),
 )
 import {
   prefetchPage,
@@ -203,6 +210,26 @@ export function PageView({ spaceId, pageId }: PageViewProps) {
 
   const onDeleted = () =>
     void navigate({ to: '/spaces/$spaceId', params: { spaceId } })
+
+  // Deck pages (props.deck) are their own content model: edit as plain Slidev
+  // markdown (DeckEditor) and read/present as a full-screen slide carousel
+  // (DeckPresenter) — never the Milkdown editor or the prose reader.
+  if (page.data.props?.deck === true) {
+    if (editParam || draftRevId != null) {
+      return (
+        <Suspense fallback={null}>
+          <DeckEditor key={page.data.id} page={page.data} spaceId={spaceId} onDeleted={onDeleted} />
+        </Suspense>
+      )
+    }
+    return (
+      <div className="fixed inset-0 z-50 bg-[var(--surface-1)]">
+        <Suspense fallback={null}>
+          <DeckPresenter spaceId={spaceId} pageId={page.data.id} />
+        </Suspense>
+      </div>
+    )
+  }
 
   // Confluence-style: read view is the default; the editor mounts only on an
   // explicit Edit (?edit=1) or when restoring a draft. This is what keeps
@@ -565,9 +592,21 @@ function PageActionsMenu({
   onDelete: () => void
 }) {
   const navigate = useNavigate()
+  const updatePage = useUpdatePage()
   const { download: downloadPdf } = useFileDownload(`/api/pages/${pageId}/pdf`, {
     themed: true,
   })
+  const convertToDeck = () => {
+    void updatePage
+      .mutateAsync({ id: pageId, props: { deck: true } })
+      .then(() =>
+        navigate({
+          to: '/spaces/$spaceId/pages/$pageId/{-$slug}',
+          params: { spaceId, pageId, slug: undefined },
+          search: (p) => ({ ...p, edit: true }),
+        }),
+      )
+  }
   const { download: downloadMd } = useFileDownload(`/api/pages/${pageId}/md`, {
     fallbackName: 'page.md',
   })
@@ -616,6 +655,11 @@ function PageActionsMenu({
         <DropdownMenuItem onSelect={() => void downloadMd()}>
           <FileDown width={14} height={14} /> Export Markdown
         </DropdownMenuItem>
+        {!isViewer ? (
+          <DropdownMenuItem onSelect={convertToDeck}>
+            <Presentation width={14} height={14} /> Convert to slide deck
+          </DropdownMenuItem>
+        ) : null}
         {!isViewer ? (
           <DropdownMenuItem
             onSelect={() =>

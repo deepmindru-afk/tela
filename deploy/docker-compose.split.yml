@@ -38,6 +38,8 @@ services:
       # to skip, or an internal origin otherwise). Both set in deploy/.env.
       TELA_GOTENBERG_URL:        ${TELA_GOTENBERG_URL:-http://gotenberg:3000}
       TELA_PDF_RENDER_BASE_URL:  ${TELA_PDF_RENDER_BASE_URL:-http://proxy}
+      # Deck render sidecar (deck/) — Slidev markdown → slide images / PDF.
+      TELA_DECK_URL:             ${TELA_DECK_URL:-http://deck:3344}
       TELA_ADMIN_USERNAME:  ${TELA_ADMIN_USERNAME:-}
       TELA_ADMIN_PASSWORD:  ${TELA_ADMIN_PASSWORD:-}
       TELA_ADMIN_EMAIL:     ${TELA_ADMIN_EMAIL:-}
@@ -92,6 +94,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      deck:
+        condition: service_started
     restart: unless-stopped
 
   postgres:
@@ -117,5 +121,25 @@ services:
       - "127.0.0.1:8782:80"
     restart: unless-stopped
 
+  # Deck render sidecar (deck/) — Slidev markdown → slide images / PDF. Internal
+  # only; the backend reaches it at http://deck:3344. SECURITY: it compiles deck
+  # markdown, so treat as untrusted-code execution — a follow-up isolates it on
+  # an egress-locked network (needs self-hosted theme fonts first).
+  deck:
+    image: ${TELA_DECK_IMAGE:-127.0.0.1:5000/tela-deck:latest}
+    pull_policy: ${TELA_PULL_POLICY:-always}
+    expose:
+      - "3344"
+    volumes:
+      - tela-deckcache:/data
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3344/health',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
+
 volumes:
   tela-pgdata:
+  tela-deckcache:

@@ -209,6 +209,9 @@ export interface CreatePageInput {
 export interface UpdatePageInput {
   title?: string
   body?: string
+  // Replace the whole props bag (PUT semantics) — e.g. mark a page a deck + its
+  // theme. Reserved keys are ignored server-side.
+  props?: Record<string, unknown>
 }
 
 // `parent_id`: omit to keep current; pass explicit `null` to make root.

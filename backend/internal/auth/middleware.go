@@ -299,6 +299,11 @@ func IsPublicPath(p string) bool {
 	if strings.HasPrefix(p, "/api/diagrams/") {
 		return true
 	}
+	// Deck render output — content-addressed slide images/PDF from the deck
+	// sidecar (opaque renderId, immutable cache), same posture as /api/diagrams/.
+	if strings.HasPrefix(p, "/api/deck/") {
+		return true
+	}
 	// Image-upload public serve — content-addressed BLOBs, same posture as
 	// /api/diagrams/ (opaque hash URL, immutable cache). The serve handler
 	// validates the hash + page id; bytes are public assets.
