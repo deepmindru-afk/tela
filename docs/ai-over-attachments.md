@@ -1,12 +1,19 @@
 # AI over attachments — design note
 
-**Status:** Slice 1 complete. Indexing foundation (extraction + `file_chunks` +
-`ReindexFile`, slice 1a), the auto-index trigger on every upload seam (slice 1b),
-and **retrieval** (slice 1c) all landed: file chunks `UNION` into hybrid search,
-`read_chunk`, and the Ask path, ACL-gated through the live `space_files` row and
-citing the file (name + parent page + `download_url`). Files are now searchable +
-answerable. Next: slice 2 (file auto-summaries), slice 3 (office formats via
-gotenberg; `related_pages`/`find_overlaps` across files).
+**Status:** Slices 1 + 2 complete and **live** (commit `bdd9fd6`). Indexing
+foundation (extraction + `file_chunks` + `ReindexFile`, slice 1a), the auto-index
+trigger on every upload seam (slice 1b), and **retrieval** (slice 1c) landed: file
+chunks `UNION` into hybrid search, `read_chunk`, and the Ask path, ACL-gated
+through the live `space_files` row and citing the file (name + parent page +
+`download_url`). **Slice 2 — file auto-summaries** landed too: a file's extracted
+text gets a 1–2 sentence standfirst (sibling to page summaries), stored on
+`space_files.summary` + `file_summaries`, keyed by `content_hash` so freshness
+needs no re-extraction; non-text files record an empty fresh row. The upload +
+WebDAV seams fire `QueueFile` beside `QueueReindexFile`; a stale-sweep back-fills
+existing attachments; `reindex-all`/`summarize-all` now also walk files. Surfaced
+on the attachment chip as a hover card (`AttachmentStrip`) and on
+`list_attachments`. Next: slice 3 (office formats via gotenberg;
+`related_pages`/`find_overlaps` across files).
 
 ## Decisions locked at build time (supersede the recommendations below)
 
