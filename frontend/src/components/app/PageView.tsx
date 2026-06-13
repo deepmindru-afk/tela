@@ -67,9 +67,6 @@ const PageReader = lazy(() =>
 const DeckPresenter = lazy(() =>
   import('./DeckPresenter').then((m) => ({ default: m.DeckPresenter })),
 )
-const DeckEditor = lazy(() =>
-  import('./DeckEditor').then((m) => ({ default: m.DeckEditor })),
-)
 import {
   prefetchPage,
   useAllPages,
@@ -167,10 +164,6 @@ export function PageView({ spaceId, pageId }: PageViewProps) {
   const { slug: currentSlug } = useParams({
     from: '/_app/spaces/$spaceId/pages/$pageId/{-$slug}',
   })
-  // Needed up here (before the early returns) only for the deck branch below:
-  // editors land on the in-shell deck editor by default, read-only viewers on
-  // the full-screen presenter. Cheap — the space query is already cached.
-  const { resolved: roleResolved, isViewer } = useSpaceRole(spaceId)
 
   // Confluence-style canonical URL: keep the address bar at /pages/{id}/{slug}
   // (or bare when the title yields no slug), refreshed on rename. This is a
@@ -215,31 +208,13 @@ export function PageView({ spaceId, pageId }: PageViewProps) {
   const onDeleted = () =>
     void navigate({ to: '/spaces/$spaceId', params: { spaceId } })
 
-  // Deck pages (props.deck) are their own content model: edit as plain Slidev
-  // markdown (DeckEditor) and present as a full-screen slide carousel
-  // (DeckPresenter) — never the Milkdown editor or the prose reader.
-  //
-  // Full-screen present is the EXPLICIT intent (?view=read, the Present / Read
-  // action) — clicking a deck in the sidebar shouldn't slam into a takeover, the
-  // same way a doc opens in-shell, not full-bleed. So editors land on the
-  // in-shell DeckEditor (which carries the Present button) by default; only a
-  // read-only viewer — who has nothing to edit — defaults to the presenter.
-  if (page.data.props?.deck === true) {
-    if (view === 'read' || (roleResolved && isViewer)) {
-      return (
-        <div className="fixed inset-0 z-50 bg-[var(--surface-1)]">
-          <Suspense fallback={null}>
-            <DeckPresenter spaceId={spaceId} pageId={page.data.id} />
-          </Suspense>
-        </div>
-      )
-    }
-    return (
-      <Suspense fallback={null}>
-        <DeckEditor key={page.data.id} page={page.data} spaceId={spaceId} onDeleted={onDeleted} />
-      </Suspense>
-    )
-  }
+  // A deck (props.deck) is just a doc whose body happens to be Slidev markdown:
+  // it reuses the SAME read view (PageViewer) and edit flow (PageEditor) as any
+  // page — the editor only drops to a plain-markdown surface so the rich editor
+  // can't mangle Slidev syntax (see PageEditor's isDeck branch). The one
+  // deck-specific view is PRESENT: ?view=read renders the body as full-screen
+  // slides (via the deck sidecar) instead of the prose reader.
+  const isDeck = page.data.props?.deck === true
 
   // Confluence-style: read view is the default; the editor mounts only on an
   // explicit Edit (?edit=1) or when restoring a draft. This is what keeps
@@ -256,17 +231,23 @@ export function PageView({ spaceId, pageId }: PageViewProps) {
         spaceId={spaceId}
         draftRevId={draftRevId ?? null}
         onDeleted={onDeleted}
+        isDeck={isDeck}
       />
     )
   }
-  // ?view=read — distraction-free reader as a full-bleed overlay above the app
-  // shell (which stays mounted underneath, so closing is instant). A view-state
-  // on the canonical URL, mirroring ?edit; closing just drops the param.
+  // ?view=read — full-bleed overlay above the app shell (which stays mounted
+  // underneath, so closing is instant). For a deck this is PRESENT (rendered
+  // slides); for a doc it's the distraction-free prose reader. A view-state on
+  // the canonical URL, mirroring ?edit; closing just drops the param.
   if (view === 'read') {
     return (
       <div className="fixed inset-0 z-50 bg-[var(--surface-1)]">
         <Suspense fallback={null}>
-          <PageReader spaceId={spaceId} pageId={page.data.id} />
+          {isDeck ? (
+            <DeckPresenter spaceId={spaceId} pageId={page.data.id} />
+          ) : (
+            <PageReader spaceId={spaceId} pageId={page.data.id} />
+          )}
         </Suspense>
       </div>
     )
@@ -277,6 +258,7 @@ export function PageView({ spaceId, pageId }: PageViewProps) {
       page={page.data}
       spaceId={spaceId}
       onDeleted={onDeleted}
+      isDeck={isDeck}
     />
   )
 }
@@ -290,10 +272,12 @@ function PageViewer({
   page,
   spaceId,
   onDeleted,
+  isDeck,
 }: {
   page: Page
   spaceId: number
   onDeleted: () => void
+  isDeck: boolean
 }) {
   const navigate = useNavigate()
   const me = useMe()
@@ -433,10 +417,14 @@ function PageViewer({
           {roleResolved ? (
             <Button
               type="button"
-              variant="ghost"
+              variant={isDeck ? 'primary' : 'ghost'}
               size="sm"
-              aria-label="Read mode"
-              title="Read mode — distraction-free reading view"
+              aria-label={isDeck ? 'Present' : 'Read mode'}
+              title={
+                isDeck
+                  ? 'Present — full-screen slides'
+                  : 'Read mode — distraction-free reading view'
+              }
               onClick={() =>
                 void navigate({
                   to: '/spaces/$spaceId/pages/$pageId/{-$slug}',
@@ -450,8 +438,12 @@ function PageViewer({
               }
               className="h-[var(--space-8)] px-[var(--space-3)]"
             >
-              <BookOpen width={16} height={16} />
-              <span>Read mode</span>
+              {isDeck ? (
+                <Presentation width={16} height={16} />
+              ) : (
+                <BookOpen width={16} height={16} />
+              )}
+              <span>{isDeck ? 'Present' : 'Read mode'}</span>
             </Button>
           ) : null}
           {canEdit ? (
@@ -700,9 +692,10 @@ interface PageEditorProps {
   spaceId: number
   draftRevId: number | null
   onDeleted: () => void
+  isDeck: boolean
 }
 
-function PageEditor({ page, spaceId, draftRevId, onDeleted }: PageEditorProps) {
+function PageEditor({ page, spaceId, draftRevId, onDeleted, isDeck }: PageEditorProps) {
   const updatePage = useUpdatePage()
   const navigate = useNavigate()
   const [title, setTitle] = useState(page.title)
@@ -1194,6 +1187,30 @@ function PageEditor({ page, spaceId, draftRevId, onDeleted }: PageEditorProps) {
                   Done
                 </Button>
               ) : null}
+              {isDeck && roleResolved ? (
+                <Button
+                  type="button"
+                  variant="primary"
+                  size="sm"
+                  aria-label="Present"
+                  title="Present — full-screen slides"
+                  onClick={() =>
+                    void navigate({
+                      to: '/spaces/$spaceId/pages/$pageId/{-$slug}',
+                      params: {
+                        spaceId,
+                        pageId: page.id,
+                        slug: pageSlug(page.title) || undefined,
+                      },
+                      search: (prev) => ({ ...prev, edit: undefined, view: 'read' }),
+                    })
+                  }
+                  className="h-[var(--space-8)] px-[var(--space-3)]"
+                >
+                  <Presentation width={16} height={16} />
+                  <span>Present</span>
+                </Button>
+              ) : null}
               <PresenceAvatars awareness={provider?.awareness ?? null} />
               <SaveIndicator status={status} />
               {roleResolved ? <FavoriteStar pageId={page.id} /> : null}
@@ -1331,7 +1348,26 @@ function PageEditor({ page, spaceId, draftRevId, onDeleted }: PageEditorProps) {
 
         {!isDraftMode ? <AttachmentStrip pageId={page.id} editable /> : null}
 
-        {isDraftMode ? (
+        {isDeck ? (
+          // Deck body is Slidev markdown — edited as raw text so the rich editor
+          // can't normalize/break `---` slide breaks or layout frontmatter on
+          // save. Same body state + autosave (handleBodyChange/Blur) as any page.
+          <textarea
+            value={body}
+            onChange={(e) => handleBodyChange(e.target.value)}
+            onBlur={handleBodyBlur}
+            autoFocus={bodyAutoFocus}
+            spellCheck={false}
+            aria-label="Deck markdown"
+            placeholder={'# Slide one\n\nWrite slides in Markdown.\n\n---\n\n# Slide two\n\n- Separate slides with ---'}
+            className={cn(
+              EDITOR_MIN_H,
+              'flex-1 w-full resize-none bg-transparent outline-none',
+              'font-[family-name:var(--font-mono)] text-[length:var(--text-sm)]',
+              'leading-relaxed text-[var(--text-primary)] placeholder:text-[var(--text-muted)]',
+            )}
+          />
+        ) : isDraftMode ? (
           draftRevisionQuery.isError ? (
             <Card>
               <CardHeader>
