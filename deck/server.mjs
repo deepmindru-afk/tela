@@ -181,12 +181,15 @@ function withTheme(data, cfg) {
     const cur = head.frontmatterDoc.get('themeConfig')
     head.frontmatterDoc.set('theme', THEME_PKG)
     head.frontmatterDoc.set('themeConfig', tahtaThemeConfig(cfg, cur && cur.toJSON ? cur.toJSON() : cur))
+    // tahta is MDC-authored (its layouts read frontmatter via MDC; the headmatter
+    // slide renders blank without it). Default it on unless the deck set it.
+    if (head.frontmatterDoc.get('mdc') === undefined) head.frontmatterDoc.set('mdc', true)
     prettifySlide(head) // rebuild head.raw from the mutated YAML doc (stringify reads raw)
     return stringify(data)
   }
   // No headmatter block to edit — prepend one.
   const tc = tahtaThemeConfig(cfg)
-  const lines = [`theme: ${THEME_PKG}`, 'themeConfig:', `  variant: ${tc.variant}`]
+  const lines = [`theme: ${THEME_PKG}`, 'mdc: true', 'themeConfig:', `  variant: ${tc.variant}`]
   if (tc.accent) lines.push(`  accent: ${JSON.stringify(tc.accent)}`)
   if (tc.lang) lines.push(`  lang: ${tc.lang}`)
   return `---\n${lines.join('\n')}\n---\n\n${data.raw}`
