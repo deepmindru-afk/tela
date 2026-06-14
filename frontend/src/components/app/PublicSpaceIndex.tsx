@@ -6,7 +6,7 @@ import {
   type PublicSpacePayload,
 } from '../../lib/queries/public'
 import { useHeadMeta } from '../../lib/useHeadMeta'
-import { blogChip, sortByNewest, topLevelPosts } from '../../lib/blog'
+import { blogChip, sectionLabel, sortByNewest, topLevelPosts } from '../../lib/blog'
 import { Input } from '../ui/input'
 import { PublicPageShell } from './blog/PublicPageShell'
 import { PublicMasthead, MetaDot } from './blog/PublicMasthead'
@@ -144,7 +144,13 @@ export function PublicSpaceIndex({ space, pages }: PublicSpaceIndexProps) {
       ) : (
         <div className="mt-[var(--space-6)] flex flex-col gap-[var(--space-5)]">
           {showFeatured ? (
-            <PostCard spaceId={space.id} post={featured} featured headingLevel={2} />
+            <PostCard
+              spaceId={space.id}
+              post={featured}
+              featured
+              headingLevel={2}
+              sectionLabel={sectionLabel(pages, featured.id)}
+            />
           ) : null}
           {(() => {
             const grid = showFeatured ? rest : shown
@@ -152,11 +158,24 @@ export function PublicSpaceIndex({ space, pages }: PublicSpaceIndexProps) {
             // A lone trailing card spans full width rather than sitting
             // half-empty in a 2-col grid.
             if (showFeatured && grid.length === 1)
-              return <PostCard spaceId={space.id} post={grid[0]} headingLevel={2} />
+              return (
+                <PostCard
+                  spaceId={space.id}
+                  post={grid[0]}
+                  headingLevel={2}
+                  sectionLabel={sectionLabel(pages, grid[0].id)}
+                />
+              )
             return (
               <div className="grid grid-cols-1 gap-[var(--space-5)] sm:grid-cols-2">
                 {grid.map((p) => (
-                  <PostCard key={p.id} spaceId={space.id} post={p} headingLevel={2} />
+                  <PostCard
+                    key={p.id}
+                    spaceId={space.id}
+                    post={p}
+                    headingLevel={2}
+                    sectionLabel={sectionLabel(pages, p.id)}
+                  />
                 ))}
               </div>
             )

@@ -20,6 +20,7 @@ export function PostCard({
   post,
   featured = false,
   headingLevel = 3,
+  sectionLabel,
 }: {
   spaceId: number
   post: BlogPost
@@ -28,6 +29,9 @@ export function PostCard({
   // sit directly under the page h1 on the space index (h2), and under a per-
   // space h2 on the author home (h3, the default).
   headingLevel?: 2 | 3
+  // When the post is a "section" (has children), its child count ("4 decks")
+  // replaces the reading time — it's an entry point, not an article.
+  sectionLabel?: string
 }) {
   const title = post.title || 'Untitled'
   const Heading = headingLevel === 2 ? 'h2' : 'h3'
@@ -94,7 +98,9 @@ export function PostCard({
           <span aria-hidden className="opacity-50">
             ·
           </span>
-          {post.kind === 'deck' ? (
+          {sectionLabel ? (
+            <span>{sectionLabel}</span>
+          ) : post.kind === 'deck' ? (
             <span className="inline-flex items-center gap-[var(--space-1)]">
               <Play width={11} height={11} /> Presentation
             </span>

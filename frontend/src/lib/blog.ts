@@ -54,6 +54,19 @@ export function topLevelPosts<T extends { parent_id: number | null }>(
   return pages.filter((p) => p.parent_id == null)
 }
 
+// Index-card label for a "section" post — a page with children shows its child
+// count ("4 decks" / "3 pages") in place of a reading time, since it's an entry
+// point, not an article. Decks-only children read as "decks"; any other mix
+// falls back to "pages". undefined for a childless page (an ordinary post).
+export function sectionLabel<
+  T extends { id: number; parent_id: number | null; kind?: string },
+>(pages: T[], postId: number): string | undefined {
+  const children = pages.filter((p) => p.parent_id === postId)
+  if (children.length === 0) return undefined
+  const noun = children.every((c) => c.kind === 'deck') ? 'deck' : 'page'
+  return `${children.length} ${noun}${children.length === 1 ? '' : 's'}`
+}
+
 export type TreeNode<T> = T & { children: TreeNode<T>[] }
 
 // Fold a flat page list into a tree by parent_id, siblings in author position
