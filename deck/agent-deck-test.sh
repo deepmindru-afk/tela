@@ -17,9 +17,11 @@ TS="$(date +%Y%m%d-%H%M%S)"
 STREAM="$OUT_DIR/run-$TS.jsonl"
 PROMPTFILE="$OUT_DIR/run-$TS.prompt.txt"
 
-# NO visual hints — we want to see whether an uninstructed agent discovers the
-# deck authoring guide + tools on its own and produces a styled deck.
-PROMPT="${PROMPT:-Create a slide deck in tela about a topic of your choice that would suit a short talk. Make it a real deck page in tela, then give me its link. Keep it to a handful of slides.}"
+# NO visual hints AND no "deck" — we want to see whether an uninstructed agent who
+# uses everyday wording ("presentation"/"slides") still discovers the deck authoring
+# guide + tools on its own and produces a styled deck. Avoiding the word "deck" is the
+# point: it exercises the trigger broadening (deck → presentation/slides).
+PROMPT="${PROMPT:-Put together a short slide presentation in tela about a topic of your choice that would suit a quick talk. Make it a real page in tela, then give me its link. Keep it to a handful of slides.}"
 
 printf '%s\n' "$PROMPT" > "$PROMPTFILE"
 echo "── PROMPT ─────────────────────────────────────────"
