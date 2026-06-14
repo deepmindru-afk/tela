@@ -338,19 +338,45 @@ func stripLeadingTitleH1(body, title string) string {
 	return strings.TrimLeft(body[m[1]:], "\r\n")
 }
 
+// isDeckBag reports whether a props bag marks a deck. A deck's body is Slidev
+// markdown, so its leading frontmatter is the deck headmatter (first slide) and
+// must NOT be stripped into props.
+func isDeckBag(props map[string]any) bool {
+	b, _ := props["deck"].(bool)
+	return b
+}
+
+// pageIsDeckTx reads the stored deck flag for a page (for body-only updates that
+// don't carry props). props is jsonb; props->>'deck' is the text 'true'/'false'.
+func pageIsDeckTx(ctx context.Context, tx *sql.Tx, id int64) bool {
+	var v sql.NullString
+	_ = tx.QueryRowContext(ctx, `SELECT props->>'deck' FROM pages WHERE id = $1`, id).Scan(&v)
+	return v.Valid && v.String == "true"
+}
+
 func (s *Server) createPageCore(ctx context.Context, u *auth.User, k *auth.APIKey, req pageCreateRequest) (models.Page, *apiErr) {
 	title := strings.TrimSpace(req.Title)
 	if title == "" {
 		return models.Page{}, &apiErr{http.StatusBadRequest, "invalid_title", "title is required"}
 	}
-	// Body invariant: frontmatter never lives in pages.body, at any ingress.
-	// Strip any leading frontmatter out of the body and absorb it into props.
-	// Precedence: an explicit props field wins over frontmatter found in body.
-	body, _, bodyProps := pagemd.Decode(req.Body)
-	body = stripLeadingTitleH1(body, title)
+	// Body invariant: frontmatter never lives in pages.body, at any ingress —
+	// EXCEPT decks, whose body is Slidev markdown: its leading `---...---` is the
+	// deck headmatter / first slide, NOT page properties. For a normal page strip
+	// leading frontmatter into props; for a deck keep the body verbatim.
 	props := pagemd.FilterReserved(req.Props)
-	if props == nil {
-		props = bodyProps
+	stripped, _, bodyProps := pagemd.Decode(req.Body)
+	var body string
+	if isDeckBag(props) || isDeckBag(bodyProps) {
+		body = req.Body
+		if props == nil {
+			props = map[string]any{}
+		}
+		props["deck"] = true
+	} else {
+		body = stripLeadingTitleH1(stripped, title)
+		if props == nil {
+			props = bodyProps
+		}
 	}
 	if props == nil {
 		props = map[string]any{}
@@ -625,12 +651,26 @@ func applyUpdateTx(ctx context.Context, tx *sql.Tx, id int64, req pageUpdateRequ
 		args = append(args, strings.TrimSpace(*req.Title))
 		sets = append(sets, "title = $"+strconv.Itoa(len(args)))
 	}
-	// Body invariant: strip any leading frontmatter out of the incoming body and
-	// absorb it into props (bodyStripped is what gets stored + link-synced).
+	// Body invariant: strip leading frontmatter into props (bodyStripped is what
+	// gets stored + link-synced) — EXCEPT decks, whose body is Slidev markdown
+	// (leading frontmatter is the deck headmatter / first slide) and must be kept
+	// verbatim. Deck-ness: an explicit props.deck wins; otherwise the stored page.
 	var bodyStripped string
 	var bodyProps map[string]any
 	if req.Body != nil {
-		bodyStripped, _, bodyProps = pagemd.Decode(*req.Body)
+		deck := false
+		if req.Props != nil {
+			deck = isDeckBag(pagemd.FilterReserved(req.Props))
+		} else {
+			deck = pageIsDeckTx(ctx, tx, id)
+		}
+		stripped, _, bp := pagemd.Decode(*req.Body)
+		if deck || isDeckBag(bp) {
+			bodyStripped = *req.Body // verbatim — preserve the deck headmatter
+		} else {
+			bodyStripped = stripped
+			bodyProps = bp
+		}
 		args = append(args, bodyStripped)
 		sets = append(sets, "body = $"+strconv.Itoa(len(args)))
 	}
