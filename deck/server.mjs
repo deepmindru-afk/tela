@@ -9,6 +9,7 @@
 // images in its own simple full-screen viewer. That keeps this service tiny.
 //
 //   GET  /themes                      -> [{ name, label, scheme, description }]  (tahta variants)
+//   GET  /authoring                   -> { rules, themeConfig, layouts, components, variants }  (theme contract, for the MCP deck guide)
 //   POST /parse                       body: markdown -> { count, slides:[{no,title,layout,note}], features, errors }
 //   POST /render?variant&accent&lang  body: markdown -> { id, count, slides:[url], variant }
 //   POST /export/<pdf|pptx>?variant…  body: markdown -> the file bytes
@@ -56,6 +57,21 @@ const THEME_PKG = 'slidev-theme-tahta'
 const DEFAULT_VARIANT = 'editorial'
 const VARIANT_CATALOG = require(`${THEME_PKG}/variants.json`).variants
 const VARIANTS = new Set(VARIANT_CATALOG.map((v) => v.id))
+
+// The full authoring contract straight from the theme package's manifests
+// (layouts + fields + examples + components + rules + variants) — served at
+// /authoring so tela's backend can render the agent deck-authoring guide. tela
+// defines none of this; the theme owns it.
+const AUTHORING = (() => {
+  const m = require(`${THEME_PKG}/layouts.json`)
+  return {
+    rules: m.rules || [],
+    themeConfig: m.themeConfig || {},
+    layouts: m.layouts || [],
+    components: m.components || [],
+    variants: VARIANT_CATALOG,
+  }
+})()
 
 await mkdir(WORK, { recursive: true })
 
@@ -280,6 +296,9 @@ const server = http.createServer(async (req, res) => {
 
     if (req.method === 'GET' && path === '/themes') {
       res.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify(listVariants()))
+    } else if (req.method === 'GET' && path === '/authoring') {
+      // The theme's full layout/component/variant contract, for tela's MCP guide.
+      res.writeHead(200, { 'content-type': 'application/json', 'cache-control': 'public, max-age=300' }).end(JSON.stringify(AUTHORING))
     } else if (req.method === 'POST' && path === '/parse') {
       // Cheap structure + features, no render. Powers the editor outline + preflight.
       const md = await readBody(req)

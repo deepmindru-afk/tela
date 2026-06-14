@@ -140,14 +140,14 @@ func (s *Server) registerMCPTools(server *mcp.Server) {
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "create_page",
 		Title:       "Create page",
-		Description: "Create a page in a space (editor+). Body is markdown; tela://page/{id} links and [[Page Title]] wikilinks (resolved by title within the space) are indexed as backlinks. " + authoringToolHint(),
+		Description: "Create a page in a space (editor+). Body is markdown; tela://page/{id} links and [[Page Title]] wikilinks (resolved by title within the space) are indexed as backlinks. " + authoringToolHint() + deckAuthoringToolHint(),
 		Annotations: &mcp.ToolAnnotations{DestructiveHint: &no, OpenWorldHint: &no},
 	}, s.mcpCreatePage)
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "update_page",
 		Title:       "Update page",
-		Description: "Patch a page's title and/or body (editor+). A body change auto-snapshots a revision. " + authoringToolHint(),
+		Description: "Patch a page's title and/or body (editor+). A body change auto-snapshots a revision. " + authoringToolHint() + deckAuthoringToolHint(),
 		Annotations: &mcp.ToolAnnotations{IdempotentHint: true, DestructiveHint: &no, OpenWorldHint: &no},
 	}, s.mcpUpdatePage)
 

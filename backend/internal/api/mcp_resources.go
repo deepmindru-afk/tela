@@ -32,6 +32,16 @@ func (s *Server) registerMCPResources(server *mcp.Server) {
 		MIMEType:    "text/markdown",
 	}, s.mcpReadAuthoringGuide)
 
+	// Deck authoring guide — tahta's layout/component/variant contract, rendered
+	// tela-framed, so an agent assembles rich slide decks instead of flat bullets.
+	server.AddResource(&mcp.Resource{
+		Name:        "deck-authoring-guide",
+		Title:       "Tela deck (slides) authoring guide",
+		Description: "How to write a tela slide deck: the tahta layouts (cover/stats/chart/compare/timeline/…), their fields with examples, components, and the visual variants.",
+		URI:         deckAuthoringGuideURI,
+		MIMEType:    "text/markdown",
+	}, s.mcpReadDeckAuthoringGuide)
+
 	server.AddResourceTemplate(&mcp.ResourceTemplate{
 		Name:        "page",
 		Title:       "Tela page",
