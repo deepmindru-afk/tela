@@ -165,6 +165,7 @@ func registerRoutes(srv *Server, mux *http.ServeMux) {
 	// asset proxy is public (content-addressed renderId); the rest session-authed.
 	mux.HandleFunc("GET /api/pages/{id}/deck", srv.GetPageDeck)
 	mux.HandleFunc("GET /api/pages/{id}/deck/outline", srv.GetPageDeckOutline)
+	mux.HandleFunc("POST /api/pages/{id}/deck/parse", srv.PostPageDeckParse)
 	mux.HandleFunc("GET /api/pages/{id}/deck.pdf", srv.ExportPageDeckPDF)
 	mux.HandleFunc("GET /api/pages/{id}/deck.pptx", srv.ExportPageDeckPPTX)
 	mux.HandleFunc("GET /api/deck/d/{renderId}/{file}", srv.ServeDeckAsset)

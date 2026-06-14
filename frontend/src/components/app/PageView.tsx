@@ -70,6 +70,9 @@ const DeckPresenter = lazy(() =>
 const DeckOverview = lazy(() =>
   import('./DeckOverview').then((m) => ({ default: m.DeckOverview })),
 )
+const DeckEditorOutline = lazy(() =>
+  import('./DeckEditorOutline').then((m) => ({ default: m.DeckEditorOutline })),
+)
 import {
   prefetchPage,
   useAllPages,
@@ -1363,21 +1366,28 @@ function PageEditor({ page, spaceId, draftRevId, onDeleted, isDeck }: PageEditor
           // Deck body is Slidev markdown — edited as raw text so the rich editor
           // can't normalize/break `---` slide breaks or layout frontmatter on
           // save. Same body state + autosave (handleBodyChange/Blur) as any page.
-          <textarea
-            value={body}
-            onChange={(e) => handleBodyChange(e.target.value)}
-            onBlur={handleBodyBlur}
-            autoFocus={bodyAutoFocus}
-            spellCheck={false}
-            aria-label="Deck markdown"
-            placeholder={'# Slide one\n\nWrite slides in Markdown.\n\n---\n\n# Slide two\n\n- Separate slides with ---'}
-            className={cn(
-              EDITOR_MIN_H,
-              'flex-1 w-full resize-none bg-transparent outline-none',
-              'font-[family-name:var(--font-mono)] text-[length:var(--text-sm)]',
-              'leading-relaxed text-[var(--text-primary)] placeholder:text-[var(--text-muted)]',
-            )}
-          />
+          // A live outline (parsed from the unsaved buffer) sits alongside on
+          // wide screens.
+          <div className="flex min-h-0 flex-1 gap-[var(--space-4)]">
+            <textarea
+              value={body}
+              onChange={(e) => handleBodyChange(e.target.value)}
+              onBlur={handleBodyBlur}
+              autoFocus={bodyAutoFocus}
+              spellCheck={false}
+              aria-label="Deck markdown"
+              placeholder={'# Slide one\n\nWrite slides in Markdown.\n\n---\n\n# Slide two\n\n- Separate slides with ---'}
+              className={cn(
+                EDITOR_MIN_H,
+                'min-w-0 flex-1 resize-none bg-transparent outline-none',
+                'font-[family-name:var(--font-mono)] text-[length:var(--text-sm)]',
+                'leading-relaxed text-[var(--text-primary)] placeholder:text-[var(--text-muted)]',
+              )}
+            />
+            <Suspense fallback={null}>
+              <DeckEditorOutline body={body} pageId={page.id} className="hidden w-[16rem] shrink-0 lg:flex" />
+            </Suspense>
+          </div>
         ) : isDraftMode ? (
           draftRevisionQuery.isError ? (
             <Card>

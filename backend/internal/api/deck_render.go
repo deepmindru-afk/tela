@@ -230,6 +230,49 @@ func (s *Server) GetPageDeckOutline(w http.ResponseWriter, r *http.Request) {
 	_, _ = io.Copy(w, resp.Body)
 }
 
+// PostPageDeckParse (POST /api/pages/{id}/deck/parse): session-authed. Parses
+// the DRAFT markdown in the request body (the live editor buffer, not the saved
+// page) into deck structure via the sidecar's /parse — no render. Powers the
+// live editor outline. Page-scoped so it isn't an open parser proxy; the body is
+// the unsaved text, so it can't reuse the saved-body /outline route.
+func (s *Server) PostPageDeckParse(w http.ResponseWriter, r *http.Request) {
+	id, ok := parseIDParam(w, r, "id")
+	if !ok {
+		return
+	}
+	p, err := selectPageByID(r.Context(), s.DB, id)
+	if errors.Is(err, sql.ErrNoRows) {
+		writeError(w, http.StatusForbidden, "forbidden", "not a member")
+		return
+	}
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "internal", "fetch page failed")
+		return
+	}
+	if _, ok := s.requireMembership(w, r, p.SpaceID); !ok {
+		return
+	}
+	body, err := io.ReadAll(io.LimitReader(r.Body, 4<<20)) // decks are markdown; 4MB is ample
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "bad_request", "could not read body")
+		return
+	}
+	resp, err := deckPost(r.Context(), "/parse", string(body), "")
+	if err != nil {
+		writeError(w, http.StatusBadGateway, "deck_unavailable", "deck service unavailable")
+		return
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		writeError(w, http.StatusBadGateway, "deck_parse_failed", "could not parse deck")
+		return
+	}
+	noStore(w)
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	_, _ = io.Copy(w, resp.Body)
+}
+
 // ServeDeckThemes (GET /api/deck/themes): PUBLIC. Proxies the sidecar's theme
 // list for the editor's theme selector.
 func (s *Server) ServeDeckThemes(w http.ResponseWriter, r *http.Request) {
