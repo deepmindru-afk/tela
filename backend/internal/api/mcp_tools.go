@@ -328,12 +328,26 @@ func (s *Server) mcpListSpaces(ctx context.Context, req *mcp.CallToolRequest, _ 
 	owners := s.spaceOwnerHandles(ctx, u.ID)
 	out := listSpacesOut{Spaces: make([]mcpSpace, len(spaces))}
 	for i, sp := range spaces {
+		// Match the UI's ownership logic (spaceOwnership): org_id owner, else the
+		// sole org grant on a non-personal space. Only a personal/"you" space has a
+		// personal owner_handle — never report a member as owner of an org space.
+		orgIDName := ""
+		if sp.OwnerOrg != nil {
+			orgIDName = sp.OwnerOrg.Name
+		}
+		var orgGrants []string
+		for _, p := range sp.Principals {
+			if p.Kind == "org" {
+				orgGrants = append(orgGrants, p.Name)
+			}
+		}
+		ownerOrg := resolveOwnerOrg(orgIDName, sp.IsPersonal, orgGrants)
 		m := mcpSpace{
 			ID: sp.ID, Name: sp.Name, Slug: sp.Slug,
-			Visibility: sp.Visibility, OwnerHandle: owners[sp.ID], MemberCount: sp.MemberCount,
+			Visibility: sp.Visibility, OwnerOrg: ownerOrg, MemberCount: sp.MemberCount,
 		}
-		if sp.OwnerOrg != nil {
-			m.OwnerOrg = sp.OwnerOrg.Name
+		if ownerOrg == "" {
+			m.OwnerHandle = owners[sp.ID]
 		}
 		out.Spaces[i] = m
 	}
@@ -365,10 +379,12 @@ func (s *Server) mcpGetSpace(ctx context.Context, req *mcp.CallToolRequest, in g
 	if ae != nil {
 		return mcpErr(ae), getSpaceOut{}, nil
 	}
-	out := getSpaceOut{
-		Space:       sp,
-		OwnerHandle: s.spaceOwnerHandle(ctx, in.ID),
-		OwnerOrg:    s.spaceOwnerOrgName(ctx, in.ID),
+	// Match the UI's ownership logic (spaceOwnership): org_id owner, else the sole
+	// org grant on a non-personal space; only otherwise is there a personal owner.
+	ownerOrg := resolveOwnerOrg(s.spaceOwnerOrgName(ctx, in.ID), s.spaceIsPersonal(ctx, in.ID), s.spaceOrgGrantNames(ctx, in.ID))
+	out := getSpaceOut{Space: sp, OwnerOrg: ownerOrg}
+	if ownerOrg == "" {
+		out.OwnerHandle = s.spaceOwnerHandle(ctx, in.ID)
 	}
 	_ = s.DB.QueryRowContext(ctx,
 		`SELECT (SELECT COUNT(DISTINCT user_id) FROM space_access WHERE space_id = $1),

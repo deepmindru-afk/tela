@@ -368,6 +368,48 @@ func (s *Server) spaceOwnerOrgName(ctx context.Context, spaceID int64) string {
 	return n
 }
 
+// spaceOrgGrantNames returns the names of orgs granted access to the space
+// (space_grants, principal_kind='org'). An org here may own or just share the
+// space — resolveOwnerOrg applies the same "sole org → owner" heuristic the UI uses.
+func (s *Server) spaceOrgGrantNames(ctx context.Context, spaceID int64) []string {
+	var names []string
+	rows, err := s.DB.QueryContext(ctx,
+		`SELECT o.name FROM space_grants sg JOIN orgs o ON o.id = sg.principal_id
+		  WHERE sg.space_id = $1 AND sg.principal_kind = 'org'`, spaceID)
+	if err != nil {
+		return names
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var n string
+		if rows.Scan(&n) == nil {
+			names = append(names, n)
+		}
+	}
+	return names
+}
+
+// spaceIsPersonal reports whether the space is an auto-provisioned personal home.
+func (s *Server) spaceIsPersonal(ctx context.Context, spaceID int64) bool {
+	var personal bool
+	_ = s.DB.QueryRowContext(ctx,
+		`SELECT personal_user_id IS NOT NULL FROM spaces WHERE id = $1`, spaceID).Scan(&personal)
+	return personal
+}
+
+// resolveOwnerOrg mirrors the frontend's spaceOwnership() (lib/space-owner.ts):
+// the explicit org_id owner wins; otherwise a non-personal space with exactly one
+// org grant is treated as owned by that org. Empty → a personal/"you" space.
+func resolveOwnerOrg(orgIDName string, isPersonal bool, orgGrantNames []string) string {
+	if orgIDName != "" {
+		return orgIDName
+	}
+	if !isPersonal && len(orgGrantNames) == 1 {
+		return orgGrantNames[0]
+	}
+	return ""
+}
+
 func (s *Server) UpdateSpace(w http.ResponseWriter, r *http.Request) {
 	id, ok := parseIDParam(w, r, "id")
 	if !ok {
