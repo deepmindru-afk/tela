@@ -19,6 +19,7 @@ import {
   SheetTitle,
   SheetTrigger,
 } from '../ui/sheet'
+import { ChildGallery } from './blog/ChildGallery'
 import { DownloadPdfButton } from './DownloadPdfButton'
 import { ReaderShell } from './ReaderShell'
 import { pageSummary } from './SummaryHint'
@@ -117,6 +118,18 @@ export function PublicReaderView({
     </>
   ) : undefined
 
+  // Direct children of the current page, in author order — any page with
+  // children is a "section" and shows them as a card gallery at the foot of the
+  // reader (decks, multi-part articles), so its contents present as real cards
+  // rather than a hand-written link list. Position order matches the nav rail.
+  const childPosts = useMemo(
+    () =>
+      pages
+        .filter((p) => p.parent_id === pageId)
+        .sort((a, b) => a.position - b.position || a.id - b.id),
+    [pages, pageId],
+  )
+
   // Previous/next among the space's top-level posts (the "posts"), in published
   // order. Only shown when the current page is itself a top-level post.
   const postNav = useMemo(() => {
@@ -126,20 +139,26 @@ export function PublicReaderView({
     return { newer: posts[i - 1], older: posts[i + 1] } // newest-first order
   }, [pages, pageId])
 
+  const hasPostNav = !!(postNav && (postNav.newer || postNav.older))
   const articleFooter =
-    postNav && (postNav.newer || postNav.older) ? (
-      <nav className="reader-postnav" aria-label="More posts">
-        {postNav.older ? (
-          <PostNavLink spaceId={space.id} post={postNav.older} dir="older" />
-        ) : (
-          <span />
-        )}
-        {postNav.newer ? (
-          <PostNavLink spaceId={space.id} post={postNav.newer} dir="newer" />
-        ) : (
-          <span />
-        )}
-      </nav>
+    childPosts.length > 0 || hasPostNav ? (
+      <>
+        <ChildGallery spaceId={space.id} posts={childPosts} />
+        {hasPostNav ? (
+          <nav className="reader-postnav" aria-label="More posts">
+            {postNav!.older ? (
+              <PostNavLink spaceId={space.id} post={postNav!.older} dir="older" />
+            ) : (
+              <span />
+            )}
+            {postNav!.newer ? (
+              <PostNavLink spaceId={space.id} post={postNav!.newer} dir="newer" />
+            ) : (
+              <span />
+            )}
+          </nav>
+        ) : null}
+      </>
     ) : undefined
 
   if (isDeck) {

@@ -255,6 +255,35 @@
     }
   }
 
+  /* A "section" page (any page with children) presents its children as a card
+     grid at the foot of the reader — decks, multi-part articles, doc folders
+     show as real cards (covers, deck play-badges) instead of a link list.
+     Mirrors .reader-postnav's divider; the grid matches the index's 2-up. */
+  .reader-childgallery {
+    margin-top: calc(var(--space-8) * 1.5);
+    padding-top: var(--space-6);
+    border-top: 1px solid var(--border-subtle);
+  }
+  .reader-childgallery-title {
+    margin: 0 0 var(--space-5);
+    font-family: var(--font-sans);
+    font-size: var(--text-sm);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--text-muted);
+  }
+  .reader-childgallery-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-5);
+  }
+  @media (max-width: 36rem) {
+    .reader-childgallery-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+
   /* Prose elevation. Override the .tela-milkdown editor scale for reading:
      bigger optical size, generous leading, em-relative headings so one knob
      (--reading-font-size) moves everything. */
