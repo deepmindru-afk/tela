@@ -15,6 +15,7 @@ const blogWordsPerMin = 220 // matches the reader's WORDS_PER_MIN (ReaderShell.t
 
 // blogCardMeta is the derived per-post summary an index card renders.
 type blogCardMeta struct {
+	Kind           string   `json:"kind,omitempty"` // "deck" for slide decks; "" for prose docs
 	Excerpt        string   `json:"excerpt"`
 	ReadingMinutes int      `json:"reading_minutes"`
 	Cover          string   `json:"cover,omitempty"`
@@ -25,6 +26,17 @@ type blogCardMeta struct {
 // The excerpt prefers an author-set standfirst in props (summary/excerpt/
 // description) and otherwise falls back to the lead of the body as plain text.
 func blogMetaFor(body string, props map[string]any) blogCardMeta {
+	// A deck's body is Slidev source — running the prose excerpter over it yields
+	// mangled YAML/separator text, and reading-time is meaningless. Use the
+	// author/LLM summary; the cover (first slide) is filled in by the caller,
+	// which has the space+page ids for the cover URL.
+	if isDeckBag(props) {
+		return blogCardMeta{
+			Kind:    "deck",
+			Excerpt: clip(strings.Join(strings.Fields(propString(props, "summary", "excerpt", "description")), " "), 180),
+			Tags:    propStrings(props, "tags"),
+		}
+	}
 	return blogCardMeta{
 		Excerpt:        postExcerpt(body, props, 180),
 		ReadingMinutes: readingMinutes(body),

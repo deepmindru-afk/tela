@@ -67,6 +67,11 @@ envelope.
   (each → front page) with the spaces' top-level posts (each → reader). Data via
   `GET /api/public/users/{username}` (public spaces by direct membership only;
   404 when the user is missing or has nothing public).
+- **Decks present publicly.** A deck (`props.deck`) in a public space is *not*
+  rendered as prose — the index card shows its first-slide cover + a "Presentation"
+  badge, and the reader shows a cover hero + **Present** (the live Slidev SPA),
+  served by visibility-gated public routes (`/api/public/spaces/{id}/pages/{pid}/
+  deck/{spa,cover}`). Full design in [`deck.md`](deck.md).
 
 ## Deferred / follow-ups
 

@@ -1,4 +1,5 @@
 import { Link } from '@tanstack/react-router'
+import { Play } from 'lucide-react'
 import { coverBackground, monogram } from '../../../lib/blog'
 import { pageSlug } from '../../../lib/slug'
 import { postDateFromSqlite } from '../../../lib/relativeTime'
@@ -42,7 +43,7 @@ export function PostCard({
         featured ? 'flex-col md:flex-row' : 'flex-col',
       ].join(' ')}
     >
-      <Cover title={title} cover={post.cover} featured={featured} />
+      <Cover title={title} cover={post.cover} featured={featured} isDeck={post.kind === 'deck'} />
       <div
         className={[
           'flex min-w-0 flex-1 flex-col gap-[var(--space-2)]',
@@ -93,7 +94,13 @@ export function PostCard({
           <span aria-hidden className="opacity-50">
             ·
           </span>
-          <span>{post.reading_minutes} min read</span>
+          {post.kind === 'deck' ? (
+            <span className="inline-flex items-center gap-[var(--space-1)]">
+              <Play width={11} height={11} /> Presentation
+            </span>
+          ) : (
+            <span>{post.reading_minutes} min read</span>
+          )}
         </div>
       </div>
     </Link>
@@ -106,14 +113,22 @@ function Cover({
   title,
   cover,
   featured,
+  isDeck = false,
 }: {
   title: string
   cover?: string
   featured: boolean
+  isDeck?: boolean
 }) {
   const box = featured
     ? 'md:w-[44%] md:self-stretch aspect-[16/9] md:aspect-auto md:min-h-[14rem]'
     : 'aspect-[16/9]'
+  // A play glyph marks a deck cover (the first slide) as presentable at a glance.
+  const deckBadge = isDeck ? (
+    <span className="pointer-events-none absolute left-[var(--space-2)] top-[var(--space-2)] flex size-[var(--space-7)] items-center justify-center rounded-full bg-[color-mix(in_srgb,var(--text-primary)_55%,transparent)] text-[var(--text-inverse)]">
+      <Play width={13} height={13} />
+    </span>
+  ) : null
   if (cover) {
     return (
       <div className={`relative shrink-0 overflow-hidden bg-[var(--surface-2)] ${box}`}>
@@ -123,6 +138,7 @@ function Cover({
           loading="lazy"
           className="size-full object-cover transition-transform duration-[var(--duration-base)] group-hover:scale-[1.03]"
         />
+        {deckBadge}
       </div>
     )
   }

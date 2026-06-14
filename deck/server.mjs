@@ -14,6 +14,7 @@
 //   POST /spa?base&file&variant…      body: markdown -> one file of the built interactive SPA (build-if-needed, cached)
 //   POST /parse                       body: markdown -> { count, slides:[{no,title,layout,note}], features, errors }
 //   POST /render?variant&accent&lang  body: markdown -> { id, count, slides:[url], variant }
+//   POST /cover?variant&accent&lang   body: markdown -> { url, count }  (first slide only — cover/OG)
 //   POST /export/<pdf|pptx>?variant…  body: markdown -> the file bytes
 //   GET  /d/<id>/<file>               -> a rendered slide PNG / the PDF / the PPTX
 //   GET  /health                      -> ok
@@ -362,6 +363,32 @@ async function renderImages(md, cfg) {
   }
 }
 
+// Render ONLY the first slide — the deck's "cover" (index thumbnail, public reader
+// hero, OG share image). Much cheaper than a full render: one frame, no clicks.
+// Cached + content-addressed under d/ like everything else (so the GC + public
+// /d/ serving already apply). Keyed separately ('cover') from the full render.
+const coverId = (md, cfg) => hash(`${CACHE_EPOCH}|${cfgKey(cfg)}|cover|${md}`)
+async function renderCover(md, cfg) {
+  const id = coverId(md, cfg)
+  const dir = deckDir(id)
+  if (!(await listFrames(dir)).length) {
+    await mkdir(dir, { recursive: true })
+    const entry = join(WORK, `cover-${id}.md`)
+    await writeFile(entry, withTheme(await parseDeck(md), cfg))
+    const release = await acquire()
+    try {
+      // Slide 1 only (no --with-clicks → final state of the cover slide).
+      await exec(SLIDEV, ['export', entry, '--format', 'png', '--output', dir, '--range', '1', '--timeout', '60000'], {
+        cwd: ROOT, timeout: 120_000, maxBuffer: 1 << 24,
+      })
+    } finally {
+      release()
+    }
+  }
+  const pngs = (await listFrames(dir)).sort(frameCmp)
+  return { url: pngs[0] ? `/d/${id}/${pngs[0]}` : null }
+}
+
 async function renderFile(md, cfg, format) {
   const file = join(deckDir(deckId(md, cfg)), `deck.${format}`)
   if (!existsSync(file)) {
@@ -480,6 +507,13 @@ const server = http.createServer(async (req, res) => {
       await preflight(md) // parse first — a bad deck fails fast as 400, not a slow 502
       const manifest = await renderImages(md, cfg) // resolve BEFORE writing headers
       res.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify(manifest))
+    } else if (req.method === 'POST' && path === '/cover') {
+      // First-slide-only render → the deck's cover/OG image. count comes free from
+      // the preflight parse (no extra work).
+      const md = await readBody(req)
+      const data = await preflight(md)
+      const { url } = await renderCover(md, cfg) // resolve BEFORE writing headers
+      res.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify({ url, count: data.slides.length }))
     } else if (req.method === 'POST' && path.startsWith('/export/')) {
       const format = path.slice('/export/'.length)
       if (!EXPORT_MIME[format]) return void res.writeHead(400).end('format must be pdf or pptx')

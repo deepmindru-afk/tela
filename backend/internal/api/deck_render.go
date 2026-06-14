@@ -108,8 +108,15 @@ func (s *Server) ServePageDeckSPA(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
+	s.streamDeckSPA(w, r, p, fmt.Sprintf("/api/pages/%d/deck/spa/", p.ID))
+}
+
+// streamDeckSPA fetches one file of the deck's built SPA from the sidecar (built
+// under `base` so asset URLs resolve) and streams it. Shared by the membership-
+// gated and the public (public-space) Present routes — the only difference is the
+// gate the caller applied and the base path the SPA is served under.
+func (s *Server) streamDeckSPA(w http.ResponseWriter, r *http.Request, p models.Page, base string) {
 	file := r.PathValue("path") // "" → the sidecar serves index.html
-	base := fmt.Sprintf("/api/pages/%d/deck/spa/", p.ID)
 	resp, err := deckSPA(r.Context(), p.Body, deckThemeConfig(p), base, file)
 	if err != nil {
 		writeError(w, http.StatusBadGateway, "deck_unavailable", "deck service unavailable")
@@ -127,6 +134,116 @@ func (s *Server) ServePageDeckSPA(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("X-Content-Type-Options", "nosniff")
 	w.WriteHeader(http.StatusOK)
 	_, _ = io.Copy(w, resp.Body)
+}
+
+// ServePublicDeckSPA (GET /api/public/spaces/{id}/pages/{page_id}/deck/spa/{path...}):
+// PUBLIC, self-authenticating on space visibility=public (publicSpacePage). Makes a
+// public space's decks presentable to logged-out visitors — "public means public".
+func (s *Server) ServePublicDeckSPA(w http.ResponseWriter, r *http.Request) {
+	p, ok := s.publicSpacePage(w, r)
+	if !ok {
+		return
+	}
+	if !isDeckBag(p.Props) {
+		writeError(w, http.StatusNotFound, "not_found", "not a deck")
+		return
+	}
+	s.streamDeckSPA(w, r, p, fmt.Sprintf("/api/public/spaces/%d/pages/%d/deck/spa/", p.SpaceID, p.ID))
+}
+
+// deckCoverResult mirrors the sidecar /cover response.
+type deckCoverResult struct {
+	URL   string `json:"url"` // sidecar-relative, e.g. /d/<id>/1.png — served at /api/deck<url>
+	Count int    `json:"count"`
+}
+
+// deckCover renders (cached) the deck's first slide via the sidecar and returns the
+// sidecar-relative asset URL + slide count. The asset is public + content-addressed
+// (ServeDeckAsset). Cheaper than a full render — one frame.
+func deckCover(ctx context.Context, body string, cfg deckConfig) (deckCoverResult, error) {
+	var out deckCoverResult
+	resp, err := deckPost(ctx, "/cover", body, cfg)
+	if err != nil {
+		return out, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return out, deckErr(resp)
+	}
+	err = json.NewDecoder(resp.Body).Decode(&out)
+	return out, err
+}
+
+// deckCoverPNG fetches the deck's first-slide PNG bytes (for the OG share image,
+// which proxies bytes rather than redirecting — crawlers don't always follow 302s).
+// Time-bounded so a cold render can't hang a crawler; returns ok=false to let the
+// caller fall back. cfg is built from page props directly (no models.Page needed).
+func (s *Server) deckCoverPNG(ctx context.Context, body string, props map[string]any) ([]byte, string, bool) {
+	cctx, cancel := context.WithTimeout(ctx, 12*time.Second)
+	defer cancel()
+	cfg := deckConfig{Variant: propString(props, "variant"), Accent: propString(props, "accent"), Lang: propString(props, "lang")}
+	cov, err := deckCover(cctx, body, cfg)
+	if err != nil || cov.URL == "" {
+		return nil, "", false
+	}
+	req, err := http.NewRequestWithContext(cctx, http.MethodGet, deckBaseURL()+cov.URL, nil)
+	if err != nil {
+		return nil, "", false
+	}
+	resp, err := (&http.Client{Timeout: 12 * time.Second}).Do(req)
+	if err != nil {
+		return nil, "", false
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return nil, "", false
+	}
+	b, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, "", false
+	}
+	ct := resp.Header.Get("Content-Type")
+	if ct == "" {
+		ct = "image/png"
+	}
+	return b, ct, true
+}
+
+// serveDeckCover redirects to the deck's first-slide image — the public, immutable,
+// content-addressed asset. Shared by the gated + public cover endpoints; 404 for a
+// non-deck page.
+func (s *Server) serveDeckCover(w http.ResponseWriter, r *http.Request, p models.Page) {
+	if !isDeckBag(p.Props) {
+		writeError(w, http.StatusNotFound, "not_found", "not a deck")
+		return
+	}
+	cov, err := deckCover(r.Context(), p.Body, deckThemeConfig(p))
+	if err != nil || cov.URL == "" {
+		writeError(w, http.StatusBadGateway, "deck_unavailable", "deck cover unavailable")
+		return
+	}
+	http.Redirect(w, r, "/api/deck"+cov.URL, http.StatusFound)
+}
+
+// ServePageDeckCover (GET /api/pages/{id}/deck/cover): membership-gated. The deck's
+// first-slide thumbnail for the in-app deck view.
+func (s *Server) ServePageDeckCover(w http.ResponseWriter, r *http.Request) {
+	p, ok := s.requirePageRead(w, r)
+	if !ok {
+		return
+	}
+	s.serveDeckCover(w, r, p)
+}
+
+// ServePublicDeckCover (GET /api/public/spaces/{id}/pages/{page_id}/deck/cover):
+// PUBLIC (public-space gate). The first-slide cover for the public index card +
+// reader hero.
+func (s *Server) ServePublicDeckCover(w http.ResponseWriter, r *http.Request) {
+	p, ok := s.publicSpacePage(w, r)
+	if !ok {
+		return
+	}
+	s.serveDeckCover(w, r, p)
 }
 
 // ServeDeckAsset (GET /api/deck/d/{renderId}/{file}): PUBLIC (auth.IsPublicPath).

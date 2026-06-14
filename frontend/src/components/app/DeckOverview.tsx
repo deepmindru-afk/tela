@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Check, Download, Palette, Play, Presentation } from 'lucide-react'
 import { api } from '../../lib/api'
@@ -76,6 +77,9 @@ export function DeckOverview({ page }: { page: Page }) {
 
   return (
     <div className="flex flex-col gap-[var(--space-4)]">
+      {/* First-slide cover — keyed by variant so switching restyle re-fetches and
+          resets the error state. Hides itself if the cover can't render. */}
+      <DeckCover key={currentVariant} pageId={pageId} variant={currentVariant} onPresent={present} />
       <div className="flex flex-wrap items-center gap-[var(--space-3)] rounded-[var(--radius-md)] border border-[var(--border-subtle)] bg-[var(--surface-2)] p-[var(--space-4)]">
         <Presentation width={20} height={20} className="text-[var(--text-muted)]" />
         <div className="mr-auto">
@@ -146,5 +150,42 @@ export function DeckOverview({ page }: { page: Page }) {
         </ol>
       ) : null}
     </div>
+  )
+}
+
+// The deck's first-slide cover, clickable to present. Renders lazily server-side
+// (the gated cover route renders-if-needed); hides itself if that fails so a
+// broken image never shows. Remounted (keyed) per variant by the caller.
+function DeckCover({
+  pageId,
+  variant,
+  onPresent,
+}: {
+  pageId: number
+  variant: string
+  onPresent: () => void
+}) {
+  const [ok, setOk] = useState(true)
+  if (!ok) return null
+  return (
+    <button
+      type="button"
+      onClick={onPresent}
+      aria-label="Present"
+      className="group relative block aspect-video w-full max-w-2xl overflow-hidden rounded-[var(--radius-md)] border border-[var(--border-subtle)] bg-[var(--surface-2)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+    >
+      <img
+        src={`/api/pages/${pageId}/deck/cover?v=${encodeURIComponent(variant)}`}
+        alt=""
+        loading="lazy"
+        onError={() => setOk(false)}
+        className="size-full object-cover"
+      />
+      <span className="absolute inset-0 flex items-center justify-center bg-[color-mix(in_srgb,var(--text-primary)_40%,transparent)] opacity-0 transition-opacity duration-[var(--duration-fast)] group-hover:opacity-100">
+        <span className="flex items-center gap-[var(--space-2)] rounded-[var(--radius-md)] bg-[var(--surface-1)] px-[var(--space-3)] py-[var(--space-2)] text-[length:var(--text-sm)] font-medium shadow-[var(--shadow-md)]">
+          <Play width={16} height={16} /> Present
+        </span>
+      </span>
+    </button>
   )
 }

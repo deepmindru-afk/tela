@@ -86,13 +86,15 @@ func (s *Server) HandleOGImage(w http.ResponseWriter, r *http.Request) {
 		title     string
 		spaceName string
 		updatedAt string
+		body      string
+		propsRaw  []byte
 	)
 	err = s.DB.QueryRowContext(r.Context(),
-		`SELECT p.title, sp.name, p.updated_at
+		`SELECT p.title, sp.name, p.updated_at, p.body, p.props
 		   FROM pages p
 		   JOIN spaces sp ON sp.id = p.space_id
 		  WHERE p.id = $1 AND p.deleted_at IS NULL`, pageID,
-	).Scan(&title, &spaceName, &updatedAt)
+	).Scan(&title, &spaceName, &updatedAt, &body, &propsRaw)
 	if errors.Is(err, sql.ErrNoRows) {
 		writeNotFoundHTML(w)
 		return
@@ -117,6 +119,21 @@ func (s *Server) HandleOGImage(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Cache-Control", "public, max-age=3600")
 		w.WriteHeader(http.StatusNotModified)
 		return
+	}
+
+	// A deck's share image is its first slide (its visual identity), for public
+	// AND private decks. Best-effort + time-bounded — fall back to the generic card
+	// if the cover render is slow or unavailable so crawlers always get something.
+	if isDeckBag(decodeProps(propsRaw)) {
+		if png, ct, ok := s.deckCoverPNG(r.Context(), body, decodeProps(propsRaw)); ok {
+			w.Header().Set("Content-Type", ct)
+			w.Header().Set("Cache-Control", "public, max-age=3600")
+			w.Header().Set("ETag", etag)
+			w.Header().Set("Content-Length", strconv.Itoa(len(png)))
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write(png)
+			return
+		}
 	}
 
 	pngBytes, err := renderOGImage(title, spaceName)

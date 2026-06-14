@@ -165,6 +165,7 @@ func registerRoutes(srv *Server, mux *http.ServeMux) {
 	// membership-gated via requirePageRead). The PNG asset proxy is public
 	// (content-addressed renderId, no notes); the rest session-authed.
 	mux.HandleFunc("GET /api/pages/{id}/deck/spa/{path...}", srv.ServePageDeckSPA)
+	mux.HandleFunc("GET /api/pages/{id}/deck/cover", srv.ServePageDeckCover)
 	mux.HandleFunc("GET /api/pages/{id}/deck/outline", srv.GetPageDeckOutline)
 	mux.HandleFunc("POST /api/pages/{id}/deck/parse", srv.PostPageDeckParse)
 	mux.HandleFunc("GET /api/pages/{id}/deck.pdf", srv.ExportPageDeckPDF)
@@ -248,6 +249,9 @@ func registerRoutes(srv *Server, mux *http.ServeMux) {
 	mux.HandleFunc("GET /u/{username}", srv.HandlePublicUserOG)
 	mux.HandleFunc("GET /api/public/spaces/{id}/pages/{page_id}", srv.GetPublicSpacePage)
 	mux.HandleFunc("GET /api/public/spaces/{id}/pages/{page_id}/md", srv.ExportPublicSpacePageMarkdown)
+	// Public decks: the live Present SPA + the first-slide cover, for public spaces.
+	mux.HandleFunc("GET /api/public/spaces/{id}/pages/{page_id}/deck/spa/{path...}", srv.ServePublicDeckSPA)
+	mux.HandleFunc("GET /api/public/spaces/{id}/pages/{page_id}/deck/cover", srv.ServePublicDeckCover)
 	// Unified GitHub-style handle URLs: ONE namespace where {handle} resolves to a
 	// user OR org public home, and {handle}/{slug} to that account's public space.
 	// User precedence on a handle collision; public-visibility data only. See

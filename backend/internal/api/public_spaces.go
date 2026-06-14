@@ -39,14 +39,24 @@ type publicSpaceDTO struct {
 }
 
 // publicPageDTO is the read-only page projection for a public space — body +
-// the public-by-design frontmatter (props), nothing internal.
+// the public-by-design frontmatter (props), nothing internal. For a deck it also
+// carries `deck` so the reader presents it instead of rendering Slidev source as
+// prose.
 type publicPageDTO struct {
-	ID        int64          `json:"id"`
-	Title     string         `json:"title"`
-	Body      string         `json:"body"`
-	Props     map[string]any `json:"props,omitempty"`
-	CreatedAt string         `json:"created_at"`
-	UpdatedAt string         `json:"updated_at"`
+	ID        int64           `json:"id"`
+	Title     string          `json:"title"`
+	Body      string          `json:"body"`
+	Props     map[string]any  `json:"props,omitempty"`
+	Deck      *publicDeckInfo `json:"deck,omitempty"`
+	CreatedAt string          `json:"created_at"`
+	UpdatedAt string          `json:"updated_at"`
+}
+
+// publicDeckInfo gives the public reader the URLs to present a deck (the live SPA)
+// and to show its first-slide cover — both public, visibility-gated routes.
+type publicDeckInfo struct {
+	PresentPath string `json:"present_path"`
+	CoverPath   string `json:"cover_path"`
 }
 
 // publicTreeNode is one nav/index entry for the public space's page tree. Beyond
@@ -142,6 +152,11 @@ func (s *Server) GetPublicSpaceTree(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		n.blogCardMeta = blogMetaFor(body, decodeProps(propsRaw))
+		// A deck's cover is its first slide, behind the public cover route (the
+		// caller here has the space + page ids blogMetaFor lacks).
+		if n.Kind == "deck" {
+			n.Cover = fmt.Sprintf("/api/public/spaces/%d/pages/%d/deck/cover", id, n.ID)
+		}
 		nodes = append(nodes, n)
 	}
 	if err := rows.Err(); err != nil {
@@ -187,16 +202,21 @@ func (s *Server) GetPublicSpacePage(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{
-		"page": publicPageDTO{
-			ID:        page.ID,
-			Title:     page.Title,
-			Body:      page.Body,
-			Props:     page.Props,
-			CreatedAt: page.CreatedAt,
-			UpdatedAt: page.UpdatedAt,
-		},
-	})
+	dto := publicPageDTO{
+		ID:        page.ID,
+		Title:     page.Title,
+		Body:      page.Body,
+		Props:     page.Props,
+		CreatedAt: page.CreatedAt,
+		UpdatedAt: page.UpdatedAt,
+	}
+	if isDeckBag(page.Props) {
+		dto.Deck = &publicDeckInfo{
+			PresentPath: fmt.Sprintf("/api/public/spaces/%d/pages/%d/deck/spa/", page.SpaceID, page.ID),
+			CoverPath:   fmt.Sprintf("/api/public/spaces/%d/pages/%d/deck/cover", page.SpaceID, page.ID),
+		}
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"page": dto})
 }
 
 // ExportPublicSpacePageMarkdown — GET /api/public/spaces/{id}/pages/{page_id}/md.

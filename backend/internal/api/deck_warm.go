@@ -72,8 +72,14 @@ func (w *deckWarmer) run(pageID int64) {
 	if err != nil || !isDeckBag(p.Props) {
 		return
 	}
+	cfg := deckThemeConfig(p)
+	// Warm the first-slide cover too (index card, public reader hero, OG share
+	// image) so those hit a cached render instead of triggering a cold one.
+	if _, err := deckCover(ctx, p.Body, cfg); err != nil {
+		slog.Debug("deck cover warm failed", "page_id", pageID, "err", err)
+	}
 	base := fmt.Sprintf("/api/pages/%d/deck/spa/", p.ID)
-	resp, err := deckSPA(ctx, p.Body, deckThemeConfig(p), base, "")
+	resp, err := deckSPA(ctx, p.Body, cfg, base, "")
 	if err != nil {
 		slog.Debug("deck warm failed", "page_id", pageID, "err", err)
 		return

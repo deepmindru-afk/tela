@@ -49,12 +49,21 @@ POST /api/pages/{id}/deck/parse           parse a draft (editor outline)
 GET  /api/pages/{id}/deck.pdf | .pptx     export (Chromium)
 ```
 
-Public (`/api/deck/` is in `IsPublicPath`) — content-addressed, self-authenticating:
+Public (`/api/deck/` + `/api/public/` are in `IsPublicPath`) — content-addressed
+or visibility-gated, self-authenticating:
 
 ```
-GET  /api/deck/d/{renderId}/{file}        a rendered PNG/PDF/PPTX (immutable)
-GET  /api/deck/themes                     tahta variant catalog (FE picker)
+GET  /api/deck/d/{renderId}/{file}                         a rendered PNG/PDF/PPTX (immutable)
+GET  /api/deck/themes                                      tahta variant catalog (FE picker)
+GET  /api/pages/{id}/deck/cover                            first-slide cover (gated; 302 → asset)
+GET  /api/public/spaces/{id}/pages/{pid}/deck/spa/{path…}  live Present for a PUBLIC space's deck
+GET  /api/public/spaces/{id}/pages/{pid}/deck/cover        first-slide cover for a public deck
 ```
+
+The public deck routes self-authenticate via `publicSpacePage` (space
+`visibility='public'` + page∈space + `deck`), GET-only — same posture as the rest
+of `/api/public/`. `streamDeckSPA` is shared by the gated and public Present paths
+(only the gate + the `--base` differ).
 
 A page becomes a deck via **⋯ menu → Convert to slide deck** (sets `props.deck =
 true`), or the API/MCP setting `deck: true`.
@@ -147,6 +156,34 @@ no vendoring). The authoring trigger fires on **"presentation" / "slides" / "dec
 Agent loop tools: `lint_deck` (tahta's structural validator) and `preview_deck`
 (renders frames to images so the agent can *see* its output and iterate). The
 agent self-corrects via discover-guide → create → lint → preview → fix.
+
+## First slide = the deck's visual identity (cover / reader / OG)
+
+A deck has no prose to excerpt or render, so the **first slide is its cover**
+everywhere it appears as an image/link. The sidecar's `POST /cover` renders slide
+1 only (`slidev export --range 1`, cheap, cached under `d/` like everything else);
+`deckCover` proxies it. Used by:
+
+- **Public index card** — `blogMetaFor` flags decks (`kind:"deck"`), skips the
+  prose excerpter (which mangles Slidev source) in favour of the `summary`, and the
+  tree handler sets the card cover to the public cover route. `PostCard` shows a
+  play badge + "Presentation".
+- **Public reader** — for a deck the reader renders `PublicDeckView` (first-slide
+  hero + a **Present** button → the public SPA) instead of `MarkdownView`, so a
+  public deck presents instead of dumping YAML/`---`.
+- **OG share image** — `HandleOGImage` (`/p/{id}/og.png`) serves the first slide
+  for decks (bounded + falls back to the generic card on a slow/failed render);
+  the public reader's crawler OG already points here. Covers are pre-warmed
+  alongside the SPA in `deck_warm.go` so these hit a cached render.
+- **In-app** — `DeckOverview` shows the first slide as a clickable thumbnail via
+  the gated cover route.
+
+> **Privacy:** the OG image serves a **private** deck's first slide as a public
+> image too (a deliberate product choice). The rest of a private deck stays gated —
+> only slide 1, via `/p/{id}/og.png`, and only to someone with the link. If that
+> ever needs to change, gate `HandleOGImage`'s deck branch on space visibility.
+
+## Richness/quality guidance
 
 > Richness/quality guidance (layouts-vs-components, pacing, empty-slide lint) lives
 > on the **tahta** side (`docs/notes-from-tela.md` there) precisely because of the

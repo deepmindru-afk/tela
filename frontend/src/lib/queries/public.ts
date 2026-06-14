@@ -31,6 +31,7 @@ export interface PublicSpacePayload {
 // (a public space front page and /u/{handle}). Lets a card render an excerpt,
 // reading time, cover and tags in one round trip — no per-post body fetch.
 export interface BlogCardMeta {
+  kind?: string // "deck" for slide decks; absent for prose docs
   excerpt: string
   reading_minutes: number
   cover?: string
@@ -42,6 +43,8 @@ export interface PublicPagePayload {
   title: string
   body: string
   props?: Record<string, unknown>
+  // Present when the page is a deck — the public present (live SPA) + cover routes.
+  deck?: { present_path: string; cover_path: string }
   created_at: string
   updated_at: string
 }

@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useState } from 'react'
 import { Link, useNavigate } from '@tanstack/react-router'
-import { Menu } from 'lucide-react'
+import { Menu, Play } from 'lucide-react'
 import { applyPdfThemeParam } from '../../lib/theme'
 import { buildWikilinkResolveIndex, pageSlug } from '../../lib/slug'
 import { bodyExcerpt } from '../../lib/search/body-excerpt'
@@ -54,6 +54,10 @@ export function PublicReaderView({
   // SEO/social head for this public article: an author summary in frontmatter
   // wins, else the body lead. Canonical is the current (pretty) reader URL.
   const summary = pageSummary(pageProps)
+  // A deck isn't an article — it presents. Detected from public props; the paths
+  // are the public, visibility-gated deck routes (cover = first slide, present =
+  // live SPA). Branch is taken below, AFTER all hooks, to keep hook order stable.
+  const isDeck = pageProps?.deck === true
   const metaDescription = useMemo(
     () => summary ?? bodyExcerpt(pageBody, '', 90).trim(),
     [summary, pageBody],
@@ -138,6 +142,19 @@ export function PublicReaderView({
       </nav>
     ) : undefined
 
+  if (isDeck) {
+    return (
+      <PublicDeckView
+        spaceId={space.id}
+        spaceName={space.name}
+        pageId={pageId}
+        pageTitle={pageTitle}
+        summary={summary}
+        telaHome={telaHome}
+      />
+    )
+  }
+
   return (
     <ReaderShell
       pageId={pageId}
@@ -211,6 +228,92 @@ export function PublicReaderView({
         </>
       }
     />
+  )
+}
+
+// A public deck isn't read as prose — it presents. Show the first-slide cover as
+// a hero that opens the live Slidev SPA (the public, visibility-gated present
+// route), with the same lightweight topbar as the reader. The crawler-facing OG
+// card is handled server-side (HandlePublicReaderOG → /p/{id}/og.png, the first
+// slide), so this view is purely for humans.
+function PublicDeckView({
+  spaceId,
+  spaceName,
+  pageId,
+  pageTitle,
+  summary,
+  telaHome,
+}: {
+  spaceId: number
+  spaceName: string
+  pageId: number
+  pageTitle: string
+  summary?: string
+  telaHome: string
+}) {
+  const presentPath = `/api/public/spaces/${spaceId}/pages/${pageId}/deck/spa/`
+  const coverPath = `/api/public/spaces/${spaceId}/pages/${pageId}/deck/cover`
+  const present = () => window.open(presentPath, '_blank', 'noopener')
+  return (
+    <div className="flex min-h-dvh flex-col bg-[var(--surface-1)] text-[var(--text-primary)]">
+      <header className="flex items-center justify-between gap-[var(--space-2)] border-b border-[var(--border-subtle)] px-[var(--space-4)] py-[var(--space-3)]">
+        <span className="flex min-w-0 items-center gap-[var(--space-2)]">
+          <a
+            href={telaHome}
+            aria-label="tela home"
+            className="font-[family-name:var(--font-sans)] text-[length:var(--text-base)] font-medium text-[var(--text-primary)] no-underline hover:opacity-70"
+          >
+            tela
+          </a>
+          <span aria-hidden className="text-[var(--text-muted)]">
+            /
+          </span>
+          <Link
+            to="/public/spaces/$spaceId"
+            params={{ spaceId }}
+            className="truncate text-[length:var(--text-sm)] text-[var(--text-muted)] no-underline hover:text-[var(--text-primary)]"
+          >
+            {spaceName}
+          </Link>
+        </span>
+        <Button asChild variant="ghost" size="sm">
+          <a href="/login">Sign in</a>
+        </Button>
+      </header>
+      <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col items-center justify-center gap-[var(--space-5)] p-[var(--space-6)]">
+        <button
+          type="button"
+          onClick={present}
+          aria-label={`Present ${pageTitle || 'deck'}`}
+          className="group relative block aspect-video w-full overflow-hidden rounded-[var(--radius-lg)] border border-[var(--border-subtle)] bg-[var(--surface-2)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+        >
+          <img
+            src={coverPath}
+            alt={pageTitle || 'Deck cover'}
+            className="h-full w-full object-cover"
+            loading="eager"
+          />
+          <span className="absolute inset-0 flex items-center justify-center bg-[color-mix(in_srgb,var(--text-primary)_45%,transparent)] opacity-0 transition-opacity duration-[var(--duration-fast)] group-hover:opacity-100">
+            <span className="flex items-center gap-[var(--space-2)] rounded-[var(--radius-md)] bg-[var(--surface-1)] px-[var(--space-4)] py-[var(--space-2)] text-[length:var(--text-sm)] font-medium shadow-[var(--shadow-md)]">
+              <Play width={16} height={16} /> Present
+            </span>
+          </span>
+        </button>
+        <div className="flex flex-col items-center gap-[var(--space-3)] text-center">
+          <h1 className="font-[family-name:var(--font-serif)] text-[length:var(--text-2xl)] font-semibold">
+            {pageTitle || 'Untitled deck'}
+          </h1>
+          {summary ? (
+            <p className="max-w-prose text-[length:var(--text-base)] text-[var(--text-muted)]">
+              {summary}
+            </p>
+          ) : null}
+          <Button onClick={present} size="md">
+            <Play width={16} height={16} /> Present
+          </Button>
+        </div>
+      </main>
+    </div>
   )
 }
 
