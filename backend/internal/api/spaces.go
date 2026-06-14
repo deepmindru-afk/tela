@@ -335,6 +335,39 @@ func (s *Server) getSpaceCore(ctx context.Context, u *auth.User, k *auth.APIKey,
 	return sp, nil
 }
 
+// spaceOwnerHandles returns the personal-owner username for every space the user
+// can access, in one query (no N+1). Org-owned spaces are simply absent from the map.
+func (s *Server) spaceOwnerHandles(ctx context.Context, userID int64) map[int64]string {
+	out := map[int64]string{}
+	rows, err := s.DB.QueryContext(ctx,
+		`SELECT m.space_id, u.username
+		   FROM space_members m JOIN users u ON u.id = m.user_id
+		  WHERE m.role = 'owner'
+		    AND m.space_id IN (SELECT DISTINCT space_id FROM space_access WHERE user_id = $1)`, userID)
+	if err != nil {
+		return out
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var id int64
+		var h string
+		if rows.Scan(&id, &h) == nil {
+			if _, seen := out[id]; !seen {
+				out[id] = h
+			}
+		}
+	}
+	return out
+}
+
+// spaceOwnerOrgName returns the owning org's name when the space is org-owned, else "".
+func (s *Server) spaceOwnerOrgName(ctx context.Context, spaceID int64) string {
+	var n string
+	_ = s.DB.QueryRowContext(ctx,
+		`SELECT o.name FROM spaces s JOIN orgs o ON o.id = s.org_id WHERE s.id = $1`, spaceID).Scan(&n)
+	return n
+}
+
 func (s *Server) UpdateSpace(w http.ResponseWriter, r *http.Request) {
 	id, ok := parseIDParam(w, r, "id")
 	if !ok {

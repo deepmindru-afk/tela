@@ -303,9 +303,13 @@ func mcpPageURL(p models.Page) string {
 type listSpacesIn struct{}
 
 type mcpSpace struct {
-	ID   int64  `json:"id"`
-	Name string `json:"name"`
-	Slug string `json:"slug"`
+	ID          int64  `json:"id"`
+	Name        string `json:"name"`
+	Slug        string `json:"slug"`
+	Visibility  string `json:"visibility"`
+	OwnerHandle string `json:"owner_handle,omitempty"` // personal owner's username ("" when org-owned)
+	OwnerOrg    string `json:"owner_org,omitempty"`    // owning org's name when org-owned
+	MemberCount int    `json:"member_count"`
 }
 
 type listSpacesOut struct {
@@ -321,9 +325,17 @@ func (s *Server) mcpListSpaces(ctx context.Context, req *mcp.CallToolRequest, _ 
 	if ae != nil {
 		return mcpErr(ae), listSpacesOut{}, nil
 	}
+	owners := s.spaceOwnerHandles(ctx, u.ID)
 	out := listSpacesOut{Spaces: make([]mcpSpace, len(spaces))}
 	for i, sp := range spaces {
-		out.Spaces[i] = mcpSpace{ID: sp.ID, Name: sp.Name, Slug: sp.Slug}
+		m := mcpSpace{
+			ID: sp.ID, Name: sp.Name, Slug: sp.Slug,
+			Visibility: sp.Visibility, OwnerHandle: owners[sp.ID], MemberCount: sp.MemberCount,
+		}
+		if sp.OwnerOrg != nil {
+			m.OwnerOrg = sp.OwnerOrg.Name
+		}
+		out.Spaces[i] = m
 	}
 	return nil, out, nil
 }
@@ -334,16 +346,35 @@ type getSpaceIn struct {
 	ID int64 `json:"id" jsonschema:"space id"`
 }
 
-func (s *Server) mcpGetSpace(ctx context.Context, req *mcp.CallToolRequest, in getSpaceIn) (*mcp.CallToolResult, spaceOut, error) {
+// getSpaceOut enriches the space with ownership + size so an agent knows who owns
+// it and how big it is, not just the bare record.
+type getSpaceOut struct {
+	Space       models.Space `json:"space"`
+	OwnerHandle string       `json:"owner_handle,omitempty"` // personal owner's username ("" when org-owned)
+	OwnerOrg    string       `json:"owner_org,omitempty"`    // owning org's name when org-owned
+	MemberCount int          `json:"member_count"`
+	PageCount   int          `json:"page_count"`
+}
+
+func (s *Server) mcpGetSpace(ctx context.Context, req *mcp.CallToolRequest, in getSpaceIn) (*mcp.CallToolResult, getSpaceOut, error) {
 	u, k := mcpIdentity(req)
 	if u == nil {
-		return mcpUnauthErr(), spaceOut{}, nil
+		return mcpUnauthErr(), getSpaceOut{}, nil
 	}
 	sp, ae := s.getSpaceCore(ctx, u, k, in.ID)
 	if ae != nil {
-		return mcpErr(ae), spaceOut{}, nil
+		return mcpErr(ae), getSpaceOut{}, nil
 	}
-	return nil, spaceOut{Space: sp}, nil
+	out := getSpaceOut{
+		Space:       sp,
+		OwnerHandle: s.spaceOwnerHandle(ctx, in.ID),
+		OwnerOrg:    s.spaceOwnerOrgName(ctx, in.ID),
+	}
+	_ = s.DB.QueryRowContext(ctx,
+		`SELECT (SELECT COUNT(DISTINCT user_id) FROM space_access WHERE space_id = $1),
+		        (SELECT COUNT(*) FROM pages WHERE space_id = $1 AND deleted_at IS NULL)`, in.ID,
+	).Scan(&out.MemberCount, &out.PageCount)
+	return nil, out, nil
 }
 
 // ---- list_pages ----------------------------------------------------------

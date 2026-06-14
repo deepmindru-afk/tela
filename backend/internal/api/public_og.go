@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"database/sql"
 	"encoding/json"
 	"encoding/xml"
@@ -125,9 +126,12 @@ func (s *Server) topLevelPosts(r *http.Request, spaceID int64, limit int) []ogPo
 	return out
 }
 
-func (s *Server) spaceOwnerHandle(r *http.Request, spaceID int64) string {
+// spaceOwnerHandle returns the username of a space's personal owner (its
+// owner-role member). Empty when the space is org-owned (no personal owner) or
+// has none. Best-effort — never errors the caller.
+func (s *Server) spaceOwnerHandle(ctx context.Context, spaceID int64) string {
 	var h string
-	_ = s.DB.QueryRowContext(r.Context(),
+	_ = s.DB.QueryRowContext(ctx,
 		`SELECT u.username FROM space_members m JOIN users u ON u.id = m.user_id
 		  WHERE m.space_id = $1 AND m.role = 'owner' ORDER BY m.user_id ASC LIMIT 1`, spaceID).Scan(&h)
 	return h
@@ -161,7 +165,7 @@ func (s *Server) HandlePublicSpaceOG(w http.ResponseWriter, r *http.Request) {
 	}
 	base := canonicalBaseURL()
 	canonical := base + publicSpacePath(sp.ID)
-	owner := s.spaceOwnerHandle(r, sp.ID)
+	owner := s.spaceOwnerHandle(r.Context(), sp.ID)
 	desc := sp.Description
 	if desc == "" {
 		desc = "A blog on tela."
@@ -222,7 +226,7 @@ func (s *Server) HandlePublicReaderOG(w http.ResponseWriter, r *http.Request) {
 	canonical := base + publicReaderPath(sp.ID, pageID, page.Title)
 	imageURL := base + fmt.Sprintf("/p/%d/og.png", pageID)
 	desc := postExcerpt(page.Body, page.Props, 200)
-	owner := s.spaceOwnerHandle(r, sp.ID)
+	owner := s.spaceOwnerHandle(r.Context(), sp.ID)
 
 	ld := map[string]any{
 		"@context": "https://schema.org", "@type": "BlogPosting",
