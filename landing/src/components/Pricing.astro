@@ -95,7 +95,7 @@ const org = [
     </p>
   </div>
 
-  <div class="tiers reveal-up">
+  <div class="tiers tiers--duo reveal-up">
     <p class="tier-group-label">Personal</p>
     <div class="grid grid-2">
       {personal.map((p) => (
@@ -266,6 +266,16 @@ const org = [
   .grid { display: grid; gap: 1rem; }
   .grid-2 { grid-template-columns: repeat(2, 1fr); }
   .grid-3 { grid-template-columns: repeat(3, 1fr); }
+
+  /* The Personal tier has only two cards. Left at full width they balloon
+     ~50% wider than the three Organization cards below and the CTAs stretch
+     into long bars. Cap the grid to two Organization-column widths so the two
+     cards match the org cards and align under the first two columns — one
+     consistent rhythm across both sections. Only while org is 3-up (≥901px);
+     below that both stacks collapse and full width is correct. */
+  @media (min-width: 901px) {
+    .tiers--duo .grid-2 { max-width: calc((100% - 2rem) / 3 * 2 + 1rem); }
+  }
 
   .price-card {
     display: flex;
