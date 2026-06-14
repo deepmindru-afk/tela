@@ -1,5 +1,4 @@
 import { useQuery } from '@tanstack/react-query'
-import { useNavigate } from '@tanstack/react-router'
 import { Check, Download, Palette, Play, Presentation } from 'lucide-react'
 import { api } from '../../lib/api'
 import { useUpdatePage } from '../../lib/queries/pages'
@@ -42,9 +41,8 @@ const featureLabels: [keyof NonNullable<DeckOutline['features']>, string][] = [
 // The deck's default (non-present) view. Instead of dumping raw Slidev markdown
 // as prose, show the deck's identity: slide count, a Present CTA, exports, and a
 // parsed outline (title + layout per slide). Cheap — backed by /parse, no render.
-export function DeckOverview({ page, spaceId }: { page: Page; spaceId: number }) {
+export function DeckOverview({ page }: { page: Page }) {
   const pageId = page.id
-  const navigate = useNavigate()
   const updatePage = useUpdatePage()
 
   const { data = null, error } = useQuery({
@@ -68,12 +66,9 @@ export function DeckOverview({ page, spaceId }: { page: Page; spaceId: number })
   const setVariant = (name: string) =>
     void updatePage.mutateAsync({ id: pageId, props: { ...(page.props ?? {}), variant: name } })
 
-  const present = () =>
-    void navigate({
-      to: '/spaces/$spaceId/pages/$pageId/{-$slug}',
-      params: { spaceId, pageId, slug: undefined },
-      search: (p) => ({ ...p, view: 'read' }),
-    })
+  // Present = the live Slidev SPA (real presenter/overview/drawing) in a new tab.
+  // Same-origin → the session cookie carries RBAC.
+  const present = () => window.open(`/api/pages/${pageId}/deck/spa/`, '_blank', 'noopener')
 
   const features = data?.features
     ? featureLabels.filter(([k]) => Boolean(data.features?.[k])).map(([, label]) => label)

@@ -11,6 +11,7 @@
 //   GET  /themes                      -> [{ name, label, scheme, description }]  (tahta variants)
 //   GET  /authoring                   -> { rules, themeConfig, layouts, components, variants }  (theme contract, for the MCP deck guide)
 //   POST /lint                        body: markdown -> { ok, errors, warnings, issues:[{slide,level,field?,message}] }  (tahta validator)
+//   POST /spa?base&file&variant…      body: markdown -> one file of the built interactive SPA (build-if-needed, cached)
 //   POST /parse                       body: markdown -> { count, slides:[{no,title,layout,note}], features, errors }
 //   POST /render?variant&accent&lang  body: markdown -> { id, count, slides:[url], variant }
 //   POST /export/<pdf|pptx>?variant…  body: markdown -> the file bytes
@@ -49,9 +50,9 @@ const SLIDEV = join(ROOT, 'node_modules', '.bin', 'slidev')
 const PORT = Number(process.env.PORT || 3344)
 const MAX_CONCURRENCY = Number(process.env.DECK_CONCURRENCY || 2)
 
-// Bump when the theme or render pipeline changes so cached decks rerender.
-// r4: inject mdc:true (headmatter/cover slide rendered blank without it).
-const RENDER_VERSION = 'r4'
+// Bump when the theme or render pipeline changes so cached decks re-render/re-build.
+// r5: inject routerMode:hash (clean static SPA serving) + live SPA build path.
+const RENDER_VERSION = 'r5'
 
 // The look lives entirely in the theme package — tela owns no layouts/styles.
 // Variant catalog + the themeConfig keys come from the theme's own manifests.
@@ -75,10 +76,19 @@ const AUTHORING = (() => {
   }
 })()
 
+const SPA = join(CACHE, 'spa') // built interactive SPAs, one dir per buildId
 await mkdir(WORK, { recursive: true })
 
 const MIME = { '.png': 'image/png', '.pdf': 'application/pdf', '.pptx': 'application/vnd.openxmlformats-officedocument.presentationml.presentation' }
 const EXPORT_MIME = { pdf: MIME['.pdf'], pptx: MIME['.pptx'] }
+// Static SPA assets the built deck serves (Vite output). Content-type by ext.
+const SPA_MIME = {
+  '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.mjs': 'text/javascript',
+  '.css': 'text/css', '.json': 'application/json', '.svg': 'image/svg+xml', '.png': 'image/png',
+  '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.gif': 'image/gif', '.webp': 'image/webp',
+  '.avif': 'image/avif', '.ico': 'image/x-icon', '.woff': 'font/woff', '.woff2': 'font/woff2',
+  '.ttf': 'font/ttf', '.otf': 'font/otf', '.map': 'application/json', '.txt': 'text/plain', '.wasm': 'application/wasm',
+}
 
 const hash = (s) => createHash('sha256').update(s).digest('hex').slice(0, 16)
 // Cache key folds in the full visual config so a variant/accent/lang change rerenders.
@@ -121,29 +131,6 @@ function deckMeta(data, md) {
   }
 }
 
-// Best-effort count of extra click-steps a slide adds (v-click/v-clicks/v-after,
-// or an explicit `clicks:` frontmatter). Exact for the common no-click case;
-// may drift for runtime-computed clicks (components, v-clicks `every`). Used only
-// to map rendered frames back to logical slides for presenter notes.
-function slideClicks(s) {
-  if (s.frontmatter && Number.isInteger(s.frontmatter.clicks)) return s.frontmatter.clicks
-  const m = (s.content || '').match(/\bv-clicks?\b|\bv-after\b|<v-clicks?\b/g)
-  return m ? m.length : 0
-}
-
-// Map each rendered frame (--with-clicks emits one PNG per click-step) back to
-// its logical slide index, so the presenter can show the right speaker note.
-// Identity when there are no clicks (frames === slides); a monotonic clamp if
-// the heuristic disagrees with the real frame count.
-function frameSlideMap(data, frameCount) {
-  const map = []
-  data.slides.forEach((s, i) => {
-    for (let k = 0; k <= slideClicks(s); k++) map.push(i)
-  })
-  if (map.length === frameCount) return map
-  return Array.from({ length: frameCount }, (_, i) => Math.min(i, data.slides.length - 1))
-}
-
 // Parse-validate before a render: surfaces a malformed deck (e.g. broken YAML
 // headmatter) as a fast 400 with the parser's message, instead of letting it
 // fail deep inside a multi-minute Chromium export and bubble up as an opaque 502.
@@ -184,12 +171,15 @@ function withTheme(data, cfg) {
     // tahta is MDC-authored (its layouts read frontmatter via MDC; the headmatter
     // slide renders blank without it). Default it on unless the deck set it.
     if (head.frontmatterDoc.get('mdc') === undefined) head.frontmatterDoc.set('mdc', true)
+    // Hash routing so the built SPA's routes (#/presenter, #/2, …) are client-side
+    // — only real files hit the server, which is what makes static serving clean.
+    if (head.frontmatterDoc.get('routerMode') === undefined) head.frontmatterDoc.set('routerMode', 'hash')
     prettifySlide(head) // rebuild head.raw from the mutated YAML doc (stringify reads raw)
     return stringify(data)
   }
   // No headmatter block to edit — prepend one.
   const tc = tahtaThemeConfig(cfg)
-  const lines = [`theme: ${THEME_PKG}`, 'mdc: true', 'themeConfig:', `  variant: ${tc.variant}`]
+  const lines = [`theme: ${THEME_PKG}`, 'mdc: true', 'routerMode: hash', 'themeConfig:', `  variant: ${tc.variant}`]
   if (tc.accent) lines.push(`  accent: ${JSON.stringify(tc.accent)}`)
   if (tc.lang) lines.push(`  lang: ${tc.lang}`)
   return `---\n${lines.join('\n')}\n---\n\n${data.raw}`
@@ -250,17 +240,12 @@ async function renderImages(md, cfg) {
     await slidevExport(md, cfg, 'png', dir)
   }
   const pngs = (await listFrames(dir)).sort(frameCmp)
-  // Frames may exceed logical slides (--with-clicks). Ship the logical outline
-  // (titles + speaker notes) and a frame→slide map so the presenter view can
-  // show the right note per frame.
-  const data = await parseDeck(md)
+  // Static frames for export + the MCP preview_deck tool (one per click-step).
   return {
     id,
     variant: pickVariant(cfg.variant),
     count: pngs.length,
     slides: pngs.map((f) => `/d/${id}/${f}`),
-    outline: outlineSlides(data),
-    slideForFrame: frameSlideMap(data, pngs.length),
   }
 }
 
@@ -284,6 +269,55 @@ function serveStatic(res, id, name) {
   const file = normalize(join(dir, name))
   if (!file.startsWith(dir) || !existsSync(file) || statSync(file).isDirectory()) return void res.writeHead(404).end()
   res.writeHead(200, { 'content-type': MIME[extname(file)] || 'application/octet-stream', 'cache-control': 'public, max-age=31536000, immutable' })
+  createReadStream(file).pipe(res)
+}
+
+// ── interactive SPA (live present) ───────────────────────────────────────────
+// `slidev build` (pure Vite, no Chromium) → a self-contained static SPA with the
+// real Slidev presenter/overview/drawing. `base` is the browser-facing path the
+// backend serves it under (so asset URLs resolve); it's folded into the cache key
+// because it's baked into the build output. tela gates access at its own layer.
+
+const spaBuildId = (md, cfg, base) => hash(`${RENDER_VERSION}|${cfgKey(cfg)}|${base}|${md}`)
+const spaDir = (id) => join(SPA, id)
+const inflightBuilds = new Map() // buildId -> Promise (dedupe the browser's parallel asset fetches)
+
+async function buildSPA(md, cfg, base) {
+  const id = spaBuildId(md, cfg, base)
+  const dir = spaDir(id)
+  if (existsSync(join(dir, 'index.html'))) return id
+  if (inflightBuilds.has(id)) return inflightBuilds.get(id).then(() => id)
+  const p = (async () => {
+    const entry = join(WORK, `spa-${id}.md`)
+    await writeFile(entry, withTheme(await parseDeck(md), cfg))
+    const release = await acquire()
+    try {
+      await mkdir(dir, { recursive: true })
+      await exec(SLIDEV, ['build', entry, '--base', base, '--out', dir], { cwd: ROOT, timeout: 300_000, maxBuffer: 1 << 24 })
+    } finally {
+      release()
+    }
+  })()
+  inflightBuilds.set(id, p)
+  try {
+    await p
+  } finally {
+    inflightBuilds.delete(id)
+  }
+  return id
+}
+
+function serveSPA(res, id, name) {
+  const dir = spaDir(id)
+  const file = normalize(join(dir, name || 'index.html'))
+  if (file !== dir && !file.startsWith(dir + '/')) return void res.writeHead(404).end() // traversal guard
+  if (!existsSync(file) || statSync(file).isDirectory()) return void res.writeHead(404).end()
+  const isIndex = file.endsWith('/index.html')
+  res.writeHead(200, {
+    'content-type': SPA_MIME[extname(file)] || 'application/octet-stream',
+    // Vite content-hashes asset filenames → immutable; index.html must revalidate.
+    'cache-control': isIndex ? 'no-cache' : 'public, max-age=31536000, immutable',
+  })
   createReadStream(file).pipe(res)
 }
 
@@ -330,6 +364,17 @@ const server = http.createServer(async (req, res) => {
       const file = await renderFile(md, cfg, format)
       res.writeHead(200, { 'content-type': EXPORT_MIME[format] })
       createReadStream(file).pipe(res)
+    } else if (req.method === 'POST' && path === '/spa') {
+      // Build-if-needed + serve one file of the interactive SPA. tela's backend
+      // proxies each browser asset GET here (with the deck body + the base it
+      // serves under + the file). build is cached + in-flight-locked, so the
+      // browser's parallel asset fetches don't double-build.
+      const base = url.searchParams.get('base') || ''
+      const name = url.searchParams.get('file') || 'index.html'
+      if (!/^\/[\w./-]*\/$/.test(base)) return void res.writeHead(400).end('base must begin and end with /')
+      const md = await readBody(req)
+      const id = await buildSPA(md, cfg, base)
+      serveSPA(res, id, name)
     } else if (req.method === 'GET' && path.startsWith('/d/')) {
       const [, , id, name] = path.split('/')
       serveStatic(res, id, name || '')

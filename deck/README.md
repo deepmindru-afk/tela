@@ -1,54 +1,50 @@
-# deck — Slidev render sidecar (render-only)
+# deck — Slidev render sidecar
 
 A tela **deck** is a **page** whose body **is Slidev markdown** (whole page —
-a page is *either* a deck or a doc, set by `deck: true`; slides are never inline
-in regular doc content). This service renders that markdown to **static premium
-output** — per-slide PNGs + a PDF/PPTX. There is **no interactive SPA** and
-nothing Slidev runs in the viewer's browser: tela presents the rendered images
-in its own simple full-screen viewer. That keeps this service tiny.
+a page is *either* a deck or a doc, set by `deck: true`). Two output paths off the
+same parse + theme-injection core:
+
+- **Present = the live interactive SPA** (`slidev build`, pure Vite, no Chromium):
+  the real Slidev app — presenter mode, overview, drawing, live clicks. tela serves
+  it page-scoped + membership-gated and opens it in a new tab.
+- **Export / agent-preview / thumbnails = static frames** (`slidev export`,
+  headless Chromium): PNG / PDF / PPTX.
 
 > The look lives entirely in **[`slidev-theme-tahta`](https://github.com/zcag/tahta)**
 > (an npm dependency) — a token-driven design system with style **variants**.
 > This service owns **no** layouts/styles; it just injects the theme + a per-deck
 > visual config. This directory is the *plumbing*, not the look.
 
-## Why a service (and why render-only)
+## Theme injection (shared by both paths)
 
-Slidev is a Vue/Vite tool, not an embeddable library — it has to *render*.
-Rendering lives in its own Node process; tela stores the markdown, this service
-renders it, tela serves + presents the output. The stored markdown never
-references the theme — the service injects `theme: slidev-theme-tahta` plus a
-per-deck `themeConfig` (`variant`/`accent`/`lang`, overriding any user values for
-those keys), so the look is controlled centrally and decks stay portable. The
-variant catalog comes from the theme package's own `variants.json` — tela
-hardcodes nothing visual. **Render-only** (no per-deck SPA build, no SPA serving)
-is the deliberate simplification: present is just images.
+The stored markdown never references the theme — the service injects
+`theme: slidev-theme-tahta` + a per-deck `themeConfig` (`variant`/`accent`/`lang`)
++ `mdc: true` (tahta is MDC-authored) + `routerMode: hash` (so the built SPA's
+routes are client-side `#/…` and static serving is clean), via the parser
+(`parse` → set on the first-slide YAML doc → `prettifySlide` → `stringify`),
+overriding any user values for those keys. The variant catalog comes from the
+theme's own `variants.json`; tela hardcodes nothing visual.
 
-## Parser vs render (two tiers)
-
-The heavy path (PNG/PDF/PPTX) shells out to the Slidev **CLI + headless
-Chromium**. But **structure** — slide count, titles, layouts, speaker notes,
-detected features (KaTeX/Monaco/Mermaid/Tweet) — comes from `@slidev/parser`
-**in-process, no Chromium, in milliseconds**. So:
-
-- Theme injection sets `theme: slidev-theme-tahta` + `themeConfig` on the parsed
-  first-slide YAML doc and re-serializes (`parse` → `prettifySlide` →
-  `stringify`) — no frontmatter regex surgery.
-- `/parse` returns deck structure with no render at all (powers an editor
-  outline / slide navigator).
-- `/render` and `/export/*` **preflight** with the parser first, so a malformed
-  deck fails fast as `400` instead of dying deep in a multi-minute Chromium run.
+`@slidev/parser` also powers `/parse` (structure, no render — editor outline) and
+the parser-based preflight on `/render` + `/export`.
 
 ## Contract
 
 ```
 GET  /themes                      -> [{ name, label, scheme, description }]  (tahta variants)
-POST /parse                       body: slidev markdown -> { count, slides:[{no,title,layout,note}], features, errors }
-POST /render?variant&accent&lang  body: slidev markdown -> { id, count, variant, slides:[url], outline, slideForFrame }
-POST /export/<pdf|pptx>?variant…  body: slidev markdown -> the file bytes
-GET  /d/<id>/<file>               -> a rendered slide PNG / the PDF / the PPTX
+GET  /authoring                   -> { rules, themeConfig, layouts, components, variants }  (MCP deck guide)
+POST /parse                       body: markdown -> { count, slides:[{no,title,layout,note}], features, errors }
+POST /lint                        body: markdown -> { ok, errors, warnings, issues[] }  (tahta validator)
+POST /spa?base&file&variant…      body: markdown -> one file of the built interactive SPA (build-if-needed, cached, in-flight-locked)
+POST /render?variant&accent&lang  body: markdown -> { id, count, variant, slides:[url] }
+POST /export/<pdf|pptx>?variant…  body: markdown -> the file bytes
+GET  /d/<id>/<file>               -> a rendered slide PNG / PDF / PPTX
 GET  /health                      -> ok
 ```
+
+`/spa` builds the deck into a static SPA under `base` (the path tela serves it at,
+so asset URLs resolve), cached by content hash, and returns the requested file.
+tela's backend proxies each browser asset GET → `/spa` (gated by page membership).
 
 `/render` returns one PNG per click-step (`--with-clicks`). Render/export are
 cached by content hash (keyed on `RENDER_VERSION` + the visual config +

@@ -64,9 +64,10 @@ const ShareManagerSheet = lazy(() =>
 const PageReader = lazy(() =>
   import('./PageReader').then((m) => ({ default: m.PageReader })),
 )
-const DeckPresenter = lazy(() =>
-  import('./DeckPresenter').then((m) => ({ default: m.DeckPresenter })),
-)
+// A deck Presents as the live Slidev SPA, opened in a new tab (real presenter,
+// overview, drawing). Same-origin → the session cookie carries RBAC.
+const openDeckPresent = (pageId: number) =>
+  window.open(`/api/pages/${pageId}/deck/spa/`, '_blank', 'noopener')
 const DeckOverview = lazy(() =>
   import('./DeckOverview').then((m) => ({ default: m.DeckOverview })),
 )
@@ -241,19 +242,15 @@ export function PageView({ spaceId, pageId }: PageViewProps) {
       />
     )
   }
-  // ?view=read — full-bleed overlay above the app shell (which stays mounted
-  // underneath, so closing is instant). For a deck this is PRESENT (rendered
-  // slides); for a doc it's the distraction-free prose reader. A view-state on
-  // the canonical URL, mirroring ?edit; closing just drops the param.
-  if (view === 'read') {
+  // ?view=read — full-bleed distraction-free prose reader overlay above the app
+  // shell (which stays mounted underneath, so closing is instant). Docs only:
+  // a deck Presents as the live Slidev SPA in a new tab (see Present button), so
+  // it never uses this overlay.
+  if (view === 'read' && !isDeck) {
     return (
       <div className="fixed inset-0 z-50 bg-[var(--surface-1)]">
         <Suspense fallback={null}>
-          {isDeck ? (
-            <DeckPresenter spaceId={spaceId} pageId={page.data.id} />
-          ) : (
-            <PageReader spaceId={spaceId} pageId={page.data.id} />
-          )}
+          <PageReader spaceId={spaceId} pageId={page.data.id} />
         </Suspense>
       </div>
     )
@@ -431,7 +428,11 @@ function PageViewer({
                   ? 'Present — full-screen slides'
                   : 'Read mode — distraction-free reading view'
               }
-              onClick={() =>
+              onClick={() => {
+                if (isDeck) {
+                  openDeckPresent(page.id)
+                  return
+                }
                 void navigate({
                   to: '/spaces/$spaceId/pages/$pageId/{-$slug}',
                   params: {
@@ -441,7 +442,7 @@ function PageViewer({
                   },
                   search: (prev) => ({ ...prev, view: 'read' }),
                 })
-              }
+              }}
               className="h-[var(--space-8)] px-[var(--space-3)]"
             >
               {isDeck ? (
@@ -517,7 +518,7 @@ function PageViewer({
           // A deck's default view shows its identity (outline + Present), not the
           // raw Slidev markdown as prose. Present (?view=read) renders the slides.
           <Suspense fallback={<div className={EDITOR_MIN_H} />}>
-            <DeckOverview page={page} spaceId={spaceId} />
+            <DeckOverview page={page} />
           </Suspense>
         ) : (
           <MarkdownView
@@ -1207,18 +1208,8 @@ function PageEditor({ page, spaceId, draftRevId, onDeleted, isDeck }: PageEditor
                   variant="primary"
                   size="sm"
                   aria-label="Present"
-                  title="Present — full-screen slides"
-                  onClick={() =>
-                    void navigate({
-                      to: '/spaces/$spaceId/pages/$pageId/{-$slug}',
-                      params: {
-                        spaceId,
-                        pageId: page.id,
-                        slug: pageSlug(page.title) || undefined,
-                      },
-                      search: (prev) => ({ ...prev, edit: undefined, view: 'read' }),
-                    })
-                  }
+                  title="Present — live slides in a new tab"
+                  onClick={() => openDeckPresent(page.id)}
                   className="h-[var(--space-8)] px-[var(--space-3)]"
                 >
                   <Presentation width={16} height={16} />
