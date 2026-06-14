@@ -1,6 +1,5 @@
 ---
 layout: cover
-bg: aurora
 kicker: tela · agent-native wiki
 title: Stop pasting docs <span class="accent2">into chat</span>.
 subtitle: tela is the team wiki your agents read, search, and write — themselves.
@@ -8,7 +7,6 @@ subtitle: tela is the team wiki your agents read, search, and write — themselv
 
 ---
 layout: statement
-bg: mesh
 kicker: The problem
 title: Every task, your agent starts <em>from zero</em>.
 ---
