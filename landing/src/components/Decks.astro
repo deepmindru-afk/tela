@@ -8,7 +8,7 @@
 //
 // To re-render (e.g. after a theme bump) — source is tooling/showcase-deck.md:
 //   cd ../deck && PORT=3344 node server.mjs &        # deck sidecar (needs chromium)
-//   curl -s -X POST "localhost:3344/render?variant=minimal&accent=%236366f1" \
+//   curl -s -X POST "localhost:3344/render?variant=brutalist&accent=%236366f1" \
 //     --data-binary @../landing/tooling/showcase-deck.md   # -> {id, slides:[/d/<id>/<file>]}
 //   # fetch each frame, then: magick <png> -resize 1280x -quality 82 public/decks/slide-0N.webp
 const feats = [
@@ -19,14 +19,15 @@ const feats = [
 ];
 // Real slides rendered from a tela deck (the cover leads the viewer).
 const slides = [
-  { src: '/decks/slide-001.webp', label: 'The wiki your agents reason over' },
-  { src: '/decks/slide-002.webp', label: 'What is tela?' },
-  { src: '/decks/slide-003.webp', label: 'How an agent uses it' },
-  { src: '/decks/slide-004.webp', label: "What's in the box" },
-  { src: '/decks/slide-005.webp', label: 'By the numbers' },
-  { src: '/decks/slide-006.webp', label: 'Connect it — one URL' },
-  { src: '/decks/slide-007.webp', label: 'Stop starting from zero' },
-  { src: '/decks/slide-008.webp', label: 'Try tela' },
+  { src: '/decks/slide-001.webp', label: 'Stop pasting docs into chat' },
+  { src: '/decks/slide-002.webp', label: 'Every task starts from zero' },
+  { src: '/decks/slide-003.webp', label: 'What is tela?' },
+  { src: '/decks/slide-004.webp', label: 'Retrieve, then write back' },
+  { src: '/decks/slide-005.webp', label: 'A real wiki underneath' },
+  { src: '/decks/slide-006.webp', label: 'Built for teams and agents' },
+  { src: '/decks/slide-007.webp', label: 'Connect it — one URL' },
+  { src: '/decks/slide-008.webp', label: "Your team's memory, shared" },
+  { src: '/decks/slide-009.webp', label: 'Try tela' },
 ];
 ---
 <section id="decks" class="section">
@@ -198,7 +199,7 @@ const slides = [
   /* filmstrip of real slide thumbnails */
   .deck-strip {
     list-style: none; margin: 0; padding: 0;
-    display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.55rem;
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.55rem;
   }
   .deck-thumb {
     display: block; width: 100%; padding: 0;
@@ -221,7 +222,7 @@ const slides = [
   .deck-thumb.is-current { border-color: var(--brand); box-shadow: var(--glow-brand, none); }
 
   @media (max-width: 560px) {
-    .deck-strip { grid-template-columns: repeat(4, 1fr); gap: 0.4rem; }
+    .deck-strip { grid-template-columns: repeat(3, 1fr); gap: 0.4rem; }
   }
 
   /* ── capability list ──────────────────────────────────────────────── */

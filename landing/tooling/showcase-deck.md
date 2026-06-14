@@ -1,14 +1,21 @@
 ---
-layout: lead
-index: "01"
+layout: cover
+bg: aurora
 kicker: tela · agent-native wiki
-title: The wiki your agents <em>reason over</em>.
-subtitle: A markdown team wiki with semantic search and a built-in MCP server.
+title: Stop pasting docs <span class="accent2">into chat</span>.
+subtitle: tela is the team wiki your agents read, search, and write — themselves.
+---
+
+---
+layout: statement
+bg: mesh
+kicker: The problem
+title: Every task, your agent starts <em>from zero</em>.
 ---
 
 ---
 layout: define
-kicker: The idea
+kicker: The fix
 term: What is tela?
 definition: A <span class="accent2">markdown team wiki</span> your agents search by meaning — then read, write, and cite, right inside Claude or ChatGPT.
 points:
@@ -19,7 +26,7 @@ points:
 
 ---
 layout: steps
-kicker: How an agent uses it
+kicker: How it works
 title: Retrieve, then write back
 steps:
   - { title: Search by meaning, desc: semantic_search over heading-aware chunks, icon: "lucide:search" }
@@ -30,20 +37,21 @@ steps:
 
 ---
 layout: feature
-kicker: What's in the box
-title: A real wiki, not an AI gimmick
+kicker: Not a chatbot bolted on
+title: A real wiki underneath
 columns: 2
 features:
   - { icon: "lucide:users", title: Live multiplayer, desc: Cursors and edits over Yjs, saved as clean markdown. }
   - { icon: "lucide:search", title: Semantic + full-text, desc: Keyword and vector search, fused and ranked. }
   - { icon: "lucide:plug", title: MCP connector, desc: 24 scoped tools inside Claude and ChatGPT. }
-  - { icon: "lucide:file-text", title: Markdown you own, desc: Import a folder, export anytime. Plain files. }
+  - { icon: "lucide:download", title: Markdown you own, desc: Import a folder, export anytime. Plain files. }
 ---
 
 ---
 layout: stats
 kicker: By the numbers
 title: Built for teams and agents
+ghost: tela
 stats:
   - { value: 24, label: scoped MCP tools, icon: "lucide:wrench", tone: info }
   - { value: 100, unit: "%", label: canonical markdown, icon: "lucide:file-check", tone: good }
@@ -68,9 +76,9 @@ title: One URL. OAuth or a scoped token.
 ```
 
 ---
-layout: statement
-kicker: Why it matters
-title: Your agent stops <em>starting from zero</em>.
+layout: bigtype
+kicker: The payoff
+title: Your team's memory, <em>shared</em> with its agents.
 ---
 
 ---
