@@ -6,22 +6,22 @@
 // the look is a swappable theme (slidev-theme-tahta) with a variant/accent.
 // Sibling to Publish (§8a): "your wiki doubles as X". See docs/deck.md.
 const feats = [
-  'Convert any page to slides',
+  'Agents build whole presentations for you',
   'Present live — presenter mode, overview, draw',
   'Export to PDF, PPTX or PNG',
-  'Agents author decks over MCP',
+  'Plain markdown you own underneath',
 ];
 const thumbs = ['Why now', 'What shipped', 'Numbers', 'Next'];
 ---
 <section id="decks" class="section">
   <div class="section-head reveal-up">
     <p class="kicker"><span class="kicker-dot"></span>Presentations</p>
-    <h2 class="h2">Any page is a presentation.</h2>
+    <h2 class="h2">Presentations, built in.</h2>
     <p class="lede">
-      Turn any page into real slides — its body is just <strong>Slidev markdown</strong>.
-      Present it live in the browser, or export to PDF, PPTX or PNG. And because tela is
-      agent-native, your agent can write the whole deck — <em>"turn the launch notes into a
-      10-slide talk"</em> — right inside Claude or ChatGPT.
+      tela makes <strong>real presentations</strong> — present them live in the browser, or
+      export to PDF, PPTX or PNG. And because tela is agent-native, your agent can build the
+      whole thing for you: ask Claude or ChatGPT to <em>"turn the launch notes into a 10-slide
+      talk"</em> and it does.
     </p>
   </div>
 
@@ -42,7 +42,7 @@ const thumbs = ['Why now', 'What shipped', 'Numbers', 'Next'];
           <span class="deck-kick">01 — Launch</span>
           <span class="deck-title">Shipping tela 0.7</span>
           <span class="deck-sub">Decks, semantic retrieval, and the MCP connector.</span>
-          <span class="deck-theme" aria-hidden="true">tahta · indigo</span>
+          <span class="deck-theme" aria-hidden="true">Theme · Indigo</span>
         </div>
 
         <ol class="deck-strip" aria-hidden="true">
@@ -67,11 +67,18 @@ const thumbs = ['Why now', 'What shipped', 'Numbers', 'Next'];
         </li>
       ))}
       <li class="deck-note">
-        A deck is just a page whose body is plain Slidev markdown — portable like everything else.
-        The look is a swappable theme; agents lint and preview their slides before you do.
+        Slides are plain markdown underneath — portable like everything else in tela. Pick a
+        theme and accent; agents preview and fix their own slides before handing them over.
       </li>
     </ul>
   </div>
+
+  <p class="deck-credit reveal-up">
+    Powered by
+    <a href="https://sli.dev" target="_blank" rel="noopener">Slidev</a>
+    and
+    <a href="https://github.com/zcag/tahta" target="_blank" rel="noopener">tahta</a>.
+  </p>
 </section>
 
 <style>
@@ -211,4 +218,17 @@ const thumbs = ['Why now', 'What shipped', 'Numbers', 'Next'];
     border-top: 1px solid var(--border);
     font-size: var(--text-sm); color: var(--fg-faint);
   }
+
+  .deck-credit {
+    margin-top: 1.75rem;
+    font-size: var(--text-xs);
+    color: var(--fg-faint);
+  }
+  .deck-credit a {
+    color: var(--fg-soft);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+    text-decoration-color: var(--border-strong);
+  }
+  .deck-credit a:hover { color: var(--accent); text-decoration-color: var(--accent); }
 </style>

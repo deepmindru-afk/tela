@@ -208,6 +208,18 @@ Section order is the narrative arc. Tier = visual prominence (1 = hero/max, 4 = 
 - **Honesty note for the build:** `planned` cells MUST be visually distinct (muted + a "Planned" tag) and never styled identically to shipped cells. Do not promote a planned feature without updating this contract.
 - No CTA (momentum carries to the comparison).
 
+### 6a. Presentations — "Presentations, built in."  — Tier 2  (added 2026-06: decks shipped; THE standalone capability, not a page trick)
+- **Purpose:** Surface presentations as a **standalone big feature tela provides** — not "any page becomes slides" (that framing sells it as a minor page trick; it isn't). tela makes real presentations: present live in the browser, export, and — the differentiator — **your agent builds the whole thing for you** from Claude/ChatGPT. **Page order: rendered after the feature showcase (§6), before the Comparison (§7)** — high on the page because it's a headline ability, not a footnote.
+- **Copy rules (load-bearing):**
+  - Frame it as a **capability tela has** ("tela makes presentations"), never as a per-page conversion ("any page is a presentation").
+  - **Never sell the engine** — "Slidev", "tahta", theme package names mean nothing to a buyer and read as leaking internals, so they never appear in the headline, body, capabilities, or mock chrome (use "presentations / slides" and a neutral `Theme · Indigo` label). Markdown is fine to name (it's a page-wide pillar and widely understood); the slide *engine* is not. **Exception:** a small muted **"Powered by Slidev and tahta"** credit line at the very bottom of the section, with outbound links — attribution, not a selling point.
+  - Lead with the universal word **"presentation" / "slides"**; "deck" only as an occasional synonym.
+- **Headline (H2):** `Presentations, built in.`
+- **Lede:** `tela makes real presentations — present them live in the browser, or export to PDF, PPTX or PNG. And because tela is agent-native, your agent can build the whole thing for you: ask Claude or ChatGPT to "turn the launch notes into a 10-slide talk" and it does.`
+- **Visual:** a presentation mock — a 16:9 cover slide (themed, accent title) above a filmstrip of 3–4 mini slide thumbnails, with a small toolbar of output chips (`Present` · `PDF` · `PPTX`). Themed/on-brand look; never a generic stock slide and never an engine/theme name in the chrome (a neutral `Theme · Indigo` label is fine).
+- **Capabilities:** `Agents build whole presentations for you` · `Present live — presenter mode, overview, draw` · `Export to PDF, PPTX or PNG` · `Plain markdown you own underneath`.
+- **Honesty line:** slides are plain markdown underneath — portable like everything else; pick a theme and accent. Agents preview and fix their own slides before handing them over.
+
 ### 7. Honest comparison — "How tela compares. Honestly."  — Tier 2  (head-to-head, NOT smug)
 - **Purpose:** Beat the reader to the comparison — and concede the one thing each alternative genuinely does better. Conceding builds trust; the synthesis line lands harder.
 - **Headline (H2):** `How does tela compare?`
@@ -236,15 +248,6 @@ Section order is the narrative arc. Tier = visual prominence (1 = hero/max, 4 = 
 - **Visual:** a blog front-page mock — masthead (monogram avatar + standfirst + RSS chip) + post cards (cover w/ graph-paper grid + faded monogram, meta `date · reading-time · tag`, title, excerpt). Mirrors the real reader.
 - **Capabilities:** `No-login public reader` · `RSS feed per space` · `OG, JSON-LD & sitemap for SEO` · `Author home at /u/handle`.
 - **Honesty line:** read-only by design — making a space public grants no write access; owner flips it on and can flip it back.
-
-### 8c. Decks / Presentations — "Any page is a presentation."  — Tier 2  (added 2026-06: Slidev decks shipped)
-- **Purpose:** Surface presentations — a new big ability. A page flipped to a deck (`props.deck=true`) is a real **[Slidev](https://sli.dev) presentation**: present it live in the browser, export it, and — the tela angle — **your agent can author the whole deck** from Claude/ChatGPT. Same "your wiki doubles as X" beat as Publish (§8a). **Page order: rendered after Publish (§8a), before Pricing (§8b).**
-- **Copy term:** lead with the universal word **"presentation" / "slides"** (the 5-second test) — *not* "slide deck" / "deck" as the primary noun (it's tech jargon, even though the in-product action is literally "Convert to slide deck"). Use "deck" at most once, as the product term.
-- **Headline (H2):** `Any page is a presentation.`
-- **Lede:** `Turn any page into real slides — its body is just Slidev markdown. Present it live in the browser (presenter mode, slide overview, draw on slides), or export to PDF, PPTX, or PNG. And because tela is agent-native, your agent can write the whole deck: "turn the launch notes into a 10-slide talk" — in Claude or ChatGPT.`
-- **Visual:** a presentation mock — a 16:9 cover slide (themed, accent title) above a filmstrip of 3–4 mini slide thumbnails, with a small toolbar of output chips (`Present` · `PDF` · `PPTX`). Themed look nods to the real deck theme (slidev-theme-tahta); never a generic stock slide.
-- **Capabilities:** `Convert any page to slides` · `Present live — presenter mode, overview, draw` · `Export to PDF, PPTX or PNG` · `Agents author decks over MCP`.
-- **Honesty line:** a presentation is just a page whose body is plain Slidev markdown — portable like everything else; the look comes from a swappable theme, and you pick a variant/accent. Agents author via the same MCP tools (`lint_deck`, `preview_deck`) so they can see and fix their slides before you do.
 
 ### 8b. Pricing — "Simple plans. Your markdown either way."  — Tier 2  (added 2026-06: tiers shipped)
 - **Purpose:** Show the plan ladder without hype. The product meters per-account tiers (personal + org); pricing makes the ladder legible. The thesis: tiers change *limits* — now including a **monthly AI-answer allowance** — never the product. Same wiki, search, ask-your-docs, and agent connector on every plan.
