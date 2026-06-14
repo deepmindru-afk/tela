@@ -374,20 +374,24 @@ deploy: registry-up
 
 # deploy-backend: build + push + recreate ONLY the backend (fast path when only Go
 # changed). VERSION/COMMIT ldflags stamp the image so /api/version is right and the
-# health gate passes.
+# health gate passes. --no-deps is load-bearing: DEPLOY_IMAGE_ENV pins ALL services
+# to TELA_COMMIT, but this partial only pushed the backend image — without --no-deps,
+# `up backend` would try to pull its deps (deck/frontend) at a tag that doesn't exist
+# in the registry and fail. The deps are already running, so recreate backend alone.
 deploy-backend: registry-up
 	docker build --build-arg VERSION=$(TELA_VERSION) --build-arg COMMIT=$(TELA_COMMIT) \
 	  -t $(TELA_REGISTRY)/tela-backend:$(TELA_COMMIT) -t $(TELA_REGISTRY)/tela-backend:latest backend
 	@$(MAKE) _push PUSH_IMAGES="tela-backend" TELA_COMMIT=$(TELA_COMMIT)
-	ssh $(REMOTE) 'cd $(REMOTE_DIR) && $(DEPLOY_IMAGE_ENV) $(SPLIT) up -d backend'
+	ssh $(REMOTE) 'cd $(REMOTE_DIR) && $(DEPLOY_IMAGE_ENV) $(SPLIT) up -d --no-deps backend'
 	@$(MAKE) health-gate EXPECT_COMMIT=$(TELA_COMMIT)
 
 # deploy-frontend: build + push + recreate ONLY the frontend. No health gate
-# (/api/version reflects the backend, not the FE bundle).
+# (/api/version reflects the backend, not the FE bundle). --no-deps for the same
+# reason as deploy-backend (only the frontend image was pushed at this commit).
 deploy-frontend: registry-up
 	docker build -t $(TELA_REGISTRY)/tela-frontend:$(TELA_COMMIT) -t $(TELA_REGISTRY)/tela-frontend:latest frontend
 	@$(MAKE) _push PUSH_IMAGES="tela-frontend" TELA_COMMIT=$(TELA_COMMIT)
-	ssh $(REMOTE) 'cd $(REMOTE_DIR) && $(DEPLOY_IMAGE_ENV) $(SPLIT) up -d frontend'
+	ssh $(REMOTE) 'cd $(REMOTE_DIR) && $(DEPLOY_IMAGE_ENV) $(SPLIT) up -d --no-deps frontend'
 
 # deploy-landing: the landing + sites.caddy are static files the EXTERNAL shared
 # edge serves/imports from REMOTE_WEB (not an image). Build, rsync, reload the edge.
