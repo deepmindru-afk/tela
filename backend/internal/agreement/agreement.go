@@ -49,7 +49,16 @@ type Service struct {
 	queueMu  sync.Mutex
 	pending  map[int64]time.Time
 	attempts map[int64]int
+
+	// paused, when set and true, halts the background worker — wired to the admin
+	// AI kill-switch (it calls both the LLM and the embedder).
+	paused func() bool
 }
+
+// SetPaused installs the predicate the worker consults each tick. Call before Start.
+func (s *Service) SetPaused(fn func() bool) { s.paused = fn }
+
+func (s *Service) isPaused() bool { return s.paused != nil && s.paused() }
 
 // NewService builds the service. Never fails; constructed disabled when the LLM
 // or embedder is off (or TELA_AGREEMENT=0) so api.Server can hold a non-nil handle.

@@ -49,7 +49,16 @@ type Service struct {
 	attempts     map[int64]int
 	pendingFiles map[int64]time.Time
 	fileAttempts map[int64]int
+
+	// paused, when set and true, halts background generation — wired to the admin
+	// AI kill-switch so it doesn't call the LLM while it's under maintenance.
+	paused func() bool
 }
+
+// SetPaused installs the predicate the worker consults each tick. Call before Start.
+func (s *Service) SetPaused(fn func() bool) { s.paused = fn }
+
+func (s *Service) isPaused() bool { return s.paused != nil && s.paused() }
 
 // NewService builds the service. Never fails; with a disabled llm the service
 // is constructed disabled so api.Server can hold a non-nil handle.

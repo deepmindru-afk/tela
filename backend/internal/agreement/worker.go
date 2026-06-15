@@ -65,6 +65,9 @@ func (s *Service) agreeLoop(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case <-t.C:
+			if s.isPaused() {
+				continue // AI kill-switch on — leave the queue intact, resume later
+			}
 			for _, id := range s.due() {
 				cctx, cancel := context.WithTimeout(ctx, agreeTimeout)
 				err := s.AgreePage(cctx, id, false)
@@ -144,6 +147,9 @@ func (s *Service) staleSweepLoop(ctx context.Context) {
 // a body that has since changed. (Neighbour-only drift isn't detected by the body
 // hash; the periodic sweep is the backstop that eventually catches it.)
 func (s *Service) sweepStale(ctx context.Context) {
+	if s.isPaused() {
+		return // AI kill-switch on — don't backfill while the AI backend is paused
+	}
 	rows, err := s.db.QueryContext(ctx, `
 		SELECT p.id
 		  FROM pages p

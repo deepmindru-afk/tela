@@ -104,6 +104,9 @@ func (s *Service) summarizeLoop(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case <-t.C:
+			if s.isPaused() {
+				continue // AI kill-switch on — leave the queue intact, resume later
+			}
 			for _, id := range s.dueSummaries() {
 				sctx, cancel := context.WithTimeout(ctx, summarizeTimeout)
 				_, err := s.SummarizePage(sctx, id, false)
@@ -243,6 +246,9 @@ func (s *Service) staleSweepLoop(ctx context.Context) {
 // sweepStale enqueues up to staleSweepBatch stale/missing pages and logs a
 // health line. Best-effort: query errors are logged, never fatal.
 func (s *Service) sweepStale(ctx context.Context) {
+	if s.isPaused() {
+		return // AI kill-switch on — don't backfill while the LLM is paused
+	}
 	h, err := s.SummaryHealth(ctx)
 	if err != nil {
 		slog.Error("summarize: health query", "err", err)
@@ -271,6 +277,9 @@ func (s *Service) sweepStale(ctx context.Context) {
 // so the sweep doesn't churn on images. Called from staleSweepLoop alongside
 // sweepStale. Best-effort.
 func (s *Service) sweepStaleFiles(ctx context.Context) {
+	if s.isPaused() {
+		return
+	}
 	files, err := s.staleFileIDs(ctx, staleSweepBatch)
 	if err != nil {
 		slog.Error("summarize: file stale-sweep query", "err", err)

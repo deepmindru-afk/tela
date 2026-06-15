@@ -157,19 +157,24 @@ func New(db *sql.DB) *Server {
 	go s.authLimiter.sweepLoop(context.Background())
 	go s.cloudLimiter.sweepLoop(context.Background())
 	go s.davDeletes.sweepLoop(context.Background())
-	// Background auto-reindex worker (no-op when the embedder is unconfigured).
-	// Page writes call s.rag.QueueReindex; this drains the debounced queue. The
-	// admin AI kill-switch (ai.disabled) pauses backfilling so it doesn't hammer
-	// the embedder while it's under maintenance.
-	s.rag.SetPaused(func() bool {
+	// Admin AI kill-switch (ai.disabled): pause EVERY background AI worker so a
+	// maintenance window on the AI backend isn't hammered by indexing, summaries,
+	// or agreement. Each worker leaves its queue intact and resumes (+ stale-sweep
+	// backfills) once it clears.
+	aiPaused := func() bool {
 		v, _ := s.settings.Get("ai.disabled")
 		return v == "1"
-	})
+	}
+	// Background auto-reindex worker (no-op when the embedder is unconfigured).
+	// Page writes call s.rag.QueueReindex; this drains the debounced queue.
+	s.rag.SetPaused(aiPaused)
 	s.rag.StartAutoReindex(context.Background())
 	// Background auto-summarize worker, the generation sibling (no-op when the
 	// LLM is unconfigured). Page writes call s.summarize.Queue.
+	s.summarize.SetPaused(aiPaused)
 	s.summarize.Start(context.Background())
 	// Background agreement worker (no-op unless both llm + embedder are on).
+	s.agreement.SetPaused(aiPaused)
 	s.agreement.Start(context.Background())
 	return s
 }
