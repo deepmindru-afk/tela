@@ -19,6 +19,9 @@ export interface AuthUser {
   trial?: TrialStatus
   // Unread feedback count for the admin inbox badge (instance admins only).
   feedback_unseen?: number
+  // Whether the user has ever made an authenticated MCP request (any credential).
+  // Drives the "connect an agent" nudge.
+  mcp_connected?: boolean
 }
 
 export interface TrialStatus {

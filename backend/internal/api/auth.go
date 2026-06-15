@@ -30,6 +30,7 @@ type authUserDTO struct {
 	Bio             string    `json:"bio"`
 	Trial           *trialDTO `json:"trial,omitempty"`           // active trial in its notify window, else nil
 	FeedbackUnseen  *int      `json:"feedback_unseen,omitempty"` // unread feedback count (instance admins only)
+	MCPConnected    bool      `json:"mcp_connected"`             // has ever made an authenticated MCP request
 }
 
 // trialDTO drives the in-app trial banner. Ended distinguishes "ends soon" from
@@ -204,8 +205,9 @@ func (s *Server) Me(w http.ResponseWriter, r *http.Request) {
 	// directly (cheap, single-row) so /api/auth/me can address the user by name
 	// and prefill the profile editor.
 	var displayName, bio string
+	var mcpSeen sql.NullString
 	_ = s.DB.QueryRowContext(r.Context(),
-		`SELECT display_name, bio FROM users WHERE id = $1`, u.ID).Scan(&displayName, &bio)
+		`SELECT display_name, bio, mcp_last_seen_at FROM users WHERE id = $1`, u.ID).Scan(&displayName, &bio, &mcpSeen)
 
 	dto := authUserDTO{
 		ID:          u.ID,
@@ -218,6 +220,7 @@ func (s *Server) Me(w http.ResponseWriter, r *http.Request) {
 		IsInstanceAdmin: u.IsInstanceAdmin,
 		Bio:             bio,
 		Trial:           s.userTrialStatus(r.Context(), u.ID),
+		MCPConnected:    mcpSeen.Valid,
 	}
 	// Unread feedback badge — instance admins only (the inbox is admin-gated).
 	if u.IsInstanceAdmin {

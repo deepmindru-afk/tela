@@ -24,6 +24,7 @@ import { emitOpenPalette } from '../../lib/paletteEvent'
 import { Button } from '../ui/button'
 import { cn } from '../../lib/utils'
 import { DOCS } from '../../lib/docs'
+import { ConnectAgentNudge } from './ConnectAgentNudge'
 
 // Home dashboard — the app's landing surface (mounted at `/`). A launchpad plus
 // lenses on the wiki: what changed, what your agents changed, what you starred /
@@ -110,6 +111,8 @@ export function HomeRoute() {
             </a>
           </Button>
         </div>
+
+        <ConnectAgentNudge />
 
         {noSpaces ? (
           <FirstRunEmptyState />
