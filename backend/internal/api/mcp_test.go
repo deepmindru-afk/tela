@@ -326,6 +326,48 @@ func TestMCP_ReadToolCrossSpaceDenied(t *testing.T) {
 	}
 }
 
+// TestMCP_FetchBadIDCleanError — fetch with a non-numeric id must come back as a
+// clean tool error, not a tool-output schema-validation failure. The error path
+// returned a zero fetchOut whose nil `metadata` map serialized to null and failed
+// the output schema (object), masking the real error — see mcpFetch.
+func TestMCP_FetchBadIDCleanError(t *testing.T) {
+	ts, d := newWiredServer(t)
+	alice := seedUser(t, d, "alice", "alicepw12", false)
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+	sess := mcpSession(t, ctx, ts, seedReadKey(t, d, alice, auth.ScopeRead))
+
+	res, err := sess.CallTool(ctx, &mcp.CallToolParams{Name: "fetch", Arguments: map[string]any{"id": "not-a-number"}})
+	if err != nil {
+		t.Fatalf("fetch call failed at the transport/validation layer: %v", err)
+	}
+	if !res.IsError {
+		t.Fatalf("expected fetch with a non-numeric id to be a tool error")
+	}
+}
+
+// TestMCP_DeckAuthoringGuideTool — the deck guide is reachable as a TOOL (not only
+// as a tela:// resource), for hosts that can't read resources. With the sidecar
+// down in tests it returns the static fallback; either way it's non-empty markdown.
+func TestMCP_DeckAuthoringGuideTool(t *testing.T) {
+	ts, d := newWiredServer(t)
+	alice := seedUser(t, d, "alice", "alicepw12", false)
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+	sess := mcpSession(t, ctx, ts, seedReadKey(t, d, alice, auth.ScopeRead))
+
+	raw, _ := mcpCallRawJSON(t, ctx, sess, "deck_authoring_guide", nil)
+	var out struct {
+		Guide string `json:"guide"`
+	}
+	if err := json.Unmarshal(raw, &out); err != nil {
+		t.Fatalf("decode deck_authoring_guide: %v", err)
+	}
+	if !strings.Contains(out.Guide, "deck") {
+		t.Fatalf("deck_authoring_guide returned unexpected content: %q", out.Guide)
+	}
+}
+
 // TestMCP_WriteTools exercises the Phase-1 write surface end-to-end: create_space,
 // create_page, update_page, add_comment, delete_page, delete_space, plus the
 // read-scope rejection (mcpRequireWrite) and submit_feedback's any-scope allowance.

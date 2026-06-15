@@ -77,7 +77,7 @@ func deckAuthoringManifest(ctx context.Context) (*deckManifestDoc, error) {
 // (static — no sidecar dependency at call time). It tells the agent decks exist,
 // how to make one, and where the full layout/variant reference lives.
 func deckAuthoringToolHint() string {
-	return " When asked for a presentation, slides, a slide deck, or a talk (any phrasing) — not a prose doc — set the page property deck=true (and optionally variant=<style>) and write the body as slides separated by `---` using the tahta layouts; read the tela://deck-authoring-guide resource for the layouts, fields, components, and variants."
+	return " When asked for a presentation, slides, a slide deck, or a talk (any phrasing) — not a prose doc — set the page property deck=true (and optionally variant=<style>) and write the body as slides separated by `---` using the tahta layouts; call the deck_authoring_guide tool (or read the tela://deck-authoring-guide resource) for the layouts, fields, components, and variants."
 }
 
 const deckGuideFallback = "# Authoring tela slide decks\n\n" +
@@ -115,19 +115,41 @@ func deckAuthoringGuideMarkdown(m *deckManifestDoc) string {
 	return telaDeckPreamble(m) + m.Guide
 }
 
+// deckAuthoringGuideText resolves the framed guide markdown (tela preamble +
+// tahta's contract), falling back to the static note if the sidecar is down.
+func deckAuthoringGuideText(ctx context.Context) string {
+	if m, err := deckAuthoringManifest(ctx); err == nil {
+		return deckAuthoringGuideMarkdown(m)
+	}
+	return deckGuideFallback
+}
+
 // mcpReadDeckAuthoringGuide serves tela://deck-authoring-guide. Fetches tahta's
 // contract from the sidecar and frames it; falls back to a static note if the
 // deck service is unreachable.
 func (s *Server) mcpReadDeckAuthoringGuide(ctx context.Context, req *mcp.ReadResourceRequest) (*mcp.ReadResourceResult, error) {
-	text := deckGuideFallback
-	if m, err := deckAuthoringManifest(ctx); err == nil {
-		text = deckAuthoringGuideMarkdown(m)
-	}
 	return &mcp.ReadResourceResult{
 		Contents: []*mcp.ResourceContents{{
 			URI:      req.Params.URI,
 			MIMEType: "text/markdown",
-			Text:     text,
+			Text:     deckAuthoringGuideText(ctx),
 		}},
 	}, nil
+}
+
+type deckGuideIn struct{}
+
+type deckGuideOut struct {
+	Guide string `json:"guide"` // markdown: tahta layouts, fields, components, variants
+}
+
+// mcpDeckAuthoringGuide is the TOOL form of the deck guide. Many MCP hosts (Claude
+// Code, claude.ai/cowork) can call tools but not read `tela://` resources, so the
+// guide that create_page/update_page point at was referenced-everywhere-yet-
+// reachable-nowhere for them. This exposes the exact same content as a plain tool.
+func (s *Server) mcpDeckAuthoringGuide(ctx context.Context, req *mcp.CallToolRequest, _ deckGuideIn) (*mcp.CallToolResult, deckGuideOut, error) {
+	if u, _ := mcpIdentity(req); u == nil {
+		return mcpUnauthErr(), deckGuideOut{}, nil
+	}
+	return nil, deckGuideOut{Guide: deckAuthoringGuideText(ctx)}, nil
 }

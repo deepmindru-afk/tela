@@ -66,6 +66,29 @@ func TestFeedback_SessionCreate201(t *testing.T) {
 	}
 }
 
+// TestFeedback_SyntheticOAuthKey — an OAuth-authed MCP caller (claude.ai/cowork)
+// carries a synthetic APIKey with no persisted row (ID 0). feedbackCore must NOT
+// stamp that into the api_keys FK (it 500'd live before the guard); it records the
+// user only, api_key_id NULL.
+func TestFeedback_SyntheticOAuthKey(t *testing.T) {
+	d := newAPITestDB(t)
+	srv := New(d)
+	uid := seedUser(t, d, "oauthuser", "testpass123", false)
+
+	k := &auth.APIKey{UserID: uid, Scope: auth.ScopeWrite} // ID 0 → no api_keys row
+	dto, ae := srv.feedbackCore(context.Background(), &auth.User{ID: uid}, k,
+		feedbackCreateRequest{Subject: "via oauth", Body: "cowork feedback body"})
+	if ae != nil {
+		t.Fatalf("feedbackCore errored for synthetic OAuth key: %+v", ae)
+	}
+	if dto.CreatedByUserID == nil || *dto.CreatedByUserID != uid {
+		t.Fatalf("created_by_user_id=%v want %d", dto.CreatedByUserID, uid)
+	}
+	if dto.CreatedByAPIKeyID != nil {
+		t.Fatalf("synthetic key stamped created_by_api_key_id=%v, want nil", dto.CreatedByAPIKeyID)
+	}
+}
+
 // TestFeedback_BearerCreate201 — bearer POST returns 201 and stamps BOTH
 // created_by_user_id AND created_by_api_key_id. The api_keys row id we
 // inserted matches the stamped value end-to-end.

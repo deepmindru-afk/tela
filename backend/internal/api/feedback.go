@@ -81,8 +81,12 @@ func (s *Server) feedbackCore(ctx context.Context, u *auth.User, k *auth.APIKey,
 		return feedbackDTO{}, &apiErr{http.StatusBadRequest, "bad_request", "body must be 1-8000 characters"}
 	}
 
+	// OAuth-authed MCP callers (claude.ai/cowork) get a synthetic APIKey with no
+	// persisted row (ID 0) — see verifyWorkOSToken. Stamping that into the
+	// created_by_api_key_id FK violates the api_keys reference and 500s the insert,
+	// so only record a real (persisted) key id; OAuth callers record user only.
 	var apiKeyArg any = nil
-	if k != nil {
+	if k != nil && k.ID != 0 {
 		apiKeyArg = k.ID
 	}
 

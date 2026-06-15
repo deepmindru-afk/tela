@@ -33,6 +33,7 @@ type lintDeckOut struct {
 	Errors   int         `json:"errors"`
 	Warnings int         `json:"warnings"`
 	Issues   []lintIssue `json:"issues"`
+	Hint     string      `json:"hint,omitempty"` // points at the guide when issues need the layout/field reference
 }
 
 func (s *Server) mcpLintDeck(ctx context.Context, req *mcp.CallToolRequest, in lintDeckIn) (*mcp.CallToolResult, lintDeckOut, error) {
@@ -55,6 +56,11 @@ func (s *Server) mcpLintDeck(ctx context.Context, req *mcp.CallToolRequest, in l
 	var out lintDeckOut
 	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
 		return mcpErr(&apiErr{http.StatusInternalServerError, "internal", "bad lint response"}), lintDeckOut{}, nil
+	}
+	// lint reports what's wrong, not what's valid — so on any issue, point the agent
+	// at the authoritative layout/field reference instead of leaving it to guess.
+	if out.Errors > 0 || out.Warnings > 0 {
+		out.Hint = "Call deck_authoring_guide for the full list of valid layouts and each layout's fields."
 	}
 	return nil, out, nil
 }

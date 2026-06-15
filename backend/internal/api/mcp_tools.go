@@ -152,9 +152,16 @@ func (s *Server) registerMCPTools(server *mcp.Server) {
 	}, s.mcpUpdatePage)
 
 	mcp.AddTool(server, &mcp.Tool{
+		Name:        "deck_authoring_guide",
+		Title:       "Deck authoring guide",
+		Description: "Return the full tela deck authoring guide as markdown — every tahta layout with its required/optional fields, the components, and the style variants. Read this FIRST when creating or editing a deck (a deck=true page) so you don't guess at layouts/fields. No arguments.",
+		Annotations: readOnly,
+	}, s.mcpDeckAuthoringGuide)
+
+	mcp.AddTool(server, &mcp.Tool{
 		Name:        "lint_deck",
 		Title:       "Lint slide deck",
-		Description: "Validate a deck page's slides against the tahta theme contract — unknown layouts, missing required fields, type/format mistakes. Run after authoring/editing a deck to catch problems before presenting. Returns structured issues per slide.",
+		Description: "Validate a deck page's slides against the tahta theme contract — unknown layouts, missing required fields, type/format mistakes. Run after authoring/editing a deck to catch problems before presenting. Returns structured issues per slide. For the full list of valid layouts and each layout's fields, call deck_authoring_guide.",
 		Annotations: readOnly,
 	}, s.mcpLintDeck)
 
@@ -806,17 +813,22 @@ type fetchOut struct {
 }
 
 func (s *Server) mcpFetch(ctx context.Context, req *mcp.CallToolRequest, in fetchIn) (*mcp.CallToolResult, fetchOut, error) {
+	// Error returns still carry a struct that the SDK marshals + validates against
+	// the output schema; a nil Metadata map serializes to JSON null and fails the
+	// `metadata` object type, masking the real error with a schema-validation error.
+	// So every error path returns a non-nil (empty) metadata.
+	errOut := fetchOut{Metadata: map[string]any{}}
 	u, k := mcpIdentity(req)
 	if u == nil {
-		return mcpUnauthErr(), fetchOut{}, nil
+		return mcpUnauthErr(), errOut, nil
 	}
 	pid, err := strconv.ParseInt(strings.TrimSpace(in.ID), 10, 64)
 	if err != nil || pid <= 0 {
-		return mcpErr(&apiErr{400, "bad_request", "id must be a numeric page id"}), fetchOut{}, nil
+		return mcpErr(&apiErr{400, "bad_request", "id must be a numeric page id"}), errOut, nil
 	}
 	p, ae := s.getPageCore(ctx, u, k, pid)
 	if ae != nil {
-		return mcpErr(ae), fetchOut{}, nil
+		return mcpErr(ae), errOut, nil
 	}
 	text, whole := mcpCapBody(p.Body)
 	return nil, fetchOut{
