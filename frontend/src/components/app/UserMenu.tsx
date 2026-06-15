@@ -24,6 +24,7 @@ export function UserMenu() {
   const navigate = useNavigate()
   const user = me.data ?? null
   const planName = usage.data?.plan.name
+  const feedbackUnseen = user?.feedback_unseen ?? 0
 
   async function handleSignOut() {
     try {
@@ -48,6 +49,12 @@ export function UserMenu() {
             aria-label={`Account menu for ${user.username}`}
           >
             <span className="flex-1 text-left truncate">{user.username}</span>
+            {feedbackUnseen > 0 ? (
+              <span
+                aria-label={`${feedbackUnseen} unread feedback`}
+                className="size-[var(--space-2)] shrink-0 rounded-full bg-[var(--accent)]"
+              />
+            ) : null}
             {planName ? (
               <Badge variant="muted" className="shrink-0">
                 {planName}
@@ -72,6 +79,11 @@ export function UserMenu() {
             }}
           >
             <Settings width={14} height={14} /> Settings
+            {feedbackUnseen > 0 ? (
+              <Badge variant="accent" className="ml-auto">
+                {feedbackUnseen}
+              </Badge>
+            ) : null}
           </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem

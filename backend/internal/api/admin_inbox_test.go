@@ -92,6 +92,53 @@ func TestAdminUsage(t *testing.T) {
 	}
 }
 
+// Submitting feedback raises the admin's unread count on /api/auth/me; opening
+// the inbox (POST /seen) clears it.
+func TestFeedbackUnseenBadge(t *testing.T) {
+	ts, d := newWiredServer(t)
+	seedUser(t, d, "admin", "testpass123", true)
+	admin := loginClient(t, ts, "admin", "testpass123")
+
+	if resp, err := admin.Post(ts.URL+"/api/feedback", "application/json",
+		strings.NewReader(`{"subject":"x","body":"something to read"}`)); err != nil {
+		t.Fatalf("post feedback: %v", err)
+	} else {
+		resp.Body.Close()
+	}
+
+	unseen := func() int {
+		resp, err := admin.Get(ts.URL + "/api/auth/me")
+		if err != nil {
+			t.Fatalf("get me: %v", err)
+		}
+		defer resp.Body.Close()
+		var me struct {
+			User struct {
+				FeedbackUnseen *int `json:"feedback_unseen"`
+			} `json:"user"`
+		}
+		if err := json.NewDecoder(resp.Body).Decode(&me); err != nil {
+			t.Fatalf("decode me: %v", err)
+		}
+		if me.User.FeedbackUnseen == nil {
+			t.Fatalf("feedback_unseen missing for admin")
+		}
+		return *me.User.FeedbackUnseen
+	}
+
+	if got := unseen(); got < 1 {
+		t.Fatalf("unseen after submit = %d, want >=1", got)
+	}
+	if resp, err := admin.Post(ts.URL+"/api/admin/feedback/seen", "application/json", nil); err != nil {
+		t.Fatalf("mark seen: %v", err)
+	} else {
+		resp.Body.Close()
+	}
+	if got := unseen(); got != 0 {
+		t.Fatalf("unseen after mark-seen = %d, want 0", got)
+	}
+}
+
 func TestAdminUsageForbiddenForNonAdmin(t *testing.T) {
 	ts, d := newWiredServer(t)
 	seedUser(t, d, "carol", "carolpw12", false)

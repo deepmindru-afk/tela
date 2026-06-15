@@ -162,6 +162,21 @@ func (s *Server) ListFeedback(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"feedback": entries})
 }
 
+// MarkFeedbackSeen stamps the caller's feedback_seen_at to now, clearing the
+// unread badge. Instance-admin only (the inbox is admin-gated).
+func (s *Server) MarkFeedbackSeen(w http.ResponseWriter, r *http.Request) {
+	u, ok := requireInstanceAdmin(w, r)
+	if !ok {
+		return
+	}
+	if _, err := s.DB.ExecContext(r.Context(),
+		`UPDATE users SET feedback_seen_at = tela_now() WHERE id = $1`, u.ID); err != nil {
+		writeError(w, http.StatusInternalServerError, "internal", "mark seen failed")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"ok": true})
+}
+
 func selectFeedbackByID(ctx context.Context, q *sql.DB, id int64) (feedbackDTO, error) {
 	row := q.QueryRowContext(ctx, `
 		SELECT id, created_at, created_by_user_id, created_by_api_key_id, subject, body

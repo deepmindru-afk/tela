@@ -305,6 +305,7 @@ func registerRoutes(srv *Server, mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/admin/events", srv.ListEvents)
 	mux.HandleFunc("GET /api/admin/usage", srv.AdminUsage)
 	mux.HandleFunc("GET /api/admin/feedback", srv.ListFeedback)
+	mux.HandleFunc("POST /api/admin/feedback/seen", srv.MarkFeedbackSeen)
 	mux.HandleFunc("GET /api/admin/settings", srv.GetInstanceSettings)
 	mux.HandleFunc("PATCH /api/admin/settings", srv.PatchInstanceSettings)
 

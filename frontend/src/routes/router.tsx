@@ -21,6 +21,7 @@ import { EmptyState } from '../components/ui/empty-state'
 import { OrgManageView } from '../components/app/OrgManageView'
 import { PageView } from '../components/app/PageView'
 import { Sidebar } from '../components/app/Sidebar'
+import { TrialBanner } from '../components/app/TrialBanner'
 import { ThemeSwitcher } from '../components/ThemeSwitcher'
 import { Button } from '../components/ui/button'
 import {
@@ -180,6 +181,7 @@ const appLayoutRoute = createRoute({
               <ThemeSwitcher />
             </div>
           </header>
+          <TrialBanner />
           <main
             data-page-scroll
             className="flex-1 flex flex-col overflow-y-auto overscroll-contain min-h-0"

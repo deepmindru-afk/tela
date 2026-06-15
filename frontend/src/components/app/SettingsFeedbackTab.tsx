@@ -1,4 +1,5 @@
-import { useAdminFeedback } from '../../lib/queries/admin-usage'
+import { useEffect } from 'react'
+import { useAdminFeedback, useMarkFeedbackSeen } from '../../lib/queries/admin-usage'
 import { localDateFromSqlite } from '../../lib/relativeTime'
 import type { FeedbackEntry } from '../../lib/types'
 import { Badge } from '../ui/badge'
@@ -8,6 +9,9 @@ import { cn } from '../../lib/utils'
 // submit_feedback tool. Read-only, newest first.
 export function SettingsFeedbackTab() {
   const fb = useAdminFeedback()
+  // Opening the inbox marks everything seen → clears the unread badge.
+  const { mutate: markSeen } = useMarkFeedbackSeen()
+  useEffect(() => markSeen(), [markSeen])
 
   return (
     <section aria-labelledby="settings-feedback" className="flex flex-col gap-[var(--space-4)]">

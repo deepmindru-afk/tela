@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"database/sql"
 	"encoding/json"
 	"errors"
@@ -20,13 +21,24 @@ type authLoginRequest struct {
 }
 
 type authUserDTO struct {
-	ID              int64   `json:"id"`
-	Username        string  `json:"username"`
-	DisplayName     string  `json:"display_name"`
-	Email           *string `json:"email"`
-	EmailVerified   bool    `json:"email_verified"`
-	IsInstanceAdmin bool    `json:"is_instance_admin"`
-	Bio             string  `json:"bio"`
+	ID              int64     `json:"id"`
+	Username        string    `json:"username"`
+	DisplayName     string    `json:"display_name"`
+	Email           *string   `json:"email"`
+	EmailVerified   bool      `json:"email_verified"`
+	IsInstanceAdmin bool      `json:"is_instance_admin"`
+	Bio             string    `json:"bio"`
+	Trial           *trialDTO `json:"trial,omitempty"`           // active trial in its notify window, else nil
+	FeedbackUnseen  *int      `json:"feedback_unseen,omitempty"` // unread feedback count (instance admins only)
+}
+
+// trialDTO drives the in-app trial banner. Ended distinguishes "ends soon" from
+// "ended, in grace until GraceEndsAt" (planFor keeps benefits until then).
+type trialDTO struct {
+	PlanName    string `json:"plan_name"`
+	EndsAt      string `json:"ends_at"`
+	GraceEndsAt string `json:"grace_ends_at"`
+	Ended       bool   `json:"ended"`
 }
 
 // Login authenticates an email-or-username + password pair. On success it
@@ -194,17 +206,51 @@ func (s *Server) Me(w http.ResponseWriter, r *http.Request) {
 	var displayName, bio string
 	_ = s.DB.QueryRowContext(r.Context(),
 		`SELECT display_name, bio FROM users WHERE id = $1`, u.ID).Scan(&displayName, &bio)
-	writeJSON(w, http.StatusOK, map[string]any{
-		"user": authUserDTO{
-			ID:          u.ID,
-			Username:    u.Username,
-			DisplayName: displayName,
-			Email:       email,
-			// A live session implies the account cleared the login email gate
-			// (or has no email at all), so an email here is a confirmed one.
-			EmailVerified:   u.Email != "",
-			IsInstanceAdmin: u.IsInstanceAdmin,
-			Bio:             bio,
-		},
-	})
+
+	dto := authUserDTO{
+		ID:          u.ID,
+		Username:    u.Username,
+		DisplayName: displayName,
+		Email:       email,
+		// A live session implies the account cleared the login email gate
+		// (or has no email at all), so an email here is a confirmed one.
+		EmailVerified:   u.Email != "",
+		IsInstanceAdmin: u.IsInstanceAdmin,
+		Bio:             bio,
+		Trial:           s.userTrialStatus(r.Context(), u.ID),
+	}
+	// Unread feedback badge — instance admins only (the inbox is admin-gated).
+	if u.IsInstanceAdmin {
+		var n int
+		_ = s.DB.QueryRowContext(r.Context(), `
+			SELECT COUNT(*) FROM feedback f
+			 WHERE f.created_at > COALESCE(
+			        (SELECT feedback_seen_at FROM users WHERE id = $1), '')`, u.ID).Scan(&n)
+		dto.FeedbackUnseen = &n
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"user": dto})
+}
+
+// userTrialStatus returns the user's trial banner state, or nil when there's no
+// trial worth surfacing. It's shown only in the window from 7 days before the
+// nominal end through the 7-day grace (planFor keeps benefits over that grace),
+// so the banner appears exactly when it's actionable.
+func (s *Server) userTrialStatus(ctx context.Context, userID int64) *trialDTO {
+	var t trialDTO
+	err := s.DB.QueryRowContext(ctx, `
+		SELECT COALESCE(p.name, u.trial_plan_key),
+		       u.trial_ends_at,
+		       to_char(u.trial_ends_at::timestamp + interval '7 days', 'YYYY-MM-DD HH24:MI:SS'),
+		       (u.trial_ends_at::timestamp <= (now() AT TIME ZONE 'UTC')) AS ended
+		  FROM users u
+		  LEFT JOIN plans p ON p.key = u.trial_plan_key
+		 WHERE u.id = $1
+		   AND u.trial_plan_key IS NOT NULL AND u.trial_ends_at IS NOT NULL
+		   AND (now() AT TIME ZONE 'UTC') BETWEEN (u.trial_ends_at::timestamp - interval '7 days')
+		                                      AND (u.trial_ends_at::timestamp + interval '7 days')`,
+		userID).Scan(&t.PlanName, &t.EndsAt, &t.GraceEndsAt, &t.Ended)
+	if err != nil {
+		return nil // no row / no trial in the window
+	}
+	return &t
 }

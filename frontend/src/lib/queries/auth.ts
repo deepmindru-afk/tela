@@ -15,6 +15,17 @@ export interface AuthUser {
   is_instance_admin: boolean
   // Author bio shown on /u/{handle}. '' when unset.
   bio?: string
+  // Active trial in its notify window (final 7 days + 7-day grace), else absent.
+  trial?: TrialStatus
+  // Unread feedback count for the admin inbox badge (instance admins only).
+  feedback_unseen?: number
+}
+
+export interface TrialStatus {
+  plan_name: string
+  ends_at: string
+  grace_ends_at: string
+  ended: boolean
 }
 
 export interface LoginInput {

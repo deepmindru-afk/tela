@@ -1,5 +1,6 @@
-import { useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from '../api'
+import { authKeys } from './auth'
 import type { AdminUsage, FeedbackEntry } from '../types'
 
 export const adminUsageKeys = {
@@ -25,5 +26,17 @@ export function useAdminFeedback() {
       return feedback
     },
     staleTime: 15_000,
+  })
+}
+
+// POST /api/admin/feedback/seen — clear the unread badge (stamps feedback_seen_at).
+// Invalidates /me so the badge count refreshes.
+export function useMarkFeedbackSeen() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: () => api('/api/admin/feedback/seen', { method: 'POST' }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: authKeys.me() })
+    },
   })
 }

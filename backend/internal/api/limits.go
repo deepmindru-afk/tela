@@ -134,12 +134,16 @@ func planFor(ctx context.Context, q queryer, acct account) (plan, error) {
 	case accountOrg:
 		src = `SELECT ` + planCols + ` FROM plans p JOIN orgs o ON o.plan_key = p.key WHERE o.id = $1`
 	default:
-		// Resolve the EFFECTIVE plan: the trial tier while trial_ends_at is in
-		// the future, else the base plan_key. Text-datetime comparison is
-		// chronological for the fixed 'YYYY-MM-DD HH:MM:SS' format. Expiry needs
-		// no job — a past trial_ends_at simply stops winning the CASE.
+		// Resolve the EFFECTIVE plan: the trial tier while trial_ends_at (plus a
+		// 7-day grace) is in the future, else the base plan_key. The grace keeps
+		// benefits for a week past the nominal end so a lapsed trial degrades
+		// softly (the banner warns through this window). Text-datetime comparison
+		// is chronological for the fixed format; expiry needs no job — a far-past
+		// trial_ends_at simply stops winning the CASE.
 		src = `SELECT ` + planCols + ` FROM plans p JOIN users u ON p.key = CASE
-			WHEN u.trial_ends_at IS NOT NULL AND u.trial_ends_at > tela_now() THEN u.trial_plan_key
+			WHEN u.trial_ends_at IS NOT NULL
+			 AND u.trial_ends_at::timestamp + interval '7 days' > (now() AT TIME ZONE 'UTC')
+			THEN u.trial_plan_key
 			ELSE u.plan_key END
 			WHERE u.id = $1`
 	}
