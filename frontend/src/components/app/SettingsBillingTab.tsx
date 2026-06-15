@@ -49,7 +49,7 @@ interface MetricProps {
   format?: (n: number) => string
 }
 
-function Metric({ icon, label, used, max, format }: MetricProps) {
+export function Metric({ icon, label, used, max, format }: MetricProps) {
   const fmt = format ?? String
   const limit = max == null ? INFINITY : fmt(max)
   return (

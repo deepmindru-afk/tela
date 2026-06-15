@@ -1,19 +1,23 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from '@tanstack/react-router'
 import {
   ArrowLeft,
+  Boxes,
   Copy,
   Globe,
-  History,
-  KeyRound,
+  HardDrive,
   LogIn,
   Palette,
+  Sparkles,
   Trash2,
   UserPlus,
   Users,
 } from 'lucide-react'
 import { ApiError } from '../../lib/api'
 import { useMe } from '../../lib/queries/auth'
+import { useOrgUsage } from '../../lib/queries/billing'
+import { formatBytes } from '../../lib/format'
+import { Metric } from './SettingsBillingTab'
 import { useOrgAudit } from '../../lib/queries/org-audit'
 import { useOrgDomains } from '../../lib/queries/org-domains'
 import {
@@ -73,7 +77,6 @@ import {
 } from '../ui/dialog'
 import { Input } from '../ui/input'
 import { Select } from '../ui/select'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs'
 import { cn } from '../../lib/utils'
 
 // Dedicated per-org management page (route /settings/orgs/$orgId). Replaces the
@@ -90,121 +93,161 @@ export function OrgManageView({ orgId }: { orgId: number }) {
   const org = orgs.data?.find((o) => o.id === orgId)
   const canManage = isInstance || org?.my_role === 'admin'
 
-  const backLink = (
-    <Link
-      to="/settings"
-      search={{ tab: 'orgs' }}
-      className="inline-flex items-center gap-[var(--space-2)] text-[length:var(--text-sm)] text-[var(--text-muted)] hover:text-[var(--text-primary)] no-underline"
-    >
-      <ArrowLeft width={14} height={14} />
-      Organizations
-    </Link>
-  )
+  if (orgs.isLoading || me.isLoading) {
+    return (
+      <div className="flex-1 overflow-y-auto p-[var(--space-7)]">
+        <p className="m-0 text-[length:var(--text-sm)] text-[var(--text-muted)]">Loading organization…</p>
+      </div>
+    )
+  }
+  if (!org || !canManage) {
+    return (
+      <div className="flex-1 overflow-y-auto">
+        <div className="max-w-[48rem] w-full mx-auto p-[var(--space-7)] flex flex-col gap-[var(--space-4)]">
+          <Link
+            to="/settings"
+            search={{ tab: 'orgs' }}
+            className="inline-flex items-center gap-[var(--space-2)] text-[length:var(--text-sm)] text-[var(--text-muted)] hover:text-[var(--text-primary)] no-underline"
+          >
+            <ArrowLeft width={14} height={14} />
+            Organizations
+          </Link>
+          <h1 className="m-0 font-[family-name:var(--font-sans)] text-[length:var(--text-2xl)] text-[var(--text-primary)]">
+            {org ? 'No access' : 'Organization not found'}
+          </h1>
+          <p className="m-0 text-[length:var(--text-sm)] text-[var(--text-muted)]">
+            {org
+              ? "You don't administer this organization."
+              : "This organization doesn't exist or you can't see it."}
+          </p>
+        </div>
+      </div>
+    )
+  }
+  return <OrgManageBody org={org} isInstance={isInstance} />
+}
+
+interface OrgSection {
+  id: string
+  label: string
+  render: () => React.ReactNode
+}
+
+// First-class per-org management: a left section-nav (like the instance-admin
+// Settings) + a content pane, instead of cramped top-tabs. Same shape whether
+// you reached it as an org admin (your orgs) or an instance admin (every org).
+function OrgManageBody({ org, isInstance }: { org: Org; isInstance: boolean }) {
+  const sections = useMemo<OrgSection[]>(() => {
+    const s: OrgSection[] = [
+      { id: 'overview', label: 'Overview', render: () => <OrgOverviewPanel org={org} isInstance={isInstance} /> },
+      { id: 'members', label: 'Members', render: () => <MembersPanel org={org} /> },
+      { id: 'groups', label: 'Groups', render: () => <GroupsPanel org={org} /> },
+    ]
+    if (isInstance) s.push({ id: 'sso', label: 'Single sign-on', render: () => <SSOPanel org={org} /> })
+    s.push({ id: 'domains', label: 'Custom domains', render: () => <CustomDomainsPanel org={org} /> })
+    s.push({ id: 'activity', label: 'Activity', render: () => <OrgActivityPanel orgId={org.id} /> })
+    if (isInstance) s.push({ id: 'danger', label: 'Danger zone', render: () => <DangerZone org={org} /> })
+    return s
+  }, [org, isInstance])
+  const [activeId, setActiveId] = useState('overview')
+  const active = sections.find((s) => s.id === activeId) ?? sections[0]
 
   return (
-    <div className="flex-1 overflow-y-auto">
-      <div className="max-w-[48rem] w-full mx-auto p-[var(--space-7)] flex flex-col gap-[var(--space-6)]">
-        {backLink}
-
-        {orgs.isLoading || me.isLoading ? (
-          <p className="m-0 text-[length:var(--text-sm)] text-[var(--text-muted)]">
-            Loading organization…
-          </p>
-        ) : !org || !canManage ? (
-          <div className="flex flex-col gap-[var(--space-2)]">
-            <h1 className="m-0 font-[family-name:var(--font-sans)] text-[length:var(--text-2xl)] text-[var(--text-primary)]">
-              {org ? 'No access' : 'Organization not found'}
+    <div className="flex-1 flex min-h-0">
+      <nav
+        aria-label="Organization sections"
+        className="shrink-0 w-[var(--space-8)] sm:w-[15rem] border-r border-[var(--border-subtle)] bg-[var(--surface-2)] py-[var(--space-4)] px-[var(--space-3)] flex flex-col gap-[var(--space-2)]"
+      >
+        <Link
+          to="/settings"
+          search={{ tab: 'orgs' }}
+          className="hidden sm:inline-flex items-center gap-[var(--space-2)] px-[var(--space-2)] text-[length:var(--text-sm)] text-[var(--text-muted)] hover:text-[var(--text-primary)] no-underline"
+        >
+          <ArrowLeft width={14} height={14} />
+          Organizations
+        </Link>
+        <div className="hidden sm:flex flex-col gap-[var(--space-1)] px-[var(--space-2)] pb-[var(--space-2)] border-b border-[var(--border-subtle)]">
+          <span className="truncate font-medium text-[var(--text-primary)] font-[family-name:var(--font-sans)]">
+            {org.name}
+          </span>
+          <span className="text-[length:var(--text-xs)] text-[var(--text-muted)] font-[family-name:var(--font-mono)]">
+            {org.slug}
+          </span>
+        </div>
+        <div className="flex flex-col gap-[var(--space-1)]">
+          {sections.map((s) => (
+            <Button
+              key={s.id}
+              type="button"
+              variant="ghost"
+              size="sm"
+              className={cn(
+                'w-full justify-start',
+                s.id === active.id && 'bg-[var(--surface-3)] text-[var(--text-primary)] font-medium',
+                s.id === 'danger' && 'text-[var(--danger)]',
+              )}
+              aria-current={s.id === active.id ? 'page' : undefined}
+              onClick={() => setActiveId(s.id)}
+            >
+              {s.label}
+            </Button>
+          ))}
+        </div>
+      </nav>
+      <div className="flex-1 overflow-y-auto">
+        <div className="max-w-[48rem] w-full mx-auto p-[var(--space-7)] flex flex-col gap-[var(--space-6)]">
+          <header className="flex items-center gap-[var(--space-2)]">
+            <h1 className="m-0 font-[family-name:var(--font-sans)] text-[length:var(--text-2xl)] leading-[var(--leading-tight)] text-[var(--text-primary)]">
+              {active.label}
             </h1>
-            <p className="m-0 text-[length:var(--text-sm)] text-[var(--text-muted)]">
-              {org
-                ? "You don't administer this organization."
-                : "This organization doesn't exist or you can't see it."}
-            </p>
-          </div>
-        ) : (
-          <OrgManageBody org={org} isInstance={isInstance} />
-        )}
+          </header>
+          {active.render()}
+        </div>
       </div>
     </div>
   )
 }
 
-function OrgManageBody({ org, isInstance }: { org: Org; isInstance: boolean }) {
+// Plan + live usage for the org — seats, AI calls, attachments, spaces vs the
+// org plan's caps. Instance admins can change the tier inline here.
+function OrgOverviewPanel({ org, isInstance }: { org: Org; isInstance: boolean }) {
+  const usage = useOrgUsage(org.id)
+  const u = usage.data
   return (
-    <>
-      <header className="flex flex-col gap-[var(--space-3)]">
-        <div className="flex items-start justify-between gap-[var(--space-3)] flex-wrap">
-          <div className="flex flex-col gap-[var(--space-1)] min-w-0">
-            <div className="flex items-center gap-[var(--space-2)] flex-wrap">
-              <h1 className="m-0 font-[family-name:var(--font-sans)] text-[length:var(--text-2xl)] leading-[var(--leading-tight)] text-[var(--text-primary)] truncate">
-                {org.name}
-              </h1>
-              <Badge variant="muted">
-                {org.member_count} {org.member_count === 1 ? 'member' : 'members'}
-              </Badge>
-            </div>
-            <span className="text-[length:var(--text-xs)] text-[var(--text-muted)] font-[family-name:var(--font-mono)]">
-              {org.slug}
-            </span>
-          </div>
-          {isInstance ? (
+    <div className="flex flex-col gap-[var(--space-5)]">
+      <div className="flex items-center justify-between gap-[var(--space-3)] flex-wrap">
+        <div className="flex items-center gap-[var(--space-2)]">
+          <Badge variant="muted">
+            {org.member_count} {org.member_count === 1 ? 'member' : 'members'}
+          </Badge>
+          {u ? <Badge variant="accent">{u.plan.name}</Badge> : null}
+        </div>
+        {isInstance ? (
+          <div className="flex items-center gap-[var(--space-2)]">
+            <span className="text-[length:var(--text-xs)] text-[var(--text-muted)]">Admin · set tier</span>
             <PlanTierSelect
               accountKind="org"
               accountId={org.id}
               currentKey={org.plan_key}
-              className="w-[9rem] shrink-0"
+              className="w-[9rem]"
             />
-          ) : null}
-        </div>
-      </header>
-
-      <Tabs defaultValue="members" className="flex flex-col gap-[var(--space-5)]">
-        <TabsList>
-          <TabsTrigger value="members">
-            <Users width={14} height={14} />
-            Members
-          </TabsTrigger>
-          <TabsTrigger value="groups">
-            <Users width={14} height={14} />
-            Groups
-          </TabsTrigger>
-          {isInstance ? (
-            <TabsTrigger value="sso">
-              <KeyRound width={14} height={14} />
-              Single sign-on
-            </TabsTrigger>
-          ) : null}
-          <TabsTrigger value="domains">
-            <Globe width={14} height={14} />
-            Custom domains
-          </TabsTrigger>
-          <TabsTrigger value="activity">
-            <History width={14} height={14} />
-            Activity
-          </TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="members">
-          <MembersPanel org={org} />
-        </TabsContent>
-        <TabsContent value="groups">
-          <GroupsPanel org={org} />
-        </TabsContent>
-        {isInstance ? (
-          <TabsContent value="sso">
-            <SSOPanel org={org} />
-          </TabsContent>
+          </div>
         ) : null}
-        <TabsContent value="domains">
-          <CustomDomainsPanel org={org} />
-        </TabsContent>
-        <TabsContent value="activity">
-          <OrgActivityPanel orgId={org.id} />
-        </TabsContent>
-      </Tabs>
+      </div>
 
-      {isInstance ? <DangerZone org={org} /> : null}
-    </>
+      {usage.isLoading ? (
+        <p className="m-0 text-[length:var(--text-sm)] text-[var(--text-muted)]">Loading usage…</p>
+      ) : u ? (
+        <div className="flex flex-col gap-[var(--space-4)]">
+          <Metric icon={<Users width={15} height={15} />} label="Members" used={u.usage.members ?? org.member_count} max={u.plan.max_members} />
+          <Metric icon={<Sparkles width={15} height={15} />} label="AI calls / mo" used={u.usage.llm_calls} max={u.plan.max_llm_calls_per_month} />
+          <Metric icon={<HardDrive width={15} height={15} />} label="Attachments" used={u.usage.storage_bytes} max={u.plan.max_storage_bytes} format={formatBytes} />
+          <Metric icon={<Boxes width={15} height={15} />} label="Spaces" used={u.usage.spaces} max={u.plan.max_spaces} />
+        </div>
+      ) : (
+        <p role="alert" className="m-0 text-[length:var(--text-sm)] text-[var(--danger)]">Couldn't load usage.</p>
+      )}
+    </div>
   )
 }
 
