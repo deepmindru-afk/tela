@@ -49,8 +49,8 @@ proxy serves static assets), so no cache is warranted.
 The old trio of duplicated base-URL helpers is unified:
 
 - `canonicalBaseURL()` — the env-backed canonical origin (`TELA_PUBLIC_BASE_URL`),
-  used by everything that **stays canonical**: OG/sitemap/JSON-LD, MCP, WebDAV,
-  md-export, search.
+  used by everything that **stays canonical**: OG/sitemap/JSON-LD, the MCP
+  transport/endpoint + authoring guide, WebDAV, md-export, search.
 - `originFor(r)` / `linkOrigin(r)` — the request's effective origin: the custom
   domain when the request arrived on one, else canonical. Used by the **only three**
   browser-facing surfaces that follow a custom domain:
@@ -63,6 +63,12 @@ The old trio of duplicated base-URL helpers is unified:
   derived from the **share's space → org → active hostname** (not the request
   host), so a copied/​unfurled share link is branded with the org's domain wherever
   it was created. Falls back to canonical for personal/no-domain spaces.
+- `mcpOrigin(ctx, spaceID)` / `mcpPageURL(ctx, p)` — the **page links** MCP tools
+  return follow the same space → org → active hostname rule, so an agent working in
+  an org space surfaces org-domain page links (a human clicking one lands on the
+  org's own front door), not the canonical host. Same fallback as `shareOrigin`.
+  Note this is the *links* in tool results — the MCP endpoint/transport itself
+  stays canonical (below).
 
 Social SSO (Google/Microsoft/GitHub) stays on the canonical callback — those
 register one redirect_uri per instance and aren't offered on custom-domain login
@@ -172,14 +178,16 @@ See `deploy/.env.example`.
 
 ## Surfaces that intentionally stay canonical
 
-MCP (`/api/mcp`), WebDAV sync (`/dav/`), OG/sitemap/JSON-LD, RSS, and md-export. These
-are agent/machine/SEO surfaces where a single stable identity matters more than
-white-labeling; a power user configuring rclone sync will see the canonical host,
-which is accepted.
+The MCP transport/endpoint (`/api/mcp`) + authoring guide, WebDAV sync (`/dav/`),
+OG/sitemap/JSON-LD, RSS, and md-export. These are agent/machine/SEO surfaces where a
+single stable identity matters more than white-labeling; a power user configuring
+rclone sync will see the canonical host, which is accepted. (Exception: the *page
+links* MCP tools return do follow the org domain — see `mcpPageURL` above — since a
+link an agent hands a human should be the branded one, matching share links.)
 
 ## Tests
 
 `backend/internal/api/custom_domains_test.go`: hostname normalization (apex
 rejection), the add→verify→TLS-check→delete lifecycle, validation (apex/duplicate),
-the session↔org binding, share-origin derivation, host-context, per-org login
-settings, and the server-side host password block.
+the session↔org binding, share-origin + MCP page-link derivation, host-context,
+per-org login settings, and the server-side host password block.

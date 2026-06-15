@@ -315,8 +315,18 @@ func mcpCapBody(body string) (string, bool) {
 	return body[:cut] + "\n\n…[truncated: page exceeds the tool-result size cap. Use semantic_search + read_chunk to read specific sections, or open the page URL.]", false
 }
 
-func mcpPageURL(p models.Page) string {
-	return canonicalBaseURL() + pageAppPath(p.SpaceID, p.ID, p.Title)
+// mcpOrigin is the base origin links into spaceID should use: the owning org's
+// active custom domain when it has one (e.g. https://ngss.cagdas.io), else the
+// canonical base URL. Mirrors shareOrigin so MCP page links match share links.
+func (s *Server) mcpOrigin(ctx context.Context, spaceID int64) string {
+	if host, ok := s.spaceOrgPrimaryHost(ctx, spaceID); ok {
+		return "https://" + host
+	}
+	return canonicalBaseURL()
+}
+
+func (s *Server) mcpPageURL(ctx context.Context, p models.Page) string {
+	return s.mcpOrigin(ctx, p.SpaceID) + pageAppPath(p.SpaceID, p.ID, p.Title)
 }
 
 // ---- list_spaces ---------------------------------------------------------
@@ -443,6 +453,8 @@ func (s *Server) mcpListPages(ctx context.Context, req *mcp.CallToolRequest, in 
 	if ae != nil {
 		return mcpErr(ae), listPagesOut{}, nil
 	}
+	// All pages share in.SpaceID — resolve the origin once (org domain or canonical).
+	origin := s.mcpOrigin(ctx, in.SpaceID)
 	out := listPagesOut{Pages: make([]mcpPageListItem, len(pages))}
 	for i, p := range pages {
 		out.Pages[i] = mcpPageListItem{
@@ -451,7 +463,7 @@ func (s *Server) mcpListPages(ctx context.Context, req *mcp.CallToolRequest, in 
 			ParentID: p.ParentID,
 			Title:    p.Title,
 			Position: p.Position,
-			URL:      mcpPageURL(p.Page),
+			URL:      origin + pageAppPath(p.SpaceID, p.ID, p.Title),
 		}
 	}
 	return nil, out, nil
@@ -488,7 +500,7 @@ type createPageOut struct {
 	Page createdPage `json:"page"`
 }
 
-func newCreatedPage(p models.Page) createdPage {
+func (s *Server) newCreatedPage(ctx context.Context, p models.Page) createdPage {
 	return createdPage{
 		ID:        p.ID,
 		SpaceID:   p.SpaceID,
@@ -498,7 +510,7 @@ func newCreatedPage(p models.Page) createdPage {
 		Props:     p.Props,
 		CreatedAt: p.CreatedAt,
 		UpdatedAt: p.UpdatedAt,
-		URL:       mcpPageURL(p),
+		URL:       s.mcpPageURL(ctx, p),
 	}
 }
 
@@ -515,12 +527,12 @@ func (s *Server) mcpGetPage(ctx context.Context, req *mcp.CallToolRequest, in ge
 	if in.Format == "map" {
 		sections := pageOutline(p.Body)
 		p.Body = ""
-		mp := mcpPage{Page: p, URL: mcpPageURL(p), Epistemic: epi, Sections: sections}
+		mp := mcpPage{Page: p, URL: s.mcpPageURL(ctx, p), Epistemic: epi, Sections: sections}
 		return nil, getPageOut{Page: mp}, nil
 	}
 	body, whole := mcpCapBody(p.Body)
 	p.Body = body
-	out := getPageOut{Page: mcpPage{Page: p, URL: mcpPageURL(p), Truncated: !whole, Epistemic: epi}}
+	out := getPageOut{Page: mcpPage{Page: p, URL: s.mcpPageURL(ctx, p), Truncated: !whole, Epistemic: epi}}
 	return nil, out, nil
 }
 
@@ -811,7 +823,7 @@ func (s *Server) mcpFetch(ctx context.Context, req *mcp.CallToolRequest, in fetc
 		ID:       in.ID,
 		Title:    p.Title,
 		Text:     text,
-		URL:      mcpPageURL(p),
+		URL:      s.mcpPageURL(ctx, p),
 		Metadata: map[string]any{"space_id": p.SpaceID, "truncated": !whole},
 	}, nil
 }
@@ -846,7 +858,7 @@ func (s *Server) mcpCreatePage(ctx context.Context, req *mcp.CallToolRequest, in
 		if ae != nil {
 			return mcpErr(ae), createPageOut{}, nil
 		}
-		return nil, createPageOut{Page: newCreatedPage(p)}, nil
+		return nil, createPageOut{Page: s.newCreatedPage(ctx, p)}, nil
 	})
 }
 
@@ -873,7 +885,7 @@ func (s *Server) mcpUpdatePage(ctx context.Context, req *mcp.CallToolRequest, in
 	if ae != nil {
 		return mcpErr(ae), getPageOut{}, nil
 	}
-	out := getPageOut{Page: mcpPage{Page: p, URL: mcpPageURL(p)}}
+	out := getPageOut{Page: mcpPage{Page: p, URL: s.mcpPageURL(ctx, p)}}
 	return nil, out, nil
 }
 
@@ -913,7 +925,7 @@ func (s *Server) mcpPatchPage(ctx context.Context, req *mcp.CallToolRequest, in 
 		epi := s.pageEpistemic(ctx, up)
 		body, whole := mcpCapBody(up.Body)
 		up.Body = body
-		return nil, getPageOut{Page: mcpPage{Page: up, URL: mcpPageURL(up), Truncated: !whole, Epistemic: epi}}, nil
+		return nil, getPageOut{Page: mcpPage{Page: up, URL: s.mcpPageURL(ctx, up), Truncated: !whole, Epistemic: epi}}, nil
 	})
 }
 
@@ -983,7 +995,7 @@ func (s *Server) mcpMovePage(ctx context.Context, req *mcp.CallToolRequest, in m
 	if ae != nil {
 		return mcpErr(ae), getPageOut{}, nil
 	}
-	out := getPageOut{Page: mcpPage{Page: p, URL: mcpPageURL(p)}}
+	out := getPageOut{Page: mcpPage{Page: p, URL: s.mcpPageURL(ctx, p)}}
 	return nil, out, nil
 }
 

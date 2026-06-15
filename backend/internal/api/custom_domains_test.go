@@ -5,10 +5,12 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"strconv"
 	"strings"
 	"testing"
 
 	"github.com/zcag/tela/backend/internal/auth"
+	"github.com/zcag/tela/backend/internal/models"
 )
 
 func TestNormalizeHostname(t *testing.T) {
@@ -108,6 +110,13 @@ func TestShareOriginFollowsSpaceOrg(t *testing.T) {
 	}
 	if got := srv.shareOrigin(ctx, space); got != "https://wiki.acme.example" {
 		t.Errorf("shareOrigin = %q, want https://wiki.acme.example", got)
+	}
+
+	// MCP page links follow the same space → org → hostname resolution, so an
+	// agent working in an org space gets org-domain links, not the canonical host.
+	p := models.Page{ID: 42, SpaceID: space, Title: "Hello World"}
+	if got := srv.mcpPageURL(ctx, p); got != "https://wiki.acme.example/spaces/"+strconv.FormatInt(space, 10)+"/pages/42/hello-world" {
+		t.Errorf("mcpPageURL = %q, want org-domain link", got)
 	}
 }
 
