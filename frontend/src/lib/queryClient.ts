@@ -15,7 +15,7 @@ import { reportClientError, type ClientErrorKind } from './client-errors'
 //   - rag/llm 503  — feature-disabled sentinels the UI renders as "unavailable".
 // What's left — network failures (status 0) and server errors (5xx) — is the
 // "the app or server actually misbehaved" tier worth surfacing.
-function reportableApiError(err: unknown): boolean {
+export function reportableApiError(err: unknown): boolean {
   if (err instanceof ApiError) {
     if (err.status === 401) return false
     if (err.code === 'rag_disabled' || err.code === 'llm_disabled') return false

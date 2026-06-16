@@ -1,8 +1,11 @@
 package api
 
 import (
+	"bytes"
+	"encoding/json"
 	"io"
 	"net/http"
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -68,6 +71,72 @@ func TestClientError_EmptyMessage400(t *testing.T) {
 	}
 	if n != 0 {
 		t.Fatalf("event rows=%d want 0", n)
+	}
+}
+
+// TestClientError_Truncates — an over-long stack is stored truncated rather
+// than rejected, so a giant report still yields a usable row.
+func TestClientError_Truncates(t *testing.T) {
+	ts, d := newWiredServer(t)
+	seedUser(t, d, "admin", "testpass123", true)
+	c := loginClient(t, ts, "admin", "testpass123")
+
+	bigStack := strings.Repeat("x", clientErrMaxStack+500)
+	payload, _ := json.Marshal(map[string]any{"message": "boom", "stack": bigStack})
+	resp, err := c.Post(ts.URL+"/api/client-errors", "application/json", bytes.NewReader(payload))
+	if err != nil {
+		t.Fatalf("post: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusNoContent {
+		t.Fatalf("status=%d want 204", resp.StatusCode)
+	}
+
+	var detail string
+	if err := d.QueryRow(`SELECT detail FROM events WHERE type = $1`, evtClientError).Scan(&detail); err != nil {
+		t.Fatalf("query: %v", err)
+	}
+	if !strings.Contains(detail, "…(truncated)") {
+		t.Fatalf("detail not marked truncated")
+	}
+	// The stored stack must be bounded near the cap (+ the marker + the other
+	// fields), not the full half-megabyte the client sent.
+	if len(detail) > clientErrMaxStack+200 {
+		t.Fatalf("detail len=%d not truncated to ~%d", len(detail), clientErrMaxStack)
+	}
+}
+
+// TestClientError_RateLimited — past the per-user budget the beacon is throttled
+// (429) and stops writing rows, so an error loop can't flood the feed.
+func TestClientError_RateLimited(t *testing.T) {
+	ts, d := newWiredServer(t)
+	seedUser(t, d, "admin", "testpass123", true)
+	c := loginClient(t, ts, "admin", "testpass123")
+
+	got429 := false
+	for i := 0; i < clientErrorRateLimit+5; i++ {
+		// Distinct messages so the client-side dedup is irrelevant — this is the
+		// server budget under test.
+		payload, _ := json.Marshal(map[string]any{"message": "loop-" + strconv.Itoa(i)})
+		resp, err := c.Post(ts.URL+"/api/client-errors", "application/json", bytes.NewReader(payload))
+		if err != nil {
+			t.Fatalf("post %d: %v", i, err)
+		}
+		resp.Body.Close()
+		if resp.StatusCode == http.StatusTooManyRequests {
+			got429 = true
+		}
+	}
+	if !got429 {
+		t.Fatalf("never hit 429 within %d posts", clientErrorRateLimit+5)
+	}
+
+	var n int
+	if err := d.QueryRow(`SELECT COUNT(*) FROM events WHERE type = $1`, evtClientError).Scan(&n); err != nil {
+		t.Fatalf("count: %v", err)
+	}
+	if n > clientErrorRateLimit {
+		t.Fatalf("wrote %d rows, exceeds budget %d", n, clientErrorRateLimit)
 	}
 }
 
