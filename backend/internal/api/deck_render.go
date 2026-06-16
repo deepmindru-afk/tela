@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"regexp"
 	"strings"
 	"time"
 
@@ -84,6 +85,9 @@ func (s *Server) deckThemeConfig(ctx context.Context, p models.Page) deckConfig 
 			cfg.Logo = logo
 		}
 	}
+	// A logo stored as a tela attachment is a root-relative URL the sidecar
+	// renderer can't resolve — make it absolute (external https logos pass through).
+	cfg.Logo = absolutizeAsset(cfg.Logo)
 	return cfg
 }
 
@@ -472,7 +476,7 @@ func deckSPA(ctx context.Context, body string, cfg deckConfig, base, file string
 	q := deckQuery(cfg)
 	q.Set("base", base)
 	q.Set("file", file)
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, deckBaseURL()+"/spa?"+q.Encode(), strings.NewReader(body))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, deckBaseURL()+"/spa?"+q.Encode(), strings.NewReader(absolutizeDeckAssets(body)))
 	if err != nil {
 		return nil, err
 	}
@@ -501,12 +505,43 @@ func deckQuery(cfg deckConfig) url.Values {
 	return q
 }
 
+// deckRelAssetRe matches a root-relative tela asset URL (attachment/diagram/
+// public file) used as a markdown/HTML/frontmatter reference — captured by its
+// leading delimiter so an already-absolute URL (…://host/api/files/…) is left
+// alone. The deck render sidecar fetches images from ITS OWN origin, so a
+// root-relative /api/files/… 404s in the Chromium export (and the built SPA);
+// absolutizing against the canonical base makes tela-hosted deck images (uploaded
+// or treated) and tela-hosted org logos render everywhere, not just same-origin.
+var deckRelAssetRe = regexp.MustCompile(`(^|[\s"'(\[])(/api/(?:files|diagrams|public)/)`)
+
+// absolutizeDeckAssets rewrites root-relative tela asset URLs in deck markdown to
+// absolute (canonical base). No-op when TELA_PUBLIC_BASE_URL is unset.
+func absolutizeDeckAssets(body string) string {
+	base := canonicalBaseURL()
+	if base == "" {
+		return body
+	}
+	return deckRelAssetRe.ReplaceAllString(body, "${1}"+base+"${2}")
+}
+
+// absolutizeAsset makes a single root-relative URL (e.g. an org logo stored as a
+// tela attachment) absolute against the canonical base. External https URLs and
+// already-absolute URLs pass through unchanged.
+func absolutizeAsset(u string) string {
+	if strings.HasPrefix(u, "/") {
+		if base := canonicalBaseURL(); base != "" {
+			return base + u
+		}
+	}
+	return u
+}
+
 func deckPost(ctx context.Context, path, body string, cfg deckConfig) (*http.Response, error) {
 	u := deckBaseURL() + path
 	if q := deckQuery(cfg); len(q) > 0 {
 		u += "?" + q.Encode()
 	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, u, strings.NewReader(body))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, u, strings.NewReader(absolutizeDeckAssets(body)))
 	if err != nil {
 		return nil, err
 	}
