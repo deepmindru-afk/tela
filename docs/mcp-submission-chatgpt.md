@@ -225,16 +225,17 @@ Grounded in real tools; each names the tool(s) it exercises. Provide a **populat
 demo account** so these resolve to real content.
 
 **Positive (5):**
-1. **"Search my tela wiki for the deploy runbook and summarize it."** → `search` /
-   `search_bodies` (+ search-results widget) then `get_page` / `fetch` (page-reader widget).
+1. **"Search my tela wiki for the deploy runbook and summarize it."** → `search`
+   (+ search-results widget) then `get_page` / `fetch` (page-reader widget).
 2. **"Open the page titled 'Onboarding' in the Engineering space and give me the key steps."**
    → `list_spaces` → `list_pages` → `get_page` (page-reader widget).
 3. **"What links to the 'Architecture' page?"** → `list_backlinks`.
 4. **"Create a page called 'Q3 Planning' in the Product space with these notes: …"** →
    `create_page` (write; confirm the demo token has editor scope).
 5. **"Find anything in my wiki about rate limiting, by meaning not just keywords."** →
-   `semantic_search` → `read_chunk` (requires the embedder configured; otherwise this
-   degrades to `search`, so keep #1 as the primary search proof).
+   `research` (assembles grounding; `read_chunk` to drill into a source). Requires the
+   embedder configured; otherwise this degrades to `search`, so keep #1 as the primary
+   search proof.
 
 **Negative (3) — must fail gracefully / decline:**
 6. **"Delete the Engineering space."** → `delete_space` is owner-only + destructive; with a
@@ -245,7 +246,7 @@ demo account** so these resolve to real content.
 8. **"Edit a page that doesn't exist (id 999999999)."** → `update_page` returns a clean
    not-found error envelope, no crash.
 
-> If `semantic_search` can't be guaranteed warm for the reviewer (the embedder is an external
+> If `research` can't be guaranteed warm for the reviewer (the embedder is an external
 > Ollama dependency, see CLAUDE.md), swap prompt #5 for **"List the spaces I can access"**
 > (`list_spaces`) so all five positives are deterministic.
 
@@ -254,7 +255,7 @@ demo account** so these resolve to real content.
 - **What the app reads:** space metadata (id, name, slug); page content as **canonical
   markdown** plus page metadata; backlinks; search snippets and semantic chunks; comments
   the caller can see. Returned by `list_spaces`/`get_space`/`list_pages`/`get_page`/
-  `list_backlinks`/`search`/`search_bodies`/`semantic_search`/`read_chunk`/`fetch`.
+  `list_backlinks`/`search`/`research`/`read_chunk`/`fetch`.
 - **What the app writes (with write scope):** creates/edits/moves/deletes pages and spaces,
   adds comments, imports an external URL as a page (server-side fetch, https-only,
   host-allowlisted, no redirects), and submits free-text product feedback. Tools:
@@ -283,9 +284,9 @@ explicitly in code per section 5.
 - `list_backlinks` — reads inbound links to a page; no mutation; account-scoped.
 - `read_chunk` — reads one indexed chunk's text; no mutation; account-scoped.
 - `search` — full-text search over the caller's pages; no mutation; account-scoped (closed world).
-- `search_bodies` — full-text body search within a space; no mutation; account-scoped.
-- `semantic_search` — vector+keyword search over the caller's chunks; no mutation; embeds
-  via the operator's own embedder, not a public service → closed world.
+- `research` — semantic, answer-oriented retrieval: assembles grounding (vector+keyword over the
+  caller's chunks, expanded to full page bodies) for a question; no mutation; embeds via the
+  operator's own embedder, not a public service → closed world.
 - `fetch` — fetches a tela page's full text by id (Deep Research pair); no mutation;
   account-scoped.
 
@@ -459,8 +460,8 @@ include the chat prompt in screenshots — OpenAI overlays the "example user mes
 ### Positive (5)
 | # | User message | Tool(s) triggered | Expected result |
 |---|---|---|---|
-| 1 | "Find the deploy runbook in my wiki and summarize the steps." | `search` / `semantic_search` → `get_page` | Page-reader widget renders the Deploy runbook; correct step summary (tag → deploy → re-probe `/api/version` → purge cache). |
-| 2 | "What's our incident response process?" | `semantic_search` (+ `read_chunk`) | Cited answer from the "Incident response" page (page on-call first, status updates, postmortem). |
+| 1 | "Find the deploy runbook in my wiki and summarize the steps." | `search` / `research` → `get_page` | Page-reader widget renders the Deploy runbook; correct step summary (tag → deploy → re-probe `/api/version` → purge cache). |
+| 2 | "What's our incident response process?" | `research` (+ `read_chunk`) | Cited answer from the "Incident response" page (page on-call first, status updates, postmortem). |
 | 3 | "List the spaces I can access." | `list_spaces` | Returns the "Demo" space. |
 | 4 | "Create a page called 'Postmortem template' in the Demo space with a short structure." | `create_page` | New page created in Demo; confirmation with title/link. |
 | 5 | "Show me the on-call rotation page." | `search` → `get_page` | Page-reader widget renders the On-call rotation page (the weekly table). |

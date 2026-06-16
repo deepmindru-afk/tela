@@ -921,7 +921,7 @@ func (s *Server) deletePageCore(ctx context.Context, u *auth.User, k *auth.APIKe
 	// (recoverable, same promise as the pages — a re-sync resurrects + re-indexes
 	// them) but HARD-clear their disposable RAG index (file_chunks) and summary
 	// bookkeeping (file_summaries). Without this a deleted page's files stay live
-	// and keep surfacing in semantic_search / Ask, citing a now-deleted page, and
+	// and keep surfacing in research / Ask, citing a now-deleted page, and
 	// the summarize stale-sweep keeps re-processing them. Mirrors the per-file
 	// delete path (soft-delete + clear chunks) across the whole subtree at once.
 	const filesUnderSubtree = ` (SELECT id FROM space_files WHERE parent_page_id IN (SELECT id FROM subtree))`

@@ -115,7 +115,7 @@ func TestMCP_SpikeListSpaces(t *testing.T) {
 	}
 	for _, want := range []string{
 		"list_spaces", "get_space", "list_pages", "get_page", "list_backlinks",
-		"search", "search_bodies", "semantic_search", "read_chunk", "fetch",
+		"search", "research", "read_chunk", "fetch",
 		"create_page", "update_page", "delete_page", "move_page", "add_comment",
 		"create_space", "update_space", "delete_space", "submit_feedback",
 		"list_attachments", "upload_attachment", "delete_attachment",
@@ -206,8 +206,8 @@ func mcpCallRawJSON(t *testing.T, ctx context.Context, sess *mcp.ClientSession, 
 }
 
 // TestMCP_ReadTools exercises the Phase-1 read surface end-to-end over the MCP
-// transport: list_pages, get_page, search, search_bodies, list_backlinks. It
-// asserts results are space-scoped and that the typed structured output decodes.
+// transport: list_pages, get_page, search, list_backlinks. It asserts results
+// are space-scoped and that the typed structured output decodes.
 func TestMCP_ReadTools(t *testing.T) {
 	ts, d := newWiredServer(t)
 	alice := seedUser(t, d, "alice", "alicepw12", false)
@@ -281,13 +281,6 @@ func TestMCP_ReadTools(t *testing.T) {
 	mcpCallJSON(t, ctx, sess, "fetch", map[string]any{"id": sr.Results[0].ID}, &fo)
 	if fo.Text != "the quick brown fox" || fo.Title != "Alpha" || fo.URL == "" {
 		t.Fatalf("fetch: %+v", fo)
-	}
-
-	// search_bodies within the space.
-	var sbr searchBodiesOut
-	mcpCallJSON(t, ctx, sess, "search_bodies", map[string]any{"query": "fox", "space_id": space}, &sbr)
-	if len(sbr.Results) != 1 || sbr.Results[0].ID != alphaID {
-		t.Fatalf("search_bodies: %+v", sbr.Results)
 	}
 
 	// list_backlinks → Beta links to Alpha.
@@ -809,10 +802,11 @@ func TestMCP_Widgets(t *testing.T) {
 	}
 }
 
-// TestMCP_SemanticSearchFiles proves the MCP retrieval surface covers attachments:
-// a reindexed file surfaces in semantic_search with a file citation (source_kind,
-// file_name, parent page_id, download_url) and reads back through read_chunk.
-func TestMCP_SemanticSearchFiles(t *testing.T) {
+// TestMCP_ResearchFiles proves the MCP retrieval surface covers attachments:
+// a reindexed file surfaces in research's sources with a file citation
+// (source_kind, file_name, parent page_id, download_url) and reads back through
+// read_chunk.
+func TestMCP_ResearchFiles(t *testing.T) {
 	ts, d, srv := newRagServer(t)
 	alice := seedUser(t, d, "alice", "alicepw12", false)
 	aSpace := seedSpace(t, d, "Alpha", "alpha", alice)
@@ -827,16 +821,19 @@ func TestMCP_SemanticSearchFiles(t *testing.T) {
 	defer cancel()
 	sess := mcpSession(t, ctx, ts, seedReadKey(t, d, alice, auth.ScopeRead))
 
-	var sout semanticSearchOut
-	mcpCallJSON(t, ctx, sess, "semantic_search", map[string]any{"query": "indemnification liability cap"}, &sout)
+	var sout researchOut
+	mcpCallJSON(t, ctx, sess, "research", map[string]any{"question": "what is the indemnification liability cap?"}, &sout)
+	if sout.Context == "" {
+		t.Errorf("research returned empty context for a question with a file hit")
+	}
 	var fileHit *rag.Hit
-	for i := range sout.Results {
-		if sout.Results[i].SourceKind == "file" {
-			fileHit = &sout.Results[i]
+	for i := range sout.Sources {
+		if sout.Sources[i].SourceKind == "file" {
+			fileHit = &sout.Sources[i]
 		}
 	}
 	if fileHit == nil {
-		t.Fatalf("no file hit from semantic_search: %+v", sout.Results)
+		t.Fatalf("no file hit from research: %+v", sout.Sources)
 	}
 	if fileHit.FileID != fileID || fileHit.FileName != "msa.md" || fileHit.PageID != parent {
 		t.Errorf("file citation wrong: %+v", *fileHit)

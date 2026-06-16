@@ -39,7 +39,7 @@ tela already runs a **content → chunks + embeddings + summary** pipeline, but 
 is hardwired to `pages`. Generalize it to a **document pipeline** whose source is
 pluggable — a **page body** or a **file's extracted text** (and later a
 connector's mirrored doc) — and every AI feature lights up for attachments with
-no per-feature work: `semantic_search`, `read_chunk`, Ask, `related_pages`,
+no per-feature work: `research`, `read_chunk`, Ask, `related_pages`,
 `find_overlaps`, auto-summaries, freshness/provenance.
 
 The only genuinely new primitive is **bytes → text**. Everything downstream is
@@ -80,7 +80,7 @@ A chunk gains a **source**: it belongs to a page *or* a file. Two options:
 - Chunk row carries `source_kind ('page'|'file')`, `source_id`, and **`space_id`
   denormalized** so the `space_access` JOIN is source-agnostic (no per-source ACL
   logic). `ON DELETE CASCADE` from both `pages` and `space_files`.
-- `semantic_search`/`read_chunk` results carry the source so a citation points at
+- `research`/`read_chunk` results carry the source so a citation points at
   the **file** (name + `download_url` + parent page), not a phantom page.
 - Content-addressed bonus: a file's chunks are keyed by its `content_hash`, so a
   file attached to N pages is **indexed once** — dedup extends to the index.
@@ -121,7 +121,7 @@ diffing, no wasted re-embed on a re-sync.
 
 | Feature | For files, with zero new per-feature code |
 | --- | --- |
-| `semantic_search` / `read_chunk` | finds inside PDFs/docs, ACL-gated, cites the file |
+| `research` / `read_chunk` | finds inside PDFs/docs, ACL-gated, cites the file |
 | Ask | answers from attachment content |
 | `related_pages` / `suggest_links` | a file ↔ pages by similarity |
 | `find_overlaps` | a file duplicating a page's content |
@@ -149,7 +149,7 @@ diffing, no wasted re-embed on a re-sync.
 ## Phasing
 
 1. **Slice 1 (core):** generalize the chunk store (B2) + PDF/plaintext extraction
-   + the unified store-and-announce seam → files appear in `semantic_search` /
+   + the unified store-and-announce seam → files appear in `research` /
    `read_chunk` / Ask, ACL-gated, citing the file.
 2. **Slice 2:** file auto-summaries (reuse `summarize`) on the card/hover.
 3. **Slice 3:** office formats via gotenberg; `related_pages`/`find_overlaps`

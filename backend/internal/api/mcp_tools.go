@@ -15,6 +15,18 @@ import (
 	"github.com/zcag/tela/backend/internal/rag"
 )
 
+// retrievalGuideMarkdown is the "how to find things" preamble carried in the
+// server Instructions. The retrieval surface is deliberately two doors, split by
+// intent; this states the split once globally so a host doesn't have to infer it
+// from N look-alike tool descriptions.
+func retrievalGuideMarkdown() string {
+	return "# Finding things in the wiki\n\n" +
+		"Two ways in, by intent:\n\n" +
+		"- **`search`** — keyword / full-text lookup. Use when you can name the page, or know an exact term, identifier, or error string in it. Ranked, snippet-highlighted, and always available (needs no embedder).\n" +
+		"- **`research`** — semantic, answer-oriented. Use to answer a question or gather everything relevant on a topic by meaning. One call returns assembled grounding (full relevant page bodies, not fragments), the cited `sources`, any flagged `disagreements`, and a `low_confidence` flag — you write the answer from it and cite by `[n]`. Needs a configured embedder.\n\n" +
+		"Then read deeper as needed: **`read_chunk`** for one section (`chunk_id` from a `research` source), **`get_page`** for a whole page, **`list_backlinks`** / **`related_pages`** to follow the graph.\n\n"
+}
+
 // registerMCPTools wires the tela tool surface onto the MCP server. Each tool
 // reads identity from the request (mcpIdentity), calls the shared xCore that
 // also backs the REST route, and returns a typed Out so the SDK emits an output
@@ -68,29 +80,24 @@ func (s *Server) registerMCPTools(server *mcp.Server) {
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "search",
 		Title:       "Search",
-		Description: "Ranked full-text search over title + body, snippet-highlighted. Optional space_id narrows to one space.",
+		Description: "Keyword (full-text) lookup over title + body, ranked + snippet-highlighted. Use to find a page you can name or that contains an exact term/identifier/error string. Works WITHOUT an embedder (always available). Optional space_id narrows to one space. To answer a question or gather material on a topic by meaning, use `research` instead.",
 		Annotations: readOnly,
 		Meta:        widgetToolMeta(uiSearchOpenAI, uiSearchMCPApp, "Renders search hits as a clickable result list.", "Searching…", "Results ready"),
 	}, s.mcpSearch)
 
 	mcp.AddTool(server, &mcp.Tool{
-		Name:        "search_bodies",
-		Title:       "Search page bodies",
-		Description: "Ranked full-text body search within one space (no snippets). Re-fetch full bodies via get_page.",
+		Name:  "research",
+		Title: "Research the wiki",
+		Description: "Answer a question — or gather everything relevant on a topic — from the wiki by MEANING. One call assembles answer-ready grounding: the full bodies of the pages that matter (not isolated fragments), pulled from pages AND attached files (PDFs, docs), plus any flagged disagreements among the sources and a low_confidence signal. " +
+			"Returns `context` (a numbered [n] excerpt block to ground your answer), `sources` (the cited hits aligned to [n], each with page_id/chunk_id for drill-in and a download_url for file sources), `disagreements` (conflicts to surface, [n]-keyed), and `low_confidence`. " +
+			"YOU write the answer from `context` and cite sources by their [n]. To read one section deeper use `read_chunk` (chunk_id from a source) or `get_page` (full page). For exact-name/term lookup use `search`. Requires a configured embedder (503 otherwise).",
 		Annotations: readOnly,
-	}, s.mcpSearchBodies)
-
-	mcp.AddTool(server, &mcp.Tool{
-		Name:        "semantic_search",
-		Title:       "Semantic search",
-		Description: "Meaning-aware chunk search (vector + keyword, RRF) over pages AND attached files (PDFs, text docs). Returns ranked chunks with chunk_id + citations. `source_kind` is \"page\" or \"file\"; a file hit also carries file_name, the parent page_id, and a download_url. Requires a configured embedder.",
-		Annotations: readOnly,
-	}, s.mcpSemanticSearch)
+	}, s.mcpResearch)
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "read_chunk",
 		Title:       "Read chunk",
-		Description: "Fetch one chunk's full section text by chunk_id (from semantic_search), for a page OR a file chunk. Middle granularity between a search snippet and get_page; a file chunk cites the file (file_name + parent page_id + download_url).",
+		Description: "Fetch one chunk's full section text by chunk_id (from a `research` source), for a page OR a file chunk. Middle granularity between a research excerpt and get_page; a file chunk cites the file (file_name + parent page_id + download_url).",
 		Annotations: readOnly,
 	}, s.mcpReadChunk)
 
@@ -328,12 +335,12 @@ func mcpCapBody(body string) (string, bool) {
 		return body, true
 	}
 	// Trim to the cap on a rune boundary, then add a machine- and human-readable
-	// marker so the agent knows to page the rest via read_chunk/semantic_search.
+	// marker so the agent knows to page the rest via research/read_chunk.
 	cut := mcpBodyCap
 	for cut > 0 && !utf8.RuneStart(body[cut]) {
 		cut--
 	}
-	return body[:cut] + "\n\n…[truncated: page exceeds the tool-result size cap. Use semantic_search + read_chunk to read specific sections, or open the page URL.]", false
+	return body[:cut] + "\n\n…[truncated: page exceeds the tool-result size cap. Use research + read_chunk to read specific sections, or open the page URL.]", false
 }
 
 // mcpOrigin is the base origin links into spaceID should use: the owning org's
@@ -604,69 +611,70 @@ func (s *Server) mcpSearch(ctx context.Context, req *mcp.CallToolRequest, in sea
 	return nil, out, nil
 }
 
-// ---- search_bodies -------------------------------------------------------
+// ---- research ------------------------------------------------------------
+//
+// The semantic, answer-oriented retrieval tool. It rides the SAME askContext
+// seam as the web "Ask your docs" path — deep retrieval, dedup-to-sources,
+// topical-hub rescue, and parent-document expansion (whole page bodies, not
+// fragments) — but stops BEFORE generation: the calling agent is the LLM, so it
+// returns the assembled grounding for the agent to answer from, not a finished
+// answer. This is what `semantic_search` should have been for an agent host:
+// its `sources` ARE the ranked chunk hits (with chunk_id for drill-in), plus the
+// assembled context, the known-disagreement note, and a confidence signal.
 
-type searchBodiesIn struct {
-	Query   string `json:"query" jsonschema:"search terms"`
-	SpaceID int64  `json:"space_id" jsonschema:"id of the space to search within"`
-	Limit   int    `json:"limit,omitempty" jsonschema:"max results 1-100 (default 20)"`
+type researchIn struct {
+	Question string `json:"question" jsonschema:"the question to answer, or topic to gather context on"`
+	SpaceID  *int64 `json:"space_id,omitempty" jsonschema:"optional space id to restrict retrieval to"`
+	Limit    int    `json:"limit,omitempty" jsonschema:"optional retrieval depth override (default service-defined)"`
 }
 
-type searchBodiesOut struct {
-	Results []searchBodyHit `json:"results"`
+type researchOut struct {
+	Context       string    `json:"context"`                 // numbered [n] excerpt block, expanded to full page bodies where they matter
+	Sources       []rag.Hit `json:"sources"`                 // cited sources aligned to the [n] numbering; chunk_id/page_id for drill-in, download_url on file sources
+	Disagreements string    `json:"disagreements,omitempty"` // known conflicts among the sources, [n]-keyed (empty when none)
+	LowConfidence bool      `json:"low_confidence"`          // retrieval found nothing strongly relevant — answer is best-effort, verify it
 }
 
-func (s *Server) mcpSearchBodies(ctx context.Context, req *mcp.CallToolRequest, in searchBodiesIn) (*mcp.CallToolResult, searchBodiesOut, error) {
+func (s *Server) mcpResearch(ctx context.Context, req *mcp.CallToolRequest, in researchIn) (*mcp.CallToolResult, researchOut, error) {
 	u, k := mcpIdentity(req)
 	if u == nil {
-		return mcpUnauthErr(), searchBodiesOut{}, nil
-	}
-	results, ae := s.searchBodiesCore(ctx, u, k, in.SpaceID, in.Query, in.Limit)
-	if ae != nil {
-		return mcpErr(ae), searchBodiesOut{}, nil
-	}
-	return nil, searchBodiesOut{Results: results}, nil
-}
-
-// ---- semantic_search -----------------------------------------------------
-
-type semanticSearchIn struct {
-	Query   string `json:"query" jsonschema:"natural-language query"`
-	SpaceID *int64 `json:"space_id,omitempty" jsonschema:"optional space id to restrict results to"`
-	Limit   int    `json:"limit,omitempty" jsonschema:"max chunks (default service-defined)"`
-	Mode    string `json:"mode,omitempty" jsonschema:"hybrid|semantic|lexical (default hybrid)"`
-}
-
-type semanticSearchOut struct {
-	Results []rag.Hit `json:"results"`
-}
-
-func (s *Server) mcpSemanticSearch(ctx context.Context, req *mcp.CallToolRequest, in semanticSearchIn) (*mcp.CallToolResult, semanticSearchOut, error) {
-	u, k := mcpIdentity(req)
-	if u == nil {
-		return mcpUnauthErr(), semanticSearchOut{}, nil
+		return mcpUnauthErr(), researchOut{}, nil
 	}
 	if !s.aiEnabled() {
-		return mcpErr(&apiErr{503, "rag_disabled", "semantic search is not configured"}), semanticSearchOut{}, nil
+		return mcpErr(&apiErr{503, "rag_disabled", "semantic search is not configured"}), researchOut{}, nil
+	}
+	if strings.TrimSpace(in.Question) == "" {
+		return mcpErr(&apiErr{400, "bad_request", "question is required"}), researchOut{}, nil
 	}
 	// A space-pinned bearer key may only ever see its one space.
 	spaceID := in.SpaceID
 	if k != nil && k.SpaceID != nil {
 		spaceID = k.SpaceID
 	}
-	hits, err := s.rag.Search(ctx, u.ID, in.Query, spaceID, in.Limit, in.Mode)
+	excerpts, hits, top, err := s.askContext(ctx, u.ID, in.Question, spaceID, in.Limit)
 	if err != nil {
-		return mcpErr(&apiErr{500, "internal", "semantic search failed"}), semanticSearchOut{}, nil
+		return mcpErr(&apiErr{500, "internal", "retrieval failed"}), researchOut{}, nil
+	}
+	// Log every research call with its retrieval confidence — feeds the
+	// knowledge-gaps roadmap, including the zero-hit case (a clear gap). Best-effort.
+	_ = s.rag.LogAsk(ctx, u.ID, spaceID, in.Question, len(hits), top)
+	if len(hits) == 0 {
+		return nil, researchOut{Sources: []rag.Hit{}}, nil
 	}
 	enrichFileCitations(hits)
-	out := semanticSearchOut{Results: hits}
+	out := researchOut{
+		Context:       excerpts,
+		Sources:       hits,
+		Disagreements: s.askConflictNote(ctx, hits),
+		LowConfidence: lowConfidence(s.rag.RerankEnabled(), top),
+	}
 	return nil, out, nil
 }
 
 // ---- read_chunk ----------------------------------------------------------
 
 type readChunkIn struct {
-	ChunkID int64 `json:"chunk_id" jsonschema:"chunk id from a semantic_search result"`
+	ChunkID int64 `json:"chunk_id" jsonschema:"chunk id from a research result"`
 }
 
 type readChunkOut struct {

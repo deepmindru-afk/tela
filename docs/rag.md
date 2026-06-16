@@ -29,10 +29,12 @@ Two invariants shape everything (see `rag.go`):
 The same index serves two audiences that want opposite things — keep both in mind
 when changing it:
 
-- **Agents, via MCP** (`semantic_search`, `read_chunk`, `get_page`). tela's
+- **Agents, via MCP** (`research`, `read_chunk`, `get_page`). tela's
   identity is "agents are first-class". The ideal shape here is
   **retrieval-as-a-tool**: a few purposeful tools the agent calls *iteratively* —
-  search, read the best chunk, decide what to search next. Favor crisp citations
+  `research` a question (it assembles grounding off the same `askContext` seam the
+  web "Ask your docs" path uses), read the best chunk, decide what to ask next.
+  Favor crisp citations
   and right-sized chunk reads over one-shot answer assembly.
 - **Humans, via the search box + "ask your docs"** (`/api/rag/search`,
   `/api/rag/ask`). Classic one-shot RAG: retrieve top-k → ground an answer →

@@ -61,7 +61,7 @@ docs page, populated demo account, finalize branding) → submit **Claude first*
 - [x] **Per-tool `title` + `readOnlyHint`/`destructiveHint`; no read/write mixing; names ≤64** — *met* (audited: 20 tools, ≤15 chars, clean split).
 - [x] **Narrow descriptions, no behavioral directives, no Claude-memory access** — *met* (descriptions are factual; nothing reads chat history/memory).
 - [x] **First-party API, server domain matches service** — *met* (tela.cagdas.io).
-- [x] **Actionable errors, sized responses (≤25k tokens tool result)** — error payloads carry `{error,code,status}`; `get_page`/`fetch` now cap bodies at 80k chars (~20k tokens) with a `truncated` flag + pointer to `read_chunk`/`semantic_search` (shipped 86ee942).
+- [x] **Actionable errors, sized responses (≤25k tokens tool result)** — error payloads carry `{error,code,status}`; `get_page`/`fetch` now cap bodies at 80k chars (~20k tokens) with a `truncated` flag + pointer to `read_chunk`/`research` (shipped 86ee942).
 - [x] **Reachable from Anthropic egress `160.79.104.0/21`** — Cloudflare skip-rule APPLIED & live (ruleset `0b545114`, terraform in zcag/dotty).
 - [x] **Privacy policy at a public HTTPS URL** — LIVE at https://tela.cagdas.io/privacy/.
 - [x] **Public documentation page** — LIVE at https://tela.cagdas.io/mcp/.

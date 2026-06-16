@@ -28,7 +28,7 @@ tela is open source (`github.com/zcag/tela`) and first-party — the MCP server 
 
 Concrete agent workflows, each grounded in the actual tools:
 
-1. **Answer a question from the wiki, with citations.** An agent runs `semantic_search` (or `search`) over the team's pages, reads the top chunks with `read_chunk` / `get_page`, and answers — citing the page id and heading path each claim came from.
+1. **Answer a question from the wiki, with citations.** An agent runs `research` over the team's pages — one call returns assembled grounding (full relevant page bodies, cited `sources`, flagged disagreements, a confidence signal) — reads deeper with `read_chunk` / `get_page` if needed, and answers, citing the page id and heading path each claim came from.
 2. **Draft a runbook from a deploy log.** Given a deploy or incident log in the conversation, an agent writes a structured runbook and persists it with `create_page` in the relevant space, so the next session (human or agent) starts from durable team memory instead of re-pasting context.
 3. **Keep a doc current after a change.** An agent that just shipped a change finds the affected page via `search`, patches the body with `update_page` (which auto-snapshots a revision), and leaves an anchored note with `add_comment`.
 4. **Audit what links to a page before editing it.** Before a rename or restructure, an agent calls `list_backlinks` to see every page that references the target, then uses `move_page` / `update_page` without breaking references.
@@ -54,7 +54,7 @@ Concrete agent workflows, each grounded in the actual tools:
 - **Third-party connections:**
   - **WorkOS AuthKit** — OAuth 2.1 identity provider for the Connect flow (issuer `decisive-relation-32-staging.authkit.app`). Handles sign-in/consent; tela receives the resulting identity.
   - **External URL fetch (optional, `import_mira`)** — when an agent imports a page, tela fetches the `source_url` server-side. https-only, no redirects followed, restricted to an operator-configured host allowlist (`TELA_MIRA_ALLOWED_HOSTS`). Off the path unless `import_mira` is called.
-  - **Remote embedder (optional, `semantic_search`)** — semantic search embeds query/content via an operator-configured Ollama instance (`TELA_RAG_EMBED_URL`); on the public instance this is a dedicated, isolated embed-only endpoint. If unconfigured the tool no-ops (503). No content leaves the operator's infrastructure beyond this embedder.
+  - **Remote embedder (optional, `research`)** — semantic retrieval embeds query/content via an operator-configured Ollama instance (`TELA_RAG_EMBED_URL`); on the public instance this is a dedicated, isolated embed-only endpoint. If unconfigured the tool no-ops (503). No content leaves the operator's infrastructure beyond this embedder.
 - **Health data (PHI):** No. tela collects no PHI, PCI, government-ID, or secrets.
 - **Data category:** Productivity / knowledge management (team wiki content — markdown documents, comments, space metadata).
 - **What is read:** spaces, pages (markdown bodies + metadata), backlinks, comments, and search indexes the authenticated account can access.
@@ -76,10 +76,9 @@ Concrete agent workflows, each grounded in the actual tools:
 | `list_pages` | List pages | Flat page listing in a space; optional `parent_id` for direct children. |
 | `get_page` | Get page | Full markdown body + metadata for a numeric page id. |
 | `list_backlinks` | List backlinks | Pages that link to the given page via `[[wikilink]]` / `tela://page/{id}`. |
-| `search` | Search | Ranked full-text search over title + body, snippet-highlighted; optional `space_id`. |
-| `search_bodies` | Search page bodies | Ranked full-text body search within one space (no snippets). |
-| `semantic_search` | Semantic search | Meaning-aware chunk search (vector + keyword, RRF) with citations (page id + heading path). Requires a configured embedder. |
-| `read_chunk` | Read chunk | Fetch one chunk's full section text by `chunk_id` (from `semantic_search`). |
+| `search` | Search | Keyword (full-text) lookup over title + body, snippet-highlighted; optional `space_id`. Always available (no embedder). |
+| `research` | Research the wiki | Semantic, answer-oriented retrieval: assembles answer-ready grounding for a question (full relevant page bodies, cited `sources` with `chunk_id` for drill-in, flagged `disagreements`, `low_confidence`). The agent writes the answer and cites by `[n]`. Requires a configured embedder. |
+| `read_chunk` | Read chunk | Fetch one chunk's full section text by `chunk_id` (from a `research` source). |
 | `fetch` | Fetch document | Fetch a page's full text by id (from a search result). The ChatGPT Deep Research `fetch` tool. |
 
 ### Write tools
@@ -132,7 +131,7 @@ Concrete agent workflows, each grounded in the actual tools:
 
 A reviewer connects via OAuth and exercises a read→write round-trip in a demo space.
 
-**Credentials:** login **`mcp-demo`** / email **`mcp-demo@cagdas.io`** — password **kept out of this public repo; paste it into the submission form** (it's `Tela…2026`; ask Cagdas / see secrets). Email-verified, **no MFA** (tela has no MFA), not an admin. Already populated: space **"Demo"** with 5 pages — Deploy runbook, Incident response, Release checklist, On-call rotation, Architecture overview (so `search "deploy"` and `semantic_search` return real hits). Re-seed any time with `scripts/seed-demo.py`.
+**Credentials:** login **`mcp-demo`** / email **`mcp-demo@cagdas.io`** — password **kept out of this public repo; paste it into the submission form** (it's `Tela…2026`; ask Cagdas / see secrets). Email-verified, **no MFA** (tela has no MFA), not an admin. Already populated: space **"Demo"** with 5 pages — Deploy runbook, Incident response, Release checklist, On-call rotation, Architecture overview (so `search "deploy"` and `research` return real hits). Re-seed any time with `scripts/seed-demo.py`.
 
 **Steps:**
 
@@ -143,7 +142,7 @@ A reviewer connects via OAuth and exercises a read→write round-trip in a demo 
    - `list_spaces` → confirm the demo space is listed.
    - `search` for `deploy` → confirm ranked, snippet-highlighted hits.
    - `get_page` on a hit → confirm full markdown body returns.
-   - `semantic_search` for a paraphrased question → confirm cited chunks (page id + heading path).
+   - `research` for a paraphrased question → confirm assembled `context` + cited `sources` (page id + heading path).
    - `create_page` in the demo space → confirm a new markdown page is created; re-`search` to see it indexed.
    - (optional) `update_page` then `delete_page` on the page just created → confirm the write/destructive round-trip.
 

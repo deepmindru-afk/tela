@@ -82,10 +82,11 @@ func (s *Server) newMCPServer() *mcp.Server {
 		MIMEType: "image/svg+xml",
 		Sizes:    []string{"any"},
 	}}
-	// Instructions carry the authoring guide so every connected host learns the
-	// rich block palette on initialize (generated from the editor's block
-	// manifest — see mcp_authoring.go).
-	server := mcp.NewServer(impl, &mcp.ServerOptions{Instructions: authoringGuideMarkdown(false)})
+	// Instructions carry a short "how to find things" retrieval guide (so a host
+	// picks the right search tool by intent rather than guessing) followed by the
+	// authoring guide, so every connected host learns the rich block palette on
+	// initialize (generated from the editor's block manifest — see mcp_authoring.go).
+	server := mcp.NewServer(impl, &mcp.ServerOptions{Instructions: retrievalGuideMarkdown() + authoringGuideMarkdown(false)})
 	s.registerMCPTools(server)
 	s.registerMCPResources(server)
 	s.registerMCPWidgets(server)
