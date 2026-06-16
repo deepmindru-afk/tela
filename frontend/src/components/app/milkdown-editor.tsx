@@ -147,6 +147,7 @@ import { createAttachmentDropPlugin } from './milkdown-image-upload'
 import { fileSchema } from './milkdown-file'
 import { createUrlUnfurlPlugin } from './milkdown-url-unfurl'
 import { createTableEdgeSelectPlugin } from './milkdown-table-select'
+import { createPlainPastePlugin } from './milkdown-plain-paste'
 import { useQueryClient } from '@tanstack/react-query'
 import { pageKeys } from '../../lib/queries/pages'
 import { navigateToPage } from '../../lib/pageHitItem'
@@ -660,6 +661,14 @@ function MilkdownEditorInner({
         if (wikilinkMode !== 'share' && !readOnly) {
           const tableEdgeSelect = createTableEdgeSelectPlugin()
           ctx.update(prosePluginsCtx, (existing) => [tableEdgeSelect, ...existing])
+        }
+
+        // Paste-as-plain-text (Cmd/Ctrl+Shift+V). Prepended last so its
+        // handlePaste runs ahead of every smart paste handler (table, URL,
+        // image, markdown) when the chord armed it. Editable, non-share.
+        if (wikilinkMode !== 'share' && !readOnly) {
+          const plainPaste = createPlainPastePlugin()
+          ctx.update(prosePluginsCtx, (existing) => [plainPaste, ...existing])
         }
 
         // Image paste/drop → upload → ![](url). Prepended so it intercepts
