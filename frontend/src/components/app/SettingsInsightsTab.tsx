@@ -1,4 +1,5 @@
 import { navigateToPage } from '../../lib/pageHitItem'
+import { useAIUsage } from '../../lib/queries/ai-usage'
 import {
   useAdminStats,
   type AdminStats,
@@ -95,7 +96,81 @@ export function SettingsInsightsTab() {
           <Metric label="Contradictions" value={s.contradictions} tone={s.contradictions > 0 ? 'warning' : 'muted'} />
         </div>
       </Group>
+
+      <AIUsageSection />
     </section>
+  )
+}
+
+// AI usage / token volume — the basis for cost estimation. Loads independently
+// of the main stats query. Token counts are estimates (~chars/4).
+function AIUsageSection() {
+  const q = useAIUsage()
+  if (q.isLoading || q.isError || !q.data) return null
+  const { weeks, models } = q.data
+  if (weeks.length === 0 && models.length === 0) {
+    return (
+      <Group title="AI usage (token volume)">
+        <p className="m-0 text-[length:var(--text-sm)] text-[var(--text-muted)]">
+          No AI usage recorded yet — it accrues as chat, embedding, and image
+          calls run.
+        </p>
+      </Group>
+    )
+  }
+  return (
+    <Group title="AI usage · token volume (estimated)">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-[var(--space-4)]">
+        <div className="flex flex-col gap-[var(--space-2)] rounded-[var(--radius-sm)] border border-[var(--border-subtle)] bg-[var(--surface-1)] p-[var(--space-3)] overflow-x-auto">
+          <span className="text-[length:var(--text-xs)] font-medium uppercase tracking-wide text-[var(--text-muted)]">
+            By week
+          </span>
+          <table className="w-full text-[length:var(--text-sm)] tabular-nums">
+            <thead>
+              <tr className="text-[var(--text-muted)] text-left text-[length:var(--text-xs)]">
+                <th className="font-medium pr-[var(--space-3)]">Week</th>
+                <th className="font-medium pr-[var(--space-3)] text-right">Chat tok</th>
+                <th className="font-medium pr-[var(--space-3)] text-right">Embed tok</th>
+                <th className="font-medium text-right">Images</th>
+              </tr>
+            </thead>
+            <tbody>
+              {weeks.map((w) => (
+                <tr key={w.week} className="text-[var(--text-primary)]">
+                  <td className="pr-[var(--space-3)] text-[var(--text-muted)]">{w.week}</td>
+                  <td className="pr-[var(--space-3)] text-right">{w.chat_tokens.toLocaleString()}</td>
+                  <td className="pr-[var(--space-3)] text-right">{w.embed_tokens.toLocaleString()}</td>
+                  <td className="text-right">{w.images.toLocaleString()}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <div className="flex flex-col gap-[var(--space-2)] rounded-[var(--radius-sm)] border border-[var(--border-subtle)] bg-[var(--surface-1)] p-[var(--space-3)]">
+          <span className="text-[length:var(--text-xs)] font-medium uppercase tracking-wide text-[var(--text-muted)]">
+            By model (12 weeks)
+          </span>
+          <ul className="m-0 p-0 list-none flex flex-col gap-[var(--space-1)]">
+            {models.map((m) => (
+              <Row
+                key={`${m.model}:${m.kind}`}
+                left={
+                  <>
+                    <span className="font-medium">{m.model || '(default)'}</span>{' '}
+                    <span className="text-[var(--text-muted)]">· {m.kind} · {m.calls.toLocaleString()} calls</span>
+                  </>
+                }
+                count={m.kind === 'image' ? m.units : m.tokens}
+              />
+            ))}
+          </ul>
+        </div>
+      </div>
+      <p className="m-0 text-[length:var(--text-xs)] text-[var(--text-muted)]">
+        Token counts are estimates (~4 chars/token). Apply a per-provider price
+        table to these for a cost estimate.
+      </p>
+    </Group>
   )
 }
 

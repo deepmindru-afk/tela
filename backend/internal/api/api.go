@@ -148,6 +148,16 @@ func New(db *sql.DB) *Server {
 		sso:                loadSSOProviders(context.Background()),
 		seedWelcome:        os.Getenv("TELA_DISABLE_WELCOME_SEED") == "",
 	}
+	// AI usage metering: capture token estimates at the service chokepoints so
+	// every chat completion + embedding lands in ai_usage (image gen is metered
+	// at its MCP tool). One recorder, set before any AI runs. See ai_usage.go.
+	s.llm.SetUsageRecorder(func(model string, in, out int) {
+		s.recordAIUsage("chat", model, in, out, 0)
+	})
+	s.rag.SetUsageRecorder(func(model string, in int) {
+		s.recordAIUsage("embed", model, in, 0, 0)
+	})
+
 	// Built after the literal so it can share the llm handle (same enablement).
 	s.summarize = summarize.NewService(db, s.llm)
 	// Agreement shares llm + rag (needs both: a model to judge, embeddings to

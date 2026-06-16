@@ -96,6 +96,33 @@ type Service struct {
 // Call before StartAutoReindex.
 func (s *Service) SetPaused(fn func() bool) { s.paused = fn }
 
+// SetUsageRecorder wraps the active embedder so EVERY embed call (search,
+// reindex, the cloud proxy — all go through s.emb) is metered with a length-based
+// token estimate. Injected by the api layer; no-op if disabled. Call once at
+// wiring, before the background indexer starts.
+func (s *Service) SetUsageRecorder(rec func(model string, inputTokens int)) {
+	if rec == nil || s.emb == nil {
+		return
+	}
+	s.emb = recordingEmbedder{inner: s.emb, rec: rec}
+}
+
+// recordingEmbedder is a metering decorator over an Embedder.
+type recordingEmbedder struct {
+	inner Embedder
+	rec   func(model string, inputTokens int)
+}
+
+func (e recordingEmbedder) Embed(ctx context.Context, text string) ([]float32, error) {
+	v, err := e.inner.Embed(ctx, text)
+	if err == nil {
+		e.rec(e.inner.Model(), (len(text)+3)/4)
+	}
+	return v, err
+}
+
+func (e recordingEmbedder) Model() string { return e.inner.Model() }
+
 func (s *Service) isPaused() bool { return s.paused != nil && s.paused() }
 
 // NewService builds the service from config. It never fails: with no EmbedURL

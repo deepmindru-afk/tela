@@ -56,10 +56,36 @@ type StreamCompleter interface {
 	CompleteStream(ctx context.Context, systemPrompt, userPrompt string, onToken func(string) error) error
 }
 
+// UsageRecorder is called once per completion with the active model and
+// length-based token estimates. Injected by the api layer (which owns the DB);
+// nil = no metering. See api/ai_usage.go.
+type UsageRecorder func(model string, inputTokens, outputTokens int)
+
+// EstimateTokens is the shared rough heuristic (~4 chars/token) used to meter AI
+// usage without a real tokenizer — adequate for cost estimation, not billing.
+func EstimateTokens(s string) int { return (len(s) + 3) / 4 }
+
 // Service bundles the config and the active client. A nil client means disabled.
 type Service struct {
 	cfg Config
 	cl  Completer
+	// usage, when set, records token estimates for every completion — the single
+	// chokepoint for all chat usage regardless of which package calls Complete.
+	usage UsageRecorder
+}
+
+// SetUsageRecorder installs the per-completion usage hook. Call once at wiring.
+func (s *Service) SetUsageRecorder(r UsageRecorder) {
+	if s != nil {
+		s.usage = r
+	}
+}
+
+func (s *Service) record(systemPrompt, userPrompt, output string) {
+	if s.usage == nil {
+		return
+	}
+	s.usage(s.Model(), EstimateTokens(systemPrompt)+EstimateTokens(userPrompt), EstimateTokens(output))
 }
 
 // NewService builds the service from config. It never fails: with no URL the
@@ -88,7 +114,11 @@ func (s *Service) Complete(ctx context.Context, systemPrompt, userPrompt string)
 	if !s.Enabled() {
 		return "", errLLMDisabled
 	}
-	return s.cl.Complete(ctx, systemPrompt, userPrompt)
+	out, err := s.cl.Complete(ctx, systemPrompt, userPrompt)
+	if err == nil {
+		s.record(systemPrompt, userPrompt, out)
+	}
+	return out, err
 }
 
 // CompleteStream streams the completion token-by-token via onToken. If the active
@@ -99,13 +129,25 @@ func (s *Service) CompleteStream(ctx context.Context, systemPrompt, userPrompt s
 	if !s.Enabled() {
 		return errLLMDisabled
 	}
+	// Count streamed output for the usage estimate without buffering the whole
+	// answer: tally bytes as they flow, record on success.
+	var outLen int
+	tally := func(tok string) error {
+		outLen += len(tok)
+		return onToken(tok)
+	}
 	if sc, ok := s.cl.(StreamCompleter); ok {
-		return sc.CompleteStream(ctx, systemPrompt, userPrompt, onToken)
+		err := sc.CompleteStream(ctx, systemPrompt, userPrompt, tally)
+		if err == nil && s.usage != nil {
+			s.usage(s.Model(), EstimateTokens(systemPrompt)+EstimateTokens(userPrompt), (outLen+3)/4)
+		}
+		return err
 	}
 	out, err := s.cl.Complete(ctx, systemPrompt, userPrompt)
 	if err != nil {
 		return err
 	}
+	s.record(systemPrompt, userPrompt, out)
 	if out == "" {
 		return nil
 	}

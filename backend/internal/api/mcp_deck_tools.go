@@ -232,10 +232,18 @@ func (s *Server) mcpGenerateDeckImage(ctx context.Context, req *mcp.CallToolRequ
 	if ae != nil {
 		return mcpErr(ae), genImageOut{}, nil
 	}
-	img, err := newImageGen().generate(ctx, in.Prompt, in.Size, in.Model, in.Steps, in.Seed)
+	gen := newImageGen()
+	img, err := gen.generate(ctx, in.Prompt, in.Size, in.Model, in.Steps, in.Seed)
 	if err != nil {
 		return mcpErr(&apiErr{http.StatusBadGateway, "image_gen_failed", "could not generate image: " + err.Error()}), genImageOut{}, nil
 	}
+	// Meter the generation (no tokens — count it as one image unit), so deck
+	// imagery spend shows up alongside chat/embed in the AI usage log.
+	imgModel := in.Model
+	if imgModel == "" {
+		imgModel = gen.model
+	}
+	s.recordAIUsage("image", imgModel, 0, 0, 1)
 	name := strings.TrimSpace(in.Name)
 	if name == "" {
 		name = "deck-image.png"

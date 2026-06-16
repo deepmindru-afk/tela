@@ -111,6 +111,23 @@ Each request emits a structured access-log line (`http method=… path=… statu
 dur_ms=…` via `slog`; the `/api/health` probe is skipped). `/api/health` also
 reports `rag: enabled|disabled`.
 
+## AI usage & cost
+
+Every AI call is metered into the `ai_usage` log (migration `0044`) — one row per
+**chat completion**, **embedding**, and **image generation**, captured at the
+service chokepoints (`internal/llm` records chat, `internal/rag` wraps the
+embedder, the deck image-gen tool records images) via a recorder injected in
+`api.New`. **Token counts are length-based estimates** (≈ chars/4, `llm.EstimateTokens`)
+— good for budgeting, not invoicing; images record a `units` count, not tokens.
+
+`GET /api/admin/ai-usage` (instance-admin) returns weekly token totals + a
+per-model breakdown over the last 12 weeks; it surfaces in **Settings → Insights**
+under *AI usage*. Cost estimation is then `tokens × a per-provider price table` —
+the same recorded tokens can be priced against any provider (Anthropic / OpenAI /
+self-hosted-$0). That price table + the $ view is the next layer; the capture
+here is the prerequisite, so it only reflects usage **from when it shipped
+onward**.
+
 ## Insights dashboard
 
 **Settings → Insights** (instance-admin) is the instance-analytics overview,
