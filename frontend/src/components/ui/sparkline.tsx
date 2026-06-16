@@ -39,13 +39,17 @@ export function Sparkline({
 
   return (
     <svg
-      width={width}
+      width="100%"
       height={height}
       viewBox={`0 0 ${width} ${height}`}
       preserveAspectRatio="none"
       role="img"
       aria-label={ariaLabel}
-      className={cn('overflow-visible', className)}
+      // Fill the container, never exceed it. `width` is only the viewBox
+      // coordinate space; preserveAspectRatio="none" stretches x to the box and
+      // vector-effect keeps the stroke crisp. (A fixed px width + overflow leaked
+      // the line past narrow cards.)
+      className={cn('block w-full max-w-full', className)}
     >
       {area ? (
         <>

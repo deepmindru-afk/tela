@@ -125,13 +125,13 @@ function Metric({
   tone?: 'accent' | 'danger' | 'warning' | 'muted'
 }) {
   return (
-    <div className="flex flex-col gap-[var(--space-1)] rounded-[var(--radius-sm)] border border-[var(--border-subtle)] bg-[var(--surface-1)] p-[var(--space-3)]">
+    <div className="flex flex-col gap-[var(--space-1)] min-w-0 overflow-hidden rounded-[var(--radius-sm)] border border-[var(--border-subtle)] bg-[var(--surface-1)] p-[var(--space-3)]">
       <span className="text-[length:var(--text-xs)] text-[var(--text-muted)]">{label}</span>
       <span className="text-[length:var(--text-xl)] font-semibold text-[var(--text-primary)] tabular-nums leading-none">
         {value.toLocaleString()}
       </span>
       {series && series.length > 0 ? (
-        <span className={cn('block', TONE[tone])}>
+        <span className={cn('block w-full', TONE[tone])}>
           <Sparkline values={series} width={160} height={28} ariaLabel={`${label} trend`} />
         </span>
       ) : null}
