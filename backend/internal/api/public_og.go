@@ -226,7 +226,14 @@ func (s *Server) HandlePublicReaderOG(w http.ResponseWriter, r *http.Request) {
 	canonical := base + publicReaderPath(sp.ID, pageID, page.Title)
 	imageURL := base + fmt.Sprintf("/p/%d/og.png", pageID)
 	desc := postExcerpt(page.Body, page.Props, 200)
-	owner := s.spaceOwnerHandle(r.Context(), sp.ID)
+	// Crawler-visible author should match the human-visible byline: the page's
+	// own author (first revision), not the space owner. Falls back to the owner
+	// for legacy pages with no recorded author — single-author blogs, where the
+	// two coincide anyway. Keeps the schema.org author in sync with PublicReader.
+	author, _ := pageAuthorAndEditor(r.Context(), s.DB, pageID)
+	if author == "" {
+		author = s.spaceOwnerHandle(r.Context(), sp.ID)
+	}
 
 	ld := map[string]any{
 		"@context": "https://schema.org", "@type": "BlogPosting",
@@ -236,8 +243,8 @@ func (s *Server) HandlePublicReaderOG(w http.ResponseWriter, r *http.Request) {
 		"dateModified":  telaTimeToRFC3339(page.UpdatedAt),
 		"isPartOf":      map[string]any{"@type": "Blog", "name": sp.Name, "url": base + publicSpacePath(sp.ID)},
 	}
-	if owner != "" {
-		ld["author"] = map[string]any{"@type": "Person", "name": owner, "url": base + "/u/" + owner}
+	if author != "" {
+		ld["author"] = map[string]any{"@type": "Person", "name": author, "url": base + "/u/" + author}
 	}
 
 	writeOGDoc(w, ogDoc{
