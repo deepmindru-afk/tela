@@ -15,6 +15,7 @@ import { SettingsSearchIndexTab } from '../components/app/SettingsSearchIndexTab
 import { SettingsSummariesTab } from '../components/app/SettingsSummariesTab'
 import { SettingsSyncTab } from '../components/app/SettingsSyncTab'
 import { SettingsUsersTab } from '../components/app/SettingsUsersTab'
+import { Badge } from '../components/ui/badge'
 import { Button } from '../components/ui/button'
 import { useMe } from '../lib/queries/auth'
 import { useOrgs } from '../lib/queries/orgs'
@@ -24,6 +25,10 @@ interface SettingsTab {
   id: string
   label: string
   render: () => React.ReactNode
+  // Optional unread count shown as a badge in the left nav, so a notification
+  // surfaced elsewhere (e.g. the unseen-feedback dot on the account menu) points
+  // at the tab it actually belongs to instead of going cold at /settings.
+  badge?: number
 }
 
 // A labeled cluster of tabs in the left nav — the label says why you can see them.
@@ -155,6 +160,9 @@ export function SettingsPage() {
   const isOrgAdmin =
     !me.data?.is_instance_admin &&
     (orgs.data?.some((o) => o.my_role === 'admin') ?? false)
+  // The unseen-feedback count drives both the account-menu dot and the badge on
+  // the Feedback tab below, so the two always agree.
+  const feedbackUnseen = me.data?.feedback_unseen ?? 0
   // Grouped so it's clear WHY each section is visible: "Account" is everyone's,
   // "Organization" appears because you administer an org, "Instance admin" because
   // you're an instance admin.
@@ -163,7 +171,7 @@ export function SettingsPage() {
     if (me.data?.is_instance_admin) {
       return [
         { label: 'Account', tabs: account },
-        { label: 'Instance admin', tabs: [USERS_TAB, ORGS_TAB, USAGE_TAB, FEEDBACK_TAB, EVENTS_TAB, AUDIT_TAB, INSTANCE_TAB] },
+        { label: 'Instance admin', tabs: [USERS_TAB, ORGS_TAB, USAGE_TAB, { ...FEEDBACK_TAB, badge: feedbackUnseen }, EVENTS_TAB, AUDIT_TAB, INSTANCE_TAB] },
       ]
     }
     if (isOrgAdmin) {
@@ -173,7 +181,7 @@ export function SettingsPage() {
       ]
     }
     return [{ label: 'Account', tabs: account }]
-  }, [me.data?.is_instance_admin, isOrgAdmin])
+  }, [me.data?.is_instance_admin, isOrgAdmin, feedbackUnseen])
   const tabs = useMemo<SettingsTab[]>(() => groups.flatMap((g) => g.tabs), [groups])
   // `?tab=` (set by the per-org page's back link) picks the initial section;
   // once a tab actually exists for it, the `active` lookup resolves it.
@@ -208,7 +216,12 @@ export function SettingsPage() {
                   aria-current={isActive ? 'page' : undefined}
                   onClick={() => setActiveId(tab.id)}
                 >
-                  {tab.label}
+                  <span className="flex-1 text-left truncate">{tab.label}</span>
+                  {tab.badge ? (
+                    <Badge variant="accent" className="ml-auto shrink-0">
+                      {tab.badge}
+                    </Badge>
+                  ) : null}
                 </Button>
               )
             })}

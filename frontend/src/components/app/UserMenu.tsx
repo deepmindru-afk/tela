@@ -75,7 +75,12 @@ export function UserMenu() {
           <DropdownMenuItem
             onSelect={(e) => {
               e.preventDefault()
-              void navigate({ to: '/settings' })
+              // When there's unseen feedback, land directly on the Feedback tab
+              // (where the badge lives) so the dot isn't a dead end at Profile.
+              void navigate({
+                to: '/settings',
+                search: feedbackUnseen > 0 ? { tab: 'feedback' } : {},
+              })
             }}
           >
             <Settings width={14} height={14} /> Settings
