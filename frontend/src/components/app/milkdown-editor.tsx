@@ -48,6 +48,7 @@ import {
   ySyncPlugin,
   yUndoPlugin,
 } from 'y-prosemirror'
+import { createPreserveCellSelectionPlugin } from '../../lib/collab/preserve-cell-selection'
 import { cn } from '../../lib/utils'
 import { setErrorReportPageId } from '../../lib/client-errors'
 import { configureRefractor } from '../../lib/milkdown/refractor-config'
@@ -688,6 +689,11 @@ function MilkdownEditorInner({
           ctx.update(prosePluginsCtx, (existing) => [
             ...existing,
             ySyncPlugin(fragment),
+            // y-prosemirror's selection restore can't represent a CellSelection
+            // and collapses table cell drags to a caret on every sync tx; this
+            // re-wraps them back. Must sit after ySyncPlugin to react to its
+            // sync transactions.
+            createPreserveCellSelectionPlugin(),
             yCursorPlugin(collab.provider.awareness, {
               cursorBuilder,
               selectionBuilder,
