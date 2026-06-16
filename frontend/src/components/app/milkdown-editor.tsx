@@ -37,10 +37,13 @@ import {
 } from '@prosemirror-adapter/react'
 import { prism, prismConfig } from '@milkdown/plugin-prism'
 import { Plugin, Selection } from '@milkdown/kit/prose/state'
+import { keymap } from '@milkdown/kit/prose/keymap'
 import type { EditorView } from '@milkdown/kit/prose/view'
 import * as Y from 'yjs'
 import {
   prosemirrorToYXmlFragment,
+  redo,
+  undo,
   yCursorPlugin,
   ySyncPlugin,
   yUndoPlugin,
@@ -670,6 +673,16 @@ function MilkdownEditorInner({
               selectionBuilder,
             }),
             yUndoPlugin(),
+            // yUndoPlugin only wires the Yjs-aware UndoManager — it binds NO
+            // keys. Milkdown's `history` plugin (draft path) ships its own
+            // Mod-z/Mod-y keymap, but it's gated off here, so without this the
+            // collab editor has no keyboard undo/redo. Bind y-prosemirror's
+            // own undo/redo commands.
+            keymap({
+              'Mod-z': undo,
+              'Mod-y': redo,
+              'Mod-Shift-z': redo,
+            }),
           ])
         }
 
