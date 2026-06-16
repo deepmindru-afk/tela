@@ -16,14 +16,14 @@ func TestDeckThemeConfig_OrgBrandInheritance(t *testing.T) {
 
 	org := seedOrg(t, d, "Acme", "acme")
 	if _, err := d.ExecContext(ctx,
-		`INSERT INTO org_branding (org_id, logo_url, accent, deck_variant)
-		 VALUES ($1, 'https://acme.example/logo.svg', '#0A5FBD', 'brutalist')`, org); err != nil {
+		`INSERT INTO org_branding (org_id, logo_url, accent)
+		 VALUES ($1, 'https://acme.example/logo.svg', '#0A5FBD')`, org); err != nil {
 		t.Fatalf("seed branding: %v", err)
 	}
 	orgSpace := seedOrgSpace(t, d, "Brand", "brand", org)
 
-	// No props → logo + accent inherited, but variant stays UNSET (never defaulted
-	// from the org's deck_variant, even though one is stored).
+	// No props → logo + accent inherited, but variant stays UNSET (the org has no
+	// say over the variant — it's a deliberate per-deck choice).
 	cfg := srv.deckThemeConfig(ctx, models.Page{SpaceID: orgSpace})
 	if cfg.Logo != "https://acme.example/logo.svg" || cfg.Accent != "#0A5FBD" {
 		t.Fatalf("cfg = %+v, want inherited logo + accent", cfg)

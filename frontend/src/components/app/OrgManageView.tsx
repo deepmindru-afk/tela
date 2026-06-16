@@ -14,8 +14,7 @@ import {
   UserPlus,
   Users,
 } from 'lucide-react'
-import { useQuery } from '@tanstack/react-query'
-import { ApiError, api } from '../../lib/api'
+import { ApiError } from '../../lib/api'
 import { useMe } from '../../lib/queries/auth'
 import { useOrgUsage } from '../../lib/queries/billing'
 import { formatBytes } from '../../lib/format'
@@ -1226,16 +1225,7 @@ function BrandingSection({ orgId }: { orgId: number }) {
   const uploadLogo = useUploadOrgLogo(orgId)
   const deleteLogo = useDeleteOrgLogo(orgId)
   const fileRef = useRef<HTMLInputElement>(null)
-  // Deck variants come from the theme package (slidev-theme-tahta) — same catalog
-  // the deck variant picker uses; tela hardcodes none.
-  const { data: deckVariants } = useQuery({
-    queryKey: ['deck-variants'],
-    queryFn: () => api<{ name: string; label: string }[]>('/api/deck/themes'),
-    staleTime: Infinity,
-    retry: false,
-  })
   const [accent, setAccent] = useState('')
-  const [deckVariant, setDeckVariant] = useState('')
   const [importUrl, setImportUrl] = useState('')
   const [showImport, setShowImport] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -1244,21 +1234,20 @@ function BrandingSection({ orgId }: { orgId: number }) {
   const [hydratedFor, setHydratedFor] = useState<number | null>(null)
   if (branding.data && hydratedFor !== orgId) {
     setAccent(branding.data.accent)
-    setDeckVariant(branding.data.deck_variant)
     setHydratedFor(orgId)
   }
 
   const hasLogo = branding.data?.has_logo ?? false
   const logoUrl = branding.data?.logo_url ?? ''
 
-  // Accent + recommended style are saved together (the form). The logo is its own
-  // immediate action (upload / import / remove), each storing to tela + refetching.
+  // The accent is saved via the form. The logo is its own immediate action
+  // (upload / import / remove), each storing to tela + refetching.
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setError(null)
     setSaved(false)
     try {
-      await put.mutateAsync({ accent: accent.trim(), deck_variant: deckVariant })
+      await put.mutateAsync({ accent: accent.trim() })
       setSaved(true)
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Failed to save branding.')
@@ -1281,7 +1270,7 @@ function BrandingSection({ orgId }: { orgId: number }) {
     if (!importUrl.trim()) return
     setError(null)
     try {
-      await put.mutateAsync({ accent: accent.trim(), deck_variant: deckVariant, logo_import_url: importUrl.trim() })
+      await put.mutateAsync({ accent: accent.trim(), logo_import_url: importUrl.trim() })
       setImportUrl('')
       setShowImport(false)
     } catch (err) {
@@ -1302,9 +1291,9 @@ function BrandingSection({ orgId }: { orgId: number }) {
     <div className="flex flex-col gap-[var(--space-5)] max-w-[40rem]">
       <p className="m-0 text-[length:var(--text-sm)] text-[var(--text-muted)] leading-[var(--leading-relaxed)]">
         Your logo and accent color theme your custom-domain sign-in screen and are
-        applied automatically to slide decks created in this org's spaces. The deck
-        style is a recommendation only — the variant is always a deliberate per-deck
-        choice. Leave a field blank to use the tela default.
+        applied automatically to slide decks created in this org's spaces. Branding
+        is the logo and color, not the style — each deck's variant stays a deliberate
+        per-deck choice. Leave a field blank to use the tela default.
       </p>
 
       {/* Logo — stored in tela (so it renders everywhere, incl. exported decks). */}
@@ -1402,27 +1391,6 @@ function BrandingSection({ orgId }: { orgId: number }) {
               />
             ) : null}
           </div>
-        </div>
-
-        <div className="flex flex-col gap-[var(--space-1)]">
-          <label
-            htmlFor={`org-deck-variant-${orgId}`}
-            className="text-[length:var(--text-xs)] uppercase tracking-wider text-[var(--text-muted)] font-[family-name:var(--font-sans)]"
-          >
-            Recommended deck style
-          </label>
-          <Select
-            id={`org-deck-variant-${orgId}`}
-            value={deckVariant}
-            onChange={(e) => setDeckVariant(e.target.value)}
-          >
-            <option value="">tela default</option>
-            {(deckVariants ?? []).map((v) => (
-              <option key={v.name} value={v.name}>
-                {v.label}
-              </option>
-            ))}
-          </Select>
         </div>
 
         {error ? (

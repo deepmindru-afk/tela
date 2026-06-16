@@ -427,8 +427,6 @@ export interface OrgBranding {
   /** A logo is stored in tela (vs. unset). */
   has_logo: boolean
   accent: string
-  /** tahta variant id recommended for the org's decks ('' → none). */
-  deck_variant: string
 }
 
 // GET /api/orgs/{id}/hostnames/{hostname}/health — a live probe of a custom

@@ -90,11 +90,11 @@ monochrome mark for the scheme).
 
 The **`variant` is deliberately NOT inherited or defaulted** — it's the biggest
 visual decision (typeface/scheme/texture) and must be a conscious per-deck choice,
-so the author (human or agent) can't coast. `org_branding.deck_variant` is stored
-only as a non-binding **recommendation** surfaced in the org settings UI; it is
-never applied at render time. An unset variant falls back to tahta's own default in
-the sidecar purely as a don't-crash safety net (public/OG decks must render) — not a
-choice tela makes. The MCP authoring guide marks the variant a required, deliberate
+so the author (human or agent) can't coast. The org has **no say over the variant
+at all** — branding is the logo + accent, never the style, and there's no
+brand→variant mapping (even a "recommendation" nudges every org deck toward one
+look). An unset variant falls back to tahta's own default in the sidecar purely as
+a don't-crash safety net (public/OG decks must render) — not a choice tela makes. The MCP authoring guide marks the variant a required, deliberate
 pick; the in-app `DeckOverview` shows a "Choose a style" prompt instead of a
 defaulted cover.
 

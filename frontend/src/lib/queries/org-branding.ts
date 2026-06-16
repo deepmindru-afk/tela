@@ -27,7 +27,7 @@ export function useOrgBranding(orgId: number) {
 export function usePutOrgBranding(orgId: number) {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async (input: { accent: string; deck_variant: string; logo_import_url?: string }) =>
+    mutationFn: async (input: { accent: string; logo_import_url?: string }) =>
       api<OrgBranding>(`/api/orgs/${orgId}/branding`, {
         method: 'PUT',
         body: JSON.stringify(input),

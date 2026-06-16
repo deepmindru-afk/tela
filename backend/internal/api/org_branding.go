@@ -41,10 +41,9 @@ var allowedLogoMime = map[string]bool{
 }
 
 type orgBrandingDTO struct {
-	LogoURL     string `json:"logo_url"`     // effective URL the SPA/deck use (tela serve route, or legacy external)
-	HasLogo     bool   `json:"has_logo"`     // a logo is stored in tela (vs. unset or legacy-external)
-	Accent      string `json:"accent"`       // brand color (hue-matched into deck variants)
-	DeckVariant string `json:"deck_variant"` // org's recommended deck variant (a suggestion, never auto-applied)
+	LogoURL string `json:"logo_url"` // effective URL the SPA/deck use (tela serve route, or legacy external)
+	HasLogo bool   `json:"has_logo"` // a logo is stored in tela (vs. unset or legacy-external)
+	Accent  string `json:"accent"`   // brand color (hue-matched into deck variants)
 }
 
 // orgBranding returns an org's effective logo URL + accent (empty when unset).
@@ -67,22 +66,21 @@ func (s *Server) GetOrgBranding(w http.ResponseWriter, r *http.Request) {
 	}
 	var dto orgBrandingDTO
 	_ = s.DB.QueryRowContext(r.Context(),
-		`SELECT logo_url, accent, deck_variant, (logo_data IS NOT NULL)
+		`SELECT logo_url, accent, (logo_data IS NOT NULL)
 		   FROM org_branding WHERE org_id = $1`, orgID).
-		Scan(&dto.LogoURL, &dto.Accent, &dto.DeckVariant, &dto.HasLogo)
+		Scan(&dto.LogoURL, &dto.Accent, &dto.HasLogo)
 	writeJSON(w, http.StatusOK, dto)
 }
 
 type putBrandingReq struct {
 	Accent        string `json:"accent"`
-	DeckVariant   string `json:"deck_variant"`
 	LogoImportURL string `json:"logo_import_url"` // optional: fetch this once and store it as the org logo
 }
 
-// PutOrgBranding — PUT /api/orgs/{id}/branding. Org-admin. Sets accent + the
-// recommended deck variant; optionally imports a logo from a URL. The logo bytes
-// themselves are otherwise managed by the upload/delete endpoints — PUT never
-// touches a stored logo unless logo_import_url is given.
+// PutOrgBranding — PUT /api/orgs/{id}/branding. Org-admin. Sets the brand accent;
+// optionally imports a logo from a URL. The logo bytes themselves are otherwise
+// managed by the upload/delete endpoints — PUT never touches a stored logo unless
+// logo_import_url is given.
 func (s *Server) PutOrgBranding(w http.ResponseWriter, r *http.Request) {
 	orgID, ok := parseOrgID(w, r)
 	if !ok {
@@ -97,18 +95,17 @@ func (s *Server) PutOrgBranding(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	req.Accent = strings.TrimSpace(req.Accent)
-	req.DeckVariant = strings.TrimSpace(req.DeckVariant)
 	req.LogoImportURL = strings.TrimSpace(req.LogoImportURL)
 	if req.Accent != "" && !accentPattern.MatchString(req.Accent) {
 		writeError(w, http.StatusBadRequest, "bad_request", "accent must be a hex color or oklch()/rgb() value")
 		return
 	}
 	if _, err := s.DB.ExecContext(r.Context(), `
-		INSERT INTO org_branding (org_id, accent, deck_variant)
-		VALUES ($1, $2, $3)
+		INSERT INTO org_branding (org_id, accent)
+		VALUES ($1, $2)
 		ON CONFLICT (org_id) DO UPDATE
-		   SET accent = EXCLUDED.accent, deck_variant = EXCLUDED.deck_variant, updated_at = tela_now()`,
-		orgID, req.Accent, req.DeckVariant); err != nil {
+		   SET accent = EXCLUDED.accent, updated_at = tela_now()`,
+		orgID, req.Accent); err != nil {
 		writeError(w, http.StatusInternalServerError, "internal", "save branding failed")
 		return
 	}
