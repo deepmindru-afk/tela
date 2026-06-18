@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"fmt"
 	"image"
+	"image/color"
+	"image/jpeg"
 	"image/png"
 	"io"
 	"net/http"
@@ -255,4 +257,60 @@ func TestOGImage_ConcurrentRendering(t *testing.T) {
 		}(g)
 	}
 	wg.Wait()
+}
+
+// TestShrinkShareImage covers the deck-cover downscale used for the OG share
+// image: a large photographic-ish PNG shrinks to a small 1200-wide JPEG, while
+// an already-small image is returned untouched.
+func TestShrinkShareImage(t *testing.T) {
+	// A 1960×1104 smooth gradient encoded as a high-quality JPEG — stands in for a
+	// real (photographic) deck cover: large at full size, much smaller once
+	// downscaled + re-encoded. (A synthetic high-frequency pattern would compress
+	// better as PNG than the downscaled JPEG and exercise only the size guard.)
+	big := image.NewRGBA(image.Rect(0, 0, 1960, 1104))
+	for y := 0; y < 1104; y++ {
+		for x := 0; x < 1960; x++ {
+			big.Set(x, y, color.RGBA{R: uint8(x * 255 / 1960), G: uint8(y * 255 / 1104), B: uint8((x + y) * 255 / 3064), A: 0xff})
+		}
+	}
+	var pbuf bytes.Buffer
+	if err := jpeg.Encode(&pbuf, big, &jpeg.Options{Quality: 100}); err != nil {
+		t.Fatalf("encode source: %v", err)
+	}
+	src := pbuf.Bytes()
+
+	out, ct := shrinkShareImage(src, "image/jpeg")
+	if ct != "image/jpeg" {
+		t.Fatalf("content-type=%q want image/jpeg", ct)
+	}
+	if len(out) >= len(src) {
+		t.Fatalf("not smaller: out=%d src=%d", len(out), len(src))
+	}
+	img, _, err := image.Decode(bytes.NewReader(out))
+	if err != nil {
+		t.Fatalf("decode output: %v", err)
+	}
+	if w := img.Bounds().Dx(); w != ogShareMaxWidth {
+		t.Fatalf("width=%d want %d", w, ogShareMaxWidth)
+	}
+	if h := img.Bounds().Dy(); h != 1104*ogShareMaxWidth/1960 {
+		t.Fatalf("height=%d want %d (aspect preserved)", h, 1104*ogShareMaxWidth/1960)
+	}
+
+	// Already small: returned verbatim (no upscale, no re-encode).
+	small := image.NewRGBA(image.Rect(0, 0, 100, 60))
+	var sbuf bytes.Buffer
+	if err := png.Encode(&sbuf, small); err != nil {
+		t.Fatalf("encode small: %v", err)
+	}
+	sout, sct := shrinkShareImage(sbuf.Bytes(), "image/png")
+	if sct != "image/png" || !bytes.Equal(sout, sbuf.Bytes()) {
+		t.Fatalf("small image was not returned unchanged (ct=%q, equal=%v)", sct, bytes.Equal(sout, sbuf.Bytes()))
+	}
+
+	// Garbage in → returned unchanged (best-effort decode).
+	gout, gct := shrinkShareImage([]byte("not an image"), "image/png")
+	if gct != "image/png" || string(gout) != "not an image" {
+		t.Fatalf("garbage not passed through: ct=%q out=%q", gct, gout)
+	}
 }

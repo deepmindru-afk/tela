@@ -203,7 +203,6 @@ func writeOGHTMLWithURL(w http.ResponseWriter, pageID int64, title, body, spaceN
   <meta property="og:image" content="%s">
   <meta property="og:image:width" content="1200">
   <meta property="og:image:height" content="630">
-  <meta property="og:image:type" content="image/png">
   <meta property="og:image:alt" content="%s">
   <meta property="og:url" content="%s">
   <meta property="og:type" content="article">

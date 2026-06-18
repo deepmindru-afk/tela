@@ -8,6 +8,7 @@ import (
 	"image"
 	"image/color"
 	"image/draw"
+	"image/jpeg" // encode the share image; its init also registers the JPEG decoder
 	"image/png"
 	"log/slog"
 	"net/http"
@@ -15,12 +16,20 @@ import (
 	"strings"
 	"time"
 
+	xdraw "golang.org/x/image/draw"
 	"golang.org/x/image/font"
 	"golang.org/x/image/font/gofont/gobold"
 	"golang.org/x/image/font/gofont/goregular"
 	"golang.org/x/image/font/opentype"
 	"golang.org/x/image/math/fixed"
 )
+
+// ogShareMaxWidth bounds the deck cover used as a share image. A deck slide
+// renders at ~1960×1104 (a ~1.8 MB PNG of a full-bleed, often photographic
+// slide) — too heavy for link-preview fetchers that cap the image (WhatsApp
+// drops previews over a few hundred KB). Downscaling to 1200-wide + JPEG gets
+// it to ~100–150 KB while staying crisp at OG render sizes.
+const ogShareMaxWidth = 1200
 
 // OG card layout: a 1200×630 canvas with an 80px inset, drawn against a fixed
 // dark-mode palette. RGBs are hardcoded so the renderer never grows a
@@ -69,7 +78,9 @@ func init() {
 	ogRegularFont = regular
 }
 
-// HandleOGImage returns the server-rendered 1200×630 PNG share card for a page.
+// HandleOGImage returns the share image for a page: a deck's first slide
+// (downscaled + JPEG via shrinkShareImage), else the server-rendered 1200×630
+// PNG title card.
 // Public — middleware bypasses /p/* and this route is NOT UA-gated because
 // image fetchers (Slack, Twitter, Discord, link-preview proxies) carry
 // arbitrary or empty UAs; blocking them would break the OG card path for half
@@ -126,13 +137,14 @@ func (s *Server) HandleOGImage(w http.ResponseWriter, r *http.Request) {
 	// AND private decks. Best-effort + time-bounded — fall back to the generic card
 	// if the cover render is slow or unavailable so crawlers always get something.
 	if isDeckBag(decodeProps(propsRaw)) {
-		if png, ct, ok := s.deckCoverPNG(r.Context(), body, decodeProps(propsRaw), spaceID); ok {
-			w.Header().Set("Content-Type", ct)
+		if raw, ct, ok := s.deckCoverPNG(r.Context(), body, decodeProps(propsRaw), spaceID); ok {
+			img, ict := shrinkShareImage(raw, ct)
+			w.Header().Set("Content-Type", ict)
 			w.Header().Set("Cache-Control", "public, max-age=3600")
 			w.Header().Set("ETag", etag)
-			w.Header().Set("Content-Length", strconv.Itoa(len(png)))
+			w.Header().Set("Content-Length", strconv.Itoa(len(img)))
 			w.WriteHeader(http.StatusOK)
-			_, _ = w.Write(png)
+			_, _ = w.Write(img)
 			return
 		}
 	}
@@ -150,6 +162,42 @@ func (s *Server) HandleOGImage(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Length", strconv.Itoa(len(pngBytes)))
 	w.WriteHeader(http.StatusOK)
 	_, _ = w.Write(pngBytes)
+}
+
+// shrinkShareImage downscales a deck cover to a link-preview-friendly size and
+// re-encodes it as JPEG (deck slides are photographic — JPEG is far smaller than
+// PNG). Returns the bytes + content-type to serve. Best-effort: if decode or
+// re-encode fails, or the source is already small enough, it returns the
+// original bytes/ct unchanged so the OG path never breaks on an odd cover.
+func shrinkShareImage(raw []byte, ct string) ([]byte, string) {
+	src, _, err := image.Decode(bytes.NewReader(raw))
+	if err != nil {
+		return raw, ct
+	}
+	b := src.Bounds()
+	w, h := b.Dx(), b.Dy()
+	if w <= 0 || h <= 0 {
+		return raw, ct
+	}
+	// Fit within ogShareMaxWidth, preserving aspect; never upscale.
+	dw, dh := w, h
+	if w > ogShareMaxWidth {
+		dw = ogShareMaxWidth
+		dh = h * ogShareMaxWidth / w
+	}
+	dst := image.NewRGBA(image.Rect(0, 0, dw, dh))
+	xdraw.CatmullRom.Scale(dst, dst.Bounds(), src, b, xdraw.Over, nil)
+
+	var buf bytes.Buffer
+	if err := jpeg.Encode(&buf, dst, &jpeg.Options{Quality: 82}); err != nil {
+		return raw, ct
+	}
+	// Keep the original if our re-encode somehow came out larger (e.g. a tiny
+	// source that was already optimally compressed).
+	if buf.Len() >= len(raw) {
+		return raw, ct
+	}
+	return buf.Bytes(), "image/jpeg"
 }
 
 // renderOGImage paints a 1200×630 RGBA card and returns PNG-encoded bytes.
