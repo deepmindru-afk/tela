@@ -17,6 +17,7 @@ export function RegisterPage() {
   const [email, setEmail] = useState('')
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
+  const [confirm, setConfirm] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [sentTo, setSentTo] = useState<string | null>(null)
   const register = useRegister()
@@ -32,6 +33,10 @@ export function RegisterPage() {
     }
     if (password.length < 8) {
       setError('Password must be at least 8 characters.')
+      return
+    }
+    if (password !== confirm) {
+      setError("Passwords don't match.")
       return
     }
     setError(null)
@@ -140,6 +145,16 @@ export function RegisterPage() {
                 autoComplete="new-password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
+                aria-invalid={error != null}
+              />
+            </AuthField>
+            <AuthField id="register-confirm" label="Confirm password">
+              <Input
+                id="register-confirm"
+                type="password"
+                autoComplete="new-password"
+                value={confirm}
+                onChange={(e) => setConfirm(e.target.value)}
                 aria-invalid={error != null}
               />
             </AuthField>
