@@ -1191,6 +1191,25 @@ func (s *Server) applyMoveTx(ctx context.Context, tx *sql.Tx, u *auth.User, k *a
 		if err := updateDescendantsSpaceID(ctx, tx, id, targetSpaceID); err != nil {
 			return models.Page{}, &apiErr{http.StatusInternalServerError, "internal", "propagate space_id to descendants failed"}
 		}
+		// Files (uploads + rclone-synced blobs) live in space_files keyed by
+		// space, so carry the whole moved subtree's files into the target space
+		// too — otherwise they strand in the old space: counted against the wrong
+		// quota, surfaced in the wrong /dav tree, and lost if the old space is
+		// later deleted (ON DELETE CASCADE). Body embeds keep resolving because
+		// ServeSpaceFile is content-addressed (serves by hash regardless of the
+		// space in the URL), so no body rewrite is needed. No deleted_at filter:
+		// trashed pages/files ride along so a later resurrect lands in the new
+		// space, mirroring updateDescendantsSpaceID.
+		if _, err := tx.ExecContext(ctx, `
+			WITH RECURSIVE sub AS (
+			  SELECT id FROM pages WHERE id = $1
+			  UNION ALL
+			  SELECT p.id FROM pages p JOIN sub ON p.parent_id = sub.id
+			)
+			UPDATE space_files SET space_id = $2, updated_at = tela_now()
+			 WHERE parent_page_id IN (SELECT id FROM sub)`, id, targetSpaceID); err != nil {
+			return models.Page{}, &apiErr{http.StatusInternalServerError, "internal", "migrate subtree files failed"}
+		}
 	}
 
 	for i, sid := range finalList {

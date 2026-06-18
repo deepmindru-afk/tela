@@ -357,11 +357,15 @@ func (s *Server) ServeSpaceFile(w http.ResponseWriter, r *http.Request) {
 		mime string
 		name string
 	)
-	// Any live row with these bytes serves them — identical content may exist at
-	// several locations, but the bytes (and thus the response) are the same.
+	// Content-addressed: any live row with these bytes serves them — identical
+	// content may exist at several locations, but the bytes (and thus the
+	// response) are the same. We prefer a row in the URL's space, but fall back
+	// to any space holding the hash so embeds authored before a cross-space page
+	// move (their URL still hard-codes the old space) keep resolving.
 	err = s.DB.QueryRowContext(r.Context(), `
 		SELECT data, mime, name FROM space_files
-		 WHERE space_id = $1 AND content_hash = $2 AND deleted_at IS NULL
+		 WHERE content_hash = $2 AND deleted_at IS NULL
+		 ORDER BY (space_id = $1) DESC, id ASC
 		 LIMIT 1`, spaceID, hash).Scan(&data, &mime, &name)
 	if errors.Is(err, sql.ErrNoRows) {
 		writeError(w, http.StatusNotFound, "not_found", "file not found")

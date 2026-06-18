@@ -112,12 +112,93 @@ func TestAttachments_ServeInlineVsDownload(t *testing.T) {
 		t.Errorf("png Content-Disposition = %q, want inline", cd)
 	}
 
-	// Wrong hash / wrong space → 404, not an oracle.
+	// Unknown hash → 404 (the hash is the capability). Serve is content-addressed
+	// and falls back across spaces, so a VALID hash under the "wrong" space still
+	// resolves — this is what lets body embeds survive a cross-space page move.
 	if resp, _ := get("/api/files/" + itoa(spaceID) + "/deadbeef.pdf"); resp.StatusCode != http.StatusNotFound {
 		t.Errorf("bad-hash status = %d, want 404", resp.StatusCode)
 	}
-	if resp, _ := get("/api/files/99999/" + hPdf + ".pdf"); resp.StatusCode != http.StatusNotFound {
-		t.Errorf("wrong-space status = %d, want 404", resp.StatusCode)
+	if resp, body := get("/api/files/99999/" + hPdf + ".pdf"); resp.StatusCode != http.StatusOK || body != "%PDF-1.4 body" {
+		t.Errorf("cross-space serve: status=%d body=%q, want 200 + bytes", resp.StatusCode, body)
+	}
+}
+
+// A cross-space page move must carry the page's space_files along, so they don't
+// strand in the old space (wrong quota, wrong /dav tree, lost on its deletion).
+// The body embed keeps resolving via the content-addressed serve fallback even
+// though its URL still hard-codes the old space.
+func TestAttachments_CrossSpaceMoveMigratesFiles(t *testing.T) {
+	ts, d := newWiredServer(t)
+	owner := seedUser(t, d, "owner", "pw-owner-123", false)
+	src := seedSpace(t, d, "Source", "src", owner)
+	dst := seedSpace(t, d, "Dest", "dst", owner)
+
+	// Page lives in src; its body embeds the image via the src-space URL.
+	img := []byte("PNGBYTES")
+	sum := sha256.Sum256(img)
+	hImg := hex.EncodeToString(sum[:])
+	body := "![logo](/api/files/" + itoa(src) + "/" + hImg + ".png)\n"
+	pageID := seedPageInSpace(t, d, src, nil, "Doc", body)
+	seedAttachment(t, d, src, pageID, "logo.png", "image/png", img)
+
+	client := loginClient(t, ts, "owner", "pw-owner-123")
+
+	// Move the page to dst.
+	mvReq, _ := http.NewRequest(http.MethodPost, ts.URL+"/api/pages/"+itoa(pageID)+"/move",
+		bytes.NewReader([]byte(`{"space_id":`+itoa(dst)+`}`)))
+	mvReq.Header.Set("Content-Type", "application/json")
+	mvResp, err := client.Do(mvReq)
+	if err != nil {
+		t.Fatalf("move: %v", err)
+	}
+	mvResp.Body.Close()
+	if mvResp.StatusCode != http.StatusOK {
+		t.Fatalf("move status=%d, want 200", mvResp.StatusCode)
+	}
+
+	// The file row followed the page into dst.
+	var fileSpace int64
+	if err := d.QueryRowContext(context.Background(),
+		`SELECT space_id FROM space_files WHERE parent_page_id = $1`, pageID).Scan(&fileSpace); err != nil {
+		t.Fatalf("read space_file: %v", err)
+	}
+	if fileSpace != dst {
+		t.Fatalf("space_file.space_id = %d after move, want %d (dst)", fileSpace, dst)
+	}
+
+	get := func(path string) int {
+		resp, err := http.Get(ts.URL + path)
+		if err != nil {
+			t.Fatalf("GET %s: %v", path, err)
+		}
+		resp.Body.Close()
+		return resp.StatusCode
+	}
+	// New dst-space URL serves; the OLD src-space URL still in the body also
+	// serves via the content-addressed fallback (no body rewrite needed).
+	if code := get("/api/files/" + itoa(dst) + "/" + hImg + ".png"); code != http.StatusOK {
+		t.Errorf("dst-space serve = %d, want 200", code)
+	}
+	if code := get("/api/files/" + itoa(src) + "/" + hImg + ".png"); code != http.StatusOK {
+		t.Errorf("old src-space embed serve = %d, want 200 (fallback)", code)
+	}
+
+	// list_attachments now advertises the dst URL.
+	resp, err := client.Get(ts.URL + "/api/pages/" + itoa(pageID) + "/attachments")
+	if err != nil {
+		t.Fatalf("list attachments: %v", err)
+	}
+	defer resp.Body.Close()
+	var out struct {
+		Attachments []attachmentOut `json:"attachments"`
+	}
+	json.NewDecoder(resp.Body).Decode(&out)
+	if len(out.Attachments) != 1 {
+		t.Fatalf("got %d attachments, want 1", len(out.Attachments))
+	}
+	wantURL := "/api/files/" + itoa(dst) + "/" + hImg + ".png"
+	if out.Attachments[0].URL != wantURL {
+		t.Errorf("attachment url = %q, want %q", out.Attachments[0].URL, wantURL)
 	}
 }
 
