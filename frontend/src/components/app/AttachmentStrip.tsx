@@ -41,6 +41,8 @@ export interface AttachmentStripViewProps {
   /** Remove a file from the page (editor only). */
   onDelete?: (a: Attachment) => void
   deletingId?: number | null
+  /** Start with the chip row revealed instead of the collapsed count toggle. */
+  defaultOpen?: boolean
 }
 
 // Presentational strip — no data fetching, so it's directly Storybook-able.
@@ -50,24 +52,57 @@ export function AttachmentStripView({
   onInsert,
   onDelete,
   deletingId,
+  defaultOpen = false,
 }: AttachmentStripViewProps) {
-  const [expanded, setExpanded] = useState(false)
+  // Collapsed by default — the chip row is visually loud, so a page leads with
+  // its content and the files sit behind a quiet count toggle. `showAll` is the
+  // second tier: once open, very long lists still cap at COLLAPSED_LIMIT.
+  const [open, setOpen] = useState(defaultOpen)
+  const [showAll, setShowAll] = useState(false)
   if (attachments.length === 0) return null
 
+  if (!open) {
+    return (
+      <div className="py-[var(--space-2)]">
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          aria-expanded={false}
+          className={cn(
+            'inline-flex items-center gap-[var(--space-2)]',
+            'text-[length:var(--text-sm)] text-[var(--text-muted)]',
+            'rounded-[var(--radius-sm)] px-[var(--space-2)] py-[var(--space-1)]',
+            'hover:text-[var(--text-primary)] hover:bg-[var(--surface-3)]',
+          )}
+        >
+          <Paperclip aria-hidden width={14} height={14} className="shrink-0" />
+          {attachments.length}{' '}
+          {attachments.length === 1 ? 'attachment' : 'attachments'}
+        </button>
+      </div>
+    )
+  }
+
   const hidden = Math.max(0, attachments.length - COLLAPSED_LIMIT)
-  const shown = expanded ? attachments : attachments.slice(0, COLLAPSED_LIMIT)
+  const shown = showAll ? attachments : attachments.slice(0, COLLAPSED_LIMIT)
 
   return (
     <div
       className="flex flex-wrap items-center gap-[var(--space-2)] py-[var(--space-2)]"
       aria-label={`Attachments (${attachments.length})`}
     >
-      <Paperclip
-        aria-hidden
-        width={14}
-        height={14}
-        className="text-[var(--text-muted)] shrink-0"
-      />
+      <button
+        type="button"
+        onClick={() => {
+          setOpen(false)
+          setShowAll(false)
+        }}
+        aria-label="Hide attachments"
+        aria-expanded
+        className="text-[var(--text-muted)] hover:text-[var(--text-primary)] shrink-0"
+      >
+        <Paperclip aria-hidden width={14} height={14} />
+      </button>
       {shown.map((a) => (
         <AttachmentChip
           key={a.id}
@@ -78,10 +113,10 @@ export function AttachmentStripView({
           deleting={deletingId === a.id}
         />
       ))}
-      {hidden > 0 && !expanded ? (
+      {hidden > 0 && !showAll ? (
         <button
           type="button"
-          onClick={() => setExpanded(true)}
+          onClick={() => setShowAll(true)}
           className={cn(
             'text-[length:var(--text-sm)] text-[var(--text-muted)]',
             'rounded-[var(--radius-sm)] px-[var(--space-2)] py-[var(--space-1)]',

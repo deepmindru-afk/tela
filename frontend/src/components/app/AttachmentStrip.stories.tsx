@@ -47,16 +47,22 @@ const mixed: Attachment[] = [
   file(4, 'notes.txt', 'text/plain', 1_200),
 ]
 
-export const ReadOnly: Story = {
+// Default landing state: a quiet count toggle, not the full chip row.
+export const Collapsed: Story = {
   args: { attachments: mixed },
 }
 
-export const Editable: Story = {
-  args: { attachments: mixed, editable: true },
+export const ReadOnly: Story = {
+  args: { attachments: mixed, defaultOpen: true },
 }
 
-export const ManyCollapsed: Story = {
+export const Editable: Story = {
+  args: { attachments: mixed, editable: true, defaultOpen: true },
+}
+
+export const ManyExpanded: Story = {
   args: {
+    defaultOpen: true,
     attachments: Array.from({ length: 14 }, (_, i) =>
       file(i + 1, `document-${i + 1}.pdf`, 'application/pdf', 10_000 * (i + 1)),
     ),
