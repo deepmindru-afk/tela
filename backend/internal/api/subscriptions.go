@@ -175,11 +175,67 @@ func (s *Server) UnsubscribeSpace(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
+// --- Following list ("what am I watching") ---
+
+type subscriptionDTO struct {
+	Kind      string `json:"kind"` // "page" | "space"
+	ID        int64  `json:"id"`
+	Title     string `json:"title"`
+	SpaceID   *int64 `json:"space_id,omitempty"` // for pages, to build the link
+	CreatedAt string `json:"created_at"`
+}
+
+// ListSubscriptions returns everything the caller follows — pages and spaces —
+// resolved to current titles and access-gated (a sub to a page/space they can no
+// longer see is omitted). Powers the Settings → Following management list.
+func (s *Server) ListSubscriptions(w http.ResponseWriter, r *http.Request) {
+	u, ok := requireUser(w, r)
+	if !ok {
+		return
+	}
+	rows, err := s.DB.QueryContext(r.Context(), `
+		SELECT 'page' AS kind, p.id, p.title, p.space_id, sub.created_at
+		  FROM subscriptions sub
+		  JOIN pages p ON p.id = sub.subject_id AND p.deleted_at IS NULL
+		  JOIN (SELECT DISTINCT space_id FROM space_access WHERE user_id = $1) sm ON sm.space_id = p.space_id
+		 WHERE sub.user_id = $1 AND sub.subject_kind = 'page'
+		UNION ALL
+		SELECT 'space' AS kind, sp.id, sp.name, NULL::bigint, sub.created_at
+		  FROM subscriptions sub
+		  JOIN spaces sp ON sp.id = sub.subject_id
+		  JOIN (SELECT DISTINCT space_id FROM space_access WHERE user_id = $1) sm ON sm.space_id = sp.id
+		 WHERE sub.user_id = $1 AND sub.subject_kind = 'space'
+		 ORDER BY created_at DESC`, u.ID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "internal", "list subscriptions failed")
+		return
+	}
+	defer rows.Close()
+	items := []subscriptionDTO{}
+	for rows.Next() {
+		var it subscriptionDTO
+		var spaceID sql.NullInt64
+		if err := rows.Scan(&it.Kind, &it.ID, &it.Title, &spaceID, &it.CreatedAt); err != nil {
+			writeError(w, http.StatusInternalServerError, "internal", "scan subscription failed")
+			return
+		}
+		if spaceID.Valid {
+			it.SpaceID = &spaceID.Int64
+		}
+		items = append(items, it)
+	}
+	if err := rows.Err(); err != nil {
+		writeError(w, http.StatusInternalServerError, "internal", "iterate subscriptions failed")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"subscriptions": items})
+}
+
 // --- Notification preferences ---
 
 // notificationEventTypes / notificationChannels define the matrix the prefs UI
 // renders. Adding an event type or channel here exposes it everywhere.
-var notificationEventTypes = []string{notifMention, notifPageUpdated, notifSpaceAdded, notifCommentReply}
+var notificationEventTypes = []string{notifMention, notifPageUpdated, notifPageCreated, notifSpaceAdded, notifCommentReply}
 var notificationChannels = []string{channelInApp, channelEmail}
 
 type notificationPrefDTO struct {

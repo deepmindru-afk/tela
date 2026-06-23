@@ -12,6 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs'
 import { EmptyState } from '../ui/empty-state'
 import { useSpaceOverview } from '../../lib/queries/space-overview'
 import { useSpaces } from '../../lib/queries/spaces'
+import { FollowButton } from './FollowButton'
 import { navigateToPage } from '../../lib/pageHitItem'
 import { relativeTimeFromSqlite } from '../../lib/relativeTime'
 import { cn } from '../../lib/utils'
@@ -48,6 +49,9 @@ export function SpaceView({ spaceId }: { spaceId: number }) {
               {data.pages} {data.pages === 1 ? 'page' : 'pages'}
             </span>
           ) : null}
+          <span className="ml-auto self-center">
+            <FollowButton id={spaceId} kind="space" />
+          </span>
         </header>
 
         <Tabs defaultValue="overview" className="flex flex-col gap-[var(--space-4)]">

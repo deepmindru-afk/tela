@@ -359,6 +359,7 @@ func registerRoutes(srv *Server, mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/spaces/{id}/subscription", srv.GetSpaceSubscription)
 	mux.HandleFunc("POST /api/spaces/{id}/subscription", srv.SubscribeSpace)
 	mux.HandleFunc("DELETE /api/spaces/{id}/subscription", srv.UnsubscribeSpace)
+	mux.HandleFunc("GET /api/users/me/subscriptions", srv.ListSubscriptions)
 	mux.HandleFunc("GET /api/users/me/notification-prefs", srv.GetNotificationPrefs)
 	mux.HandleFunc("PUT /api/users/me/notification-prefs", srv.UpdateNotificationPref)
 

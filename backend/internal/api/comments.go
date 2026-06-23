@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"log/slog"
 	"net/http"
 	"strings"
 
@@ -259,6 +260,11 @@ func (s *Server) createCommentCore(ctx context.Context, u *auth.User, k *auth.AP
 	}
 	if err := tx.Commit(); err != nil {
 		return models.Comment{}, &apiErr{http.StatusInternalServerError, "internal", "commit failed"}
+	}
+	// Commenting is a strong "I care about this page" signal — auto-follow it so
+	// the commenter hears about later changes (Confluence-style autowatch).
+	if err := s.setSubscription(ctx, u.ID, "page", pageID); err != nil {
+		slog.Error("comment author auto-subscribe failed", "page_id", pageID, "err", err)
 	}
 	// Notify the root comment's author that someone replied (best-effort).
 	if isReply {

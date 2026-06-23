@@ -9,6 +9,7 @@ export type SubscribableKind = 'page' | 'space'
 export const subscriptionKeys = {
   all: ['subscriptions'] as const,
   one: (kind: SubscribableKind, id: number) => [...subscriptionKeys.all, kind, id] as const,
+  list: ['subscriptions', 'list'] as const,
 }
 
 function subPath(kind: SubscribableKind, id: number) {
@@ -35,6 +36,43 @@ export function useToggleSubscription(kind: SubscribableKind, id: number) {
     },
     onSuccess: (nowSubscribed) => {
       qc.setQueryData(subscriptionKeys.one(kind, id), nowSubscribed)
+      qc.invalidateQueries({ queryKey: subscriptionKeys.list })
+    },
+  })
+}
+
+// The "what am I following" list (Settings → Following).
+export type Subscription = {
+  kind: SubscribableKind
+  id: number
+  title: string
+  space_id?: number
+  created_at: string
+}
+
+export function useSubscriptions() {
+  return useQuery({
+    queryKey: subscriptionKeys.list,
+    queryFn: async () => {
+      const { subscriptions } = await api<{ subscriptions: Subscription[] }>(
+        '/api/users/me/subscriptions',
+      )
+      return subscriptions
+    },
+  })
+}
+
+// Unfollow from the list view: DELETE, then refresh the list + the item's toggle.
+export function useUnfollow() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ kind, id }: { kind: SubscribableKind; id: number }) => {
+      await api<void>(subPath(kind, id), { method: 'DELETE' })
+      return { kind, id }
+    },
+    onSuccess: ({ kind, id }) => {
+      qc.setQueryData(subscriptionKeys.one(kind, id), false)
+      qc.invalidateQueries({ queryKey: subscriptionKeys.list })
     },
   })
 }

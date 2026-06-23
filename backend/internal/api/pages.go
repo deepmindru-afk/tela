@@ -511,6 +511,8 @@ func (s *Server) createPageCore(ctx context.Context, u *auth.User, k *auth.APIKe
 	}
 	// Notify anyone @-mentioned in the new page's body (post-commit, best-effort).
 	s.notifyPageMentions(ctx, u, id, req.SpaceID, page.Title, page.Body)
+	// Notify followers of the space that a new page landed (watch-the-space).
+	s.notifyPageCreated(ctx, u, id, req.SpaceID, page.Title)
 	// The author follows their new page, so they hear about others' edits to it.
 	if err := s.setSubscription(ctx, u.ID, "page", id); err != nil {
 		slog.Error("page author auto-subscribe failed", "page_id", id, "err", err)

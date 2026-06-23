@@ -10,6 +10,7 @@ import { SettingsInsightsTab } from '../components/app/SettingsInsightsTab'
 import { SettingsUsageTab } from '../components/app/SettingsUsageTab'
 import { SettingsFeedbackTab } from '../components/app/SettingsFeedbackTab'
 import { SettingsNotificationsTab } from '../components/app/SettingsNotificationsTab'
+import { SettingsFollowingTab } from '../components/app/SettingsFollowingTab'
 import { SettingsOrgsTab } from '../components/app/SettingsOrgsTab'
 import { SettingsProfileTab } from '../components/app/SettingsProfileTab'
 import { SettingsInstanceTab } from '../components/app/SettingsInstanceTab'
@@ -49,6 +50,12 @@ const NOTIFICATIONS_TAB: SettingsTab = {
   id: 'notifications',
   label: 'Notifications',
   render: () => <SettingsNotificationsTab />,
+}
+
+const FOLLOWING_TAB: SettingsTab = {
+  id: 'following',
+  label: 'Following',
+  render: () => <SettingsFollowingTab />,
 }
 
 const IMPORT_TAB: SettingsTab = {
@@ -186,7 +193,7 @@ export function SettingsPage() {
   // "Organization" appears because you administer an org, "Instance admin" because
   // you're an instance admin.
   const groups = useMemo<SettingsGroup[]>(() => {
-    const account = [PROFILE_TAB, NOTIFICATIONS_TAB, BILLING_TAB, API_KEYS_TAB, IMPORT_TAB, SEARCH_INDEX_TAB, SUMMARIES_TAB, SYNC_TAB]
+    const account = [PROFILE_TAB, NOTIFICATIONS_TAB, FOLLOWING_TAB, BILLING_TAB, API_KEYS_TAB, IMPORT_TAB, SEARCH_INDEX_TAB, SUMMARIES_TAB, SYNC_TAB]
     if (me.data?.is_instance_admin) {
       return [
         { label: 'Account', tabs: account },

@@ -62,8 +62,13 @@ emission policies on `notificationInput`:
   `updatePageCore`, so REST and the MCP `update_page` tool both notify.
 - **page_updated** — on a body/title change, `notifyPageUpdate` notifies
   followers of the page *and* of its space (minus the editor), `CollapseUnread`.
-- **Author auto-follow** — creating a page subscribes its author, so they hear
-  about later edits without an explicit follow.
+- **page_created** — on create, `notifyPageCreated` notifies followers of the
+  **space** (minus the author), so "follow a space" means "watch for new pages",
+  not just edits. Idempotent per (page, user). Fires only on the interactive
+  create path (`createPageCore`) — bulk import/sync doesn't storm followers.
+- **Auto-follow** — you auto-follow a page when you **create** it *or* **comment**
+  on it (Confluence-style autowatch — a strong "I care" signal), so you hear
+  about later changes without an explicit follow.
 
 ## API
 
@@ -72,19 +77,22 @@ Notifications (caller-scoped): `GET /api/notifications`,
 `POST /api/notifications/read-all`.
 
 Follow: `GET|POST|DELETE /api/pages/{id}/subscription` and the `…/spaces/{id}/…`
-counterparts (viewer+ gated).
+counterparts (viewer+ gated). `GET /api/users/me/subscriptions` lists everything
+the caller follows (pages + spaces, resolved to titles, access-gated) for the
+management list.
 
 Preferences: `GET /api/users/me/notification-prefs` (full matrix, defaulting
 enabled), `PUT /api/users/me/notification-prefs` (`{event_type, channel,
 enabled}`).
 
 Frontend: a header **bell** (polled unread badge + inbox panel), a **follow**
-toggle in the page header, and a **Notifications** settings tab (the event ×
-channel matrix).
+toggle (the bell icon) in **both** the page header and the space header, a
+**Notifications** settings tab (the event × channel matrix), and a **Following**
+settings tab (the watch list, with one-click unfollow).
 
 ## Email channel
 
-`dispatchEmails` (`notifications_email.go`) delivers the same four event types
+`dispatchEmails` (`notifications_email.go`) delivers all five event types
 out of the app, reusing the feedback pattern: recipient/content resolved
 synchronously (ctx live), SMTP fired in a detached goroutine so relay latency
 never slows the request. A missing relay (LogMailer) just logs. Needs
@@ -126,6 +134,4 @@ never slows the request. A missing relay (LogMailer) just logs. Needs
   + a row in the settings matrix. No migration.
 - **Comment mentions / replies** → same seam, `subject_kind='comment'`. Drops in
   when the comment composer gains the mention picker.
-- **New page in a followed space** → a `page_created` type emitted to space
-  followers on create (deliberately not done yet to keep `page_updated` = edits).
 - **Realtime** → today the badge polls; swap to SSE/WS behind the same read API.

@@ -199,6 +199,16 @@ func (s *Server) buildNotificationEmail(ctx context.Context, in notificationInpu
 		n.CTALabel = "See changes"
 		n.CTAURL = s.pageLink(ctx, in)
 		n.Footer = "You're receiving this because you follow this page."
+	case notifPageCreated:
+		n.Subject = actor + " created " + title
+		n.Eyebrow = "New page"
+		n.Action = "created a new page"
+		n.Target = title
+		n.Context = s.spaceName(ctx, in.SpaceID)
+		n.CTALabel = "Open page"
+		n.CTAURL = s.pageLink(ctx, in)
+		n.Footer = "You're receiving this because you follow this space."
+		n.Related = s.relatedLinks(ctx, in.UserID, in.SubjectID, in.SpaceID)
 	default:
 		return mailer.Message{}, false
 	}

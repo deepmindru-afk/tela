@@ -234,6 +234,41 @@ func TestNotificationEmail_PageUpdatedThrottled(t *testing.T) {
 	assertNoEmail(t, cm, 1)
 }
 
+func TestNotificationEmail_PageCreated(t *testing.T) {
+	srv, d, cm := newEmailServer(t)
+	ctx := context.Background()
+	alice := seedUser(t, d, "alice", "alicepw123", false)
+	bob := seedUser(t, d, "bob", "bobpw12345", false)
+	setUserEmail(t, d, bob, "bob@ngss.io")
+	spaceID := seedSpace(t, d, "Engineering", "engineering", alice)
+	seedMember(t, d, spaceID, bob, "editor")
+	// Bob follows the SPACE → should hear about new pages in it.
+	if _, err := d.ExecContext(ctx,
+		`INSERT INTO subscriptions (user_id, subject_kind, subject_id) VALUES ($1, 'space', $2)`,
+		bob, spaceID); err != nil {
+		t.Fatalf("subscribe space: %v", err)
+	}
+
+	_, ae := srv.createPageCore(ctx, authUser(alice, "alice", false), nil,
+		pageCreateRequest{SpaceID: spaceID, Title: "Incident postmortem", Body: "what happened"})
+	if ae != nil {
+		t.Fatalf("create page: %v", ae)
+	}
+
+	waitForEmails(t, cm, 1)
+	subj, _, ok := emailTo(cm, "bob@ngss.io")
+	if !ok || !strings.Contains(subj, "Incident postmortem") {
+		t.Fatalf("page_created email missing/title absent: subj=%q ok=%v", subj, ok)
+	}
+	if n := notifCountByType(t, d, bob, notifPageCreated); n != 1 {
+		t.Fatalf("bob page_created = %d, want 1", n)
+	}
+	// The author isn't notified of their own new page.
+	if n := notifCountByType(t, d, alice, notifPageCreated); n != 0 {
+		t.Fatalf("alice (author) page_created = %d, want 0", n)
+	}
+}
+
 func TestChangePreview(t *testing.T) {
 	old := "alpha\nbeta\ngamma"
 	neu := "alpha\nbeta changed\ngamma\ndelta"

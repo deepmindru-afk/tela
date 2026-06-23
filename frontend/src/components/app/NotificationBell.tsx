@@ -27,6 +27,8 @@ function describe(n: NotificationItem): string {
       return `${actor} mentioned you in “${title}”`
     case 'page_updated':
       return `${actor} updated “${title}”`
+    case 'page_created':
+      return `${actor} created “${title}”`
     case 'comment_reply':
       return `${actor} replied to your comment in “${title}”`
     case 'space_added': {

@@ -17,6 +17,11 @@ const EVENTS: { type: string; label: string; desc: string }[] = [
     desc: 'When a page or space you follow changes.',
   },
   {
+    type: 'page_created',
+    label: 'New pages',
+    desc: 'When a new page is added to a space you follow.',
+  },
+  {
     type: 'comment_reply',
     label: 'Comment replies',
     desc: 'When someone replies to your comment.',

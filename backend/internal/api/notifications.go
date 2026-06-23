@@ -26,6 +26,7 @@ const (
 	notifPageUpdated  = "page_updated"
 	notifSpaceAdded   = "space_added"
 	notifCommentReply = "comment_reply"
+	notifPageCreated  = "page_created"
 )
 
 // Delivery channels. Only inapp is delivered today; email prefs are stored for
@@ -267,6 +268,52 @@ func (s *Server) notifyPageUpdate(ctx context.Context, editor *auth.User, pageID
 			ChangeLines:    changeLines,
 			ChangeStat:     changeStat,
 			ChangeMore:     changeMore,
+		})
+	}
+	s.emitNotifications(ctx, out...)
+}
+
+// notifyPageCreated tells followers of a space that a new page landed in it —
+// except the author, and only those who still have access. Idempotent per
+// (page, user). This is what makes "follow a space" mean "watch for new
+// content", not just edits to existing pages.
+func (s *Server) notifyPageCreated(ctx context.Context, author *auth.User, pageID, spaceID int64, title string) {
+	rows, err := s.DB.QueryContext(ctx, `
+		SELECT DISTINCT sub.user_id
+		  FROM subscriptions sub
+		  JOIN space_access sa ON sa.user_id = sub.user_id AND sa.space_id = $1
+		 WHERE sub.user_id <> $2
+		   AND sub.subject_kind = 'space' AND sub.subject_id = $1`,
+		spaceID, author.ID)
+	if err != nil {
+		slog.Error("notify page created: resolve followers", "page_id", pageID, "err", err)
+		return
+	}
+	defer rows.Close()
+	var recipients []int64
+	for rows.Next() {
+		var uid int64
+		if err := rows.Scan(&uid); err != nil {
+			slog.Error("notify page created: scan follower", "err", err)
+			return
+		}
+		recipients = append(recipients, uid)
+	}
+	if len(recipients) == 0 {
+		return
+	}
+	authorID := author.ID
+	out := make([]notificationInput, 0, len(recipients))
+	for _, uid := range recipients {
+		out = append(out, notificationInput{
+			UserID:      uid,
+			Type:        notifPageCreated,
+			ActorID:     &authorID,
+			SubjectKind: "page",
+			SubjectID:   pageID,
+			SpaceID:     &spaceID,
+			Data:        map[string]any{"page_title": title, "actor_username": author.Username},
+			DedupKey:    "page_created:page:" + strconv.FormatInt(pageID, 10) + ":" + strconv.FormatInt(uid, 10),
 		})
 	}
 	s.emitNotifications(ctx, out...)

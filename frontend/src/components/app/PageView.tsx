@@ -390,7 +390,7 @@ function PageViewer({
         <Breadcrumb spaceId={spaceId} pageId={page.id} />
         <div className="flex items-center gap-[var(--space-3)]">
           {roleResolved ? <FavoriteStar pageId={page.id} /> : null}
-          {roleResolved ? <FollowButton pageId={page.id} /> : null}
+          {roleResolved ? <FollowButton id={page.id} /> : null}
           <PageProperties props={page.props} />
           {commentsEnabled ? (
             <Button
@@ -1219,7 +1219,7 @@ function PageEditor({ page, spaceId, draftRevId, onDeleted, isDeck }: PageEditor
               <PresenceAvatars awareness={provider?.awareness ?? null} />
               <SaveIndicator status={status} />
               {roleResolved ? <FavoriteStar pageId={page.id} /> : null}
-              {roleResolved ? <FollowButton pageId={page.id} /> : null}
+              {roleResolved ? <FollowButton id={page.id} /> : null}
               <PageProperties props={page.props} />
               {/* Frequent actions stay on the bar; the rest live in the "•••"
                   menu (PageActionsMenu) to keep the header uncluttered. */}
