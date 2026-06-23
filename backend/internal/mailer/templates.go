@@ -8,28 +8,28 @@ import (
 	"strings"
 )
 
-// Branded transactional templates. Email clients don't support OKLCH or CSS
-// custom properties, so these inline hex values translate tela's "Loom in the
-// dark" palette (landing/src/styles/tokens.css) into email-safe colors:
-//
-//	void #14121b · card #1d1b27 · hairline #322f3d
-//	text #f3f1f8 / #b6b2c4 · indigo fill #4f46e5 on #ffffff
+// Branded transactional templates. Deliberately a LIGHT theme: tela's app is
+// dark ("Loom in the dark"), but email clients (Gmail/Outlook) force-INVERT a
+// dark-background email in their dark mode, mangling it into a washed-out mess.
+// A light email renders consistently everywhere — which is also what Notion /
+// Confluence / most SaaS do. Indigo accents carry the brand. Email clients don't
+// support OKLCH or CSS vars, so these are inline hex.
 //
 // This is the one place hex is correct — the frontend token gate does not
 // (and cannot) cover server-rendered email.
 const (
-	clrVoid    = "#14121b"
-	clrCard    = "#1d1b27"
-	clrRule    = "#322f3d"
-	clrText    = "#f3f1f8"
-	clrMuted   = "#b6b2c4"
-	clrFaint   = "#8a8699"
-	clrIndigo  = "#4f46e5"
+	clrVoid    = "#f4f5f7" // page canvas behind the card
+	clrCard    = "#ffffff" // the card
+	clrRule    = "#e6e8ec" // hairline borders
+	clrText    = "#15161c" // headings / strong text
+	clrMuted   = "#5b6270" // body copy
+	clrFaint   = "#8a90a0" // footer / meta
+	clrIndigo  = "#4f46e5" // accent fill / links
 	clrIndigo2 = "#8b5cf6" // accent-bar gradient end
-	clrLink    = "#8e88f0"
-	clrQuote   = "#cfccd9"
-	clrPanel   = "#191722" // footer / header panel, a hair darker than the card
-	clrPill    = "#232030" // event-badge pill fill
+	clrLink    = "#4f46e5" // links (indigo on white)
+	clrQuote   = "#3b4252" // quoted snippet text
+	clrPanel   = "#f7f8fa" // footer / header panel, a hair off the card
+	clrPill    = "#eef0f4" // event-badge pill fill
 )
 
 // emailTagline rides the footer of every email — a one-line product signature.
@@ -141,7 +141,7 @@ func (v emailView) C(name string) string {
 // interpolated field (actor/title/snippet are user-controlled), so there's no
 // hand-rolled EscapeString to forget.
 var emailTmpl = template.Must(template.New("email").Parse(`<!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="dark"></head>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light"><meta name="supported-color-schemes" content="light"></head>
 <body style="margin:0;padding:0;background:{{.C "void"}};">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:{{.C "void"}};padding:40px 16px;">
 <tr><td align="center">
@@ -195,7 +195,7 @@ var emailTmpl = template.Must(template.New("email").Parse(`<!doctype html>
     {{if .Diff}}<tr><td style="padding:20px 36px 0 36px;">
       <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid {{.C "rule"}};border-radius:10px;overflow:hidden;">
         <tr><td style="padding:10px 16px;background:{{.C "panel"}};border-bottom:1px solid {{.C "rule"}};font-size:11px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:{{.C "faint"}};">What changed{{if .DiffStat}} <span style="color:{{.C "muted"}};font-weight:600;letter-spacing:0;text-transform:none;">· {{.DiffStat}}</span>{{end}}</td></tr>
-        {{range .Diff}}<tr><td style="padding:4px 16px;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:13px;line-height:1.5;white-space:pre-wrap;word-break:break-word;background:{{if .Add}}#16271d{{else}}#2a181f{{end}};color:{{if .Add}}#86efac{{else}}#fca5b5{{end}};">{{if .Add}}+{{else}}−{{end}} {{.Text}}</td></tr>
+        {{range .Diff}}<tr><td style="padding:4px 16px;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:13px;line-height:1.5;white-space:pre-wrap;word-break:break-word;background:{{if .Add}}#e7f6ec{{else}}#fdecec{{end}};color:{{if .Add}}#15803d{{else}}#b42318{{end}};">{{if .Add}}+{{else}}−{{end}} {{.Text}}</td></tr>
         {{end}}
         {{if .DiffMore}}<tr><td style="padding:9px 16px;background:{{.C "panel"}};border-top:1px solid {{.C "rule"}};font-size:12px;color:{{.C "faint"}};">{{.DiffMore}}</td></tr>{{end}}
       </table>
