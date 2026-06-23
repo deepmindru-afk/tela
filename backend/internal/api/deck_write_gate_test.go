@@ -50,7 +50,7 @@ func TestDeckWriteGate(t *testing.T) {
 
 	t.Run("agent broken deck rejected", func(t *testing.T) {
 		fakeDeckLint(t)
-		_, ae := srv.createPageCore(withAgentWrite(context.Background()), u, nil, deckReq(sp, broken))
+		_, ae := srv.createPageCore(withAgentWrite(context.Background()), u, nil, deckReq(sp, broken), true)
 		if ae == nil || ae.Code != "deck_invalid" {
 			t.Fatalf("want deck_invalid, got %+v", ae)
 		}
@@ -61,7 +61,7 @@ func TestDeckWriteGate(t *testing.T) {
 
 	t.Run("agent clean deck saved", func(t *testing.T) {
 		fakeDeckLint(t)
-		if _, ae := srv.createPageCore(withAgentWrite(context.Background()), u, nil, deckReq(sp, clean)); ae != nil {
+		if _, ae := srv.createPageCore(withAgentWrite(context.Background()), u, nil, deckReq(sp, clean), true); ae != nil {
 			t.Fatalf("clean deck rejected: %+v", ae)
 		}
 	})
@@ -69,21 +69,21 @@ func TestDeckWriteGate(t *testing.T) {
 	t.Run("interactive broken deck NOT gated", func(t *testing.T) {
 		fakeDeckLint(t)
 		// Plain context (no withAgentWrite) = the FE autosave path; must save.
-		if _, ae := srv.createPageCore(context.Background(), u, nil, deckReq(sp, broken)); ae != nil {
+		if _, ae := srv.createPageCore(context.Background(), u, nil, deckReq(sp, broken), true); ae != nil {
 			t.Fatalf("interactive write should not be gated: %+v", ae)
 		}
 	})
 
 	t.Run("sidecar down fails open", func(t *testing.T) {
 		t.Setenv("TELA_DECK_URL", "http://127.0.0.1:1") // connection refused
-		if _, ae := srv.createPageCore(withAgentWrite(context.Background()), u, nil, deckReq(sp, broken)); ae != nil {
+		if _, ae := srv.createPageCore(withAgentWrite(context.Background()), u, nil, deckReq(sp, broken), true); ae != nil {
 			t.Fatalf("sidecar-down should fail open, got %+v", ae)
 		}
 	})
 
 	t.Run("agent broken body on update rejected", func(t *testing.T) {
 		fakeDeckLint(t)
-		p, ae := srv.createPageCore(withAgentWrite(context.Background()), u, nil, deckReq(sp, clean))
+		p, ae := srv.createPageCore(withAgentWrite(context.Background()), u, nil, deckReq(sp, clean), true)
 		if ae != nil {
 			t.Fatalf("seed deck: %+v", ae)
 		}

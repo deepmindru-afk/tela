@@ -290,7 +290,7 @@ func (s *Server) CreatePage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	k, _ := auth.APIKeyFromContext(r.Context())
-	page, ae := s.createPageCore(r.Context(), u, k, req)
+	page, ae := s.createPageCore(r.Context(), u, k, req, true)
 	if ae != nil {
 		writeError(w, ae.Status, ae.Code, ae.Message)
 		return
@@ -354,7 +354,12 @@ func pageIsDeckTx(ctx context.Context, tx *sql.Tx, id int64) bool {
 	return v.Valid && v.String == "true"
 }
 
-func (s *Server) createPageCore(ctx context.Context, u *auth.User, k *auth.APIKey, req pageCreateRequest) (models.Page, *apiErr) {
+// notify controls the social create notifications (mentions + page_created):
+// true for interactive creates (REST / MCP / assist), false for bulk ingestion
+// (file sync, conflict-resolve, seeded pages) so a vault sync can't storm space
+// followers. Auto-follow (autowatch) runs regardless of notify, gated only by
+// the user's autowatch preference.
+func (s *Server) createPageCore(ctx context.Context, u *auth.User, k *auth.APIKey, req pageCreateRequest, notify bool) (models.Page, *apiErr) {
 	title := strings.TrimSpace(req.Title)
 	if title == "" {
 		return models.Page{}, &apiErr{http.StatusBadRequest, "invalid_title", "title is required"}
@@ -509,14 +514,15 @@ func (s *Server) createPageCore(ctx context.Context, u *auth.User, k *auth.APIKe
 	if isDeckBag(props) {
 		s.deckWarm.schedule(id)
 	}
-	// Notify anyone @-mentioned in the new page's body (post-commit, best-effort).
-	s.notifyPageMentions(ctx, u, id, req.SpaceID, page.Title, page.Body)
-	// Notify followers of the space that a new page landed (watch-the-space).
-	s.notifyPageCreated(ctx, u, id, req.SpaceID, page.Title)
-	// The author follows their new page, so they hear about others' edits to it.
-	if err := s.setSubscription(ctx, u.ID, "page", id); err != nil {
-		slog.Error("page author auto-subscribe failed", "page_id", id, "err", err)
+	// Social notifications fire only for interactive creates, never bulk sync
+	// ingestion (which would storm @-mentioned users and space followers).
+	if notify {
+		s.notifyPageMentions(ctx, u, id, req.SpaceID, page.Title, page.Body)
+		s.notifyPageCreated(ctx, u, id, req.SpaceID, page.Title)
 	}
+	// The author auto-follows their new page (autowatch), so they hear about
+	// others' edits without an explicit follow.
+	s.autoFollow(ctx, u.ID, id)
 	return page, nil
 }
 
@@ -815,6 +821,10 @@ func (s *Server) updatePageCore(ctx context.Context, u *auth.User, k *auth.APIKe
 		editSource = "agent"
 	}
 	s.afterPageWrite(ctx, existing, p, req.Body != nil, agentWrite, u.ID, editSource)
+	// Editing is an "I care about this page" signal — auto-follow it (autowatch).
+	// This is the interactive edit path (REST/MCP); sync edits go through
+	// applyUpdateTx directly and never reach here, so a vault sync won't subscribe.
+	s.autoFollow(ctx, u.ID, id)
 	// Notifications fire only on the interactive REST/MCP edit path (not file
 	// sync): mention anyone newly @-mentioned, and notify followers of the page /
 	// its space. Same body/title-changed gate afterPageWrite uses internally.

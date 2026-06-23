@@ -107,7 +107,7 @@ func (s *Server) ApplyFileSync(
 	p, ae := s.createPageCore(ctx, u, k, pageCreateRequest{
 		SpaceID: spaceID, ParentID: parentID, Title: title, Body: d.Body, Props: props,
 		Filename: fileStemPtr(filename),
-	})
+	}, false)
 	if ae != nil {
 		return models.Page{}, "", ae
 	}

@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"log/slog"
 	"net/http"
 
 	"github.com/zcag/tela/backend/internal/auth"
@@ -173,6 +174,64 @@ func (s *Server) UnsubscribeSpace(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// --- Autowatch (auto-follow on create/edit/comment) ---
+
+// autowatchEnabled reports whether the user wants to auto-follow pages they act
+// on. Default on (missing/error → true), mirroring the notification opt-out
+// posture. Gates every auto-subscribe; never gates a manual follow.
+func (s *Server) autowatchEnabled(ctx context.Context, userID int64) bool {
+	var v int
+	if err := s.DB.QueryRowContext(ctx,
+		`SELECT autowatch FROM users WHERE id = $1`, userID).Scan(&v); err != nil {
+		return true
+	}
+	return v == 1
+}
+
+// autoFollow subscribes the user to a page when autowatch is on. Best-effort.
+func (s *Server) autoFollow(ctx context.Context, userID, pageID int64) {
+	if !s.autowatchEnabled(ctx, userID) {
+		return
+	}
+	if err := s.setSubscription(ctx, userID, "page", pageID); err != nil {
+		slog.Error("autowatch auto-subscribe failed", "page_id", pageID, "user_id", userID, "err", err)
+	}
+}
+
+// GetAutowatch returns the caller's autowatch preference.
+func (s *Server) GetAutowatch(w http.ResponseWriter, r *http.Request) {
+	u, ok := requireUser(w, r)
+	if !ok {
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"autowatch": s.autowatchEnabled(r.Context(), u.ID)})
+}
+
+// SetAutowatch updates the caller's autowatch preference.
+func (s *Server) SetAutowatch(w http.ResponseWriter, r *http.Request) {
+	u, ok := requireUser(w, r)
+	if !ok {
+		return
+	}
+	var req struct {
+		Autowatch bool `json:"autowatch"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "bad_request", "invalid body")
+		return
+	}
+	v := 0
+	if req.Autowatch {
+		v = 1
+	}
+	if _, err := s.DB.ExecContext(r.Context(),
+		`UPDATE users SET autowatch = $1 WHERE id = $2`, v, u.ID); err != nil {
+		writeError(w, http.StatusInternalServerError, "internal", "update autowatch failed")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"autowatch": req.Autowatch})
 }
 
 // --- Following list ("what am I watching") ---

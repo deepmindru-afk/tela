@@ -76,7 +76,7 @@ func TestListUserActivity_AdminSeesUserEditsInstanceWide(t *testing.T) {
 	// Space owned by alice; the admin is NOT a member.
 	spaceID := seedSpace(t, d, "Alice Space", "alice-space", alice)
 	au := authUser(alice, "alice", false)
-	if _, ae := srv.createPageCore(ctx, au, nil, pageCreateRequest{SpaceID: spaceID, Title: "Alice Note", Body: "x"}); ae != nil {
+	if _, ae := srv.createPageCore(ctx, au, nil, pageCreateRequest{SpaceID: spaceID, Title: "Alice Note", Body: "x"}, true); ae != nil {
 		t.Fatalf("create: %v", ae)
 	}
 

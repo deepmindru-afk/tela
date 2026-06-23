@@ -98,7 +98,7 @@ func TestRecentChanges_SourceAgentFilter(t *testing.T) {
 	au := authUser(alice, "alice", false)
 
 	// Human-created page, later edited by an agent (agentWrite=true → source=agent).
-	human, ae := srv.createPageCore(ctx, au, nil, pageCreateRequest{SpaceID: spaceID, Title: "Human Page", Body: "h"})
+	human, ae := srv.createPageCore(ctx, au, nil, pageCreateRequest{SpaceID: spaceID, Title: "Human Page", Body: "h"}, true)
 	if ae != nil {
 		t.Fatalf("human create: %v", ae)
 	}
@@ -107,11 +107,11 @@ func TestRecentChanges_SourceAgentFilter(t *testing.T) {
 		t.Fatalf("agent update: %v", ae)
 	}
 	// Agent-created page (source=agent via the agent-write context).
-	if _, ae := srv.createPageCore(withAgentWrite(ctx), au, nil, pageCreateRequest{SpaceID: spaceID, Title: "Agent Page", Body: "a"}); ae != nil {
+	if _, ae := srv.createPageCore(withAgentWrite(ctx), au, nil, pageCreateRequest{SpaceID: spaceID, Title: "Agent Page", Body: "a"}, true); ae != nil {
 		t.Fatalf("agent create: %v", ae)
 	}
 	// Purely-human page — must NOT show in the agent feed.
-	if _, ae := srv.createPageCore(ctx, au, nil, pageCreateRequest{SpaceID: spaceID, Title: "Pure Human", Body: "p"}); ae != nil {
+	if _, ae := srv.createPageCore(ctx, au, nil, pageCreateRequest{SpaceID: spaceID, Title: "Pure Human", Body: "p"}, true); ae != nil {
 		t.Fatalf("pure human create: %v", ae)
 	}
 

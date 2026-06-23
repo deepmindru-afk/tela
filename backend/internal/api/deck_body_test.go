@@ -22,7 +22,7 @@ func TestCreatePage_DeckBodyPreservesHeadmatter(t *testing.T) {
 	// Deck: body kept verbatim.
 	p, ae := srv.createPageCore(ctx, au, nil, pageCreateRequest{
 		SpaceID: sp, Title: "My Deck", Body: deckBody, Props: map[string]any{"deck": true},
-	})
+	}, true)
 	if ae != nil {
 		t.Fatalf("create deck: %v", ae)
 	}
@@ -38,7 +38,7 @@ func TestCreatePage_DeckBodyPreservesHeadmatter(t *testing.T) {
 	// Non-deck: leading frontmatter still absorbed into props, out of the body.
 	doc, ae := srv.createPageCore(ctx, au, nil, pageCreateRequest{
 		SpaceID: sp, Title: "Doc", Body: "---\nstatus: draft\n---\n\n# Hi\n",
-	})
+	}, true)
 	if ae != nil {
 		t.Fatalf("create doc: %v", ae)
 	}

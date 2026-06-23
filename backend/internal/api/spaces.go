@@ -187,7 +187,7 @@ func (s *Server) seedWelcomePage(ctx context.Context, u *auth.User, sp models.Sp
 		SpaceID: sp.ID,
 		Title:   "Welcome to " + sp.Name,
 		Body:    welcomePageBody(sp.Name),
-	}); ae != nil {
+	}, false); ae != nil {
 		slog.Error("seed welcome page for space", "space_id", sp.ID, "err", ae.Message)
 	}
 }

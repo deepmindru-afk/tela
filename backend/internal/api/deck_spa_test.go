@@ -22,7 +22,7 @@ func TestDeckSPA_RBAC(t *testing.T) {
 	sp := seedSpace(t, d, "Deck Space", "deck-space", owner)
 	p, ae := srv.createPageCore(ctx, authUser(owner, "owner", false), nil, pageCreateRequest{
 		SpaceID: sp, Title: "D", Body: "---\nlayout: cover\ntitle: X\n---\n", Props: map[string]any{"deck": true},
-	})
+	}, true)
 	if ae != nil {
 		t.Fatalf("create deck: %v", ae)
 	}

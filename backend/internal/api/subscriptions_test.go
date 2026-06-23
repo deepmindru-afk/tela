@@ -39,7 +39,7 @@ func TestSubscriptions_PageFollow_NotifyCollapseAndAccessGate(t *testing.T) {
 	seedMember(t, d, spaceID, bob, "viewer")
 
 	page, ae := srv.createPageCore(ctx, authUser(alice, "alice", false), nil,
-		pageCreateRequest{SpaceID: spaceID, Title: "Plan", Body: "v0"})
+		pageCreateRequest{SpaceID: spaceID, Title: "Plan", Body: "v0"}, true)
 	if ae != nil {
 		t.Fatalf("create page: %v", ae)
 	}
@@ -95,7 +95,7 @@ func TestSubscriptions_AuthorAutoFollow(t *testing.T) {
 	seedMember(t, d, spaceID, bob, "editor")
 
 	page, ae := srv.createPageCore(ctx, authUser(alice, "alice", false), nil,
-		pageCreateRequest{SpaceID: spaceID, Title: "Plan", Body: "v0"})
+		pageCreateRequest{SpaceID: spaceID, Title: "Plan", Body: "v0"}, true)
 	if ae != nil {
 		t.Fatalf("create page: %v", ae)
 	}
@@ -118,7 +118,7 @@ func TestSubscriptions_SpaceFollow(t *testing.T) {
 	seedMember(t, d, spaceID, bob, "viewer")
 
 	page, ae := srv.createPageCore(ctx, authUser(alice, "alice", false), nil,
-		pageCreateRequest{SpaceID: spaceID, Title: "Plan", Body: "v0"})
+		pageCreateRequest{SpaceID: spaceID, Title: "Plan", Body: "v0"}, true)
 	if ae != nil {
 		t.Fatalf("create page: %v", ae)
 	}
@@ -142,7 +142,7 @@ func TestNotificationPrefs_GatingAndAPI(t *testing.T) {
 	spaceID := seedSpace(t, d, "Engineering", "engineering", alice)
 	seedMember(t, d, spaceID, bob, "viewer")
 	page, ae := srv.createPageCore(ctx, authUser(alice, "alice", false), nil,
-		pageCreateRequest{SpaceID: spaceID, Title: "Plan", Body: "v0"})
+		pageCreateRequest{SpaceID: spaceID, Title: "Plan", Body: "v0"}, true)
 	if ae != nil {
 		t.Fatalf("create page: %v", ae)
 	}
@@ -196,7 +196,7 @@ func TestSubscriptions_DeletePageCleansUp(t *testing.T) {
 	spaceID := seedSpace(t, d, "Engineering", "engineering", alice)
 	seedMember(t, d, spaceID, bob, "viewer")
 	page, ae := srv.createPageCore(ctx, authUser(alice, "alice", false), nil,
-		pageCreateRequest{SpaceID: spaceID, Title: "Plan", Body: "v0"})
+		pageCreateRequest{SpaceID: spaceID, Title: "Plan", Body: "v0"}, true)
 	if ae != nil {
 		t.Fatalf("create page: %v", ae)
 	}

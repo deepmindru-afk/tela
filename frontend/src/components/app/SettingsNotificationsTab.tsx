@@ -3,12 +3,13 @@ import {
   useUpdateNotificationPref,
   type NotificationPref,
 } from '../../lib/queries/notification-prefs'
+import { useAutowatch, useSetAutowatch } from '../../lib/queries/subscriptions'
 import { Checkbox } from '../ui/checkbox'
 import { cn } from '../../lib/utils'
 
 // The event types + channels the matrix renders. Mirrors the backend's
 // notificationEventTypes / notificationChannels; adding one there + here exposes
-// it. Email is stored but not yet delivered (see footnote).
+// it. Both in-app and email are delivered.
 const EVENTS: { type: string; label: string; desc: string }[] = [
   { type: 'mention', label: 'Mentions', desc: 'When someone @-mentions you on a page.' },
   {
@@ -40,6 +41,8 @@ const CHANNELS: { channel: string; label: string }[] = [
 export function SettingsNotificationsTab() {
   const prefs = useNotificationPrefs()
   const update = useUpdateNotificationPref()
+  const autowatch = useAutowatch()
+  const setAutowatch = useSetAutowatch()
 
   const enabled = (eventType: string, channel: string): boolean =>
     prefs.data?.find((p) => p.event_type === eventType && p.channel === channel)?.enabled ?? true
@@ -54,6 +57,25 @@ export function SettingsNotificationsTab() {
         Choose what you’re notified about. Follow a page or space (the bell icon in
         its header) to get its updates.
       </p>
+
+      <label className="flex items-start gap-[var(--space-3)] rounded-[var(--radius-md)] border border-[var(--border-subtle)] px-[var(--space-4)] py-[var(--space-3)]">
+        <Checkbox
+          checked={autowatch.data ?? true}
+          disabled={autowatch.isLoading || setAutowatch.isPending}
+          aria-label="Automatically follow pages I create, edit, or comment on"
+          onCheckedChange={(v) => setAutowatch.mutate(v === true)}
+          className="mt-[2px]"
+        />
+        <span className="flex flex-col gap-[1px]">
+          <span className="text-[length:var(--text-sm)] text-[var(--text-primary)] font-medium">
+            Automatically follow pages I act on
+          </span>
+          <span className="text-[length:var(--text-xs)] text-[var(--text-muted)]">
+            Follow a page when you create, edit, or comment on it, so you hear about
+            later changes. Turn off to follow only manually.
+          </span>
+        </span>
+      </label>
 
       {prefs.isLoading ? (
         <p className="m-0 text-[length:var(--text-sm)] text-[var(--text-muted)]">Loading…</p>

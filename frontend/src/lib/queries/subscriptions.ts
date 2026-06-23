@@ -62,6 +62,31 @@ export function useSubscriptions() {
   })
 }
 
+// Autowatch: auto-follow pages you create, edit, or comment on.
+export function useAutowatch() {
+  return useQuery({
+    queryKey: ['autowatch'],
+    queryFn: async () => {
+      const { autowatch } = await api<{ autowatch: boolean }>('/api/users/me/autowatch')
+      return autowatch
+    },
+  })
+}
+
+export function useSetAutowatch() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (autowatch: boolean) => {
+      await api<void>('/api/users/me/autowatch', {
+        method: 'PUT',
+        body: JSON.stringify({ autowatch }),
+      })
+      return autowatch
+    },
+    onSuccess: (v) => qc.setQueryData(['autowatch'], v),
+  })
+}
+
 // Unfollow from the list view: DELETE, then refresh the list + the item's toggle.
 export function useUnfollow() {
   const qc = useQueryClient()

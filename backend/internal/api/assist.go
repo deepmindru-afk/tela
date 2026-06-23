@@ -529,7 +529,7 @@ func (s *Server) RAGAnswerToPage(w http.ResponseWriter, r *http.Request) {
 	body := answer + sourcesBlock(hits)
 	page, ae := s.createPageCore(r.Context(), u, k, pageCreateRequest{
 		SpaceID: req.SpaceID, ParentID: req.ParentID, Title: title, Body: body,
-	})
+	}, true)
 	if ae != nil {
 		writeError(w, ae.Status, ae.Code, ae.Message)
 		return

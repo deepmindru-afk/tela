@@ -32,7 +32,7 @@ func TestNotifications_PageMention_GatedAndIdempotent(t *testing.T) {
 
 	body := "Hi [@Bob](tela://user/" + intStr(bob) + ") and [@Carol](tela://user/" + intStr(carol) + ")"
 	au := authUser(alice, "alice", false)
-	page, ae := srv.createPageCore(ctx, au, nil, pageCreateRequest{SpaceID: spaceID, Title: "Plan", Body: body})
+	page, ae := srv.createPageCore(ctx, au, nil, pageCreateRequest{SpaceID: spaceID, Title: "Plan", Body: body}, true)
 	if ae != nil {
 		t.Fatalf("create page: %v", ae)
 	}
@@ -69,7 +69,7 @@ func TestNotifications_API_ListCountMarkRead(t *testing.T) {
 
 	body := "ping [@Bob](tela://user/" + intStr(bob) + ")"
 	if _, ae := srv.createPageCore(ctx, authUser(alice, "alice", false), nil,
-		pageCreateRequest{SpaceID: spaceID, Title: "Plan", Body: body}); ae != nil {
+		pageCreateRequest{SpaceID: spaceID, Title: "Plan", Body: body}, true); ae != nil {
 		t.Fatalf("create page: %v", ae)
 	}
 

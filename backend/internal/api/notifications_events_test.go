@@ -47,7 +47,7 @@ func TestNotifications_CommentReply(t *testing.T) {
 	spaceID := seedSpace(t, d, "Engineering", "engineering", alice)
 	seedMember(t, d, spaceID, bob, "editor")
 	page, ae := srv.createPageCore(ctx, authUser(alice, "alice", false), nil,
-		pageCreateRequest{SpaceID: spaceID, Title: "Plan", Body: "hello world"})
+		pageCreateRequest{SpaceID: spaceID, Title: "Plan", Body: "hello world"}, true)
 	if ae != nil {
 		t.Fatalf("create page: %v", ae)
 	}

@@ -888,7 +888,7 @@ func (s *Server) mcpCreatePage(ctx context.Context, req *mcp.CallToolRequest, in
 			Title:    in.Title,
 			Body:     in.Body,
 			Props:    in.Props,
-		})
+		}, true)
 		if ae != nil {
 			return mcpErr(ae), createPageOut{}, nil
 		}

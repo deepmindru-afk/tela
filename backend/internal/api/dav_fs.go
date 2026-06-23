@@ -351,7 +351,7 @@ func (fs *davFS) Mkdir(ctx context.Context, name string, _ os.FileMode) error {
 	pr := davPrincipalFrom(ctx)
 	_, ae := fs.s.createPageCore(ctx, pr.u, pr.k, pageCreateRequest{
 		SpaceID: sp.id, ParentID: parentID, Title: target,
-	})
+	}, false)
 	return davMapErr(ae)
 }
 

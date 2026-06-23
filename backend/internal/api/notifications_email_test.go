@@ -153,7 +153,7 @@ func TestNotificationEmail_CommentReply(t *testing.T) {
 	spaceID := seedSpace(t, d, "Engineering", "engineering", alice)
 	seedMember(t, d, spaceID, bob, "editor")
 	page, ae := srv.createPageCore(ctx, authUser(alice, "alice", false), nil,
-		pageCreateRequest{SpaceID: spaceID, Title: "Plan", Body: "hello world"})
+		pageCreateRequest{SpaceID: spaceID, Title: "Plan", Body: "hello world"}, true)
 	if ae != nil {
 		t.Fatalf("create page: %v", ae)
 	}
@@ -250,7 +250,7 @@ func TestNotificationEmail_PageCreated(t *testing.T) {
 	}
 
 	_, ae := srv.createPageCore(ctx, authUser(alice, "alice", false), nil,
-		pageCreateRequest{SpaceID: spaceID, Title: "Incident postmortem", Body: "what happened"})
+		pageCreateRequest{SpaceID: spaceID, Title: "Incident postmortem", Body: "what happened"}, true)
 	if ae != nil {
 		t.Fatalf("create page: %v", ae)
 	}
@@ -266,6 +266,36 @@ func TestNotificationEmail_PageCreated(t *testing.T) {
 	// The author isn't notified of their own new page.
 	if n := notifCountByType(t, d, alice, notifPageCreated); n != 0 {
 		t.Fatalf("alice (author) page_created = %d, want 0", n)
+	}
+}
+
+func TestAutowatch(t *testing.T) {
+	srv, d, _ := newEmailServer(t)
+	ctx := context.Background()
+	alice := seedUser(t, d, "alice", "alicepw123", false)
+	spaceID := seedSpace(t, d, "Engineering", "engineering", alice)
+
+	// Default on: creating a page auto-follows it.
+	p1, ae := srv.createPageCore(ctx, authUser(alice, "alice", false), nil,
+		pageCreateRequest{SpaceID: spaceID, Title: "One", Body: "x"}, true)
+	if ae != nil {
+		t.Fatalf("create: %v", ae)
+	}
+	if sub, _ := srv.isSubscribed(ctx, alice, "page", p1.ID); !sub {
+		t.Fatalf("autowatch on: author should follow their new page")
+	}
+
+	// Turn autowatch off → a new page is NOT auto-followed.
+	if _, err := d.ExecContext(ctx, `UPDATE users SET autowatch = 0 WHERE id = $1`, alice); err != nil {
+		t.Fatalf("disable autowatch: %v", err)
+	}
+	p2, ae := srv.createPageCore(ctx, authUser(alice, "alice", false), nil,
+		pageCreateRequest{SpaceID: spaceID, Title: "Two", Body: "y"}, true)
+	if ae != nil {
+		t.Fatalf("create: %v", ae)
+	}
+	if sub, _ := srv.isSubscribed(ctx, alice, "page", p2.ID); sub {
+		t.Fatalf("autowatch off: should NOT auto-follow")
 	}
 }
 

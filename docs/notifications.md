@@ -66,9 +66,13 @@ emission policies on `notificationInput`:
   **space** (minus the author), so "follow a space" means "watch for new pages",
   not just edits. Idempotent per (page, user). Fires only on the interactive
   create path (`createPageCore`) — bulk import/sync doesn't storm followers.
-- **Auto-follow** — you auto-follow a page when you **create** it *or* **comment**
-  on it (Confluence-style autowatch — a strong "I care" signal), so you hear
-  about later changes without an explicit follow.
+- **Autowatch** — you auto-follow a page when you **create**, **edit**, or
+  **comment** on it (Confluence-style), via `autoFollow` in the shared cores
+  (`createPageCore` / `updatePageCore` / `createCommentCore`) so REST *and* MCP
+  are covered uniformly. Gated by the per-user **`users.autowatch`** preference
+  (default on; `GET|PUT /api/users/me/autowatch`, toggle in Settings →
+  Notifications). Edit-autowatch is the interactive path only — sync edits go
+  through `applyUpdateTx`, so a vault sync never auto-subscribes you.
 
 ## API
 
