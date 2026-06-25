@@ -304,15 +304,22 @@ func renderOGCard(title, subtitle string, brand ogBrand) ([]byte, error) {
 		titleDrawer.DrawString(line)
 	}
 
-	sub := truncateToWidth(subtitleFace, subtitle, ogDrawableWidth)
+	// Draw the subtitle only if it clears the footer rule — a long (3-line) title,
+	// especially under a logo header, can push it down into the footer; in that
+	// case the title is the message and the subtitle is dropped rather than
+	// colliding. ruleY mirrors the footer hairline below.
 	subtitleY := titleY + (len(titleLines)-1)*ogTitleLineH + 24 + ogSubtitleSize
-	subtitleDrawer := &font.Drawer{
-		Dst:  img,
-		Src:  &image.Uniform{C: ogSubtitleColor},
-		Face: subtitleFace,
-		Dot:  fixed.P(ogMargin, subtitleY),
+	ruleY := ogCanvasHeight - ogMargin - ogFooterSize - 20
+	if subtitle != "" && subtitleY <= ruleY-12 {
+		sub := truncateToWidth(subtitleFace, subtitle, ogDrawableWidth)
+		subtitleDrawer := &font.Drawer{
+			Dst:  img,
+			Src:  &image.Uniform{C: ogSubtitleColor},
+			Face: subtitleFace,
+			Dot:  fixed.P(ogMargin, subtitleY),
+		}
+		subtitleDrawer.DrawString(sub)
 	}
-	subtitleDrawer.DrawString(sub)
 
 	// Footer: a hairline rule, then a small accent mark + the wordmark (org name
 	// when branded, else "tela"). The rule + mark anchor the lower third so the
@@ -322,7 +329,6 @@ func renderOGCard(title, subtitle string, brand ogBrand) ([]byte, error) {
 		footer = brand.name
 	}
 	footerY := ogCanvasHeight - ogMargin
-	ruleY := footerY - ogFooterSize - 20
 	draw.Draw(img, image.Rect(ogMargin, ruleY, ogCanvasWidth-ogMargin, ruleY+2),
 		&image.Uniform{C: ogRuleColor}, image.Point{}, draw.Src)
 

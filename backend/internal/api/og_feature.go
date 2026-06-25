@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"html"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 )
@@ -51,12 +52,29 @@ func (s *Server) HandleFeatureOG(w http.ResponseWriter, r *http.Request) {
 		origin = canonicalBaseURL()
 	}
 	siteName := s.ogSiteName(r, 0)
+	// og:url is the shared link itself (query preserved) so the unfurl clicks
+	// through to the same pre-filled/auto-running Ask.
 	pageURL := origin + r.URL.Path
-	imageURL := origin + r.URL.Path + "/og.png"
-	ogTitle := fc.title
-	if siteName != "" && siteName != "tela" {
-		ogTitle = fc.title + " · " + siteName
+	if r.URL.RawQuery != "" {
+		pageURL += "?" + r.URL.RawQuery
 	}
+	imageURL := origin + r.URL.Path + "/og.png"
+
+	// A shared ask link carries ?q=<question> — feature the question itself (the
+	// compelling bit in a paste), with the answer pointedly NOT in the card. No q
+	// → the generic "Ask your docs" feature card.
+	title, desc := fc.title, fc.desc
+	if q := featureQuestion(r); q != "" {
+		title = q
+		desc = "Open to see the answer — grounded in " + siteName + "'s wiki, with sources."
+		imageURL += "?q=" + url.QueryEscape(q)
+	}
+	ogTitle := title
+	if siteName != "" && siteName != "tela" {
+		ogTitle = title + " · " + siteName
+	}
+	ogTitle = runeTruncate(ogTitle, 110)
+	desc = runeTruncate(desc, 200)
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Header().Set("Cache-Control", "public, max-age=300")
@@ -84,17 +102,25 @@ func (s *Server) HandleFeatureOG(w http.ResponseWriter, r *http.Request) {
 <body></body>
 </html>`,
 		html.EscapeString(ogTitle),
-		html.EscapeString(fc.desc),
+		html.EscapeString(desc),
 		html.EscapeString(siteName),
 		html.EscapeString(ogTitle),
-		html.EscapeString(fc.desc),
+		html.EscapeString(desc),
 		html.EscapeString(imageURL),
 		html.EscapeString(ogTitle),
 		html.EscapeString(pageURL),
 		html.EscapeString(ogTitle),
-		html.EscapeString(fc.desc),
+		html.EscapeString(desc),
 		html.EscapeString(imageURL),
 	)
+}
+
+// featureQuestion reads + sanitizes a shared ask link's ?q= for use in the card:
+// trimmed, whitespace collapsed to single spaces, capped so a pathological query
+// can't blow up the title. Empty when absent.
+func featureQuestion(r *http.Request) string {
+	q := strings.Join(strings.Fields(r.URL.Query().Get("q")), " ")
+	return runeTruncate(q, 300)
 }
 
 // HandleFeatureOGImage renders the 1200×630 card for a feature route's og.png.
@@ -109,7 +135,13 @@ func (s *Server) HandleFeatureOGImage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	brand := s.resolveOGBrand(r, 0)
-	png, err := renderOGCard(fc.title, fc.subtitle, brand)
+	// With a shared ?q=, the question is the hero and "Ask your docs" the label;
+	// otherwise the generic feature card.
+	title, subtitle := fc.title, fc.subtitle
+	if q := featureQuestion(r); q != "" {
+		title, subtitle = q, fc.title
+	}
+	png, err := renderOGCard(title, subtitle, brand)
 	if err != nil {
 		writeInternalHTML(w)
 		return

@@ -61,6 +61,28 @@ func TestFeatureOG_Ask(t *testing.T) {
 		}
 	})
 
+	t.Run("shared_question_card", func(t *testing.T) {
+		// A shared ask link (?q=) features the question in the card, not the
+		// generic "Ask your docs", and points og:image at the question render.
+		_, body := get("/ask?q=How%20do%20I%20deploy%20tela%3F&demo=1")
+		s := string(body)
+		for _, want := range []string{
+			`og:title" content="How do I deploy tela?`,
+			`/ask/og.png?q=`,
+		} {
+			if !strings.Contains(s, want) {
+				t.Fatalf("question OG HTML missing %q\n%s", want, s)
+			}
+		}
+		resp, png := get("/ask/og.png?q=How%20do%20I%20deploy%20tela%3F")
+		if resp.StatusCode != http.StatusOK || resp.Header.Get("Content-Type") != "image/png" {
+			t.Fatalf("question og.png: status=%d ct=%q", resp.StatusCode, resp.Header.Get("Content-Type"))
+		}
+		if len(png) < 5000 {
+			t.Fatalf("question og.png too small (%d bytes)", len(png))
+		}
+	})
+
 	// Optional visual dump for manual review.
 	if dir := os.Getenv("OG_DUMP_DIR"); dir != "" {
 		_, body := get("/ask/og.png")
