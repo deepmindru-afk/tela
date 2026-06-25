@@ -198,7 +198,8 @@
 	# OG card, humans fall through to the app SPA below. noindex (app routes). Keep
 	# the path list + UA regex in sync with featureCards in og_feature.go and
 	# botUASubstrings in backend/internal/api/public_share.go.
-	handle /ask/og.png /graph/og.png {
+	@feature_og path /ask/og.png /graph/og.png
+	handle @feature_og {
 		header X-Robots-Tag "noindex"
 		reverse_proxy {$TELA_UPSTREAM_BACKEND:backend:8080}
 	}
@@ -391,7 +392,8 @@ https:// {
 	# domain: the og.png card → backend for all UAs; the HTML envelope is bot-gated
 	# (humans get the SPA). Backend brands the card to this org via the request host.
 	# Mirror of the canonical block; keep in sync with featureCards (og_feature.go).
-	handle /ask/og.png /graph/og.png /discover/og.png {
+	@feature_og path /ask/og.png /graph/og.png /discover/og.png
+	handle @feature_og {
 		reverse_proxy {$TELA_UPSTREAM_BACKEND:backend:8080}
 	}
 	@feature_bots {
