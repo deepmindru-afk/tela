@@ -94,7 +94,7 @@ func (s *Server) Register(w http.ResponseWriter, r *http.Request) {
 
 	// Mint + send the confirmation link. A send failure is logged but does not
 	// fail the request — the account exists and the user can use "resend".
-	s.sendVerification(ctx, s.linkOrigin(r), userID, username, email)
+	s.sendVerification(ctx, s.linkOrigin(r), userID, username, email, s.emailBrandForRequest(r))
 
 	writeJSON(w, http.StatusCreated, map[string]any{"ok": true, "email": email})
 }
@@ -200,7 +200,7 @@ func (s *Server) ResendVerification(w http.ResponseWriter, r *http.Request) {
 		SELECT id, username, email_verified_at FROM users
 		 WHERE email = $1 AND is_active = 1`, email).Scan(&userID, &username, &verified)
 	if err == nil && !verified.Valid {
-		s.sendVerification(ctx, s.linkOrigin(r), userID, username, email)
+		s.sendVerification(ctx, s.linkOrigin(r), userID, username, email, s.emailBrandForRequest(r))
 	} else if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		slog.Error("resend verification lookup", "err", err)
 	}
@@ -232,7 +232,7 @@ func (s *Server) RequestPasswordReset(w http.ResponseWriter, r *http.Request) {
 		raw, terr := createEmailToken(ctx, s.DB, userID, "reset", resetTokenTTL)
 		if terr != nil {
 			slog.Error("create reset token", "user_id", userID, "err", terr)
-		} else if serr := s.Mailer.Send(ctx, mailer.ResetPassword(email, username, resetLink(s.linkOrigin(r), raw))); serr != nil {
+		} else if serr := s.Mailer.Send(ctx, mailer.ResetPassword(email, username, resetLink(s.linkOrigin(r), raw), s.emailBrandForRequest(r))); serr != nil {
 			slog.Error("send reset email", "email", email, "err", serr)
 		}
 	} else if !errors.Is(err, sql.ErrNoRows) {
@@ -312,13 +312,13 @@ func (s *Server) ResetPassword(w http.ResponseWriter, r *http.Request) {
 // origin is the request's effective origin (Server.linkOrigin) so the
 // confirmation link follows an org's custom domain when the signup happened
 // there.
-func (s *Server) sendVerification(ctx context.Context, origin string, userID int64, username, email string) {
+func (s *Server) sendVerification(ctx context.Context, origin string, userID int64, username, email string, brand mailer.Brand) {
 	raw, err := createEmailToken(ctx, s.DB, userID, "verify", verifyTokenTTL)
 	if err != nil {
 		slog.Error("create verify token", "user_id", userID, "err", err)
 		return
 	}
-	if err := s.Mailer.Send(ctx, mailer.VerifyEmail(email, username, verifyLink(origin, raw))); err != nil {
+	if err := s.Mailer.Send(ctx, mailer.VerifyEmail(email, username, verifyLink(origin, raw), brand)); err != nil {
 		slog.Error("send verify email", "email", email, "err", err)
 	}
 }

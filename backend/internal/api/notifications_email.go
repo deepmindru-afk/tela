@@ -212,6 +212,13 @@ func (s *Server) buildNotificationEmail(ctx context.Context, in notificationInpu
 	default:
 		return mailer.Message{}, false
 	}
+	// White-label off the owning org (custom-domain orgs only). notifSpaceAdded
+	// carries the space as the subject; every other type has it as SpaceID.
+	brandSpace := in.SpaceID
+	if in.Type == notifSpaceAdded {
+		brandSpace = &in.SubjectID
+	}
+	n.Brand = s.emailBrandForSpace(ctx, brandSpace)
 	return mailer.NotificationMessage(n), true
 }
 

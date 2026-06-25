@@ -2,6 +2,7 @@ package mailer
 
 import (
 	"bytes"
+	"cmp"
 	"fmt"
 	"html/template"
 	"net/url"
@@ -77,33 +78,49 @@ type NotifEmail struct {
 	Related   []NotifLink // optional suggestions
 	Footer    string      // why-you-got-this line
 	ManageURL string      // link to /settings?tab=notifications
+	Brand     Brand       // per-org white-label (zero → tela)
+}
+
+// Brand is the per-org email branding resolved at send time, applied only where
+// the org has claimed a custom domain (mirrors the app chrome / OG / share
+// reader white-label). The zero value renders the default tela brand, so any
+// caller can pass mailer.Brand{} to opt out. Accent must be an email-safe CSS
+// color (hex or rgb()) — oklch is reduced to hex upstream. LogoURL is absolute.
+type Brand struct {
+	Name    string // org display name; "" → "tela"
+	LogoURL string // absolute org logo URL; "" → the tela icon
+	Accent  string // email-safe accent; "" → tela indigo
 }
 
 // emailView is the rendering model for the shared layout. Either Heading (a
 // plain headline, used by verify/reset/feedback) OR Actor/Action/Target (the
 // notification sentence) is set, never both.
 type emailView struct {
-	LogoOrigin string
-	Eyebrow    string
-	Heading    string
-	Actor      string
-	Action     string
-	Target     string
-	Context    string
-	Intro      string
-	Snippet    string
-	Diff       []DiffLine
-	DiffStat   string
-	DiffMore   string
-	Mono       string // monogram initial; "" hides the chip
-	MonoColor  string
-	CTALabel   string
-	CTAURL     string
-	Related    []NotifLink
-	ShowPaste  bool // show the copy-paste URL fallback (verify/reset want it)
-	Footer     string
-	ManageURL  string
-	Tagline    string // product signature in the footer; set by renderHTML
+	LogoOrigin   string
+	BrandName    string // wordmark + footer credit; "" → "tela"
+	BrandLogoURL string // absolute org logo URL; "" → the tela icon
+	Accent       string // email-safe accent override; "" → tela indigo
+	Powered      bool   // branded → footer shows "Powered by tela" instead of the product tagline
+	Eyebrow      string
+	Heading      string
+	Actor        string
+	Action       string
+	Target       string
+	Context      string
+	Intro        string
+	Snippet      string
+	Diff         []DiffLine
+	DiffStat     string
+	DiffMore     string
+	Mono         string // monogram initial; "" hides the chip
+	MonoColor    string
+	CTALabel     string
+	CTAURL       string
+	Related      []NotifLink
+	ShowPaste    bool // show the copy-paste URL fallback (verify/reset want it)
+	Footer       string
+	ManageURL    string
+	Tagline      string // product signature in the footer; set by renderHTML
 }
 
 // Color helpers exposed to the template.
@@ -122,12 +139,21 @@ func (v emailView) C(name string) string {
 	case "faint":
 		return clrFaint
 	case "indigo":
+		if v.Accent != "" {
+			return v.Accent
+		}
 		return clrIndigo
 	case "link":
+		if v.Accent != "" {
+			return v.Accent
+		}
 		return clrLink
 	case "quote":
 		return clrQuote
 	case "indigo2":
+		if v.Accent != "" {
+			return v.Accent
+		}
 		return clrIndigo2
 	case "panel":
 		return clrPanel
@@ -135,6 +161,34 @@ func (v emailView) C(name string) string {
 		return clrPill
 	}
 	return clrText
+}
+
+// applyBrand white-labels the view to an org's brand. A blank/"tela" name is a
+// no-op (the default tela brand renders), so callers pass a zero Brand to opt
+// out. Accent and logo only take effect alongside a real org name.
+func (v *emailView) applyBrand(b Brand) {
+	n := strings.TrimSpace(b.Name)
+	if n == "" || n == "tela" {
+		return
+	}
+	v.BrandName = n
+	v.BrandLogoURL = b.LogoURL
+	v.Accent = b.Accent
+	v.Powered = true
+}
+
+// finalize fills the brand/footer defaults shared by the HTML and text renders.
+func (v *emailView) finalize() {
+	if v.BrandName == "" {
+		v.BrandName = "tela"
+	}
+	if v.Tagline == "" {
+		if v.Powered {
+			v.Tagline = "Powered by tela."
+		} else {
+			v.Tagline = emailTagline
+		}
+	}
 }
 
 // emailTmpl is parsed once. html/template gives contextual escaping for every
@@ -152,7 +206,7 @@ var emailTmpl = template.Must(template.New("email").Parse(`<!doctype html>
     <tr><td style="padding:22px 36px;border-bottom:1px solid {{.C "rule"}};">
       <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>
         <td style="vertical-align:middle;">
-          {{if .LogoOrigin}}<img src="{{.LogoOrigin}}/icon-64.png" width="26" height="26" alt="" style="vertical-align:middle;border-radius:7px;display:inline-block;"><span style="font-size:18px;font-weight:700;letter-spacing:-0.01em;color:{{.C "text"}};vertical-align:middle;margin-left:9px;">tela</span>{{else}}<span style="font-size:18px;font-weight:700;letter-spacing:-0.01em;color:{{.C "text"}};">tela</span>{{end}}
+          {{if .BrandLogoURL}}<img src="{{.BrandLogoURL}}" height="26" alt="" style="vertical-align:middle;max-height:26px;width:auto;display:inline-block;"><span style="font-size:18px;font-weight:700;letter-spacing:-0.01em;color:{{.C "text"}};vertical-align:middle;margin-left:9px;">{{.BrandName}}</span>{{else if .LogoOrigin}}<img src="{{.LogoOrigin}}/icon-64.png" width="26" height="26" alt="" style="vertical-align:middle;border-radius:7px;display:inline-block;"><span style="font-size:18px;font-weight:700;letter-spacing:-0.01em;color:{{.C "text"}};vertical-align:middle;margin-left:9px;">{{.BrandName}}</span>{{else}}<span style="font-size:18px;font-weight:700;letter-spacing:-0.01em;color:{{.C "text"}};">{{.BrandName}}</span>{{end}}
         </td>
         {{if .Eyebrow}}<td align="right" style="vertical-align:middle;">
           <span style="display:inline-block;background:{{.C "pill"}};border:1px solid {{.C "rule"}};border-radius:999px;padding:5px 12px;font-size:11px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:{{.C "muted"}};">{{.Eyebrow}}</span>
@@ -220,12 +274,12 @@ var emailTmpl = template.Must(template.New("email").Parse(`<!doctype html>
     <tr><td style="padding:24px 36px 28px 36px;background:{{.C "panel"}};border-top:1px solid {{.C "rule"}};">
       <p style="margin:0 0 12px 0;font-size:13px;line-height:1.5;font-weight:600;color:{{.C "muted"}};">{{.Tagline}}</p>
       <p style="margin:0 0 14px 0;font-size:13px;line-height:1.5;">
-        {{if .LogoOrigin}}<a href="{{.LogoOrigin}}" style="color:{{.C "link"}};text-decoration:none;">Open tela</a>{{end}}
+        {{if .LogoOrigin}}<a href="{{.LogoOrigin}}" style="color:{{.C "link"}};text-decoration:none;">Open {{.BrandName}}</a>{{end}}
         {{if and .LogoOrigin .ManageURL}}<span style="color:{{.C "rule"}};">&nbsp;·&nbsp;</span>{{end}}
         {{if .ManageURL}}<a href="{{.ManageURL}}" style="color:{{.C "link"}};text-decoration:none;">Notification settings</a>{{end}}
       </p>
       <p style="margin:0 0 10px 0;font-size:12px;line-height:1.5;color:{{.C "faint"}};">{{.Footer}}{{if .ManageURL}} <a href="{{.ManageURL}}" style="color:{{.C "link"}};">Manage notification emails</a>.{{end}}</p>
-      <p style="margin:0;font-size:11px;line-height:1.5;color:{{.C "faint"}};">© 2026 tela</p>
+      <p style="margin:0;font-size:11px;line-height:1.5;color:{{.C "faint"}};">© 2026 {{.BrandName}}</p>
     </td></tr>
   </table>
 </td></tr>
@@ -234,7 +288,7 @@ var emailTmpl = template.Must(template.New("email").Parse(`<!doctype html>
 
 // renderHTML executes the shared template into a string.
 func renderHTML(v emailView) string {
-	v.Tagline = emailTagline
+	v.finalize()
 	var b bytes.Buffer
 	if err := emailTmpl.Execute(&b, v); err != nil {
 		// Template is static + fields are strings; an error here is a programming
@@ -246,8 +300,9 @@ func renderHTML(v emailView) string {
 
 // renderText is the plaintext alternative — same content, no markup.
 func renderText(v emailView) string {
+	v.finalize()
 	var b strings.Builder
-	b.WriteString("tela\n\n")
+	b.WriteString(v.BrandName + "\n\n")
 	if v.Eyebrow != "" {
 		b.WriteString(strings.ToUpper(v.Eyebrow) + "\n")
 	}
@@ -301,7 +356,7 @@ func renderText(v emailView) string {
 	if v.ManageURL != "" {
 		b.WriteString(" Manage notification emails: " + v.ManageURL)
 	}
-	b.WriteString("\n\n—\n" + emailTagline + "\n© 2026 tela\n")
+	b.WriteString("\n\n—\n" + v.Tagline + "\n© 2026 " + v.BrandName + "\n")
 	return b.String()
 }
 
@@ -322,9 +377,11 @@ func monogram(name string) (initial, color string) {
 }
 
 // VerifyEmail builds the "confirm your email" message addressed to `to`.
-// verifyURL is the full link carrying the raw token.
-func VerifyEmail(to, username, verifyURL string) Message {
-	intro := fmt.Sprintf("Welcome to tela, %s. Confirm this address to activate your account and start writing.", username)
+// verifyURL is the full link carrying the raw token. brand white-labels the mail
+// to the org when it arrived on a custom domain (zero Brand → tela).
+func VerifyEmail(to, username, verifyURL string, brand Brand) Message {
+	name := cmp.Or(strings.TrimSpace(brand.Name), "tela")
+	intro := fmt.Sprintf("Welcome to %s, %s. Confirm this address to activate your account and start writing.", name, username)
 	v := emailView{
 		LogoOrigin: originOf(verifyURL),
 		Heading:    "Confirm your email",
@@ -332,15 +389,17 @@ func VerifyEmail(to, username, verifyURL string) Message {
 		CTALabel:   "Confirm email",
 		CTAURL:     verifyURL,
 		ShowPaste:  true,
-		Footer:     "This link expires in 24 hours. If you didn't create a tela account, you can ignore this email.",
+		Footer:     "This link expires in 24 hours. If you didn't create a " + name + " account, you can ignore this email.",
 	}
-	return Message{To: to, Subject: "Confirm your tela account", HTML: renderHTML(v), Text: renderText(v)}
+	v.applyBrand(brand)
+	return Message{To: to, Subject: "Confirm your " + name + " account", HTML: renderHTML(v), Text: renderText(v)}
 }
 
 // ResetPassword builds the "reset your password" message addressed to `to`.
-// resetURL carries the raw token.
-func ResetPassword(to, username, resetURL string) Message {
-	intro := fmt.Sprintf("We received a request to reset the password for your tela account, %s. Choose a new one below.", username)
+// resetURL carries the raw token. brand white-labels the mail to the org.
+func ResetPassword(to, username, resetURL string, brand Brand) Message {
+	name := cmp.Or(strings.TrimSpace(brand.Name), "tela")
+	intro := fmt.Sprintf("We received a request to reset the password for your %s account, %s. Choose a new one below.", name, username)
 	v := emailView{
 		LogoOrigin: originOf(resetURL),
 		Heading:    "Reset your password",
@@ -350,7 +409,8 @@ func ResetPassword(to, username, resetURL string) Message {
 		ShowPaste:  true,
 		Footer:     "This link expires in 1 hour. If you didn't request this, your password is unchanged and you can ignore this email.",
 	}
-	return Message{To: to, Subject: "Reset your tela password", HTML: renderHTML(v), Text: renderText(v)}
+	v.applyBrand(brand)
+	return Message{To: to, Subject: "Reset your " + name + " password", HTML: renderHTML(v), Text: renderText(v)}
 }
 
 // FeedbackNotice tells an instance admin that new feedback landed. `who` is the
@@ -396,6 +456,7 @@ func NotificationMessage(n NotifEmail) Message {
 		Footer:     n.Footer,
 		ManageURL:  n.ManageURL,
 	}
+	v.applyBrand(n.Brand)
 	return Message{To: n.To, Subject: n.Subject, HTML: renderHTML(v), Text: renderText(v)}
 }
 
