@@ -345,6 +345,21 @@ https:// {
 		reverse_proxy {$TELA_UPSTREAM_BACKEND:backend:8080}
 	}
 
+	# Feature routes (e.g. /ask) shared from this org's white-label domain: the
+	# og.png card → backend for all UAs; the HTML envelope is bot-gated (humans get
+	# the SPA). Backend brands the card to this org via the request host. Mirror of
+	# the canonical block; keep in sync with featureCards (og_feature.go).
+	handle /ask/og.png {
+		reverse_proxy {$TELA_UPSTREAM_BACKEND:backend:8080}
+	}
+	@feature_bots {
+		path /ask
+		header_regexp User-Agent "(?i)(slackbot-linkexpanding|twitterbot|facebookexternalhit|facebookcatalog|discordbot|telegrambot|linkedinbot|whatsapp|mastodon|cardyb|slack-imgproxy|pinterest|skypeuripreview|embedly|iframely|bot/|bot\s)"
+	}
+	handle @feature_bots {
+		reverse_proxy {$TELA_UPSTREAM_BACKEND:backend:8080}
+	}
+
 	# Everything else = the app SPA (login lands here, branded for the org).
 	# Never the marketing landing.
 	handle {
