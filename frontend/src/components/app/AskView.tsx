@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useSearch, useNavigate } from '@tanstack/react-router'
 import {
   Sparkles,
@@ -10,6 +10,7 @@ import {
   ChevronDown,
   ArrowUpRight,
   Wrench,
+  Link2,
 } from 'lucide-react'
 import { Card, CardBody } from '../ui/card'
 import { Button } from '../ui/button'
@@ -33,6 +34,8 @@ import { MarkdownView } from '../view/MarkdownView'
 
 interface AskSearchParams {
   space?: number
+  q?: string
+  demo?: boolean
 }
 
 // Whether an error is the backend's "feature not configured on this instance"
@@ -85,6 +88,8 @@ export function AskRoute() {
     typeof params.space === 'number' ? params.space : undefined
 
   const [question, setQuestion] = useState('')
+  const [demoTyping, setDemoTyping] = useState(false)
+  const [copied, setCopied] = useState(false)
   const ask = useAskDocsStream()
   const preview = usePageHoverPreview()
   // AI off (admin kill-switch or embedder unconfigured) → don't let the user fire
@@ -124,6 +129,59 @@ export function AskRoute() {
 
   function submit() {
     runQuestion(question)
+  }
+
+  // Shareable "let me ask tela that for you" deep link: ?q= pre-fills the box;
+  // ?demo=1 additionally auto-types the question and runs it, so the recipient
+  // watches the wiki answer it (under their own access). One-shot on mount.
+  const ranDemo = useRef(false)
+  useEffect(() => {
+    if (ranDemo.current) return
+    ranDemo.current = true
+    const q = (params.q ?? '').trim()
+    if (!q) return
+    if (!params.demo) {
+      setQuestion(q)
+      return
+    }
+    // Drop demo= from the URL so a refresh / re-render doesn't replay the run.
+    void navigate({ to: '/ask', search: (p) => ({ ...p, demo: undefined }), replace: true })
+    const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+    if (reduce) {
+      setQuestion(q)
+      runQuestion(q)
+      return
+    }
+    setDemoTyping(true)
+    let i = 0
+    let timer: ReturnType<typeof setTimeout>
+    const tick = () => {
+      i += 1
+      setQuestion(q.slice(0, i))
+      if (i < q.length) {
+        timer = setTimeout(tick, 26)
+      } else {
+        setDemoTyping(false)
+        runQuestion(q)
+      }
+    }
+    timer = setTimeout(tick, 320)
+    return () => clearTimeout(timer)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // Build + copy a shareable ask link for the current question (the non-obtrusive
+  // entry point — only offered once an answer exists).
+  function copyAskLink() {
+    const q = question.trim()
+    if (!q) return
+    const url = new URL('/ask', window.location.origin)
+    url.searchParams.set('q', q)
+    if (scopeSpace) url.searchParams.set('space', String(scopeSpace))
+    url.searchParams.set('demo', '1')
+    void navigator.clipboard?.writeText(url.toString())
+    setCopied(true)
+    window.setTimeout(() => setCopied(false), 1800)
   }
 
   // Starter prompts for the empty state — clicking runs the question. Generic on
@@ -185,7 +243,7 @@ export function AskRoute() {
             aria-label="Question"
             rows={2}
             autoFocus
-            disabled={ask.isPending || aiPaused}
+            disabled={ask.isPending || aiPaused || demoTyping}
             className="border-0 bg-transparent resize-none px-0 py-[var(--space-1)] text-[length:var(--text-base)] min-h-[calc(var(--space-8)*1.75)] placeholder:text-[var(--text-muted)] focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:border-transparent"
           />
           <div className="flex items-center gap-[var(--space-2)]">
@@ -204,7 +262,7 @@ export function AskRoute() {
               size="sm"
               onClick={submit}
               aria-label="Ask"
-              disabled={question.trim().length === 0 || ask.isPending || aiPaused}
+              disabled={question.trim().length === 0 || ask.isPending || aiPaused || demoTyping}
               className="size-[var(--space-8)] shrink-0 rounded-full p-0"
             >
               {ask.isPending ? (
@@ -261,6 +319,26 @@ export function AskRoute() {
           </Card>
         ) : showAnswer ? (
           <div className="flex flex-col gap-[var(--space-5)]">
+            {/* Non-obtrusive share affordance — only once an answer is in hand.
+                Copies a /ask?q=…&demo=1 link that re-asks this for the recipient. */}
+            {ask.status === 'done' && question.trim() ? (
+              <div className="flex justify-end -mb-[var(--space-3)]">
+                <button
+                  type="button"
+                  onClick={copyAskLink}
+                  aria-label="Copy a shareable link that re-asks this question"
+                  title="Copy a link that re-asks this for someone"
+                  className="inline-flex items-center gap-[var(--space-1)] rounded-[var(--radius-md)] px-[var(--space-2)] py-[var(--space-1)] text-[length:var(--text-xs)] text-[var(--text-muted)] font-[family-name:var(--font-sans)] cursor-pointer outline-none transition-colors duration-[var(--duration-fast)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-2)] focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+                >
+                  {copied ? (
+                    <Check width={13} height={13} aria-hidden className="text-[var(--accent)]" />
+                  ) : (
+                    <Link2 width={13} height={13} aria-hidden />
+                  )}
+                  {copied ? 'Link copied' : 'Share'}
+                </button>
+              </div>
+            ) : null}
             <Card>
               <CardBody>
                 {/* Answer streams in as markdown — render through the shared

@@ -391,15 +391,24 @@ const searchRoute = createRoute({
 
 // "Ask your docs" — a question box → an LLM answer grounded in the user's
 // pages (POST /api/rag/ask) with the cited source pages as links. `?space=`
-// scopes retrieval to one space. Lazy so the view (and its deps) stays off the
-// main chunk until navigated to; 503s gracefully when the instance has no
-// embedder / AI model configured.
+// scopes retrieval to one space. `?q=` pre-fills a question; `?demo=1` additionally
+// auto-types + runs it (the shareable "let me ask tela that for you" link — the
+// recipient gets a fresh answer under their own access). Lazy so the view (and its
+// deps) stays off the main chunk until navigated to; 503s gracefully when the
+// instance has no embedder / AI model configured.
 const askRoute = createRoute({
   getParentRoute: () => appLayoutRoute,
   path: '/ask',
-  validateSearch: (search: Record<string, unknown>): { space?: number } => {
+  validateSearch: (
+    search: Record<string, unknown>,
+  ): { space?: number; q?: string; demo?: boolean } => {
+    const out: { space?: number; q?: string; demo?: boolean } = {}
     const space = Number(search.space)
-    return Number.isFinite(space) && space > 0 ? { space } : {}
+    if (Number.isFinite(space) && space > 0) out.space = space
+    const q = typeof search.q === 'string' ? search.q.slice(0, 500) : ''
+    if (q.trim()) out.q = q
+    if (search.demo === '1' || search.demo === true || search.demo === 'true') out.demo = true
+    return out
   },
   component: lazyRouteComponent(
     () => import('../components/app/AskView'),
