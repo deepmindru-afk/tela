@@ -47,10 +47,10 @@ func (s *Server) HandlePublicShareLink(w http.ResponseWriter, r *http.Request) {
 	}
 	origin := s.shareOriginForPage(r.Context(), share.PageID)
 	if share.PasswordHash.Valid {
-		writeLockedShareOGHTML(w, origin, share.Token)
+		writeLockedShareOGHTML(w, origin, share.Token, s.ogSiteName(r, s.pageOwnerOrg(r.Context(), share.PageID)))
 		return
 	}
-	s.writeShareOGHTML(w, &share, share.PageID, shareRootURL(origin, share.Token), origin, true)
+	s.writeShareOGHTML(r, w, &share, share.PageID, shareRootURL(origin, share.Token), origin, true)
 }
 
 // HandlePublicShareLinkPage — GET /share/{token}/p/{page_id}. Same gate as the
@@ -102,10 +102,10 @@ func (s *Server) HandlePublicShareLinkPage(w http.ResponseWriter, r *http.Reques
 	}
 	origin := s.shareOriginForPage(r.Context(), pageID)
 	if share.PasswordHash.Valid {
-		writeLockedShareOGHTML(w, origin, share.Token)
+		writeLockedShareOGHTML(w, origin, share.Token, s.ogSiteName(r, s.pageOwnerOrg(r.Context(), pageID)))
 		return
 	}
-	s.writeShareOGHTML(w, &share, pageID, shareDescendantURL(origin, share.Token, pageID), origin, false)
+	s.writeShareOGHTML(r, w, &share, pageID, shareDescendantURL(origin, share.Token, pageID), origin, false)
 }
 
 // parseShareLinkPageID parses the {page_id} path value as a positive int64,
@@ -139,18 +139,19 @@ func shareDescendantURL(origin, token string, pageID int64) string {
 // reuses the existing /p/{page_id}/og.png renderer (already public, no auth);
 // only the og:url differs from the /p/{id} flavour, so this routes through
 // writeOGHTMLWithURL.
-func (s *Server) writeShareOGHTML(w http.ResponseWriter, _ *shareLink, pageID int64, pageURL, origin string, withSlug bool) {
+func (s *Server) writeShareOGHTML(r *http.Request, w http.ResponseWriter, _ *shareLink, pageID int64, pageURL, origin string, withSlug bool) {
 	var (
-		title     string
-		body      string
-		spaceName string
+		title      string
+		body       string
+		spaceName  string
+		ownerOrgID int64 // NULL space.org_id scans as 0 via COALESCE
 	)
-	err := s.DB.QueryRow(
-		`SELECT p.title, p.body, sp.name
+	err := s.DB.QueryRowContext(r.Context(),
+		`SELECT p.title, p.body, sp.name, COALESCE(sp.org_id, 0)
 		   FROM pages p
 		   JOIN spaces sp ON sp.id = p.space_id
 		  WHERE p.id = $1 AND p.deleted_at IS NULL`, pageID,
-	).Scan(&title, &body, &spaceName)
+	).Scan(&title, &body, &spaceName, &ownerOrgID)
 	if errors.Is(err, sql.ErrNoRows) {
 		writeNotFoundHTML(w)
 		return
@@ -166,7 +167,7 @@ func (s *Server) writeShareOGHTML(w http.ResponseWriter, _ *shareLink, pageID in
 			pageURL += "/" + sl
 		}
 	}
-	writeOGHTMLWithURL(w, pageID, title, body, spaceName, pageURL, origin)
+	writeOGHTMLWithURL(w, pageID, title, body, spaceName, pageURL, origin, s.ogSiteName(r, ownerOrgID))
 }
 
 // writeOGHTMLWithURL is the URL-overridable variant of writeOGHTML. The /p/{id}
@@ -174,8 +175,12 @@ func (s *Server) writeShareOGHTML(w http.ResponseWriter, _ *shareLink, pageID in
 // /share/{token}/p/{id}. og:image is /p/{page_id}/og.png on the SAME origin as
 // og:url — the page's org custom domain when it has one, else canonical (or
 // path-only in dev). The renderer is public and keyed only on page id, so it
-// resolves on either host.
-func writeOGHTMLWithURL(w http.ResponseWriter, pageID int64, title, body, spaceName, pageURL, origin string) {
+// resolves on either host. siteName brands og:site_name (the owning/host org's
+// name on a white-label domain, else "tela").
+func writeOGHTMLWithURL(w http.ResponseWriter, pageID int64, title, body, spaceName, pageURL, origin, siteName string) {
+	if siteName == "" {
+		siteName = "tela"
+	}
 	ogTitle := runeTruncate(title+" — "+spaceName, 100)
 	// Interim privacy fix (docs/visibility-model.md): /p/{id} emits this OG
 	// envelope for ANY page to crawlers — no auth, no share link required — so a
@@ -197,7 +202,7 @@ func writeOGHTMLWithURL(w http.ResponseWriter, pageID int64, title, body, spaceN
 <head>
   <meta charset="utf-8">
   <title>%s</title>
-  <meta property="og:site_name" content="tela">
+  <meta property="og:site_name" content="%s">
   <meta property="og:title" content="%s">
   <meta property="og:description" content="%s">
   <meta property="og:image" content="%s">
@@ -214,6 +219,7 @@ func writeOGHTMLWithURL(w http.ResponseWriter, pageID int64, title, body, spaceN
 <body></body>
 </html>`,
 		html.EscapeString(ogTitle),
+		html.EscapeString(siteName),
 		html.EscapeString(ogTitle),
 		html.EscapeString(ogDesc),
 		html.EscapeString(imageURL),
@@ -229,7 +235,10 @@ func writeOGHTMLWithURL(w http.ResponseWriter, pageID int64, title, body, spaceN
 // share so crawlers don't leak the real title / description / image. og:image
 // is intentionally absent — sharing the page's image card on a locked share
 // would defeat the password.
-func writeLockedShareOGHTML(w http.ResponseWriter, origin, token string) {
+func writeLockedShareOGHTML(w http.ResponseWriter, origin, token, siteName string) {
+	if siteName == "" {
+		siteName = "tela"
+	}
 	const lockedTitle = "Protected page on Tela"
 	const lockedDesc = "This page is password-protected. Open the link to enter the password."
 
@@ -243,7 +252,7 @@ func writeLockedShareOGHTML(w http.ResponseWriter, origin, token string) {
 <head>
   <meta charset="utf-8">
   <title>%s</title>
-  <meta property="og:site_name" content="tela">
+  <meta property="og:site_name" content="%s">
   <meta property="og:title" content="%s">
   <meta property="og:description" content="%s">
   <meta property="og:url" content="%s">
@@ -255,6 +264,7 @@ func writeLockedShareOGHTML(w http.ResponseWriter, origin, token string) {
 <body></body>
 </html>`,
 		html.EscapeString(lockedTitle),
+		html.EscapeString(siteName),
 		html.EscapeString(lockedTitle),
 		html.EscapeString(lockedDesc),
 		html.EscapeString(pageURL),

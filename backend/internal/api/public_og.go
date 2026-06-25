@@ -37,9 +37,13 @@ type ogDoc struct {
 	OGType       string // website | article | profile
 	FeedURL      string // optional rss alternate
 	JSONLD       string // optional ld+json
+	SiteName     string // og:site_name — org brand on a white-label domain, else "tela"
 }
 
 func writeOGDoc(w http.ResponseWriter, d ogDoc) {
+	if d.SiteName == "" {
+		d.SiteName = "tela"
+	}
 	feed := ""
 	if d.FeedURL != "" {
 		feed = fmt.Sprintf("\n  <link rel=\"alternate\" type=\"application/rss+xml\" href=%q>", html.EscapeString(d.FeedURL))
@@ -58,7 +62,7 @@ func writeOGDoc(w http.ResponseWriter, d ogDoc) {
   <title>%s</title>
   <meta name="description" content="%s">
   <link rel="canonical" href="%s">
-  <meta property="og:site_name" content="tela">
+  <meta property="og:site_name" content="%s">
   <meta property="og:title" content="%s">
   <meta property="og:description" content="%s">
   <meta property="og:image" content="%s">
@@ -74,6 +78,7 @@ func writeOGDoc(w http.ResponseWriter, d ogDoc) {
 <body></body>
 </html>`,
 		html.EscapeString(d.Title), html.EscapeString(d.Description), html.EscapeString(d.CanonicalURL),
+		html.EscapeString(d.SiteName),
 		html.EscapeString(d.Title), html.EscapeString(d.Description), html.EscapeString(d.ImageURL),
 		html.EscapeString(d.CanonicalURL), html.EscapeString(d.OGType),
 		html.EscapeString(d.Title), html.EscapeString(d.Description), html.EscapeString(d.ImageURL),
@@ -166,9 +171,10 @@ func (s *Server) HandlePublicSpaceOG(w http.ResponseWriter, r *http.Request) {
 	base := canonicalBaseURL()
 	canonical := base + publicSpacePath(sp.ID)
 	owner := s.spaceOwnerHandle(r.Context(), sp.ID)
+	siteName := s.ogSiteName(r, s.spaceOwnerOrg(r.Context(), sp.ID))
 	desc := sp.Description
 	if desc == "" {
-		desc = "A blog on tela."
+		desc = "A blog on " + siteName + "."
 	}
 
 	ld := map[string]any{
@@ -191,13 +197,14 @@ func (s *Server) HandlePublicSpaceOG(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeOGDoc(w, ogDoc{
-		Title:        sp.Name + " — tela",
+		Title:        sp.Name + " — " + siteName,
 		Description:  runeTruncate(desc, 200),
 		CanonicalURL: canonical,
 		ImageURL:     base + "/api/public/spaces/" + strconv.FormatInt(sp.ID, 10) + "/og.png",
 		OGType:       "website",
 		FeedURL:      base + "/api/public/spaces/" + strconv.FormatInt(sp.ID, 10) + "/feed.xml",
 		JSONLD:       jsonLD(ld),
+		SiteName:     siteName,
 	})
 }
 
@@ -254,6 +261,7 @@ func (s *Server) HandlePublicReaderOG(w http.ResponseWriter, r *http.Request) {
 		ImageURL:     imageURL,
 		OGType:       "article",
 		JSONLD:       jsonLD(ld),
+		SiteName:     s.ogSiteName(r, s.spaceOwnerOrg(r.Context(), sp.ID)),
 	})
 }
 
@@ -290,21 +298,25 @@ func (s *Server) HandlePublicUserOG(w http.ResponseWriter, r *http.Request) {
 
 	base := canonicalBaseURL()
 	canonical := base + "/u/" + name
+	// A user home isn't org-scoped, so branding comes only from the request's
+	// custom-domain host (ogSiteName with no owning org) — else "tela".
+	siteName := s.ogSiteName(r, 0)
 	desc := bio
 	if desc == "" {
-		desc = name + " on tela"
+		desc = name + " on " + siteName
 	}
 	ld := map[string]any{
 		"@context": "https://schema.org", "@type": "ProfilePage", "url": canonical,
 		"mainEntity": map[string]any{"@type": "Person", "name": name, "url": canonical, "description": bio},
 	}
 	writeOGDoc(w, ogDoc{
-		Title:        name + " — tela",
+		Title:        name + " — " + siteName,
 		Description:  runeTruncate(desc, 200),
 		CanonicalURL: canonical,
 		ImageURL:     base + "/api/public/users/" + url.PathEscape(name) + "/og.png",
 		OGType:       "profile",
 		JSONLD:       jsonLD(ld),
+		SiteName:     siteName,
 	})
 }
 
@@ -329,7 +341,8 @@ func (s *Server) HandlePublicSpaceOGImage(w http.ResponseWriter, r *http.Request
 	if sub == "" {
 		sub = "A blog on tela"
 	}
-	writeOGImagePNG(w, sp.Name, runeTruncate(sub, 70))
+	brand := s.resolveOGBrand(r, s.spaceOwnerOrg(r.Context(), sp.ID))
+	writeOGImagePNG(w, sp.Name, runeTruncate(sub, 70), brand)
 }
 
 // HandlePublicUserOGImage — GET /api/public/users/{username}/og.png.
@@ -350,11 +363,12 @@ func (s *Server) HandlePublicUserOGImage(w http.ResponseWriter, r *http.Request)
 	if sub == "" {
 		sub = "on tela"
 	}
-	writeOGImagePNG(w, name, runeTruncate(sub, 70))
+	// A user home isn't org-scoped; brand only from the request's custom domain.
+	writeOGImagePNG(w, name, runeTruncate(sub, 70), s.resolveOGBrand(r, 0))
 }
 
-func writeOGImagePNG(w http.ResponseWriter, title, subtitle string) {
-	png, err := renderOGImage(title, subtitle)
+func writeOGImagePNG(w http.ResponseWriter, title, subtitle string, brand ogBrand) {
+	png, err := renderOGCard(title, subtitle, brand)
 	if err != nil {
 		http.Error(w, "render failed", http.StatusInternalServerError)
 		return

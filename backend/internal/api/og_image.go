@@ -47,7 +47,14 @@ const (
 	ogSubtitleSize  = 36
 	ogFooterSize    = 28
 	ogMaxTitleLines = 3
+	ogLogoMaxWidth  = 440 // org logo bounding box in the branded card header
+	ogLogoMaxHeight = 72
 )
+
+// ogAccentTintWeight is how much the org accent bleeds into the dark base
+// background on a branded card. Kept low so the surface stays dark and the
+// light title/subtitle text remains legible against any accent.
+const ogAccentTintWeight = 0.16
 
 var (
 	ogBgColor       = color.RGBA{R: 0x0f, G: 0x17, B: 0x2a, A: 0xff}
@@ -94,19 +101,20 @@ func (s *Server) HandleOGImage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var (
-		title     string
-		spaceName string
-		updatedAt string
-		body      string
-		propsRaw  []byte
-		spaceID   int64
+		title      string
+		spaceName  string
+		updatedAt  string
+		body       string
+		propsRaw   []byte
+		spaceID    int64
+		ownerOrgID int64 // NULL space.org_id scans as 0 via COALESCE
 	)
 	err = s.DB.QueryRowContext(r.Context(),
-		`SELECT p.title, sp.name, p.updated_at, p.body, p.props, p.space_id
+		`SELECT p.title, sp.name, p.updated_at, p.body, p.props, p.space_id, COALESCE(sp.org_id, 0)
 		   FROM pages p
 		   JOIN spaces sp ON sp.id = p.space_id
 		  WHERE p.id = $1 AND p.deleted_at IS NULL`, pageID,
-	).Scan(&title, &spaceName, &updatedAt, &body, &propsRaw, &spaceID)
+	).Scan(&title, &spaceName, &updatedAt, &body, &propsRaw, &spaceID, &ownerOrgID)
 	if errors.Is(err, sql.ErrNoRows) {
 		writeNotFoundHTML(w)
 		return
@@ -124,7 +132,10 @@ func (s *Server) HandleOGImage(w http.ResponseWriter, r *http.Request) {
 	if t, perr := time.Parse(sinceLayout, updatedAt); perr == nil {
 		updatedUnix = t.Unix()
 	}
-	etag := fmt.Sprintf(`W/"og-%d-%d"`, pageID, updatedUnix)
+	// Resolve the org brand (logo/accent/name) for this card. Folding its
+	// signature into the ETag busts caches when an org changes its branding.
+	brand := s.resolveOGBrand(r, ownerOrgID)
+	etag := fmt.Sprintf(`W/"og-%d-%d-%s"`, pageID, updatedUnix, brand.sig)
 
 	if r.Header.Get("If-None-Match") == etag {
 		w.Header().Set("ETag", etag)
@@ -149,7 +160,7 @@ func (s *Server) HandleOGImage(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	pngBytes, err := renderOGImage(title, spaceName)
+	pngBytes, err := renderOGCard(title, spaceName, brand)
 	if err != nil {
 		slog.Error("og_image: render page", "page_id", pageID, "err", err)
 		writeInternalHTML(w)
@@ -200,14 +211,24 @@ func shrinkShareImage(raw []byte, ct string) ([]byte, string) {
 	return buf.Bytes(), "image/jpeg"
 }
 
-// renderOGImage paints a 1200×630 RGBA card and returns PNG-encoded bytes.
-// Pure function — no DB / no http — so tests can drive it directly.
+// renderOGImage paints the unbranded 1200×630 card. Thin wrapper over
+// renderOGCard with the zero brand — kept for callers/tests that don't carry an
+// org brand.
+func renderOGImage(title, spaceName string) ([]byte, error) {
+	return renderOGCard(title, spaceName, ogBrand{})
+}
+
+// renderOGCard paints a 1200×630 RGBA card and returns PNG-encoded bytes. With
+// the zero brand it renders the default dark tela card (blue accent bar, "tela"
+// footer); with a brand it tints the background toward the org accent, draws the
+// org logo in the header, and footers the org name — the full-brand white-label
+// card. Pure function — no DB / no http — so tests can drive it directly.
 //
 // Builds three opentype.Face values per call because opentype.Face is
 // documented as not safe for concurrent use; sharing a Face across goroutines
 // races on its internal sfnt.Buffer / vector.Rasterizer / mask. The parsed
 // *opentype.Font values are concurrent-safe and live at package scope.
-func renderOGImage(title, spaceName string) ([]byte, error) {
+func renderOGCard(title, spaceName string, brand ogBrand) ([]byte, error) {
 	titleFace, err := opentype.NewFace(ogBoldFont, &opentype.FaceOptions{
 		Size: ogTitleSize, DPI: 72, Hinting: font.HintingFull,
 	})
@@ -234,15 +255,34 @@ func renderOGImage(title, spaceName string) ([]byte, error) {
 
 	img := image.NewRGBA(image.Rect(0, 0, ogCanvasWidth, ogCanvasHeight))
 
-	draw.Draw(img, img.Bounds(), &image.Uniform{C: ogBgColor}, image.Point{}, draw.Src)
+	// Background: a dark base, tinted toward the org accent when branded. The
+	// accent weight is low so the result is always a dark surface — light title
+	// text stays legible regardless of which accent an org picked.
+	bg := ogBgColor
+	if brand.hasAccent {
+		bg = tintBg(brand.accent)
+	}
+	draw.Draw(img, img.Bounds(), &image.Uniform{C: bg}, image.Point{}, draw.Src)
 
-	accentRect := image.Rect(
-		ogMargin, ogAccentY,
-		ogMargin+ogAccentWidth, ogAccentY+ogAccentHeight,
-	)
-	draw.Draw(img, accentRect, &image.Uniform{C: ogAccentColor}, image.Point{}, draw.Src)
+	// Header: the org logo when present (the strongest brand signal), else the
+	// accent bar (org accent when branded, default blue otherwise).
+	var titleY int
+	if brand.logo != nil {
+		h := drawLogoFit(img, brand.logo, ogMargin, ogMargin, ogLogoMaxWidth, ogLogoMaxHeight)
+		titleY = ogMargin + h + 36 + ogTitleSize
+	} else {
+		accentColor := ogAccentColor
+		if brand.hasAccent {
+			accentColor = brand.accent
+		}
+		accentRect := image.Rect(
+			ogMargin, ogAccentY,
+			ogMargin+ogAccentWidth, ogAccentY+ogAccentHeight,
+		)
+		draw.Draw(img, accentRect, &image.Uniform{C: accentColor}, image.Point{}, draw.Src)
+		titleY = ogAccentY + ogAccentHeight + 16 + ogTitleSize
+	}
 
-	titleY := ogAccentY + ogAccentHeight + 16 + ogTitleSize
 	titleLines := wrapLines(titleFace, title, ogDrawableWidth, ogMaxTitleLines)
 	titleDrawer := &font.Drawer{
 		Dst:  img,
@@ -265,6 +305,10 @@ func renderOGImage(title, spaceName string) ([]byte, error) {
 	}
 	subtitleDrawer.DrawString(subtitle)
 
+	footer := "tela"
+	if brand.name != "" {
+		footer = truncateToWidth(footerFace, brand.name, ogDrawableWidth)
+	}
 	footerY := ogCanvasHeight - ogMargin
 	footerDrawer := &font.Drawer{
 		Dst:  img,
@@ -272,13 +316,52 @@ func renderOGImage(title, spaceName string) ([]byte, error) {
 		Face: footerFace,
 		Dot:  fixed.P(ogMargin, footerY),
 	}
-	footerDrawer.DrawString("tela")
+	footerDrawer.DrawString(footer)
 
 	var buf bytes.Buffer
 	if err := png.Encode(&buf, img); err != nil {
 		return nil, err
 	}
 	return buf.Bytes(), nil
+}
+
+// tintBg mixes an org accent into the dark base background at ogAccentTintWeight,
+// yielding a brand-tinted-but-still-dark surface.
+func tintBg(accent color.RGBA) color.RGBA {
+	mix := func(a, b uint8) uint8 {
+		return uint8(float64(a)*ogAccentTintWeight + float64(b)*(1-ogAccentTintWeight))
+	}
+	return color.RGBA{
+		R: mix(accent.R, ogBgColor.R),
+		G: mix(accent.G, ogBgColor.G),
+		B: mix(accent.B, ogBgColor.B),
+		A: 0xff,
+	}
+}
+
+// drawLogoFit composites a logo into dst at (x,y), scaled to fit within
+// maxW×maxH while preserving aspect ratio (never upscaled past the box). Returns
+// the drawn height so the caller can place the title below it. Drawn with Over
+// so a transparent logo blends onto the tinted background.
+func drawLogoFit(dst *image.RGBA, logo image.Image, x, y, maxW, maxH int) int {
+	b := logo.Bounds()
+	lw, lh := b.Dx(), b.Dy()
+	if lw <= 0 || lh <= 0 {
+		return 0
+	}
+	dw, dh := lw, lh
+	// Scale down to fit the height, then clamp the width.
+	if dh > maxH {
+		dw = dw * maxH / dh
+		dh = maxH
+	}
+	if dw > maxW {
+		dh = dh * maxW / dw
+		dw = maxW
+	}
+	rect := image.Rect(x, y, x+dw, y+dh)
+	xdraw.CatmullRom.Scale(dst, rect, logo, b, xdraw.Over, nil)
+	return dh
 }
 
 // wrapLines greedily wraps text into at most maxLines lines that fit within

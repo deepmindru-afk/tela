@@ -52,13 +52,14 @@ func (s *Server) HandlePublicShare(w http.ResponseWriter, r *http.Request) {
 		spaceName  string
 		spaceID    int64
 		visibility string
+		ownerOrgID int64 // NULL space.org_id scans as 0 via COALESCE
 	)
 	err := s.DB.QueryRowContext(r.Context(),
-		`SELECT p.title, p.body, sp.name, p.space_id, sp.visibility
+		`SELECT p.title, p.body, sp.name, p.space_id, sp.visibility, COALESCE(sp.org_id, 0)
 		   FROM pages p
 		   JOIN spaces sp ON sp.id = p.space_id
 		  WHERE p.id = $1 AND p.deleted_at IS NULL`, pageID,
-	).Scan(&title, &body, &spaceName, &spaceID, &visibility)
+	).Scan(&title, &body, &spaceName, &spaceID, &visibility, &ownerOrgID)
 	if errors.Is(err, sql.ErrNoRows) {
 		writeNotFoundHTML(w)
 		return
@@ -82,7 +83,7 @@ func (s *Server) HandlePublicShare(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	s.writeOGHTML(r, w, pageID, title, body, spaceName)
+	s.writeOGHTML(r, w, pageID, title, body, spaceName, ownerOrgID)
 }
 
 // isBotUA reports whether ua matches any entry in the bot allowlist. Match is
@@ -111,12 +112,12 @@ func isBotUA(ua string) bool {
 // permalink or a rewritten in-app deep link copied from a white-label domain
 // unfurls as THAT domain — matching the /share/* surface. Falls back to the
 // canonical origin (or path-only in dev).
-func (s *Server) writeOGHTML(r *http.Request, w http.ResponseWriter, pageID int64, title, body, spaceName string) {
+func (s *Server) writeOGHTML(r *http.Request, w http.ResponseWriter, pageID int64, title, body, spaceName string, ownerOrgID int64) {
 	origin := s.ogOriginForPage(r, pageID)
 	// Canonical permalink carries the cosmetic slug (/p/{id}/{slug}); the id is
 	// still what resolves, so a stale slug never breaks.
 	writeOGHTMLWithURL(w, pageID, title, body, spaceName,
-		origin+pagePermalinkPath(pageID, title), origin)
+		origin+pagePermalinkPath(pageID, title), origin, s.ogSiteName(r, ownerOrgID))
 }
 
 func writeNotFoundHTML(w http.ResponseWriter) {
