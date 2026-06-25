@@ -3,6 +3,7 @@ package api
 import (
 	"bytes"
 	"database/sql"
+	_ "embed"
 	"errors"
 	"fmt"
 	"image"
@@ -11,6 +12,7 @@ import (
 	"image/jpeg" // encode the share image; its init also registers the JPEG decoder
 	"image/png"
 	"log/slog"
+	"math"
 	"net/http"
 	"strconv"
 	"strings"
@@ -18,11 +20,19 @@ import (
 
 	xdraw "golang.org/x/image/draw"
 	"golang.org/x/image/font"
-	"golang.org/x/image/font/gofont/gobold"
-	"golang.org/x/image/font/gofont/goregular"
 	"golang.org/x/image/font/opentype"
 	"golang.org/x/image/math/fixed"
 )
+
+// Geist (Vercel, OFL) — tela's brand typeface per DESIGN.md (Geist family only).
+// Static 400/700 instances of the variable font, embedded so the renderer stays
+// pure-Go with no runtime font dependency. See fonts/OFL.txt.
+//
+//go:embed fonts/Geist-Regular.ttf
+var geistRegularTTF []byte
+
+//go:embed fonts/Geist-Bold.ttf
+var geistBoldTTF []byte
 
 // ogShareMaxWidth bounds the deck cover used as a share image. A deck slide
 // renders at ~1960×1104 (a ~1.8 MB PNG of a full-bleed, often photographic
@@ -31,55 +41,59 @@ import (
 // it to ~100–150 KB while staying crisp at OG render sizes.
 const ogShareMaxWidth = 1200
 
-// OG card layout: a 1200×630 canvas with an 80px inset, drawn against a fixed
-// dark-mode palette. RGBs are hardcoded so the renderer never grows a
-// tokens-equivalent file or a dependency on the FE's tokens.css.
+// OG card layout: a 1200×630 canvas with an 80px inset. Palette is tela's
+// DESIGN.md tokens (brand-hue 277 indigo) converted OKLCH→sRGB and hardcoded, so
+// the renderer stays pure-Go with no dependency on the FE's tokens.css.
 const (
 	ogCanvasWidth   = 1200
 	ogCanvasHeight  = 630
 	ogMargin        = 80
 	ogDrawableWidth = ogCanvasWidth - 2*ogMargin
 	ogAccentY       = ogMargin
-	ogAccentWidth   = 80
-	ogAccentHeight  = 4
-	ogTitleSize     = 72
-	ogTitleLineH    = 88
-	ogSubtitleSize  = 36
-	ogFooterSize    = 28
+	ogAccentWidth   = 64
+	ogAccentHeight  = 5
+	ogTitleSize     = 76
+	ogTitleLineH    = 90
+	ogSubtitleSize  = 34
+	ogFooterSize    = 27
 	ogMaxTitleLines = 3
 	ogLogoMaxWidth  = 440 // org logo bounding box in the branded card header
-	ogLogoMaxHeight = 72
+	ogLogoMaxHeight = 68
+	ogWeaveCell     = 44 // woven-grid pitch (tela = loom; the signature device)
 )
 
-// ogAccentTintWeight is how much the org accent bleeds into the dark base
-// background on a branded card. Kept low so the surface stays dark and the
+// ogAccentTintWeight is how much the org accent bleeds into the dark ink
+// background on a branded card. Kept low so the surface stays a dark void and
 // light title/subtitle text remains legible against any accent.
-const ogAccentTintWeight = 0.16
+const ogAccentTintWeight = 0.14
 
 var (
-	ogBgColor       = color.RGBA{R: 0x0f, G: 0x17, B: 0x2a, A: 0xff}
-	ogTitleColor    = color.RGBA{R: 0xf1, G: 0xf5, B: 0xf9, A: 0xff}
-	ogSubtitleColor = color.RGBA{R: 0x94, G: 0xa3, B: 0xb8, A: 0xff}
-	ogFooterColor   = color.RGBA{R: 0xcb, G: 0xd5, B: 0xe1, A: 0xff}
-	ogAccentColor   = color.RGBA{R: 0x3b, G: 0x82, B: 0xf6, A: 0xff}
+	ogBgColor       = color.RGBA{R: 0x0b, G: 0x0d, B: 0x15, A: 0xff} // ink-000 void
+	ogBgTop         = color.RGBA{R: 0x13, G: 0x15, B: 0x22, A: 0xff} // subtle top of the gradient
+	ogTitleColor    = color.RGBA{R: 0xf1, G: 0xf3, B: 0xfc, A: 0xff} // text-900
+	ogSubtitleColor = color.RGBA{R: 0xb4, G: 0xb7, B: 0xc2, A: 0xff} // text-700
+	ogFooterColor   = color.RGBA{R: 0x8f, G: 0x91, B: 0x9f, A: 0xff} // text-500
+	ogRuleColor     = color.RGBA{R: 0x2b, G: 0x2d, B: 0x38, A: 0xff} // line-rule hairline
+	ogWeaveColor    = color.RGBA{R: 0x1b, G: 0x1c, B: 0x24, A: 0xff} // dim woven thread
+	ogAccentColor   = color.RGBA{R: 0x52, G: 0x4c, B: 0xe3, A: 0xff} // indigo-fill (tela brand)
 )
 
 // *opentype.Font is concurrent-safe per its docstring; the per-request
 // *opentype.Face wrapper is not, so we keep the parsed fonts here and build
-// faces per render in renderOGImage.
+// faces per render in renderOGCard.
 var (
 	ogBoldFont    *opentype.Font
 	ogRegularFont *opentype.Font
 )
 
 func init() {
-	bold, err := opentype.Parse(gobold.TTF)
+	bold, err := opentype.Parse(geistBoldTTF)
 	if err != nil {
-		panic("og_image: parse gobold: " + err.Error())
+		panic("og_image: parse Geist-Bold: " + err.Error())
 	}
-	regular, err := opentype.Parse(goregular.TTF)
+	regular, err := opentype.Parse(geistRegularTTF)
 	if err != nil {
-		panic("og_image: parse goregular: " + err.Error())
+		panic("og_image: parse Geist-Regular: " + err.Error())
 	}
 	ogBoldFont = bold
 	ogRegularFont = regular
@@ -255,32 +269,28 @@ func renderOGCard(title, subtitle string, brand ogBrand) ([]byte, error) {
 
 	img := image.NewRGBA(image.Rect(0, 0, ogCanvasWidth, ogCanvasHeight))
 
-	// Background: a dark base, tinted toward the org accent when branded. The
-	// accent weight is low so the result is always a dark surface — light title
-	// text stays legible regardless of which accent an org picked.
-	bg := ogBgColor
+	// The accent is tela's indigo by default, or the org's accent when branded —
+	// the single earned color across the whole card (woven threads, light sweep,
+	// the header rule).
+	accent := ogAccentColor
 	if brand.hasAccent {
-		bg = tintBg(brand.accent)
+		accent = brand.accent
 	}
-	draw.Draw(img, img.Bounds(), &image.Uniform{C: bg}, image.Point{}, draw.Src)
+	paintOGBackground(img, accent, brand.hasAccent)
 
-	// Header: the org logo when present (the strongest brand signal), else the
-	// accent bar (org accent when branded, default blue otherwise).
+	// Header: the org logo when present (the strongest brand signal), else a short
+	// accent rule. The title sits below either.
 	var titleY int
 	if brand.logo != nil {
 		h := drawLogoFit(img, brand.logo, ogMargin, ogMargin, ogLogoMaxWidth, ogLogoMaxHeight)
-		titleY = ogMargin + h + 36 + ogTitleSize
+		titleY = ogMargin + h + 44 + ogTitleSize
 	} else {
-		accentColor := ogAccentColor
-		if brand.hasAccent {
-			accentColor = brand.accent
-		}
 		accentRect := image.Rect(
 			ogMargin, ogAccentY,
 			ogMargin+ogAccentWidth, ogAccentY+ogAccentHeight,
 		)
-		draw.Draw(img, accentRect, &image.Uniform{C: accentColor}, image.Point{}, draw.Src)
-		titleY = ogAccentY + ogAccentHeight + 16 + ogTitleSize
+		draw.Draw(img, accentRect, &image.Uniform{C: accent}, image.Point{}, draw.Src)
+		titleY = ogAccentY + ogAccentHeight + 34 + ogTitleSize
 	}
 
 	titleLines := wrapLines(titleFace, title, ogDrawableWidth, ogMaxTitleLines)
@@ -304,16 +314,29 @@ func renderOGCard(title, subtitle string, brand ogBrand) ([]byte, error) {
 	}
 	subtitleDrawer.DrawString(sub)
 
+	// Footer: a hairline rule, then a small accent mark + the wordmark (org name
+	// when branded, else "tela"). The rule + mark anchor the lower third so the
+	// card doesn't read as an empty void below the title.
 	footer := "tela"
 	if brand.name != "" {
-		footer = truncateToWidth(footerFace, brand.name, ogDrawableWidth)
+		footer = brand.name
 	}
 	footerY := ogCanvasHeight - ogMargin
+	ruleY := footerY - ogFooterSize - 20
+	draw.Draw(img, image.Rect(ogMargin, ruleY, ogCanvasWidth-ogMargin, ruleY+2),
+		&image.Uniform{C: ogRuleColor}, image.Point{}, draw.Src)
+
+	const mark = 22
+	draw.Draw(img, image.Rect(ogMargin, footerY-mark, ogMargin+mark, footerY),
+		&image.Uniform{C: accent}, image.Point{}, draw.Src)
+
+	footerX := ogMargin + mark + 18
+	footer = truncateToWidth(footerFace, footer, ogDrawableWidth-mark-18)
 	footerDrawer := &font.Drawer{
 		Dst:  img,
 		Src:  &image.Uniform{C: ogFooterColor},
 		Face: footerFace,
-		Dot:  fixed.P(ogMargin, footerY),
+		Dot:  fixed.P(footerX, footerY),
 	}
 	footerDrawer.DrawString(footer)
 
@@ -324,18 +347,71 @@ func renderOGCard(title, subtitle string, brand ogBrand) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-// tintBg mixes an org accent into the dark base background at ogAccentTintWeight,
-// yielding a brand-tinted-but-still-dark surface.
-func tintBg(accent color.RGBA) color.RGBA {
-	mix := func(a, b uint8) uint8 {
-		return uint8(float64(a)*ogAccentTintWeight + float64(b)*(1-ogAccentTintWeight))
+// paintOGBackground draws tela's signature atmosphere: a near-black ink gradient,
+// the faint woven grid (tela = loom), and one diagonal light sweep tinted by the
+// accent. On a branded card the ink is tinted faintly toward the org accent. This
+// is what turns the card from a flat void into something deliberate.
+func paintOGBackground(img *image.RGBA, accent color.RGBA, branded bool) {
+	top, bot := ogBgTop, ogBgColor
+	if branded {
+		top = mixRGBA(accent, ogBgTop, ogAccentTintWeight)
+		bot = mixRGBA(accent, ogBgColor, ogAccentTintWeight)
 	}
+
+	// Vertical ink gradient (lighter at the top).
+	for y := 0; y < ogCanvasHeight; y++ {
+		t := float64(y) / float64(ogCanvasHeight-1)
+		c := mixRGBA(bot, top, t) // t=0 → top, t=1 → bot
+		draw.Draw(img, image.Rect(0, y, ogCanvasWidth, y+1), &image.Uniform{C: c}, image.Point{}, draw.Src)
+	}
+
+	// Woven grid — warp (vertical) + weft (horizontal) threads, faint and uniform.
+	for x := ogWeaveCell; x < ogCanvasWidth; x += ogWeaveCell {
+		draw.Draw(img, image.Rect(x, 0, x+1, ogCanvasHeight), &image.Uniform{C: ogWeaveColor}, image.Point{}, draw.Src)
+	}
+	for y := ogWeaveCell; y < ogCanvasHeight; y += ogWeaveCell {
+		draw.Draw(img, image.Rect(0, y, ogCanvasWidth, y+1), &image.Uniform{C: ogWeaveColor}, image.Point{}, draw.Src)
+	}
+
+	// One diagonal light sweep — a single luminance gesture, near-white with a
+	// faint accent tint, lighting the upper-left through the title (and catching
+	// the threads it crosses). Subtle peak so it reads as atmosphere, not a blob.
+	light := mixRGBA(color.RGBA{R: 0xff, G: 0xff, B: 0xff, A: 0xff}, accent, 0.62)
+	const center, sigma, peak = 360.0, 300.0, 0.13
+	for y := 0; y < ogCanvasHeight; y++ {
+		for x := 0; x < ogCanvasWidth; x++ {
+			d := (float64(x)*0.8 + float64(y)*0.55) - center
+			inten := peak * math.Exp(-(d*d)/(2*sigma*sigma))
+			if inten < 0.003 {
+				continue
+			}
+			i := img.PixOffset(x, y)
+			img.Pix[i+0] = mixU8(img.Pix[i+0], light.R, inten)
+			img.Pix[i+1] = mixU8(img.Pix[i+1], light.G, inten)
+			img.Pix[i+2] = mixU8(img.Pix[i+2], light.B, inten)
+		}
+	}
+}
+
+// mixRGBA returns base shifted t of the way toward over (t in [0,1]), opaque.
+func mixRGBA(over, base color.RGBA, t float64) color.RGBA {
 	return color.RGBA{
-		R: mix(accent.R, ogBgColor.R),
-		G: mix(accent.G, ogBgColor.G),
-		B: mix(accent.B, ogBgColor.B),
+		R: mixU8(base.R, over.R, t),
+		G: mixU8(base.G, over.G, t),
+		B: mixU8(base.B, over.B, t),
 		A: 0xff,
 	}
+}
+
+func mixU8(base, over uint8, t float64) uint8 {
+	v := float64(base)*(1-t) + float64(over)*t
+	if v > 255 {
+		return 255
+	}
+	if v < 0 {
+		return 0
+	}
+	return uint8(v + 0.5)
 }
 
 // drawLogoFit composites a logo into dst at (x,y), scaled to fit within
