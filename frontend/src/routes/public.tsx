@@ -14,8 +14,9 @@ import { PublicHandleHome } from '../components/app/PublicHandleHome'
 import { PublicReaderView } from '../components/app/PublicReader'
 import { PublicSpaceIndex } from '../components/app/PublicSpaceIndex'
 import { ThemeSwitcher } from '../components/ThemeSwitcher'
+import { BrandLogo } from '../components/BrandLogo'
 import { Card, CardDescription, CardHeader, CardTitle } from '../components/ui/card'
-import { useTelaHomeHref } from '../lib/queries/host-context'
+import { useHostContext, useTelaHomeHref } from '../lib/queries/host-context'
 
 // Public-space reader route — child of `rootRoute` (NOT appLayoutRoute) because
 // it's unauthenticated: a logged-out reader views a public space here. Data
@@ -24,16 +25,22 @@ import { useTelaHomeHref } from '../lib/queries/host-context'
 
 function PublicShell({ children }: { children: React.ReactNode }) {
   const telaHome = useTelaHomeHref()
+  // On an org custom domain, BrandLogo white-labels the public reader to the
+  // org (logo / name) and the brand links to the org root; on the canonical
+  // host it's the tela wordmark → marketing landing.
+  const org = useHostContext().data?.org ?? null
+  const brandHref = org ? '/' : telaHome
+  const brandLabel = org ? `${org.name} home` : 'tela home'
   return (
     <div className="min-h-dvh flex flex-col bg-[var(--surface-1)] text-[var(--text-primary)]">
       <header className="flex items-center justify-between px-[var(--space-6)] py-[var(--space-3)] border-b border-[var(--border-subtle)] shrink-0">
         <h1 className="m-0 text-[length:var(--text-lg)] leading-[var(--leading-tight)] font-[family-name:var(--font-sans)]">
           <a
-            href={telaHome}
-            aria-label="tela home"
-            className="inline-block rounded-[var(--radius-xs)] text-[var(--text-primary)] no-underline transition-opacity duration-[var(--duration-fast)] hover:opacity-70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+            href={brandHref}
+            aria-label={brandLabel}
+            className="inline-flex items-center rounded-[var(--radius-xs)] no-underline transition-opacity duration-[var(--duration-fast)] hover:opacity-70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
           >
-            tela
+            <BrandLogo size={20} />
           </a>
         </h1>
         <ThemeSwitcher />

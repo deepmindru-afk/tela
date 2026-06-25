@@ -4,10 +4,10 @@ import { ChevronDown, ChevronRight, FileText } from 'lucide-react'
 import { useShareTree, type SharePublicMeta } from '../../lib/queries/share'
 import { useShareExpanded } from '../../lib/useShareExpanded'
 import { ThemeSwitcher } from '../ThemeSwitcher'
-import { BrandMark } from '../BrandMark'
+import { BrandLogo } from '../BrandLogo'
 import { Button } from '../ui/button'
 import { cn } from '../../lib/utils'
-import { useTelaHomeHref } from '../../lib/queries/host-context'
+import { useHostContext, useTelaHomeHref } from '../../lib/queries/host-context'
 
 interface SharePageNode {
   id: number
@@ -31,6 +31,12 @@ interface ShareLayoutProps {
 // NO all-spaces switcher — those are deliberately absent in share-mode.
 export function ShareLayout({ token, share, children }: ShareLayoutProps) {
   const telaHome = useTelaHomeHref()
+  // On an org custom domain, brand the share reader to the org (BrandLogo
+  // white-labels off host-context) and point the brand link at the org root;
+  // on the canonical host it stays the tela wordmark → marketing landing.
+  const org = useHostContext().data?.org ?? null
+  const brandHref = org ? '/' : telaHome
+  const brandLabel = org ? `${org.name} home` : 'tela home'
   const treeEnabled = share.include_descendants
   const tree = useShareTree(token, treeEnabled)
   const pages = tree.data?.pages ?? []
@@ -40,16 +46,15 @@ export function ShareLayout({ token, share, children }: ShareLayoutProps) {
     <div className="min-h-dvh flex flex-col bg-[var(--surface-1)] text-[var(--text-primary)]">
       <header className="flex items-center justify-between px-[var(--space-6)] py-[var(--space-3)] border-b border-[var(--border-subtle)] shrink-0">
         <h1 className="m-0 text-[length:var(--text-lg)] leading-[var(--leading-tight)] font-[family-name:var(--font-sans)]">
-          {/* Plain <a> (full nav) to the apex marketing landing — like the
-              "Sign in" link, the share-mode wordmark escapes the SPA rather
-              than client-routing into an authed/app surface. */}
+          {/* Plain <a> (full nav): like the "Sign in" link, the brand escapes
+              the SPA rather than client-routing into an authed/app surface.
+              BrandLogo white-labels to the org on a custom domain. */}
           <a
-            href={telaHome}
-            aria-label="tela home"
-            className="inline-flex items-center gap-[var(--space-2)] rounded-[var(--radius-xs)] text-[var(--text-primary)] no-underline transition-opacity duration-[var(--duration-fast)] hover:opacity-70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+            href={brandHref}
+            aria-label={brandLabel}
+            className="inline-flex items-center rounded-[var(--radius-xs)] no-underline transition-opacity duration-[var(--duration-fast)] hover:opacity-70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
           >
-            <BrandMark size={20} />
-            tela
+            <BrandLogo size={20} />
           </a>
         </h1>
         <div className="flex items-center gap-[var(--space-3)]">
