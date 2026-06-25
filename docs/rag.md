@@ -39,13 +39,28 @@ when changing it:
 - **Humans, via the search box + "ask your docs"** (`/api/rag/search`,
   `/api/rag/ask`). Classic one-shot RAG: retrieve top-k → ground an answer →
   cite sources. The web UI uses the **streaming twin** `POST /api/rag/ask/stream`
-  (SSE: `sources` → `token*` → `followups` → `done`, or an `error` frame) so the
-  answer types in live and the connection never idles — `/api/rag/ask` stays as
-  the blocking JSON path for MCP + non-web clients. Both share retrieval, prompt,
-  and guards; the LLM client streams via `llm.Service.CompleteStream` (falling
-  back to a blocking `Complete` for providers that don't stream). Answer length
-  is capped by `TELA_LLM_MAX_TOKENS` (default 1024) so a slow model can't run past
-  the request timeout.
+  (SSE: `meta` → `sources` → `token*` → `followups` → `done`, or an `error` frame)
+  so the answer types in live — `/api/rag/ask` stays as the blocking JSON path for
+  MCP + non-web clients. Both share retrieval, prompt, and guards; the LLM client
+  streams via `llm.Service.CompleteStream` (falling back to a blocking `Complete`
+  for providers that don't stream). Answer length is capped by
+  `TELA_LLM_MAX_TOKENS` (default 1024) so a slow model can't run past the request
+  timeout.
+- **Ask generation is a detached job, so a streamed answer survives a dropped
+  connection** (`ask_job.go`). An answer takes 10–60s to generate (mostly silent
+  LLM prompt-processing before the first token); backgrounded mobile Safari
+  suspends the tab's JS and tears down the SSE within ~a second, which used to
+  throw the half-built answer away and surface as "the answer model didn't
+  respond". So `RAGAskStream` runs retrieval + guards synchronously (clean HTTP
+  status on a 429/cap), then spawns generation in a goroutine on a **detached,
+  time-bounded context** that fills a replayable event log; the handler just tails
+  it. The first `meta` event carries a resume id — if the connection drops
+  mid-answer the client reconnects via `GET /api/rag/ask/stream?id=` (no recharge),
+  which replays the log from the start and live-tails the rest. The frontend
+  (`ask.ts`) drives this: on a torn-down stream it resets the answer and re-attaches
+  (deferring to a `visibilitychange` listener while the tab is hidden), so the
+  answer continues when the user returns. Jobs live in an in-memory TTL store
+  (`askJobTTL`, 10m); generation is bounded by `askGenMaxDuration` (4m).
 
 Neither needs heavyweight machinery (GraphRAG, multi-step agentic pipelines, a
 dedicated vector DB). At this corpus scale they'd add fragility, not robustness.

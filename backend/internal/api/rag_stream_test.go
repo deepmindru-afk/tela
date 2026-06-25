@@ -110,12 +110,19 @@ func TestRAGAskStream_StreamsTokensAndSources(t *testing.T) {
 	if !hasEvent(evs, "sources") || !hasEvent(evs, "token") || !hasEvent(evs, "done") {
 		t.Fatalf("missing expected events in %s", body)
 	}
-	// sources event names the cited page, before any token.
-	if evs[0].name != "sources" {
-		t.Fatalf("first event=%q want sources", evs[0].name)
+	// meta (the resume id) comes first, carrying a non-empty id.
+	if evs[0].name != "meta" {
+		t.Fatalf("first event=%q want meta", evs[0].name)
 	}
-	if !strings.Contains(evs[0].data, `"page_id":`+strconv.FormatInt(page, 10)) {
-		t.Fatalf("sources event missing page %d: %s", page, evs[0].data)
+	if !strings.Contains(evs[0].data, `"id":"`) {
+		t.Fatalf("meta event missing id: %s", evs[0].data)
+	}
+	// sources event names the cited page, before any token.
+	if evs[1].name != "sources" {
+		t.Fatalf("second event=%q want sources", evs[1].name)
+	}
+	if !strings.Contains(evs[1].data, `"page_id":`+strconv.FormatInt(page, 10)) {
+		t.Fatalf("sources event missing page %d: %s", page, evs[1].data)
 	}
 	// Three distinct token frames reassemble into the answer.
 	var tokenFrames int

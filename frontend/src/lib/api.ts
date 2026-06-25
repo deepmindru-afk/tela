@@ -187,6 +187,9 @@ export function askDocs(
 // errors (503/429/…) are thrown as ApiError before the stream starts, so the
 // caller's existing ASK_UNAVAILABLE_CODES / model-unreachable handling still works.
 export interface AskStreamHandlers {
+  // onMeta carries the server's resume id (a `meta` event, sent first). The hook
+  // stashes it so a dropped connection can reconnect via attachAskStream.
+  onMeta?: (id: string) => void
   onSources?: (sources: SemanticHit[], lowConfidence: boolean) => void
   onToken?: (text: string) => void
   onFollowups?: (followups: string[]) => void
@@ -194,6 +197,11 @@ export interface AskStreamHandlers {
   onError?: (err: ApiError) => void
 }
 
+const ASK_STREAM_PATH = '/api/rag/ask/stream'
+
+// askDocsStream starts a new streamed ask (POST) and pumps its SSE events to the
+// handlers. The first `meta` event gives a resume id; if the connection later
+// drops mid-answer, the caller reconnects with attachAskStream(id).
 export async function askDocsStream(
   body: { question: string; space_id?: number },
   handlers: AskStreamHandlers,
@@ -201,7 +209,7 @@ export async function askDocsStream(
 ): Promise<void> {
   let res: Response
   try {
-    res = await fetch(BASE + '/api/rag/ask/stream', {
+    res = await fetch(BASE + ASK_STREAM_PATH, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Accept: 'text/event-stream' },
       body: JSON.stringify(body),
@@ -211,7 +219,41 @@ export async function askDocsStream(
     if (signal?.aborted) return
     throw new ApiError(0, 'network', err instanceof Error ? err.message : 'network error')
   }
+  await consumeAskStream(res, handlers, signal)
+}
 
+// attachAskStream re-attaches to an in-flight/just-finished ask by its resume id
+// (GET). The server replays the whole event log from the start, so the caller
+// resets its accumulated answer first and rebuilds from the replay. A 404 means
+// the job expired or never existed — surfaced as an ApiError like any other.
+export async function attachAskStream(
+  id: string,
+  handlers: AskStreamHandlers,
+  signal?: AbortSignal,
+): Promise<void> {
+  let res: Response
+  try {
+    res = await fetch(BASE + ASK_STREAM_PATH + '?id=' + encodeURIComponent(id), {
+      method: 'GET',
+      headers: { Accept: 'text/event-stream' },
+      signal,
+    })
+  } catch (err) {
+    if (signal?.aborted) return
+    throw new ApiError(0, 'network', err instanceof Error ? err.message : 'network error')
+  }
+  await consumeAskStream(res, handlers, signal)
+}
+
+// consumeAskStream is the shared SSE pump for both the initial POST and the
+// reconnect GET: validate the response, then dispatch each blank-line-delimited
+// frame as it arrives. A torn-down read (status 0) is what backgrounded mobile
+// Safari produces; the caller treats it as a reconnect trigger, not a failure.
+async function consumeAskStream(
+  res: Response,
+  handlers: AskStreamHandlers,
+  signal?: AbortSignal,
+): Promise<void> {
   if (!res.ok || !res.body) {
     // A clean HTTP error landed before the stream opened (disabled/rate-limit/etc).
     let code = 'http_error'
@@ -223,7 +265,7 @@ export async function askDocsStream(
         message = b.error
       }
     }
-    if (res.status === 401 && !isAuthEndpoint('/api/rag/ask/stream')) emitAuthRequired()
+    if (res.status === 401 && !isAuthEndpoint(ASK_STREAM_PATH)) emitAuthRequired()
     throw new ApiError(res.status, code, message)
   }
 
@@ -263,6 +305,9 @@ function dispatchSSE(frame: string, h: AskStreamHandlers): void {
     return
   }
   switch (event) {
+    case 'meta':
+      if (typeof parsed.id === 'string') h.onMeta?.(parsed.id)
+      break
     case 'sources':
       h.onSources?.((parsed.sources as SemanticHit[]) ?? [], !!parsed.low_confidence)
       break

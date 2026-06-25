@@ -119,6 +119,12 @@ type Server struct {
 	// TELA_DISABLE_WELCOME_SEED so space-creation tests keep asserting on exact
 	// page sets.
 	seedWelcome bool
+
+	// askJobs holds detached ask-generation jobs so a streamed answer survives a
+	// dropped connection (backgrounded mobile Safari): the LLM runs in a goroutine
+	// appending to a replayable event log, the SSE handler tails it, and a
+	// reconnect re-attaches by id. Never nil — built in New(). See ask_job.go.
+	askJobs *askStore
 }
 
 func New(db *sql.DB) *Server {
@@ -154,6 +160,7 @@ func New(db *sql.DB) *Server {
 		oauth:              loadMCPOAuth(context.Background()),
 		sso:                loadSSOProviders(context.Background()),
 		seedWelcome:        os.Getenv("TELA_DISABLE_WELCOME_SEED") == "",
+		askJobs:            newAskStore(),
 	}
 	// AI usage metering: capture token estimates at the service chokepoints so
 	// every chat completion + embedding lands in ai_usage (image gen is metered

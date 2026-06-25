@@ -288,6 +288,7 @@ func registerRoutes(srv *Server, mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/rag/reindex", srv.RAGReindex)
 	mux.HandleFunc("POST /api/rag/ask", srv.RAGAsk)
 	mux.HandleFunc("POST /api/rag/ask/stream", srv.RAGAskStream)
+	mux.HandleFunc("GET /api/rag/ask/stream", srv.RAGAskAttach)
 	// Knowledge-intelligence surface (built on the same index).
 	mux.HandleFunc("GET /api/pages/{id}/related", srv.RAGRelated)
 	mux.HandleFunc("POST /api/rag/suggest-links", srv.RAGSuggestLinks)

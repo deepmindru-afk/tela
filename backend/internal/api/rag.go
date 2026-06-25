@@ -1,9 +1,11 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"strconv"
 	"strings"
@@ -266,13 +268,16 @@ func askUserPrompt(excerpts, conflicts, question string) string {
 
 // RAGAskStream is the streaming (SSE) twin of RAGAsk: identical retrieval and
 // prompt, but the answer is streamed token-by-token over text/event-stream so the
-// UI renders it live AND the connection never idles — structurally killing the
-// idle/proxy-timeout failure a slow blocking generation hit. Events:
+// UI renders it live. Generation runs as a DETACHED job (see ask_job.go) — the
+// LLM fills a replayable event log on its own context and this handler merely
+// tails it, so a dropped connection (e.g. backgrounded mobile Safari) can't kill
+// the answer: the client reconnects via GET ?id= and replays. Events:
+//   - meta:      { id: "…" }                                 (first; the resume id)
 //   - sources:   { sources: []Hit, low_confidence: bool }  (before generation)
 //   - token:     { t: "…" }                                 (per delta)
 //   - followups: { followups: []string }                    (after the answer)
 //   - done:      {}
-//   - error:     { code: "completion_failed" }              (mid-stream failure)
+//   - error:     { code: "completion_failed" }              (generation failed)
 //
 // The JSON /api/rag/ask is left untouched for MCP + non-web clients.
 func (s *Server) RAGAskStream(w http.ResponseWriter, r *http.Request) {
@@ -298,6 +303,9 @@ func (s *Server) RAGAskStream(w http.ResponseWriter, r *http.Request) {
 		spaceID = b
 	}
 
+	// Retrieval + the compute guards run synchronously on the request, BEFORE any
+	// SSE byte, so a retrieval 500 / 429 / cap stays a clean HTTP status. Retrieval
+	// is sub-second; only the long, silent generation gets detached below.
 	excerpts, hits, top, err := s.askContext(r.Context(), u.ID, req.Question, spaceID, req.Limit)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "internal", "retrieval failed")
@@ -308,55 +316,105 @@ func (s *Server) RAGAskStream(w http.ResponseWriter, r *http.Request) {
 		Type: evtAsk, ActorUserID: &u.ID, ActorLabel: u.Username,
 		Detail: fmt.Sprintf("%q (%d hits)", req.Question, len(hits)),
 	})
-
-	// Clear the compute guards BEFORE any SSE byte so a 429/cap stays a clean HTTP
-	// status. No LLM call on the zero-hit path, so skip the guard there.
+	// No LLM call on the zero-hit path, so skip the compute guard there.
 	if len(hits) > 0 && !s.askComputeOK(w, r, u, "ask") {
 		return
 	}
+
+	// Build the job and seed the events known up front (sources, and the zero-hit
+	// terminal). The seeded sources event means a reconnect replays the citations
+	// too, not just the answer tokens.
+	low := lowConfidence(s.rag.RerankEnabled(), top)
+	job := newAskJob(newAskID(), u.ID)
+	job.emit("sources", map[string]any{"sources": hits, "low_confidence": low})
+	if len(hits) == 0 {
+		job.emit("token", map[string]string{"t": "I couldn't find anything in your documents to answer that."})
+		job.emit("done", map[string]any{})
+		job.finish()
+	} else {
+		// Generation outlives this request: a detached context (capped so a wedged
+		// upstream can't leak the goroutine) instead of r.Context(), which cancels
+		// the instant the client disconnects.
+		go s.runAsk(job, u, req.Question, excerpts, hits, low)
+	}
+	s.askJobs.put(job)
 
 	sse, ok := newSSEWriter(w)
 	if !ok {
 		writeError(w, http.StatusInternalServerError, "internal", "streaming unsupported")
 		return
 	}
+	_ = sse.event("meta", map[string]string{"id": job.id})
+	s.streamJob(r.Context(), sse, job)
+}
 
-	low := lowConfidence(s.rag.RerankEnabled(), top)
-	_ = sse.event("sources", map[string]any{"sources": hits, "low_confidence": low})
-
-	if len(hits) == 0 {
-		_ = sse.event("token", map[string]string{"t": "I couldn't find anything in your documents to answer that."})
-		_ = sse.event("done", map[string]any{})
+// RAGAskAttach re-attaches to an in-flight or just-finished ask by id (the
+// reconnect path: GET /api/rag/ask/stream?id=). It replays the job's event log
+// from the start — so the client resets its accumulated answer and rebuilds from
+// the replay — then live-tails the rest. Scoped to the job's owner; an unknown or
+// expired id is a 404 (the client then surfaces a normal error). Charges no
+// compute: the cap was already paid when the job was created.
+func (s *Server) RAGAskAttach(w http.ResponseWriter, r *http.Request) {
+	u, ok := requireUser(w, r)
+	if !ok {
 		return
 	}
+	job := s.askJobs.get(r.URL.Query().Get("id"))
+	if job == nil || job.userID != u.ID {
+		writeError(w, http.StatusNotFound, "not_found", "no such ask")
+		return
+	}
+	sse, ok := newSSEWriter(w)
+	if !ok {
+		writeError(w, http.StatusInternalServerError, "internal", "streaming unsupported")
+		return
+	}
+	_ = sse.event("meta", map[string]string{"id": job.id})
+	s.streamJob(r.Context(), sse, job)
+}
+
+// streamJob tails a job's event log to the SSE writer until the job finishes or
+// the client disconnects. Shared by the initial stream and the reconnect; both
+// replay from 0, so the client treats each (re)connection as authoritative.
+func (s *Server) streamJob(ctx context.Context, sse *sseWriter, job *askJob) {
+	_, _ = job.tail(ctx, 0, func(name string, data json.RawMessage) error {
+		return sse.event(name, data)
+	})
+}
+
+// runAsk is the detached generation goroutine: it streams the LLM completion into
+// the job's event log (token frames), then the follow-ups and a terminal done,
+// or a single error frame if generation fails. It runs on its own time-bounded
+// context so a dropped client connection never cancels it.
+func (s *Server) runAsk(job *askJob, u *auth.User, question, excerpts string, hits []rag.Hit, low bool) {
+	ctx, cancel := context.WithTimeout(context.Background(), askGenMaxDuration)
+	defer cancel()
+	defer job.finish()
 
 	// Low retrieval confidence → still answer, but lead with the deterministic
-	// callout (streamed as the first tokens so it survives prose-only views).
+	// callout (emitted as the first tokens so it survives prose-only views).
 	var answer strings.Builder
 	if low {
 		answer.WriteString(lowConfidenceNote)
-		_ = sse.event("token", map[string]string{"t": lowConfidenceNote})
+		job.emit("token", map[string]string{"t": lowConfidenceNote})
 	}
-	conflicts := s.askConflictNote(r.Context(), hits)
-	streamErr := s.llm.CompleteStream(r.Context(), askSystemPrompt,
-		askUserPrompt(excerpts, conflicts, req.Question),
+	conflicts := s.askConflictNote(ctx, hits)
+	err := s.llm.CompleteStream(ctx, askSystemPrompt,
+		askUserPrompt(excerpts, conflicts, question),
 		func(tok string) error {
 			answer.WriteString(tok)
-			return sse.event("token", map[string]string{"t": tok})
+			job.emit("token", map[string]string{"t": tok})
+			return nil
 		})
-	if streamErr != nil {
-		// Client gone (ctx canceled) → just stop; nothing to deliver. Otherwise the
-		// generation upstream failed — tell the UI so it shows the retry message.
-		if r.Context().Err() == nil {
-			_ = sse.event("error", map[string]string{"code": "completion_failed"})
-		}
+	if err != nil {
+		slog.Warn("ask: generation failed", "err", err, "job", job.id)
+		job.emit("error", map[string]string{"code": "completion_failed"})
 		return
 	}
-
-	if f := s.genFollowups(r.Context(), u, req.Question, answer.String()); len(f) > 0 {
-		_ = sse.event("followups", map[string]any{"followups": f})
+	if f := s.genFollowups(ctx, u, question, answer.String()); len(f) > 0 {
+		job.emit("followups", map[string]any{"followups": f})
 	}
-	_ = sse.event("done", map[string]any{})
+	job.emit("done", map[string]any{})
 }
 
 // bearerSpace returns the space a space-pinned bearer key is locked to (else
