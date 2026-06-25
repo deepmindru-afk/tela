@@ -340,6 +340,12 @@ func IsPublicPath(p string) bool {
 	if strings.HasPrefix(p, "/public/") || strings.HasPrefix(p, "/u/") {
 		return true
 	}
+	// Feature OG routes (og_feature.go): crawler card + og.png for app routes that
+	// have a public purpose but no page behind them. Caddy bot-gates the HTML;
+	// the og.png is fetched by arbitrary-UA link-preview bots. Both self-contained.
+	if p == "/ask" || p == "/ask/og.png" {
+		return true
+	}
 	return strings.HasPrefix(p, "/p/")
 }
 

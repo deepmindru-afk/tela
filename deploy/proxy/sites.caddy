@@ -164,6 +164,25 @@
 		reverse_proxy {$TELA_UPSTREAM_BACKEND:backend:8080}
 	}
 
+	# Feature routes (e.g. /ask): authed app routes with a public *purpose* but no
+	# page behind them. The og.png card is served to ALL UAs (link-preview fetchers
+	# carry arbitrary UAs); the HTML envelope is bot-gated — bot UAs get a backend
+	# OG card, humans fall through to the app SPA below. noindex (app routes). Keep
+	# the path list + UA regex in sync with featureCards in og_feature.go and
+	# botUASubstrings in backend/internal/api/public_share.go.
+	handle /ask/og.png {
+		header X-Robots-Tag "noindex"
+		reverse_proxy {$TELA_UPSTREAM_BACKEND:backend:8080}
+	}
+	@feature_bots {
+		path /ask
+		header_regexp User-Agent "(?i)(slackbot-linkexpanding|twitterbot|facebookexternalhit|facebookcatalog|discordbot|telegrambot|linkedinbot|whatsapp|mastodon|cardyb|slack-imgproxy|pinterest|skypeuripreview|embedly|iframely|bot/|bot\s)"
+	}
+	handle @feature_bots {
+		header X-Robots-Tag "noindex"
+		reverse_proxy {$TELA_UPSTREAM_BACKEND:backend:8080}
+	}
+
 	# Public sitemap (backend-generated from public spaces/pages/author-homes).
 	handle /sitemap-public.xml {
 		rewrite * /api/public/sitemap.xml

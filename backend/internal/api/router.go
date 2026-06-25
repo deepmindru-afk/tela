@@ -247,6 +247,11 @@ func registerRoutes(srv *Server, mux *http.ServeMux) {
 	mux.HandleFunc("GET /public/spaces/{id}/pages/{page_id}", srv.HandlePublicReaderOG)
 	mux.HandleFunc("GET /public/spaces/{id}/pages/{page_id}/{slug}", srv.HandlePublicReaderOG)
 	mux.HandleFunc("GET /u/{username}", srv.HandlePublicUserOG)
+	// Feature routes with a public purpose but no page/space (e.g. /ask): Caddy
+	// bot-gates the HTML to the backend (humans get the SPA); the og.png is served
+	// to all UAs. On auth.IsPublicPath. See api/og_feature.go.
+	mux.HandleFunc("GET /ask", srv.HandleFeatureOG)
+	mux.HandleFunc("GET /ask/og.png", srv.HandleFeatureOGImage)
 	mux.HandleFunc("GET /api/public/spaces/{id}/pages/{page_id}", srv.GetPublicSpacePage)
 	mux.HandleFunc("GET /api/public/spaces/{id}/pages/{page_id}/md", srv.ExportPublicSpacePageMarkdown)
 	// Public decks: the live Present SPA + the first-slide cover, for public spaces.

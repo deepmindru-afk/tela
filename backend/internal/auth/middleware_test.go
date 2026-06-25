@@ -23,6 +23,10 @@ func TestIsPublicPath(t *testing.T) {
 		"/api/share/abc123":            true, // M15.0 token-scoped public read API
 		"/share/abc123":                true, // M15.5 bot-UA-gated OG envelope
 		"/share/abc123/p/42":           true,
+		"/ask":                         true, // feature OG card (og_feature.go)
+		"/ask/og.png":                  true,
+		"/asking":                      false, // exact-match only — not a prefix
+		"/u/alice":                     true,
 		"/api/diagrams/123/abcdef.png": true, // M13.2 PNG sidecar (public, content-addressed)
 		"/api/images/123/abcdef.png":   true, // image sidecar (public, content-addressed)
 		"/api/files/9/abcdef.pdf":      true, // unified attachment blob serve (public, content-addressed)

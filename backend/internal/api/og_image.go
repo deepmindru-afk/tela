@@ -160,7 +160,7 @@ func (s *Server) HandleOGImage(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	pngBytes, err := renderOGCard(title, spaceName, brand)
+	pngBytes, err := renderOGCard(title, "in "+spaceName, brand)
 	if err != nil {
 		slog.Error("og_image: render page", "page_id", pageID, "err", err)
 		writeInternalHTML(w)
@@ -213,9 +213,9 @@ func shrinkShareImage(raw []byte, ct string) ([]byte, string) {
 
 // renderOGImage paints the unbranded 1200×630 card. Thin wrapper over
 // renderOGCard with the zero brand — kept for callers/tests that don't carry an
-// org brand.
-func renderOGImage(title, spaceName string) ([]byte, error) {
-	return renderOGCard(title, spaceName, ogBrand{})
+// org brand. subtitle is rendered verbatim (page cards pass "in <space>").
+func renderOGImage(title, subtitle string) ([]byte, error) {
+	return renderOGCard(title, subtitle, ogBrand{})
 }
 
 // renderOGCard paints a 1200×630 RGBA card and returns PNG-encoded bytes. With
@@ -228,7 +228,7 @@ func renderOGImage(title, spaceName string) ([]byte, error) {
 // documented as not safe for concurrent use; sharing a Face across goroutines
 // races on its internal sfnt.Buffer / vector.Rasterizer / mask. The parsed
 // *opentype.Font values are concurrent-safe and live at package scope.
-func renderOGCard(title, spaceName string, brand ogBrand) ([]byte, error) {
+func renderOGCard(title, subtitle string, brand ogBrand) ([]byte, error) {
 	titleFace, err := opentype.NewFace(ogBoldFont, &opentype.FaceOptions{
 		Size: ogTitleSize, DPI: 72, Hinting: font.HintingFull,
 	})
@@ -294,8 +294,7 @@ func renderOGCard(title, spaceName string, brand ogBrand) ([]byte, error) {
 		titleDrawer.DrawString(line)
 	}
 
-	subtitle := "in " + spaceName
-	subtitle = truncateToWidth(subtitleFace, subtitle, ogDrawableWidth)
+	sub := truncateToWidth(subtitleFace, subtitle, ogDrawableWidth)
 	subtitleY := titleY + (len(titleLines)-1)*ogTitleLineH + 24 + ogSubtitleSize
 	subtitleDrawer := &font.Drawer{
 		Dst:  img,
@@ -303,7 +302,7 @@ func renderOGCard(title, spaceName string, brand ogBrand) ([]byte, error) {
 		Face: subtitleFace,
 		Dot:  fixed.P(ogMargin, subtitleY),
 	}
-	subtitleDrawer.DrawString(subtitle)
+	subtitleDrawer.DrawString(sub)
 
 	footer := "tela"
 	if brand.name != "" {
