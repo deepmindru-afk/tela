@@ -31,7 +31,7 @@ export const DialogContent = forwardRef<
     showClose?: boolean
   }
 >(function DialogContent(
-  { className, children, showClose = true, ...props },
+  { className, children, showClose = true, onInteractOutside, ...props },
   ref,
 ) {
   return (
@@ -40,6 +40,17 @@ export const DialogContent = forwardRef<
       <DialogPrimitive.Content
         ref={ref}
         className={cn('tela-dialog-content', className)}
+        onInteractOutside={(e) => {
+          // A native <select>'s OS dropdown is rendered outside the DOM, so the
+          // pointer/focus event that dismisses it reports as "outside" the
+          // dialog — which would otherwise close the whole dialog. While a
+          // <select> holds focus, treat outside-interactions as in-dialog.
+          if (document.activeElement instanceof HTMLSelectElement) {
+            e.preventDefault()
+            return
+          }
+          onInteractOutside?.(e)
+        }}
         {...props}
       >
         {children}
