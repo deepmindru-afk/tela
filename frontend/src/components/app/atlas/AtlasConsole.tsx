@@ -334,17 +334,19 @@ function RunPanel({
   return (
     <div className="flex flex-col gap-[var(--space-4)]">
       <Card>
-        <CardHeader className="flex items-center justify-between gap-[var(--space-3)]">
-          <CardTitle>Run #{runId}</CardTitle>
-          <div className="flex items-center gap-[var(--space-2)]">
-            {stage && (
-              <span className="text-[length:var(--text-xs)] font-[family-name:var(--font-mono)] text-[var(--text-muted)]">
-                {stage}
-              </span>
-            )}
-            <StatusBadge tone={statusTone(run?.status)} dot={run?.status === 'running' || streaming}>
-              {run?.status ?? (streaming ? 'running' : 'pending')}
-            </StatusBadge>
+        <CardHeader>
+          <div className="flex items-center justify-between gap-[var(--space-3)]">
+            <CardTitle>Run #{runId}</CardTitle>
+            <div className="flex items-center gap-[var(--space-2)]">
+              {stage && (
+                <span className="text-[length:var(--text-xs)] font-[family-name:var(--font-mono)] text-[var(--text-muted)]">
+                  {stage}
+                </span>
+              )}
+              <StatusBadge tone={statusTone(run?.status)} dot={run?.status === 'running' || streaming}>
+                {run?.status ?? (streaming ? 'running' : 'pending')}
+              </StatusBadge>
+            </div>
           </div>
         </CardHeader>
         <CardBody className="flex flex-col gap-[var(--space-3)]">
@@ -406,7 +408,7 @@ function CoveragePanel({ run }: { run: AtlasRun }) {
       <CardBody className="flex flex-col gap-[var(--space-4)]">
         <div className="flex flex-wrap items-center gap-[var(--space-6)]">
           <CoverageGauge value={mustCoverRate(cov)} caption="must-cover" />
-          <CoverageGauge value={coverageRate(cov)} caption="surface" size="sm" />
+          <CoverageGauge value={coverageRate(cov)} caption="surface" />
           <dl className="grid grid-cols-2 gap-x-[var(--space-5)] gap-y-[var(--space-1)] text-[length:var(--text-sm)]">
             <Stat label="Surface" value={`${cov.covered}/${cov.total}`} />
             <Stat label="Must-cover" value={`${cov.must_covered}/${cov.must_total}`} />
