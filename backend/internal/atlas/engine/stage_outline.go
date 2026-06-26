@@ -35,13 +35,29 @@ func (outlineStage) Run(ctx context.Context, rc *RunContext) error {
 		sys, user = outlineJiraSystem, outlineJiraUser(buildJiraOverview(rc))
 	}
 
-	raw, err := rc.LLM.Chat(ctx, sys, user, 0.3)
-	if err != nil {
-		return err
+	// atlas's outline is a single LLM call; an empty/truncated response (the model
+	// occasionally returns one, esp. on a large surface) would otherwise fail the
+	// whole run on the JSON parse. Retry a few times — temperature 0.3 varies the
+	// output, so a transient bad response usually clears on the next attempt.
+	const outlineAttempts = 3
+	var planned []plannedPage
+	var perr error
+	for attempt := 1; attempt <= outlineAttempts; attempt++ {
+		raw, cerr := rc.LLM.Chat(ctx, sys, user, 0.3)
+		if cerr != nil {
+			return cerr
+		}
+		planned, perr = parseOutline(raw)
+		if perr == nil && len(planned) > 0 {
+			break
+		}
+		rc.Warn("outline attempt %d/%d produced no usable plan (%v); retrying", attempt, outlineAttempts, perr)
 	}
-	planned, err := parseOutline(raw)
-	if err != nil {
-		return fmt.Errorf("parse outline: %w", err)
+	if perr != nil {
+		return fmt.Errorf("parse outline (after %d attempts): %w", outlineAttempts, perr)
+	}
+	if len(planned) == 0 {
+		return fmt.Errorf("parse outline: model returned an empty plan after %d attempts", outlineAttempts)
 	}
 
 	var pages []core.Page
