@@ -155,9 +155,11 @@ function SourceRow({ s, first, projectId, canManage }: { s: AtlasSource; first: 
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-[var(--space-2)]">
           <span className="truncate text-[length:var(--text-sm)] font-semibold text-[var(--text-primary)]">{s.name}</span>
-          {s.last_run_status && (
+          {s.stale_since && s.last_run_status === 'done' ? (
+            <StatusBadge tone="warning">Stale</StatusBadge>
+          ) : s.last_run_status ? (
             <StatusBadge tone={runTone(s.last_run_status)} dot={s.last_run_status === 'running'}>{runLabel(s.last_run_status)}</StatusBadge>
-          )}
+          ) : null}
         </div>
         <div className="mt-[2px] flex flex-wrap items-center gap-x-[var(--space-3)] gap-y-[2px] font-[family-name:var(--font-mono)] text-[length:var(--text-xs)] text-[var(--text-muted)]">
           <span className="truncate">{s.location}</span>

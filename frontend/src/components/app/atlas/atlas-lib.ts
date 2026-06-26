@@ -63,7 +63,7 @@ export function runLabel(s?: AtlasRunStatus | null): string {
 
 // Freshness of a project, from its last run + schedule — the home/console hero
 // signal (not coverage). 'never' when it has no runs yet.
-export type Freshness = 'never' | 'running' | 'fresh' | 'failed' | 'pending'
+export type Freshness = 'never' | 'running' | 'fresh' | 'failed' | 'pending' | 'stale'
 export function freshnessTone(f: Freshness): Tone {
   switch (f) {
     case 'fresh':
@@ -72,6 +72,8 @@ export function freshnessTone(f: Freshness): Tone {
       return 'running'
     case 'failed':
       return 'negative'
+    case 'stale':
+      return 'warning'
     default:
       return 'neutral'
   }

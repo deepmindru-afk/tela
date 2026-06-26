@@ -55,9 +55,10 @@ export function NewProjectDialog({
         owner_kind: owner.kind,
         owner_id: owner.id,
         output: out,
-        // Sensible default: keep docs current automatically (change-gated, so it
-        // no-ops when nothing moved). Adjustable in project settings.
-        cadence: 'daily',
+        // Sensible default: keep docs current automatically. Drift is detected
+        // every ~15 min (free); regeneration runs hourly and only for sources
+        // that actually moved. Adjustable in project settings.
+        cadence: 'hourly',
         auto_update: true,
       })
       onOpenChange(false)
@@ -73,7 +74,7 @@ export function NewProjectDialog({
         <DialogHeader>
           <DialogTitle>New Atlas project</DialogTitle>
           <DialogDescription>
-            A project bundles sources into one output space. You'll add the repos / Jira projects next, then run it. It auto-refreshes daily by default — change that in settings.
+            A project bundles sources into one output space. You'll add the repos / Jira projects next, then run it. It checks for changes every ~15 min and auto-regenerates hourly by default — change that in settings.
           </DialogDescription>
         </DialogHeader>
 

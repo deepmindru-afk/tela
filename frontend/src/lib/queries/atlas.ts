@@ -59,6 +59,9 @@ export interface AtlasProject {
   last_refresh_at?: string
   next_due?: string
   sources_count: number
+  // Generated sources whose upstream has moved past what's published (drift
+  // detection); 0 when everything's in sync. Distinct from last_run status.
+  stale_sources: number
   last_run: AtlasLastRun | null
   created_at: string
   can_manage: boolean
@@ -81,6 +84,9 @@ export interface AtlasSource {
   include?: string
   exclude?: string
   created_at: string
+  // Drift: a timestamp when detection has seen upstream move past the last
+  // generated ref; absent/'' when the docs match upstream.
+  stale_since?: string
   last_run_id?: number
   last_run_status?: AtlasRunStatus
   last_must_rate?: number
