@@ -34,6 +34,8 @@ import {
   useStartSourceRun,
   useSyncSource,
 } from '../../../lib/queries/atlas'
+import { useSpaces } from '../../../lib/queries/spaces'
+import { usePages } from '../../../lib/queries/pages'
 import { fmtRelative, fmtUntil, runLabel, runTone } from './atlas-lib'
 import { Field } from './NewProjectDialog'
 import { AddSourceDialog } from './AddSourceDialog'
@@ -142,6 +144,23 @@ function Shell({ children }: { children: React.ReactNode }) {
   return <div className="mx-auto w-full max-w-[68rem] px-[var(--space-5)] py-[var(--space-5)]">{children}</div>
 }
 
+function ModeBtn({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={[
+        'rounded-[var(--radius-sm)] border px-[var(--space-2)] py-[var(--space-1)] text-[length:var(--text-xs)] font-medium transition-colors',
+        active
+          ? 'border-[var(--accent)] bg-[var(--sidebar-item-active)] text-[var(--accent)]'
+          : 'border-[var(--border-subtle)] text-[var(--text-muted)] hover:text-[var(--text-primary)]',
+      ].join(' ')}
+    >
+      {children}
+    </button>
+  )
+}
+
 function SourceRow({ s, first, projectId, canManage }: { s: AtlasSource; first: boolean; projectId: number; canManage: boolean }) {
   const navigate = useNavigate()
   const run = useStartSourceRun(projectId)
@@ -240,8 +259,28 @@ function SettingsDialog({ open, onOpenChange, project }: { open: boolean; onOpen
   const [cadence, setCadence] = useState<AtlasCadence>(project.cadence)
   const [confirmDel, setConfirmDel] = useState(false)
 
+  // Output destination: an existing space (optionally under a top-dir page) or a
+  // new space materialized on the next run. Only sent on save if actually edited,
+  // so opening settings + saving never silently re-points or clears the top-dir.
+  const spacesQ = useSpaces()
+  const [outMode, setOutMode] = useState<'existing' | 'new'>(project.output_space ? 'existing' : 'new')
+  const [outSpaceId, setOutSpaceId] = useState<number | undefined>(project.output_space?.id)
+  const [outNewName, setOutNewName] = useState(project.name)
+  const [outParent, setOutParent] = useState<number | undefined>(project.output_parent_page_id)
+  const [outDirty, setOutDirty] = useState(false)
+  const dirPagesQ = usePages({ spaceId: outMode === 'existing' ? outSpaceId : undefined, parentId: null })
+  const dirPages = (dirPagesQ.data ?? []) as { id: number; title: string }[]
+
   async function save() {
-    await patch.mutateAsync({ id: project.id, patch: { name: name.trim() || project.name, cadence, auto_update: cadence !== '' } })
+    const output = !outDirty
+      ? undefined
+      : outMode === 'new'
+        ? { new_space_name: outNewName.trim() }
+        : { space_id: outSpaceId, parent_page_id: outParent }
+    await patch.mutateAsync({
+      id: project.id,
+      patch: { name: name.trim() || project.name, cadence, auto_update: cadence !== '', ...(output ? { output } : {}) },
+    })
     onOpenChange(false)
   }
   async function remove() {
@@ -254,7 +293,7 @@ function SettingsDialog({ open, onOpenChange, project }: { open: boolean; onOpen
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Project settings</DialogTitle>
-          <DialogDescription>Output space stays as set; sources keep generating into it.</DialogDescription>
+          <DialogDescription>Name, schedule, and where the generated docs land.</DialogDescription>
         </DialogHeader>
         <div className="flex flex-col gap-[var(--space-4)] py-[var(--space-2)]">
           <Field label="Name"><Input value={name} onChange={(e) => setName(e.target.value)} /></Field>
@@ -262,6 +301,35 @@ function SettingsDialog({ open, onOpenChange, project }: { open: boolean; onOpen
             <Select value={cadence} onChange={(e) => setCadence(e.target.value as AtlasCadence)}>
               {CADENCES.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
             </Select>
+          </Field>
+          <Field label="Output" hint="Where docs land — each source publishes under its own folder beneath this.">
+            <div className="flex flex-col gap-[var(--space-2)]">
+              <div className="flex gap-[var(--space-1)]">
+                <ModeBtn active={outMode === 'existing'} onClick={() => { setOutMode('existing'); setOutDirty(true) }}>Existing space</ModeBtn>
+                <ModeBtn active={outMode === 'new'} onClick={() => { setOutMode('new'); setOutDirty(true) }}>New space</ModeBtn>
+              </div>
+              {outMode === 'existing' ? (
+                <>
+                  <Select
+                    value={outSpaceId != null ? String(outSpaceId) : ''}
+                    onChange={(e) => { setOutSpaceId(e.target.value ? Number(e.target.value) : undefined); setOutParent(undefined); setOutDirty(true) }}
+                  >
+                    <option value="">Select a space…</option>
+                    {(spacesQ.data ?? []).map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+                  </Select>
+                  <Select
+                    value={outParent != null ? String(outParent) : ''}
+                    onChange={(e) => { setOutParent(e.target.value ? Number(e.target.value) : undefined); setOutDirty(true) }}
+                    disabled={outSpaceId == null}
+                  >
+                    <option value="">Top-dir: space root</option>
+                    {dirPages.map((p) => <option key={p.id} value={p.id}>Under “{p.title}”</option>)}
+                  </Select>
+                </>
+              ) : (
+                <Input value={outNewName} onChange={(e) => { setOutNewName(e.target.value); setOutDirty(true) }} placeholder="New space name" />
+              )}
+            </div>
           </Field>
           <div className="mt-[var(--space-2)] rounded-[var(--radius-md)] border border-[var(--border-subtle)] p-[var(--space-3)]">
             {confirmDel ? (
