@@ -607,6 +607,19 @@ const atlasProjectRoute = createRoute({
   ),
 })
 
+// Per-project settings — its own page (name, schedule, output space/top-dir,
+// delete), not a modal.
+const atlasProjectSettingsRoute = createRoute({
+  getParentRoute: () => appLayoutRoute,
+  path: '/atlas/projects/$projectId/settings',
+  parseParams: (raw) => ({ projectId: Number(raw.projectId) }),
+  stringifyParams: (params) => ({ projectId: String(params.projectId) }),
+  component: lazyRouteComponent(
+    () => import('../components/app/atlas/AtlasProjectSettings'),
+    'AtlasProjectSettings',
+  ),
+})
+
 // Run-detail screen (live stage stream, coverage, stats).
 const atlasRunRoute = createRoute({
   getParentRoute: () => appLayoutRoute,
@@ -786,6 +799,7 @@ const routeTree = rootRoute.addChildren([
     graphRoute,
     atlasRoute,
     atlasProjectRoute,
+    atlasProjectSettingsRoute,
     atlasRunRoute,
     spaceRoute.addChildren([spaceIndexRoute, pageRoute, pageHistoryRoute]),
   ]),

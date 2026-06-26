@@ -5,7 +5,9 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Button } from '../../ui/button'
 import { Input } from '../../ui/input'
 import { Select } from '../../ui/select'
+import { useSpaces } from '../../../lib/queries/spaces'
 import { type AtlasCadence, type AtlasOwner, useCreateProject } from '../../../lib/queries/atlas'
+import { SpacePicker, type SpaceChoice } from './SpacePicker'
 
 const CADENCES: { value: AtlasCadence; label: string }[] = [
   { value: '', label: 'Manual — I run it' },
@@ -26,41 +28,43 @@ export function NewProjectDialog({
 }) {
   const navigate = useNavigate()
   const create = useCreateProject()
+  const spacesQ = useSpaces()
   const [name, setName] = useState('')
   const [ownerIdx, setOwnerIdx] = useState(0)
-  const [spaceName, setSpaceName] = useState('')
-  const [spaceTouched, setSpaceTouched] = useState(false)
+  const [output, setOutput] = useState<SpaceChoice>({})
   const [cadence, setCadence] = useState<AtlasCadence>('')
   const [err, setErr] = useState<string | null>(null)
 
-  // Reset on open; default the output space to the project name until edited.
   useEffect(() => {
     if (open) {
       setName('')
       setOwnerIdx(0)
-      setSpaceName('')
-      setSpaceTouched(false)
+      setOutput({})
       setCadence('')
       setErr(null)
     }
   }, [open])
-  const effectiveSpace = spaceTouched ? spaceName : name
 
   const owner = owners[ownerIdx]
   const canSubmit = useMemo(
-    () => name.trim().length > 0 && effectiveSpace.trim().length > 0 && owner != null && !create.isPending,
-    [name, effectiveSpace, owner, create.isPending],
+    () => name.trim().length > 0 && owner != null && !create.isPending,
+    [name, owner, create.isPending],
   )
 
   async function submit() {
     if (!owner) return
     setErr(null)
+    // Output defaults to a new space named after the project when left untouched.
+    const out =
+      output.space_id != null
+        ? { space_id: output.space_id }
+        : { new_space_name: (output.new_space_name || name).trim() }
     try {
       const { project } = await create.mutateAsync({
         name: name.trim(),
         owner_kind: owner.kind,
         owner_id: owner.id,
-        output: { new_space_name: effectiveSpace.trim() },
+        output: out,
         cadence,
         auto_update: cadence !== '',
       })
@@ -98,16 +102,14 @@ export function NewProjectDialog({
             </Field>
           )}
 
-          <Field label="Output space" hint="Created on the first run if it doesn't exist; re-point it later in settings.">
-            <Input
-              value={effectiveSpace}
-              onChange={(e) => {
-                setSpaceTouched(true)
-                setSpaceName(e.target.value)
-              }}
-              placeholder="compass"
+          <FieldBlock label="Output space" hint="Pick an existing space or name a new one. Defaults to a new space named after the project.">
+            <SpacePicker
+              spaces={(spacesQ.data ?? []).map((s) => ({ id: s.id, name: s.name }))}
+              value={output}
+              onChange={setOutput}
+              placeholder={name.trim() ? `Default: “${name.trim()}” (new space)` : 'Search a space, or name a new one…'}
             />
-          </Field>
+          </FieldBlock>
 
           <Field label="Refresh">
             <Select value={cadence} onChange={(e) => setCadence(e.target.value as AtlasCadence)}>
@@ -132,6 +134,8 @@ export function NewProjectDialog({
   )
 }
 
+// A labelled field whose control is a real form element — uses <label> so the
+// caption focuses it.
 export function Field({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
   return (
     <label className="flex flex-col gap-[var(--space-1)]">
@@ -139,5 +143,17 @@ export function Field({ label, hint, children }: { label: string; hint?: string;
       {children}
       {hint && <span className="text-[length:var(--text-xs)] text-[var(--text-muted)]">{hint}</span>}
     </label>
+  )
+}
+
+// Like Field but a plain <div> — for composite controls (e.g. the SpacePicker
+// combobox) where a wrapping <label> would hijack clicks on the dropdown.
+export function FieldBlock({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
+  return (
+    <div className="flex flex-col gap-[var(--space-1)]">
+      <span className="text-[length:var(--text-sm)] font-medium text-[var(--text-primary)]">{label}</span>
+      {children}
+      {hint && <span className="text-[length:var(--text-xs)] text-[var(--text-muted)]">{hint}</span>}
+    </div>
   )
 }

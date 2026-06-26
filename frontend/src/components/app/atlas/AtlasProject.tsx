@@ -17,34 +17,23 @@ import { Button } from '../../ui/button'
 import { Card, CardBody, CardHeader, CardTitle } from '../../ui/card'
 import { StatusBadge } from '../../ui/status-badge'
 import { EmptyState } from '../../ui/empty-state'
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../../ui/dialog'
-import { Input } from '../../ui/input'
-import { Select } from '../../ui/select'
 import {
-  type AtlasCadence,
-  type AtlasProject as AtlasProjectT,
   type AtlasRunSummary,
   type AtlasSource,
   mustCoverRate,
   useAtlasProject,
-  useDeleteProject,
   useDeleteSource,
-  usePatchProject,
   useStartProjectRun,
   useStartSourceRun,
   useSyncSource,
 } from '../../../lib/queries/atlas'
-import { useSpaces } from '../../../lib/queries/spaces'
-import { usePages } from '../../../lib/queries/pages'
 import { fmtRelative, fmtUntil, runLabel, runTone } from './atlas-lib'
-import { Field } from './NewProjectDialog'
 import { AddSourceDialog } from './AddSourceDialog'
 
 export function AtlasProject() {
   const { projectId } = useParams({ from: '/_app/atlas/projects/$projectId' })
   const q = useAtlasProject(projectId)
   const [addOpen, setAddOpen] = useState(false)
-  const [settingsOpen, setSettingsOpen] = useState(false)
   const runAll = useStartProjectRun()
 
   if (q.isLoading) {
@@ -92,7 +81,9 @@ export function AtlasProject() {
         </div>
         {canManage && (
           <div className="flex items-center gap-[var(--space-2)]">
-            <Button variant="ghost" onClick={() => setSettingsOpen(true)} aria-label="Project settings"><Settings2 className="size-[var(--space-4)]" /></Button>
+            <Button asChild variant="ghost" aria-label="Project settings">
+              <Link to="/atlas/projects/$projectId/settings" params={{ projectId: project.id }}><Settings2 className="size-[var(--space-4)]" /></Link>
+            </Button>
             <Button variant="secondary" onClick={() => setAddOpen(true)}><Plus className="size-[var(--space-4)]" /> Add source</Button>
             <Button variant="primary" disabled={sources.length === 0 || runAll.isPending} onClick={() => runAll.mutate(project.id)}>
               {runAll.isPending ? <Loader2 className="size-[var(--space-4)] motion-safe:animate-spin" /> : <Play className="size-[var(--space-4)]" />} Run all
@@ -135,30 +126,12 @@ export function AtlasProject() {
       </Card>
 
       {canManage && <AddSourceDialog open={addOpen} onOpenChange={setAddOpen} projectId={project.id} owner={project.owner} />}
-      {canManage && <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} project={project} />}
     </Shell>
   )
 }
 
 function Shell({ children }: { children: React.ReactNode }) {
   return <div className="mx-auto w-full max-w-[68rem] px-[var(--space-5)] py-[var(--space-5)]">{children}</div>
-}
-
-function ModeBtn({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={[
-        'rounded-[var(--radius-sm)] border px-[var(--space-2)] py-[var(--space-1)] text-[length:var(--text-xs)] font-medium transition-colors',
-        active
-          ? 'border-[var(--accent)] bg-[var(--sidebar-item-active)] text-[var(--accent)]'
-          : 'border-[var(--border-subtle)] text-[var(--text-muted)] hover:text-[var(--text-primary)]',
-      ].join(' ')}
-    >
-      {children}
-    </button>
-  )
 }
 
 function SourceRow({ s, first, projectId, canManage }: { s: AtlasSource; first: boolean; projectId: number; canManage: boolean }) {
@@ -243,115 +216,3 @@ function RunRow({ r, first }: { r: AtlasRunSummary; first: boolean }) {
   )
 }
 
-const CADENCES: { value: AtlasCadence; label: string }[] = [
-  { value: '', label: 'Manual — I run it' },
-  { value: 'hourly', label: 'Automatic · hourly' },
-  { value: 'daily', label: 'Automatic · daily' },
-  { value: 'weekly', label: 'Automatic · weekly' },
-  { value: 'monthly', label: 'Automatic · monthly' },
-]
-
-function SettingsDialog({ open, onOpenChange, project }: { open: boolean; onOpenChange: (v: boolean) => void; project: AtlasProjectT }) {
-  const navigate = useNavigate()
-  const patch = usePatchProject()
-  const del = useDeleteProject()
-  const [name, setName] = useState(project.name)
-  const [cadence, setCadence] = useState<AtlasCadence>(project.cadence)
-  const [confirmDel, setConfirmDel] = useState(false)
-
-  // Output destination: an existing space (optionally under a top-dir page) or a
-  // new space materialized on the next run. Only sent on save if actually edited,
-  // so opening settings + saving never silently re-points or clears the top-dir.
-  const spacesQ = useSpaces()
-  const [outMode, setOutMode] = useState<'existing' | 'new'>(project.output_space ? 'existing' : 'new')
-  const [outSpaceId, setOutSpaceId] = useState<number | undefined>(project.output_space?.id)
-  const [outNewName, setOutNewName] = useState(project.name)
-  const [outParent, setOutParent] = useState<number | undefined>(project.output_parent_page_id)
-  const [outDirty, setOutDirty] = useState(false)
-  const dirPagesQ = usePages({ spaceId: outMode === 'existing' ? outSpaceId : undefined, parentId: null })
-  const dirPages = (dirPagesQ.data ?? []) as { id: number; title: string }[]
-
-  async function save() {
-    const output = !outDirty
-      ? undefined
-      : outMode === 'new'
-        ? { new_space_name: outNewName.trim() }
-        : { space_id: outSpaceId, parent_page_id: outParent }
-    await patch.mutateAsync({
-      id: project.id,
-      patch: { name: name.trim() || project.name, cadence, auto_update: cadence !== '', ...(output ? { output } : {}) },
-    })
-    onOpenChange(false)
-  }
-  async function remove() {
-    await del.mutateAsync(project.id)
-    navigate({ to: '/atlas' })
-  }
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Project settings</DialogTitle>
-          <DialogDescription>Name, schedule, and where the generated docs land.</DialogDescription>
-        </DialogHeader>
-        <div className="flex flex-col gap-[var(--space-4)] py-[var(--space-2)]">
-          <Field label="Name"><Input value={name} onChange={(e) => setName(e.target.value)} /></Field>
-          <Field label="Refresh">
-            <Select value={cadence} onChange={(e) => setCadence(e.target.value as AtlasCadence)}>
-              {CADENCES.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
-            </Select>
-          </Field>
-          <Field label="Output" hint="Where docs land — each source publishes under its own folder beneath this.">
-            <div className="flex flex-col gap-[var(--space-2)]">
-              <div className="flex gap-[var(--space-1)]">
-                <ModeBtn active={outMode === 'existing'} onClick={() => { setOutMode('existing'); setOutDirty(true) }}>Existing space</ModeBtn>
-                <ModeBtn active={outMode === 'new'} onClick={() => { setOutMode('new'); setOutDirty(true) }}>New space</ModeBtn>
-              </div>
-              {outMode === 'existing' ? (
-                <>
-                  <Select
-                    value={outSpaceId != null ? String(outSpaceId) : ''}
-                    onChange={(e) => { setOutSpaceId(e.target.value ? Number(e.target.value) : undefined); setOutParent(undefined); setOutDirty(true) }}
-                  >
-                    <option value="">Select a space…</option>
-                    {(spacesQ.data ?? []).map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-                  </Select>
-                  <Select
-                    value={outParent != null ? String(outParent) : ''}
-                    onChange={(e) => { setOutParent(e.target.value ? Number(e.target.value) : undefined); setOutDirty(true) }}
-                    disabled={outSpaceId == null}
-                  >
-                    <option value="">Top-dir: space root</option>
-                    {dirPages.map((p) => <option key={p.id} value={p.id}>Under “{p.title}”</option>)}
-                  </Select>
-                </>
-              ) : (
-                <Input value={outNewName} onChange={(e) => { setOutNewName(e.target.value); setOutDirty(true) }} placeholder="New space name" />
-              )}
-            </div>
-          </Field>
-          <div className="mt-[var(--space-2)] rounded-[var(--radius-md)] border border-[var(--border-subtle)] p-[var(--space-3)]">
-            {confirmDel ? (
-              <div className="flex items-center justify-between gap-[var(--space-3)]">
-                <span className="text-[length:var(--text-sm)] text-[var(--text-muted)]">Delete this project? The output space is kept.</span>
-                <div className="flex gap-[var(--space-2)]">
-                  <Button variant="ghost" size="sm" onClick={() => setConfirmDel(false)}>Cancel</Button>
-                  <Button variant="danger" size="sm" disabled={del.isPending} onClick={remove}>Delete</Button>
-                </div>
-              </div>
-            ) : (
-              <button type="button" className="text-[length:var(--text-sm)] text-[var(--accent-negative-fg)] hover:underline" onClick={() => setConfirmDel(true)}>Delete project…</button>
-            )}
-          </div>
-        </div>
-        <DialogFooter>
-          <Button variant="ghost" onClick={() => onOpenChange(false)}>Cancel</Button>
-          <Button variant="primary" disabled={patch.isPending} onClick={save}>
-            {patch.isPending && <Loader2 className="size-[var(--space-4)] motion-safe:animate-spin" />}Save
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  )
-}
