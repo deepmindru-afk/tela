@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from '../api'
 
@@ -515,7 +515,18 @@ export function useAtlasRunStream(
   const [events, setEvents] = useState<AtlasRunEvent[]>([])
   const [streaming, setStreaming] = useState(false)
   const enabled = (opts?.enabled ?? true) && runId != null
-  const onEnd = opts?.onEnd
+
+  // Hold onEnd in a ref. It's a fresh closure on every render, so depending on
+  // it in the effect below would tear down + recreate the EventSource each
+  // render — and for any run that ends immediately on connect (a finished run,
+  // or a stale 'running' row the backend replays then closes) that loops
+  // connect→replay→__end__→onEnd(refetch)→re-render→reconnect, which flickers
+  // the pipeline as the event log re-accumulates from scratch. The ref keeps the
+  // effect keyed only on [runId, enabled] so the stream opens once per run.
+  const onEndRef = useRef(opts?.onEnd)
+  useEffect(() => {
+    onEndRef.current = opts?.onEnd
+  })
 
   useEffect(() => {
     if (!enabled || runId == null) return
@@ -534,7 +545,7 @@ export function useAtlasRunStream(
       if (ev.stage === '__end__') {
         es.close()
         setStreaming(false)
-        onEnd?.()
+        onEndRef.current?.()
         return
       }
       setEvents((prev) => [...prev, ev])
@@ -548,7 +559,7 @@ export function useAtlasRunStream(
       es.close()
       setStreaming(false)
     }
-  }, [runId, enabled, onEnd])
+  }, [runId, enabled])
 
   return { events, streaming }
 }
