@@ -338,11 +338,13 @@ export function useAtlasSourceRuns(sourceId: number | null | undefined) {
   })
 }
 
-// One run's full status + coverage + stats.
+// One run's full status + coverage + stats. project_id rides along so the run
+// screen can link back to its owning project (a run belongs to a project via
+// its source).
 export function useAtlasRun(runId: number | null | undefined) {
   return useQuery({
     queryKey: runId != null ? atlasKeys.run(runId) : atlasKeys.run(-1),
-    queryFn: () => api<{ run: AtlasRun }>(`/api/atlas/runs/${runId}`),
+    queryFn: () => api<{ run: AtlasRun; project_id?: number }>(`/api/atlas/runs/${runId}`),
     enabled: runId != null,
   })
 }

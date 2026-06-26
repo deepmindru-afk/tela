@@ -43,6 +43,7 @@ export function AtlasRun() {
   const { runId } = useParams({ from: '/_app/atlas/runs/$runId' })
   const runQ = useAtlasRun(runId)
   const run = runQ.data?.run
+  const projectId = runQ.data?.project_id
   const live = run?.status === 'running' || run?.status === 'pending'
 
   // The stream drives the pipeline. The backend replays the full persisted event
@@ -79,9 +80,15 @@ export function AtlasRun() {
 
   return (
     <Shell>
-      <Link to="/atlas" className="mb-[var(--space-2)] inline-flex items-center gap-[var(--space-1)] text-[length:var(--text-xs)] text-[var(--text-muted)] hover:text-[var(--text-primary)]">
-        <ArrowLeft className="size-[var(--space-3)]" /> Atlas
-      </Link>
+      {projectId ? (
+        <Link to="/atlas/projects/$projectId" params={{ projectId }} className="mb-[var(--space-2)] inline-flex items-center gap-[var(--space-1)] text-[length:var(--text-xs)] text-[var(--text-muted)] hover:text-[var(--text-primary)]">
+          <ArrowLeft className="size-[var(--space-3)]" /> Back to project
+        </Link>
+      ) : (
+        <Link to="/atlas" className="mb-[var(--space-2)] inline-flex items-center gap-[var(--space-1)] text-[length:var(--text-xs)] text-[var(--text-muted)] hover:text-[var(--text-primary)]">
+          <ArrowLeft className="size-[var(--space-3)]" /> Atlas
+        </Link>
+      )}
 
       <div className="flex flex-wrap items-center gap-[var(--space-3)]">
         <h1 className="text-[length:var(--text-2xl)] font-semibold text-[var(--text-primary)]">Run #{run.id}</h1>

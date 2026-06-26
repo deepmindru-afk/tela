@@ -361,7 +361,12 @@ func (s *Server) GetAtlasRun(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotFound, "not_found", "run not found")
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"run": run})
+	// project_id lets the run screen link back to its project (a run belongs to a
+	// project via its source); best-effort, 0 if the source/project is gone.
+	var projectID int64
+	_ = s.DB.QueryRowContext(r.Context(),
+		`SELECT s.project_id FROM atlas_runs r JOIN atlas_sources s ON s.id=r.source_id WHERE r.id=$1`, runID).Scan(&projectID)
+	writeJSON(w, http.StatusOK, map[string]any{"run": run, "project_id": projectID})
 }
 
 // StreamAtlasRun streams a run's live progress over SSE: persisted events replay
