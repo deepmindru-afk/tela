@@ -80,7 +80,7 @@ export function NewProjectDialog({
 
         <div className="flex flex-col gap-[var(--space-4)] py-[var(--space-2)]">
           <Field label="Project name">
-            <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="compass" autoFocus />
+            <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Payments API" autoFocus />
           </Field>
 
           {owners.length > 1 && (
