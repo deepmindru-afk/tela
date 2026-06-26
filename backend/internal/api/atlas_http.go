@@ -130,9 +130,16 @@ func (s *Server) ListAtlasSources(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	if _, ok := s.requireMembership(w, r, spaceID); !ok {
+	u, ok := requireUser(w, r)
+	if !ok {
 		return
 	}
+	k, _ := auth.APIKeyFromContext(r.Context())
+	if _, ae := s.membershipCore(r.Context(), u, k, spaceID); ae != nil {
+		writeError(w, ae.Status, ae.Code, ae.Message)
+		return
+	}
+	canManage := s.atlasSpaceManageErr(r.Context(), u, k, spaceID) == nil
 	rows, err := s.DB.QueryContext(r.Context(), `
 		SELECT s.id, s.space_id, s.parent_page_id, s.type, s.location, s.name, s.ref, s.branch, s.subpath,
 		       s.include, s.exclude, s.cadence, s.auto_update, s.last_refresh_at, s.created_at,
@@ -177,7 +184,7 @@ func (s *Server) ListAtlasSources(w http.ResponseWriter, r *http.Request) {
 		}
 		out = append(out, d)
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"sources": out, "managed": len(out) > 0})
+	writeJSON(w, http.StatusOK, map[string]any{"sources": out, "managed": len(out) > 0, "can_manage": canManage})
 }
 
 // DeleteAtlasSource unbinds a source (CASCADEs its runs + ingestion artifacts;

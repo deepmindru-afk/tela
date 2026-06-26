@@ -582,6 +582,18 @@ const pageHistoryRoute = createRoute({
   ),
 })
 
+// atlas generation console for a managed space (docs/atlas.md): sources, runs,
+// live SSE progress, coverage. Lazy so the console stays off the main chunk for
+// spaces that aren't generated.
+const atlasRoute = createRoute({
+  getParentRoute: () => spaceRoute,
+  path: 'atlas',
+  component: lazyRouteComponent(
+    () => import('../components/app/atlas/AtlasConsole'),
+    'AtlasConsole',
+  ),
+})
+
 // M15.1 — public share routes. Children of `rootRoute` (NOT appLayoutRoute)
 // because share-mode is unauthenticated; no ensureMe gate, no sidebar / app
 // shell. Both routes lazy-load the share view so the share bundle stays off
@@ -747,7 +759,7 @@ const routeTree = rootRoute.addChildren([
     searchRoute,
     askRoute,
     graphRoute,
-    spaceRoute.addChildren([spaceIndexRoute, pageRoute, pageHistoryRoute]),
+    spaceRoute.addChildren([spaceIndexRoute, pageRoute, pageHistoryRoute, atlasRoute]),
   ]),
 ])
 
