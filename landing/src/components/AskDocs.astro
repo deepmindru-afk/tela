@@ -1,12 +1,11 @@
 ---
-// §3 — Ask your docs (tela's first-party AI). A faithful mock of the real /ask
-// view (AskView.tsx) in the landing's own tokens — NOT a screenshot: the app
-// header, the composer (scope picker + ↵-to-ask + circular send), a rich answer
-// that includes a rendered flow diagram, the cited source rows, and the
-// "Keep exploring" follow-ups. The example is a specific business-logic question
-// from some other product (an airline's ops docs), answered with a diagram and
-// citations to a mix of human docs + Atlas-generated code pages — so it reads as
-// "ask YOUR project", never tela describing itself. No JSON, no raw scores.
+// §3 — Ask your docs (tela's first-party AI). A faithful, COMPACT mock of the
+// real /ask view (AskView.tsx) in the landing's own tokens — NOT a screenshot:
+// the app header, the composer (scope picker + ↵-to-ask + circular send), a rich
+// answer whose diagram is a plaintext ASCII flow (the way an LLM emits one), and
+// two cited source rows. The example is specific business logic from another
+// product (an airline's ops docs) — so it reads as "ask YOUR project", never tela
+// describing itself. No JSON, no raw scores.
 const sources = [
   {
     title: 'Rebooking',
@@ -17,44 +16,41 @@ const sources = [
   {
     title: 'findRebooking',
     crumb: 'Code ▸ disruption/rebook.go:62',
-    excerpt: 'Ranks the open seats by passenger priority — protected fares (tight connections, unaccompanied minors) jump the queue.',
+    excerpt: 'Ranks open seats by passenger priority — protected fares (tight connections, unaccompanied minors) jump the queue.',
     when: '2w ago',
   },
-  {
-    title: 'Partner rerouting',
-    crumb: 'Disruptions ▸ Partner airlines',
-    excerpt: 'If no in-network option is found within four hours, eligible partner carriers are searched and offered.',
-    when: '1mo ago',
-  },
 ];
-const followups = [
-  'What compensation are bumped passengers owed?',
-  'How are unaccompanied minors handled during a disruption?',
-];
+// The answer's flow, as plaintext ASCII (rendered verbatim in a <pre>).
+const flow = `flight cancelled
+   │
+   ▼
+seats on the next flight?
+   │
+   ├─ yes ─▶ auto-rebook, priority first
+   │
+   └─ no ──▶ search again, up to 4h
+              │
+              └─▶ still empty? offer partners`;
 ---
 <section id="ask" class="ask-section">
   <div class="ask-head reveal-up">
     <p class="kicker"><span class="kicker-dot"></span>Ask your docs</p>
     <h2 class="h2">Ask anything about your project. Get an answer that cites its sources.</h2>
     <p class="lede">
-      tela’s own AI answers in plain language from your own pages — the ones Atlas wrote and your
-      team maintains — so it actually knows your project. Every answer <strong>cites the exact
-      pages</strong> it came from, stays scoped to what you’re allowed to read, and says so when your
-      docs don’t cover it instead of guessing.
+      tela’s own AI answers from your own pages — the ones Atlas wrote and your team maintains —
+      <strong>citing every source</strong>, and it says so when your docs don’t cover it instead of
+      guessing.
     </p>
   </div>
 
   <div class="ask-layout">
-    <!-- HERO: a faithful mock of the real /ask view -->
+    <!-- HERO: a faithful, compact mock of the real /ask view -->
     <div class="ask-app reveal-up" aria-hidden="true">
       <header class="app-head">
         <span class="app-spark">
-          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/><path d="M20 3v4"/><path d="M22 5h-4"/><path d="M4 17v2"/><path d="M5 18H3"/></svg>
+          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/><path d="M20 3v4"/><path d="M22 5h-4"/><path d="M4 17v2"/><path d="M5 18H3"/></svg>
         </span>
-        <div>
-          <p class="app-title">Ask your docs</p>
-          <p class="app-sub">Answers grounded in your pages, with the exact sources they came from.</p>
-        </div>
+        <p class="app-title">Ask your docs</p>
       </header>
 
       <!-- composer -->
@@ -69,38 +65,19 @@ const followups = [
           <span class="composer-actions">
             <span class="composer-hint"><kbd>↵</kbd> to ask</span>
             <span class="send">
-              <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>
             </span>
           </span>
         </div>
       </div>
 
-      <!-- answer (markdown, with a rendered flow diagram) -->
+      <!-- answer (markdown, with a plaintext ASCII flow) -->
       <div class="answer">
         <p class="ans-text">Every affected passenger is rebooked automatically the moment a flight’s cancelled:<sup class="cite">1</sup></p>
-
-        <figure class="dg">
-          <span class="dg-node">Flight cancelled</span>
-          <span class="dg-down">▼</span>
-          <span class="dg-node dg-q">Seats on the next flight?</span>
-          <div class="dg-split">
-            <div class="dg-leg">
-              <span class="dg-edge">yes</span>
-              <span class="dg-down">▼</span>
-              <span class="dg-node">Auto-rebook,<br />priority first</span>
-            </div>
-            <div class="dg-leg">
-              <span class="dg-edge">no</span>
-              <span class="dg-down">▼</span>
-              <span class="dg-node">Within 4h →<br />partner airlines</span>
-            </div>
-          </div>
-        </figure>
-
+        <pre class="dg-ascii">{flow}</pre>
         <p class="ans-text">
           Protected passengers — tight connections and unaccompanied minors — get first pick of the
-          open seats.<sup class="cite">2</sup> If nothing fits within four hours, eligible partner
-          airlines open up too.<sup class="cite">3</sup>
+          open seats.<sup class="cite">2</sup> Anything still open after four hours pulls in partner airlines.
         </p>
       </div>
 
@@ -116,19 +93,6 @@ const followups = [
               </span>
               <span class="src-crumb">{s.crumb}</span>
               <span class="src-excerpt">{s.excerpt}</span>
-            </li>
-          ))}
-        </ul>
-      </div>
-
-      <!-- keep exploring -->
-      <div class="followups">
-        <p class="sources-label">Keep exploring</p>
-        <ul class="fu-list">
-          {followups.map((q) => (
-            <li class="fu">
-              <span>{q}</span>
-              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 7h10v10"/><path d="M7 17 17 7"/></svg>
             </li>
           ))}
         </ul>
@@ -149,8 +113,8 @@ const followups = [
       <div class="rail-item reveal-up">
         <p class="rail-kick">Prefer the raw section?</p>
         <p class="rail-d">
-          Search by meaning over the same index — it finds the runbook section that answers you even
-          when it doesn’t share your words. Same retrieval, just the passage instead of an answer.
+          Search by meaning over the same index — it finds the section that answers you even when it
+          doesn’t share your words. Same retrieval, just the passage instead of an answer.
         </p>
       </div>
 
@@ -174,7 +138,7 @@ const followups = [
     padding: var(--section-y) var(--space-gutter);
     scroll-margin-top: 5rem;
   }
-  .ask-head { max-width: 50rem; margin-bottom: 2.25rem; }
+  .ask-head { max-width: 50rem; margin-bottom: 2rem; }
   .ask-head .lede strong { color: var(--fg); font-weight: 600; }
 
   .ask-layout {
@@ -196,13 +160,13 @@ const followups = [
   .app-head {
     display: flex;
     align-items: center;
-    gap: 0.7rem;
-    padding: 1rem 1.2rem;
+    gap: 0.6rem;
+    padding: 0.8rem 1.1rem;
     border-bottom: 1px solid var(--border);
   }
   .app-spark {
     flex: none;
-    width: 2rem; height: 2rem;
+    width: 1.7rem; height: 1.7rem;
     display: grid; place-items: center;
     border-radius: var(--radius-md);
     background: var(--brand);
@@ -212,39 +176,24 @@ const followups = [
   .app-title {
     margin: 0;
     font-family: var(--font-display);
-    font-size: var(--text-lg);
+    font-size: var(--text-base);
     font-weight: 600;
     letter-spacing: var(--tracking-tight);
     color: var(--fg);
   }
-  .app-sub { margin: 0.1rem 0 0; font-size: var(--text-xs); color: var(--fg-faint); }
 
   /* composer */
   .composer {
-    margin: 1rem 1.2rem 0;
+    margin: 0.85rem 1.1rem 0;
     border: 1px solid var(--border-strong);
     border-radius: var(--radius-md);
     background: var(--surface-sunk);
   }
-  .composer-q { margin: 0; padding: 0.85rem 0.9rem 0.6rem; font-size: var(--text-base); color: var(--fg); }
+  .composer-q { margin: 0; padding: 0.75rem 0.85rem 0.5rem; font-size: var(--text-base); color: var(--fg); }
   .composer-caret { display: inline-block; width: 2px; height: 1.05em; margin-left: 1px; vertical-align: -2px; background: var(--brand); animation: askblink 1.1s steps(2) infinite; }
-  .composer-bar {
-    display: flex;
-    align-items: center;
-    gap: 0.6rem;
-    padding: 0.5rem 0.6rem 0.6rem;
-  }
-  .scope {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.35rem;
-    padding: 0.25rem 0.5rem;
-    border-radius: var(--radius-sm);
-    font-size: var(--text-sm);
-    color: var(--fg-soft);
-  }
-  .scope svg:first-child { color: var(--fg-faint); }
-  .scope svg:last-child { color: var(--fg-faint); }
+  .composer-bar { display: flex; align-items: center; gap: 0.6rem; padding: 0.4rem 0.55rem 0.55rem; }
+  .scope { display: inline-flex; align-items: center; gap: 0.35rem; padding: 0.2rem 0.45rem; border-radius: var(--radius-sm); font-size: var(--text-sm); color: var(--fg-soft); }
+  .scope svg { color: var(--fg-faint); }
   .composer-actions { margin-left: auto; display: inline-flex; align-items: center; gap: 0.6rem; }
   .composer-hint { display: inline-flex; align-items: center; gap: 0.35rem; font-size: var(--text-xs); color: var(--fg-faint); white-space: nowrap; }
   .composer-hint kbd {
@@ -255,18 +204,16 @@ const followups = [
     color: var(--fg-soft); background: var(--surface);
   }
   .send {
-    flex: none;
-    width: 1.8rem; height: 1.8rem;
+    flex: none; width: 1.7rem; height: 1.7rem;
     display: grid; place-items: center;
     border-radius: var(--radius-full);
-    background: var(--cta-bg);
-    color: var(--cta-fg);
+    background: var(--cta-bg); color: var(--cta-fg);
     box-shadow: var(--glow-brand);
   }
 
   /* answer */
-  .answer { padding: 1.2rem 1.2rem 0.4rem; }
-  .ans-text { margin: 0 0 0.7rem; font-size: var(--text-base); line-height: var(--leading-normal); color: var(--fg-soft); }
+  .answer { padding: 1rem 1.1rem 0.5rem; }
+  .ans-text { margin: 0 0 0.6rem; font-size: var(--text-base); line-height: var(--leading-normal); color: var(--fg-soft); }
   .ans-text:last-child { margin-bottom: 0; }
   .cite {
     display: inline-grid; place-items: center;
@@ -277,68 +224,42 @@ const followups = [
     vertical-align: 0.4em; line-height: 1;
   }
 
-  /* the rendered flow diagram (mock of a Mermaid block) */
-  .dg {
-    margin: 0 0 1rem;
-    padding: 1.1rem 1rem;
-    display: flex; flex-direction: column; align-items: center; gap: 0.3rem;
+  /* the answer's diagram — plaintext ASCII, in a code well like an LLM emits */
+  .dg-ascii {
+    margin: 0.3rem 0 0.85rem;
+    padding: 0.8rem 0.95rem;
     border: 1px solid var(--border);
     border-radius: var(--radius-md);
     background: var(--surface-sunk);
-  }
-  .dg-node {
     font-family: var(--font-mono);
     font-size: var(--text-xs);
-    line-height: 1.35;
-    color: var(--fg);
-    background: var(--surface);
-    border: 1px solid var(--border-strong);
-    border-radius: var(--radius-sm);
-    padding: 0.4rem 0.65rem;
-    text-align: center;
-    max-width: 12rem;
+    line-height: 1.55;
+    color: var(--fg-soft);
+    white-space: pre;
+    overflow-x: auto;
+    tab-size: 2;
   }
-  .dg-q { background: var(--brand-wash); border-color: var(--pill-border); color: var(--brand); }
-  .dg-down { color: var(--fg-faint); font-size: 0.6rem; line-height: 1; }
-  .dg-split { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 0.1rem; }
-  .dg-leg { display: flex; flex-direction: column; align-items: center; gap: 0.3rem; }
-  .dg-edge { font-family: var(--font-mono); font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.07em; color: var(--fg-faint); }
 
-  /* sources + follow-ups */
-  .sources, .followups { padding: 0.9rem 1.2rem; border-top: 1px solid var(--border); }
+  /* sources */
+  .sources { padding: 0.85rem 1.1rem; border-top: 1px solid var(--border); }
   .sources-label {
-    margin: 0 0 0.6rem;
+    margin: 0 0 0.5rem;
     font-family: var(--font-mono); font-size: var(--text-xs);
     text-transform: uppercase; letter-spacing: 0.1em; color: var(--fg-faint);
   }
-  .src-list, .fu-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.15rem; }
+  .src-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.1rem; }
   .src {
-    display: flex; flex-direction: column; gap: 0.2rem;
-    padding: 0.55rem 0.7rem;
-    border: 1px solid transparent;
-    border-radius: var(--radius-md);
+    display: flex; flex-direction: column; gap: 0.15rem;
+    padding: 0.5rem 0.65rem;
+    border: 1px solid transparent; border-radius: var(--radius-md);
     transition: background var(--dur-fast) var(--ease-out);
   }
   .src:hover { background: var(--surface-sunk); }
   .src-row1 { display: flex; align-items: baseline; justify-content: space-between; gap: 0.75rem; }
-  .src-title { font-size: var(--text-base); font-weight: 500; color: var(--fg); }
+  .src-title { font-size: var(--text-sm); font-weight: 500; color: var(--fg); }
   .src-when { flex: none; font-size: var(--text-xs); color: var(--fg-faint); }
   .src-crumb { font-size: var(--text-xs); color: var(--fg-faint); }
   .src-excerpt { font-size: var(--text-sm); color: var(--fg-soft); line-height: var(--leading-normal); }
-
-  .fu {
-    display: flex; align-items: center; justify-content: space-between; gap: 0.75rem;
-    padding: 0.55rem 0.7rem;
-    border: 1px solid var(--border);
-    border-radius: var(--radius-md);
-    background: var(--surface);
-    font-size: var(--text-sm); color: var(--fg);
-    transition: border-color var(--dur-fast) var(--ease-out), background var(--dur-fast) var(--ease-out);
-  }
-  .fu + .fu { margin-top: 0.4rem; }
-  .fu:hover { border-color: var(--pill-border); background: var(--surface-sunk); }
-  .fu svg { flex: none; color: var(--fg-faint); transition: color var(--dur-fast) var(--ease-out); }
-  .fu:hover svg { color: var(--brand); }
 
   /* ── SUPPORT rail ─────────────────────────────────────────────────── */
   .ask-rail { display: flex; flex-direction: column; gap: 1.25rem; }
@@ -363,6 +284,6 @@ const followups = [
   @media (prefers-reduced-motion: reduce) { .composer-caret { animation: none; } }
 
   @media (min-width: 940px) {
-    .ask-layout { grid-template-columns: 1.2fr 0.8fr; gap: 2rem; }
+    .ask-layout { grid-template-columns: 1.15fr 0.85fr; gap: 2rem; }
   }
 </style>
