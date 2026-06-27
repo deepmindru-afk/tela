@@ -235,6 +235,13 @@ func (c *Connector) Delta(ctx context.Context, snap source.Snapshot, src core.So
 	}
 	var cs source.ChangeSet
 	for _, is := range issues {
+		// The JQL boundary is timezone-approximate (JQL reads the literal in the
+		// instance zone), so it over-fetches; trim to issues actually updated AFTER
+		// the ref via the UTC-normalized compare. This makes the changeset exact and
+		// drops the ref's own boundary issue (updated == ref).
+		if normalizeRef(is.Fields.Updated) <= normalizeRef(fromRef) {
+			continue
+		}
 		path := "issues/" + is.Key + ".md"
 		if is.Fields.Created != "" && normalizeRef(is.Fields.Created) >= normalizeRef(fromRef) {
 			cs.Added = append(cs.Added, path)
@@ -260,12 +267,19 @@ func (c *Connector) HasChanges(ctx context.Context, src core.Source, fromRef str
 	if key == "" {
 		return false, fmt.Errorf("jira: project key required (set source subpath)")
 	}
-	jql := fmt.Sprintf("project=%s AND updated >= %q", key, jqlTimeAfter(fromRef))
-	n, err := c.clientFor(src).countSince(ctx, jql)
+	// Compare instants in Go, not via a JQL `updated >= <literal>` probe: JQL reads
+	// datetime literals in the instance's timezone, but the ref is UTC, so the probe
+	// landed UTC-offset hours early and the ref's own boundary issue re-matched
+	// forever (perpetual false "stale"). Fetch the most-recently-updated issue and
+	// compare normalized (UTC RFC3339, lexically sortable) timestamps instead.
+	latest, err := c.clientFor(src).latestUpdated(ctx, fmt.Sprintf("project=%s ORDER BY updated DESC", key))
 	if err != nil {
 		return false, err
 	}
-	return n > 0, nil
+	if latest == "" {
+		return false, nil // no issues — nothing to be stale against
+	}
+	return normalizeRef(latest) > normalizeRef(fromRef), nil
 }
 
 // --- spine extraction ------------------------------------------------------
@@ -411,17 +425,3 @@ func jqlTime(ref string) string {
 	return ref
 }
 
-// jqlTimeAfter renders the JQL minute STRICTLY AFTER ref's minute, so an
-// `updated >= jqlTimeAfter(ref)` probe excludes ref's own boundary minute. The
-// ref is the latest issue's `updated` time and JQL is minute-precision, so a
-// plain `>= jqlTime(ref)` always re-matches the issue that defined the ref →
-// perpetual false "stale". Rounding up to the next minute fixes that; the only
-// cost is a sub-minute blind spot at the exact snapshot boundary (negligible —
-// the next probe/run catches anything later).
-func jqlTimeAfter(ref string) string {
-	r := normalizeRef(ref)
-	if t, err := time.Parse(time.RFC3339, r); err == nil {
-		return t.UTC().Truncate(time.Minute).Add(time.Minute).Format("2006-01-02 15:04")
-	}
-	return jqlTime(ref)
-}

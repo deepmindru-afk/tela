@@ -139,6 +139,22 @@ func (c *jiraClient) countSince(ctx context.Context, jql string) (int, error) {
 	return len(res.Issues), nil
 }
 
+// latestUpdated returns the `updated` timestamp of the most recently updated
+// issue for jql (which must ORDER BY updated DESC), or "" if there are none. The
+// change probe compares this against the stored ref as absolute instants in Go,
+// sidestepping JQL's instance-timezone interpretation of datetime literals.
+func (c *jiraClient) latestUpdated(ctx context.Context, jql string) (string, error) {
+	var res searchJQLResp
+	body := searchJQLReq{JQL: jql, Fields: []string{"updated"}, MaxResults: 1}
+	if err := c.post(ctx, "/rest/api/3/search/jql", body, &res); err != nil {
+		return "", err
+	}
+	if len(res.Issues) == 0 {
+		return "", nil
+	}
+	return res.Issues[0].Fields.Updated, nil
+}
+
 // projectMeta bundles a project's schema-defining metadata.
 type projectMetaData struct {
 	IssueTypes  []named
