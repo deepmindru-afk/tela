@@ -111,6 +111,12 @@ type adminStats struct {
 	Activated      int64             `json:"activated"`       // users who have authored ≥1 page revision (all-time)
 	RecentSignups  []statsSignup     `json:"recent_signups"`  // newest accounts + whether they activated
 	UnansweredAsks []statsUnanswered `json:"unanswered_asks"` // recent Ask questions that returned nothing
+
+	// Reach / adoption — including the agent surface (tela's first-class audience).
+	WAUPrev      int64 `json:"wau_prev"`      // active users in the 7d BEFORE the last 7 (for a WoW delta)
+	MCPUsers     int64 `json:"mcp_users"`     // users who have ever connected an agent over MCP
+	ActivePATs   int64 `json:"active_pats"`   // live personal access tokens (not revoked/expired)
+	PublicSpaces int64 `json:"public_spaces"` // spaces published to the open web
 }
 
 func (s *Server) AdminStats(w http.ResponseWriter, r *http.Request) {
@@ -129,6 +135,7 @@ func (s *Server) AdminStats(w http.ResponseWriter, r *http.Request) {
 		idx[d] = i
 	}
 	cut30 := days[0] + " 00:00:00"
+	cut14 := now.AddDate(0, 0, -14).Format("2006-01-02 15:04:05")
 	cut7 := now.AddDate(0, 0, -7).Format("2006-01-02 15:04:05")
 	cut1 := now.AddDate(0, 0, -1).Format("2006-01-02 15:04:05")
 
@@ -184,15 +191,16 @@ func (s *Server) AdminStats(w http.ResponseWriter, r *http.Request) {
 		rows.Close()
 	}
 
-	// --- Active users (rolling DAU/WAU/MAU) ---
+	// --- Active users (rolling DAU/WAU/MAU + the prior week for a WoW delta) ---
 	_ = s.DB.QueryRowContext(ctx, `
 		SELECT
 		  COUNT(DISTINCT actor_user_id) FILTER (WHERE created_at >= $1),
 		  COUNT(DISTINCT actor_user_id) FILTER (WHERE created_at >= $2),
-		  COUNT(DISTINCT actor_user_id) FILTER (WHERE created_at >= $3)
+		  COUNT(DISTINCT actor_user_id) FILTER (WHERE created_at >= $3),
+		  COUNT(DISTINCT actor_user_id) FILTER (WHERE created_at >= $4 AND created_at < $2)
 		  FROM events
 		 WHERE actor_user_id IS NOT NULL AND created_at >= $3`,
-		cut1, cut7, cut30).Scan(&out.DAU, &out.WAU, &out.MAU)
+		cut1, cut7, cut30, cut14).Scan(&out.DAU, &out.WAU, &out.MAU, &out.WAUPrev)
 
 	// --- Current totals ---
 	_ = s.DB.QueryRowContext(ctx, `
@@ -296,6 +304,14 @@ func (s *Server) AdminStats(w http.ResponseWriter, r *http.Request) {
 		   AND NOT EXISTS (SELECT 1 FROM page_links l WHERE l.target_id = p.id)`).Scan(&out.OrphanPages)
 	_ = s.DB.QueryRowContext(ctx,
 		`SELECT COUNT(*) FROM page_agreement WHERE dispute > 0`).Scan(&out.Contradictions)
+
+	// --- Reach / adoption (agent surface included) ---
+	_ = s.DB.QueryRowContext(ctx,
+		`SELECT COUNT(*) FROM users WHERE mcp_last_seen_at IS NOT NULL`).Scan(&out.MCPUsers)
+	_ = s.DB.QueryRowContext(ctx,
+		`SELECT COUNT(*) FROM api_keys WHERE revoked_at IS NULL AND (expires_at IS NULL OR expires_at > tela_now())`).Scan(&out.ActivePATs)
+	_ = s.DB.QueryRowContext(ctx,
+		`SELECT COUNT(*) FROM spaces WHERE visibility = 'public'`).Scan(&out.PublicSpaces)
 
 	// --- Growth / activation ---
 	_ = s.DB.QueryRowContext(ctx,

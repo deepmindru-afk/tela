@@ -66,6 +66,10 @@ export interface AdminStats {
   activated: number
   recent_signups: StatsSignup[]
   unanswered_asks: StatsUnanswered[]
+  wau_prev: number
+  mcp_users: number
+  active_pats: number
+  public_spaces: number
 }
 
 export const adminStatsKeys = { stats: ['admin-stats'] as const }
