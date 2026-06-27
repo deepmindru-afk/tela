@@ -300,7 +300,10 @@ seats on the next flight?
   .src:hover .src-gh { color: var(--brand); }
 
   /* ── SUPPORT rail ─────────────────────────────────────────────────── */
-  .ask-rail { display: flex; flex-direction: column; gap: 1.25rem; }
+  /* Stretch to the card's height and distribute, so it doesn't cling to the
+     top with dead space below on wide desktop. */
+  .ask-rail { display: flex; flex-direction: column; gap: 1.25rem; align-self: stretch; justify-content: center; }
+  @media (min-width: 940px) { .ask-rail { justify-content: space-between; } }
   .rail-kick {
     margin: 0 0 0.35rem;
     font-family: var(--font-display); font-size: var(--text-base); font-weight: 600;

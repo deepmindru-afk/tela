@@ -1,0 +1,33 @@
+---
+// ActThread — a subtle vertical connector that ties the AI-act sections
+// (Atlas → Ask → Agents) into one visible flow: a faint woven thread fading in
+// and out through a small lit node, sitting in the gap between two sections.
+// Decorative only; pulled into the section padding with negative margins so it
+// reads as a through-line, not added height.
+---
+<div class="act-thread" aria-hidden="true">
+  <span class="at-line at-top"></span>
+  <span class="at-node"></span>
+  <span class="at-line at-bot"></span>
+</div>
+
+<style>
+  .act-thread {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin: -3.25rem auto;
+    position: relative;
+    z-index: 1;
+  }
+  .at-line { width: 1px; height: 2.75rem; }
+  .at-top { background: linear-gradient(to bottom, transparent, var(--border-strong)); }
+  .at-bot { background: linear-gradient(to bottom, var(--border-strong), transparent); }
+  .at-node {
+    width: 6px; height: 6px;
+    margin: 0.4rem 0;
+    border-radius: var(--radius-full);
+    background: var(--brand);
+    box-shadow: var(--glow-brand);
+  }
+</style>
