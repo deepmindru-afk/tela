@@ -10,6 +10,7 @@ import {
   useAtlasCredentials,
   useCreateSource,
 } from '../../../lib/queries/atlas'
+import { useMe } from '../../../lib/queries/auth'
 import { Field } from './NewProjectDialog'
 
 // Derive a default source name from a git URL / jira key (last path segment).
@@ -32,6 +33,7 @@ export function AddSourceDialog({
 }) {
   const create = useCreateSource(projectId)
   const credsQ = useAtlasCredentials()
+  const meQ = useMe()
   const [type, setType] = useState<AtlasSourceType>('git')
   const [location, setLocation] = useState('')
   const [name, setName] = useState('')
@@ -48,11 +50,21 @@ export function AddSourceDialog({
     }
   }, [open])
 
-  // Only credentials owned by this project's owner and matching the source type.
-  const creds = useMemo(
-    () => (credsQ.data?.credentials ?? []).filter((c) => c.owner_kind === owner.kind && c.owner_id === owner.id && c.kind === type),
-    [credsQ.data, owner, type],
-  )
+  // Bindable credentials of the source's kind: the project owner's reusable creds
+  // PLUS the current user's own personal creds (lent to this source without
+  // entering the org pool — others can run but not see/reuse them). A personal
+  // cred on an org project is flagged so the choice is explicit.
+  const meId = meQ.data?.id
+  const creds = useMemo(() => {
+    return (credsQ.data?.credentials ?? [])
+      .filter((c) => c.kind === type)
+      .filter((c) => (c.owner_kind === owner.kind && c.owner_id === owner.id) || (c.owner_kind === 'user' && c.owner_id === meId))
+      .map((c) => {
+        const personal = c.owner_kind === 'user' && c.owner_id === meId
+        const ownedByProject = c.owner_kind === owner.kind && c.owner_id === owner.id
+        return { ...c, label: personal && !ownedByProject ? `${c.name} (personal — private to you)` : c.name }
+      })
+  }, [credsQ.data, owner, type, meId])
   const effectiveName = nameTouched ? name : deriveName(location)
 
   async function submit() {
@@ -116,7 +128,7 @@ export function AddSourceDialog({
           <Field label="Credential" hint={creds.length === 0 ? 'None needed for public repos. Add one under Credentials for private sources.' : 'Reused across sources with the same owner.'}>
             <Select value={credId} onChange={(e) => setCredId(e.target.value)} disabled={creds.length === 0}>
               <option value="">{type === 'git' ? 'Public — no credential' : 'None'}</option>
-              {creds.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+              {creds.map((c) => <option key={c.id} value={c.id}>{c.label}</option>)}
             </Select>
           </Field>
 

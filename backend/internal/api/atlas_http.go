@@ -174,10 +174,10 @@ func (s *Server) CreateAtlasSource(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	// A bound credential must belong to the project's owner — no borrowing another
-	// owner's token across scopes.
+	// A bound credential must belong to the project's owner OR to the acting user
+	// (their personal token, lent to this source without entering the org pool).
 	if req.CredID != nil {
-		if ae := s.atlasCredOwnedBy(r.Context(), *req.CredID, ownerKind, ownerID); ae != nil {
+		if ae := s.atlasCredBindable(r.Context(), *req.CredID, ownerKind, ownerID, u.ID); ae != nil {
 			writeError(w, ae.Status, ae.Code, ae.Message)
 			return
 		}
@@ -238,7 +238,11 @@ func (s *Server) PatchAtlasSource(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if req.CredID != nil {
-		if ae := s.atlasCredOwnedBy(r.Context(), *req.CredID, ownerKind, ownerID); ae != nil {
+		u, ok := requireUser(w, r)
+		if !ok {
+			return
+		}
+		if ae := s.atlasCredBindable(r.Context(), *req.CredID, ownerKind, ownerID, u.ID); ae != nil {
 			writeError(w, ae.Status, ae.Code, ae.Message)
 			return
 		}
@@ -544,18 +548,26 @@ func (s *Server) atlasRunProject(ctx context.Context, runID int64) (int64, error
 	return projectID, err
 }
 
-// atlasCredOwnedBy verifies a credential exists and is owned by the given owner
-// scope (so a project may only bind its own owner's credentials).
-func (s *Server) atlasCredOwnedBy(ctx context.Context, credID int64, ownerKind string, ownerID int64) *apiErr {
+// atlasCredBindable verifies a credential may be bound to a source in a project
+// owned by (projKind, projID). It's allowed when the credential is owned by
+// EITHER the project's owner OR the acting user as a PERSONAL credential — so a
+// user can lend their own private token to an org project's source without
+// publishing it to the org's reusable credential pool. The privacy model holds:
+// other org admins can RUN the project (a run uses the token to clone) but never
+// see its value (write-only) and can't reuse it elsewhere (it's not in their
+// pool). The acting user is already gated to project management at the call site.
+func (s *Server) atlasCredBindable(ctx context.Context, credID int64, projKind string, projID, actingUserID int64) *apiErr {
 	var ok bool
 	err := s.DB.QueryRowContext(ctx,
-		`SELECT EXISTS(SELECT 1 FROM atlas_credentials WHERE id=$1 AND owner_kind=$2 AND owner_id=$3)`,
-		credID, ownerKind, ownerID).Scan(&ok)
+		`SELECT EXISTS(SELECT 1 FROM atlas_credentials WHERE id=$1 AND (
+			(owner_kind=$2 AND owner_id=$3) OR (owner_kind=$4 AND owner_id=$5)
+		))`,
+		credID, projKind, projID, accountUser, actingUserID).Scan(&ok)
 	if err != nil {
 		return &apiErr{http.StatusInternalServerError, "internal", "lookup credential failed"}
 	}
 	if !ok {
-		return &apiErr{http.StatusBadRequest, "invalid_credential", "cred_id must be a credential owned by this project's owner"}
+		return &apiErr{http.StatusBadRequest, "invalid_credential", "cred_id must be a credential owned by this project's owner or by you"}
 	}
 	return nil
 }
