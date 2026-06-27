@@ -484,6 +484,14 @@ func registerRoutes(srv *Server, mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/plans", srv.ListPlans)
 	mux.HandleFunc("GET /api/orgs/{id}/usage", srv.GetOrgUsage)
 	mux.HandleFunc("PATCH /api/admin/plan", srv.SetAccountPlan)
+
+	// Self-serve billing (billing.go) via Polar. Checkout + portal are
+	// session-authed (org variants gate on org-admin). The webhook is PUBLIC —
+	// MUST be on auth.IsPublicPath (/api/billing/webhook) so the session
+	// middleware skips it; it self-authenticates by Standard Webhooks signature.
+	mux.HandleFunc("POST /api/billing/checkout", srv.CreateCheckout)
+	mux.HandleFunc("POST /api/billing/portal", srv.CreateBillingPortal)
+	mux.HandleFunc("POST /api/billing/webhook", srv.PolarWebhook)
 	mux.HandleFunc("GET /api/orgs/{id}/members", srv.ListOrgMembers)
 	mux.HandleFunc("POST /api/orgs/{id}/members", srv.AddOrgMember)
 	mux.HandleFunc("PATCH /api/orgs/{id}/members/{user_id}", srv.PatchOrgMember)

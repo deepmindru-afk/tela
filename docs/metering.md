@@ -40,7 +40,7 @@ of truth** for limit values — tuning a tier is a data change, not a deploy.
 | `max_storage_bytes` | sum of live attachment bytes across owned spaces (NULL = unlimited) |
 | `max_members` | org seats (org plans only; NULL = unlimited) |
 | `listed` | `0` = internal/comp tier hidden from the public catalog but still admin-assignable |
-| `price_cents` / `price_period` | display pricing only — **there is no billing engine** |
+| `price_cents` / `price_period` | display pricing — drives the catalog/landing; the paid tiers are sold self-serve via Polar (see [billing](billing.md)) |
 
 `NULL` in any `max_*` means **unlimited**.
 
@@ -80,6 +80,11 @@ admin **Users** and **Organizations** tabs carry an inline tier selector
 (`PlanTierSelect`). The marketing prices live on the landing (`/pricing`).
 
 ## Operations
+
+> Paid upgrades happen **self-serve** through Polar checkout (see
+> [billing](billing.md)) — the webhook moves `plan_key` for you. `PATCH
+> /api/admin/plan` below is the operator override (comps, manual grants,
+> downgrades), not the customer path.
 
 ### Grant an account an unlimited tier
 

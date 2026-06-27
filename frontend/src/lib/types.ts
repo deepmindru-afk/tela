@@ -192,6 +192,13 @@ export interface Usage {
     members?: number
     llm_calls: number
   }
+  // Live Polar billing state; absent until the account has subscribed. Drives
+  // the "Manage subscription" button and the cancel/past-due notices.
+  subscription?: {
+    status: 'active' | 'canceled' | 'past_due'
+    period_end: string | null
+    cancel_at_period_end: boolean
+  }
 }
 
 export interface UpdateSpaceInput {

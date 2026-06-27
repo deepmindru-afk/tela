@@ -1,0 +1,271 @@
+// Package billing wraps Polar (polar.sh), the merchant-of-record we use for
+// self-serve subscriptions. It is a thin, DB-free HTTP client + webhook verifier;
+// the entitlement reconciliation (mapping a Polar event back onto an account's
+// plan_key) lives in internal/api/billing.go, which calls into here.
+//
+// Polar is the merchant of record: it handles VAT/sales tax, so order totals are
+// post-tax and we never touch card data. Auth is an Organization Access Token;
+// webhooks are signed per the Standard Webhooks spec (standardwebhooks.com).
+package billing
+
+import (
+	"bytes"
+	"context"
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/base64"
+	"encoding/json"
+	"fmt"
+	"io"
+	"net/http"
+	"os"
+	"strconv"
+	"strings"
+	"time"
+)
+
+// Config is the env-derived Polar configuration. The zero value is a disabled
+// client (Enabled()==false) so the billing routes register unconditionally and
+// 503 when Polar isn't set up — mirroring the rag/llm services.
+type Config struct {
+	Token         string            // Organization Access Token (polar_oat_…)
+	WebhookSecret string            // per-endpoint signing secret (raw dashboard string)
+	BaseURL       string            // https://api.polar.sh (prod) or https://sandbox-api.polar.sh
+	Products      map[string]string // planKey → Polar product UUID (purchasable tiers only)
+}
+
+// ConfigFromEnv reads TELA_POLAR_*. Products is parsed from a compact
+// "planKey:uuid,planKey:uuid" list (TELA_POLAR_PRODUCTS) so a tier is wired to a
+// Polar product without a code change. Unset token/secret → disabled.
+func ConfigFromEnv() Config {
+	base := strings.TrimRight(os.Getenv("TELA_POLAR_BASE_URL"), "/")
+	if base == "" {
+		base = "https://api.polar.sh"
+	}
+	return Config{
+		Token:         os.Getenv("TELA_POLAR_TOKEN"),
+		WebhookSecret: os.Getenv("TELA_POLAR_WEBHOOK_SECRET"),
+		BaseURL:       base,
+		Products:      parseProducts(os.Getenv("TELA_POLAR_PRODUCTS")),
+	}
+}
+
+// parseProducts turns "personal_plus:abc,org_team:def" into {personal_plus:abc,…}.
+// Whitespace-tolerant; malformed pairs are skipped (a typo disables that tier's
+// checkout, it can't mis-map to another product).
+func parseProducts(s string) map[string]string {
+	out := map[string]string{}
+	for _, pair := range strings.Split(s, ",") {
+		k, v, ok := strings.Cut(pair, ":")
+		k, v = strings.TrimSpace(k), strings.TrimSpace(v)
+		if ok && k != "" && v != "" {
+			out[k] = v
+		}
+	}
+	return out
+}
+
+// Client is a configured Polar API client. Never nil in the Server; gate every
+// use on Enabled().
+type Client struct {
+	cfg  Config
+	http *http.Client
+}
+
+func New(cfg Config) *Client {
+	return &Client{cfg: cfg, http: &http.Client{Timeout: 15 * time.Second}}
+}
+
+// Enabled reports whether Polar is configured enough to transact: both a token
+// (for the checkout/portal API) and a webhook secret (to trust reconciliation)
+// are required. Without either, billing handlers 503.
+func (c *Client) Enabled() bool {
+	return c.cfg.Token != "" && c.cfg.WebhookSecret != ""
+}
+
+// WebhookSecret exposes the signing secret to the handler's verify call.
+func (c *Client) WebhookSecret() string { return c.cfg.WebhookSecret }
+
+// ProductFor maps a plan key to its configured Polar product UUID. ok=false when
+// the tier has no product wired (free/enterprise/internal tiers) — i.e. not
+// purchasable self-serve.
+func (c *Client) ProductFor(planKey string) (string, bool) {
+	id, ok := c.cfg.Products[planKey]
+	return id, ok
+}
+
+// PlanFor is the reverse map (product UUID → plan key), used by the webhook
+// reconciler to decide which tier a subscription grants. ok=false for an unknown
+// product (e.g. a product created in Polar but never wired here) — the reconciler
+// then leaves the plan untouched rather than guessing.
+func (c *Client) PlanFor(productID string) (string, bool) {
+	for plan, id := range c.cfg.Products {
+		if id == productID {
+			return plan, true
+		}
+	}
+	return "", false
+}
+
+// ── checkout ────────────────────────────────────────────────────────────────
+
+// CheckoutInput is the subset of Polar's checkout fields we set.
+type CheckoutInput struct {
+	ProductID          string // the tier's Polar product UUID
+	SuccessURL         string // may contain the {CHECKOUT_ID} token
+	ExternalCustomerID string // "user:<id>" / "org:<id>" — our join key, echoed on every webhook
+	CustomerEmail      string // prefill (optional)
+	Seats              int    // per-seat quantity (org tiers); 0 = omit
+	Metadata           map[string]string
+}
+
+// CreateCheckout creates a hosted checkout session and returns its URL. The
+// caller redirects the browser there; entitlement is granted later by the
+// webhook, never from the redirect alone.
+func (c *Client) CreateCheckout(ctx context.Context, in CheckoutInput) (string, error) {
+	body := map[string]any{
+		"products":             []string{in.ProductID},
+		"external_customer_id": in.ExternalCustomerID,
+	}
+	if in.SuccessURL != "" {
+		body["success_url"] = in.SuccessURL
+	}
+	if in.CustomerEmail != "" {
+		body["customer_email"] = in.CustomerEmail
+	}
+	if in.Seats > 0 {
+		body["seats"] = in.Seats
+	}
+	if len(in.Metadata) > 0 {
+		body["metadata"] = in.Metadata
+	}
+	var out struct {
+		URL string `json:"url"`
+	}
+	if err := c.post(ctx, "/v1/checkouts/", body, &out); err != nil {
+		return "", err
+	}
+	if out.URL == "" {
+		return "", fmt.Errorf("polar: checkout created with no url")
+	}
+	return out.URL, nil
+}
+
+// CreateCustomerSession mints a short-lived customer-portal link for the account
+// keyed by externalCustomerID, so a logged-in user can manage/cancel/update
+// payment. The link is single-use-ish (token expires) — generate on demand.
+func (c *Client) CreateCustomerSession(ctx context.Context, externalCustomerID string) (string, error) {
+	var out struct {
+		CustomerPortalURL string `json:"customer_portal_url"`
+	}
+	if err := c.post(ctx, "/v1/customer-sessions/", map[string]any{
+		"external_customer_id": externalCustomerID,
+	}, &out); err != nil {
+		return "", err
+	}
+	if out.CustomerPortalURL == "" {
+		return "", fmt.Errorf("polar: customer session created with no portal url")
+	}
+	return out.CustomerPortalURL, nil
+}
+
+// post issues an authenticated JSON POST and decodes a 2xx body into out.
+func (c *Client) post(ctx context.Context, path string, body, out any) error {
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return err
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.cfg.BaseURL+path, bytes.NewReader(buf))
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Authorization", "Bearer "+c.cfg.Token)
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := c.http.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	respBody, _ := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
+	if resp.StatusCode/100 != 2 {
+		return fmt.Errorf("polar: %s → %d: %s", path, resp.StatusCode, strings.TrimSpace(string(respBody)))
+	}
+	if out == nil {
+		return nil
+	}
+	return json.Unmarshal(respBody, out)
+}
+
+// ── webhooks ────────────────────────────────────────────────────────────────
+
+// Event is the parsed subset of a Polar webhook we act on. Subscription and
+// order payloads share enough shape that one struct covers both.
+type Event struct {
+	Type string    `json:"type"`
+	Data EventData `json:"data"`
+}
+
+type EventData struct {
+	ID                string     `json:"id"`                 // subscription id (sub events) / order id (order events)
+	Status            string     `json:"status"`             // active|canceled|past_due|…
+	ProductID         string     `json:"product_id"`         // the purchased tier's product
+	CustomerID        string     `json:"customer_id"`        // Polar customer id
+	SubscriptionID    string     `json:"subscription_id"`    // set on order events
+	CurrentPeriodEnd  *time.Time `json:"current_period_end"` // paid-through (sub events)
+	CancelAtPeriodEnd bool       `json:"cancel_at_period_end"`
+	EndedAt           *time.Time `json:"ended_at"` // non-nil once a sub is revoked/ended
+	Customer          struct {
+		ExternalID string `json:"external_id"` // OUR id we set as external_customer_id at checkout
+	} `json:"customer"`
+	Metadata map[string]any `json:"metadata"`
+}
+
+// ParseEvent unmarshals a verified webhook body.
+func ParseEvent(body []byte) (Event, error) {
+	var e Event
+	err := json.Unmarshal(body, &e)
+	return e, err
+}
+
+// VerifyWebhook validates a Standard Webhooks signature over the raw body.
+//
+// Polar's dashboard secret is used as the raw HMAC key (NOT base64-decoded and
+// with NO whsec_ prefix to strip — that's the Svix convention and is wrong for
+// Polar; the polar-js SDK base64-encodes the utf-8 string then decodes it again,
+// netting the raw bytes). The signed content is `id.timestamp.body`; the
+// webhook-signature header is a space-separated list of `v1,<base64>` (multiple
+// during secret rotation) — a match on any is accepted.
+func VerifyWebhook(secret string, headers http.Header, body []byte) error {
+	id := headers.Get("webhook-id")
+	ts := headers.Get("webhook-timestamp")
+	sigHeader := headers.Get("webhook-signature")
+	if id == "" || ts == "" || sigHeader == "" {
+		return fmt.Errorf("billing: missing webhook signature headers")
+	}
+	// Replay guard: reject deliveries whose timestamp is more than 5 minutes from
+	// now (in either direction).
+	if n, err := strconv.ParseInt(ts, 10, 64); err == nil {
+		if d := time.Since(time.Unix(n, 0)); d > 5*time.Minute || d < -5*time.Minute {
+			return fmt.Errorf("billing: webhook timestamp outside tolerance")
+		}
+	} else {
+		return fmt.Errorf("billing: bad webhook timestamp")
+	}
+
+	mac := hmac.New(sha256.New, []byte(secret))
+	mac.Write([]byte(id + "." + ts + "."))
+	mac.Write(body)
+	want := base64.StdEncoding.EncodeToString(mac.Sum(nil))
+
+	for _, part := range strings.Fields(sigHeader) {
+		// Each token is "v1,<base64sig>"; tolerate a missing version prefix.
+		_, sig, ok := strings.Cut(part, ",")
+		if !ok {
+			sig = part
+		}
+		if hmac.Equal([]byte(sig), []byte(want)) {
+			return nil
+		}
+	}
+	return fmt.Errorf("billing: webhook signature mismatch")
+}

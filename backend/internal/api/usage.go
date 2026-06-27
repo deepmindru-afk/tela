@@ -8,6 +8,7 @@ package api
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"net/http"
 )
@@ -24,6 +25,16 @@ type usageOut struct {
 		Members      *int64 `json:"members,omitempty"`
 		LLMCalls     int64  `json:"llm_calls"` // managed AI calls this calendar month
 	} `json:"usage"`
+	// Subscription is the live Polar billing state, omitted when the account has
+	// never subscribed (status 'none'). Drives the "Manage subscription" button
+	// and the "cancels on <date>" notice in the UI.
+	Subscription *subscriptionOut `json:"subscription,omitempty"`
+}
+
+type subscriptionOut struct {
+	Status            string  `json:"status"`     // active|canceled|past_due
+	PeriodEnd         *string `json:"period_end"` // paid-through, when known
+	CancelAtPeriodEnd bool    `json:"cancel_at_period_end"`
 }
 
 // buildUsage assembles the plan + live usage snapshot for an account.
@@ -57,6 +68,27 @@ func (s *Server) buildUsage(ctx context.Context, acct account) (usageOut, error)
 		    AND period = to_char((now() AT TIME ZONE 'UTC'),'YYYY-MM')`,
 		acct.Kind, acct.ID).Scan(&out.Usage.LLMCalls); err != nil {
 		return usageOut{}, err
+	}
+
+	// Billing state from the account's row (subscription_* columns, migration
+	// 0053). Surfaced only when the account has a subscription on file.
+	var (
+		status    string
+		periodEnd sql.NullString
+		cancelInt int
+	)
+	if err = s.DB.QueryRowContext(ctx,
+		`SELECT subscription_status, subscription_period_end, subscription_cancel_at_period_end
+		   FROM `+acctTable(acct.Kind)+` WHERE id = $1`, acct.ID).
+		Scan(&status, &periodEnd, &cancelInt); err != nil {
+		return usageOut{}, err
+	}
+	if status != "none" && status != "" {
+		sub := &subscriptionOut{Status: status, CancelAtPeriodEnd: cancelInt == 1}
+		if periodEnd.Valid {
+			sub.PeriodEnd = &periodEnd.String
+		}
+		out.Subscription = sub
 	}
 	return out, nil
 }

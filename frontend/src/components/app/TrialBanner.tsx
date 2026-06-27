@@ -6,8 +6,8 @@ import { localDateFromSqlite } from '../../lib/relativeTime'
 // App-wide notice for a trial in its final stretch. The backend only sends
 // `trial` during the notify window (last 7 days + the 7-day grace), so this
 // renders exactly when it's actionable — no client-side date math to decide
-// visibility. Self-serve upgrade isn't wired yet (Polar deferred), so the CTA
-// just points at Plan & Usage.
+// visibility. The CTA points at Plan & Usage, where self-serve checkout (Polar)
+// converts the trial to a paid subscription.
 export function TrialBanner() {
   const me = useMe()
   const trial = me.data?.trial

@@ -70,6 +70,13 @@ services:
       TELA_IMAGE_GEN_URL:    ${TELA_IMAGE_GEN_URL:-}
       TELA_IMAGE_GEN_MODEL:  ${TELA_IMAGE_GEN_MODEL:-}
       TELA_IMAGE_GEN_KEY:    ${TELA_IMAGE_GEN_KEY:-}
+      # Self-serve billing (Polar, internal/billing). Unset TOKEN/SECRET → billing
+      # is dark (checkout/portal 503; plans stay operator-assigned). PRODUCTS maps
+      # tela plan keys to Polar product UUIDs: "personal_plus:<uuid>,org_team:<uuid>".
+      TELA_POLAR_TOKEN:          ${TELA_POLAR_TOKEN:-}
+      TELA_POLAR_WEBHOOK_SECRET: ${TELA_POLAR_WEBHOOK_SECRET:-}
+      TELA_POLAR_BASE_URL:       ${TELA_POLAR_BASE_URL:-}
+      TELA_POLAR_PRODUCTS:       ${TELA_POLAR_PRODUCTS:-}
       # MCP OAuth (Phase 5). Unset → /api/mcp stays PAT-only and OAuth is dark
       # (Protected Resource Metadata 404s). Set TELA_WORKOS_ISSUER to enable the
       # Claude.ai/ChatGPT Connect flow via WorkOS AuthKit. See .env.example.

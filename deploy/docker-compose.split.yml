@@ -75,6 +75,12 @@ services:
       TELA_IMAGE_GEN_URL:    ${TELA_IMAGE_GEN_URL:-}
       TELA_IMAGE_GEN_MODEL:  ${TELA_IMAGE_GEN_MODEL:-}
       TELA_IMAGE_GEN_KEY:    ${TELA_IMAGE_GEN_KEY:-}
+      # Self-serve billing (Polar, internal/billing). Unset TOKEN/SECRET → dark.
+      # PRODUCTS maps plan keys → Polar product UUIDs ("personal_plus:<uuid>,…").
+      TELA_POLAR_TOKEN:          ${TELA_POLAR_TOKEN:-}
+      TELA_POLAR_WEBHOOK_SECRET: ${TELA_POLAR_WEBHOOK_SECRET:-}
+      TELA_POLAR_BASE_URL:       ${TELA_POLAR_BASE_URL:-}
+      TELA_POLAR_PRODUCTS:       ${TELA_POLAR_PRODUCTS:-}
       TELA_WORKOS_ISSUER:    ${TELA_WORKOS_ISSUER:-}
       TELA_MCP_RESOURCE:     ${TELA_MCP_RESOURCE:-}
       WORKOS_API_KEY:        ${WORKOS_API_KEY:-}

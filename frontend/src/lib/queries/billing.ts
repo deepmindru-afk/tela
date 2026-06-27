@@ -45,6 +45,37 @@ export function usePlans() {
   })
 }
 
+// POST /api/billing/checkout — start a Polar checkout for a tier and hand the
+// browser to the hosted URL. org_id omitted = the caller's personal account.
+// Entitlement is granted later by the webhook, not this redirect.
+export function useCheckout() {
+  return useMutation({
+    mutationFn: (input: { plan_key: string; org_id?: number }) =>
+      api<{ url: string }>('/api/billing/checkout', {
+        method: 'POST',
+        body: JSON.stringify(input),
+      }),
+    onSuccess: ({ url }) => {
+      window.location.href = url
+    },
+  })
+}
+
+// POST /api/billing/portal — open the Polar customer portal to manage / cancel /
+// update payment. org_id omitted = personal account.
+export function useBillingPortal() {
+  return useMutation({
+    mutationFn: (input: { org_id?: number }) =>
+      api<{ url: string }>('/api/billing/portal', {
+        method: 'POST',
+        body: JSON.stringify(input),
+      }),
+    onSuccess: ({ url }) => {
+      window.location.href = url
+    },
+  })
+}
+
 export interface SetPlanInput {
   account_kind: 'user' | 'org'
   account_id: number

@@ -8,6 +8,7 @@ import (
 
 	"github.com/zcag/tela/backend/internal/agreement"
 	"github.com/zcag/tela/backend/internal/auth"
+	"github.com/zcag/tela/backend/internal/billing"
 	"github.com/zcag/tela/backend/internal/llm"
 	"github.com/zcag/tela/backend/internal/mailer"
 	"github.com/zcag/tela/backend/internal/rag"
@@ -125,6 +126,12 @@ type Server struct {
 	// page sets.
 	seedWelcome bool
 
+	// billing is the Polar client for self-serve subscriptions (checkout, the
+	// customer portal, webhook verification). Never nil — built from env in New();
+	// disabled (handlers 503) when TELA_POLAR_TOKEN/SECRET are unset, mirroring
+	// rag/llm. The webhook reconciler (billing.go) maps Polar events onto plan_key.
+	billing *billing.Client
+
 	// askJobs holds detached ask-generation jobs so a streamed answer survives a
 	// dropped connection (backgrounded mobile Safari): the LLM runs in a goroutine
 	// appending to a replayable event log, the SSE handler tails it, and a
@@ -165,6 +172,7 @@ func New(db *sql.DB) *Server {
 		oauth:              loadMCPOAuth(context.Background()),
 		sso:                loadSSOProviders(context.Background()),
 		seedWelcome:        os.Getenv("TELA_DISABLE_WELCOME_SEED") == "",
+		billing:            billing.New(billing.ConfigFromEnv()),
 		askJobs:            newAskStore(),
 	}
 	// AI usage metering: capture token estimates at the service chokepoints so

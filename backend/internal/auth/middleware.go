@@ -257,6 +257,14 @@ func IsPublicPath(p string) bool {
 	if p == "/api/host-context" {
 		return true
 	}
+	// Polar billing webhook (api/billing.go). Polar → us with no session; the
+	// handler self-authenticates by verifying the Standard Webhooks signature
+	// against the configured secret. Only the webhook is public — checkout/portal
+	// stay session-authed. Exact match, not a prefix, so nothing else under
+	// /api/billing/ is exposed by widening this later.
+	if p == "/api/billing/webhook" {
+		return true
+	}
 	// Cloud control plane — managed services (RAG embed proxy, entitlements)
 	// that a connected self-hoster's instance calls over HTTP. Bypasses
 	// Middleware because the cloud handlers self-authenticate the bearer PAT via

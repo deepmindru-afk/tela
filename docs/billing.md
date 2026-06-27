@@ -1,0 +1,145 @@
+# Billing (self-serve subscriptions)
+
+tela sells its paid tiers self-serve through **[Polar](https://polar.sh)**, a
+merchant-of-record billing platform (it handles VAT/sales tax and card data; we
+never touch either). This doc is the design + operations for that integration.
+It sits on top of [metering](metering.md), which owns the tiers themselves and
+enforces their limits — billing only decides **which tier an account is on** by
+moving `plan_key`.
+
+> Billing ships **dark**. With `TELA_POLAR_TOKEN` / `TELA_POLAR_WEBHOOK_SECRET`
+> unset, checkout + portal 503 and plans stay operator-assigned
+> (`PATCH /api/admin/plan`). Everything below activates only when Polar is wired.
+
+## Where the code lives
+
+- `backend/internal/billing/polar.go` — a thin, DB-free Polar API client +
+  Standard Webhooks signature verifier. `ConfigFromEnv()`, `Enabled()`,
+  `CreateCheckout`, `CreateCustomerSession`, `VerifyWebhook`, `ParseEvent`. Unit
+  tests in `polar_test.go`.
+- `backend/internal/api/billing.go` — the HTTP handlers + the webhook
+  reconciler (`reconcileBilling`) that maps a Polar event onto an account's
+  `plan_key` + billing state. Tests in `billing_test.go`.
+- `backend/internal/db/migrations/0053_billing.sql` — billing columns on
+  `users`/`orgs` + the `polar_webhook_events` dedup table.
+- Frontend: `frontend/src/lib/queries/billing.ts` (`useCheckout`,
+  `useBillingPortal`) + the upgrade/manage controls in
+  `frontend/src/components/app/SettingsBillingTab.tsx`.
+
+## Model
+
+A subscription attaches to the same **account** metering charges — a `user` or
+an `org` (see [metering](metering.md#model)). Both tables carry symmetric
+billing state (migration `0053`):
+
+| column | meaning |
+|---|---|
+| `polar_customer_id` | Polar Customer id (stable per account; set on first checkout) |
+| `polar_subscription_id` | current subscription id (NULL once revoked) |
+| `subscription_status` | `none` \| `active` \| `canceled` \| `past_due` |
+| `subscription_period_end` | current paid-through (UTC `YYYY-MM-DD HH:MM:SS`) |
+| `subscription_cancel_at_period_end` | `1` = cancels at `period_end` |
+
+**Entitlement is `plan_key`, not these columns.** The reconciler sets `plan_key`
+to the purchased tier and the existing limit enforcement (`limits.go`) is
+unchanged. The billing columns are bookkeeping for the UI ("Manage subscription",
+"cancels on X") and the portal.
+
+The link between a Polar customer and a tela account is the **external customer
+id**: we set `external_customer_id = "user:<id>"` / `"org:<id>"` at checkout, and
+Polar echoes it on every webhook as `data.customer.external_id`. (We also stamp
+`account_kind`/`account_id` into checkout metadata as a fallback resolver.)
+
+## Plan ↔ product mapping
+
+Polar products are created in the Polar dashboard; tela references them by UUID.
+`TELA_POLAR_PRODUCTS` maps tela plan keys to those UUIDs:
+
+```
+TELA_POLAR_PRODUCTS=personal_plus:<product-uuid>,org_team:<product-uuid>
+```
+
+Only mapped tiers are purchasable self-serve. Free tiers and `org_enterprise`
+(custom-priced) are intentionally unmapped — checkout for them 400s
+`plan_not_purchasable`. The map is read both ways: forward (`ProductFor`, at
+checkout) and reverse (`PlanFor`, in reconciliation).
+
+## Flows
+
+### Checkout — `POST /api/billing/checkout`
+
+Session-authed. Body `{plan_key, org_id?}` (omit `org_id` for the personal
+account; an org upgrade requires the caller be that org's admin). Validates the
+tier exists, matches the account kind, and has a product, then creates a Polar
+checkout and returns its hosted `url`. Org checkouts seed the seat quantity from
+the current member count. The frontend redirects the browser to `url`.
+
+Entitlement is **not** granted from the redirect — the user can close the tab.
+It's granted by the webhook below.
+
+### Manage — `POST /api/billing/portal`
+
+Session-authed (org variant = org admin). Returns a short-lived Polar
+**customer-portal** URL where the account holder can change/cancel/update payment.
+400s `no_subscription` if the account has no `polar_customer_id` yet.
+
+### Webhook — `POST /api/billing/webhook`
+
+**Public** (on `auth.IsPublicPath`) — Polar → us with no session. Self-authenticates
+by verifying the Standard Webhooks signature against `TELA_POLAR_WEBHOOK_SECRET`,
+then reconciles. Idempotent: each delivery's `webhook-id` is recorded in
+`polar_webhook_events` and a redelivery is acknowledged without re-applying.
+
+Reconciliation (`reconcileBilling`), by event `type`:
+
+| event | effect |
+|---|---|
+| `subscription.created` / `.active` / `.updated` | when `status` is `active`/`trialing`: set `plan_key` to the mapped tier, store sub/customer/period/cancel state, and (for a user) clear the trial. Other statuses (`past_due`) update state but keep the plan. |
+| `subscription.canceled` | cancellation **scheduled** — flag `cancel_at_period_end=1`, keep the plan and access. UI shows "cancels on `<period_end>`". |
+| `subscription.revoked` | period actually **ended** — downgrade `plan_key` to the account-kind free tier, clear sub state. |
+| `order.paid` | renewal/first payment — ensure `status='active'` for an account that already has a subscription. |
+
+The **canceled vs revoked** distinction is load-bearing: `canceled` means "will
+end later" (keep access), `revoked` means "ended now" (downgrade). Gating the
+downgrade on `revoked` is what keeps a user paid through the period they bought.
+
+Unresolvable or out-of-scope events are a logged no-op, never an error — only a
+genuine DB failure returns 500 (so Polar redelivers).
+
+## Going live — operator checklist
+
+1. **Products.** In the Polar dashboard create a product+price for each paid
+   tier (Plus `$8/mo`, Team `$6/seat/mo`). Note each product UUID. Keep numbers
+   in sync with the `plans` table (the source of truth — see
+   [metering](metering.md)).
+2. **Token.** Create an Organization Access Token with scopes `checkouts:write`,
+   `customer_sessions:write`, `products:read`, `subscriptions:read`,
+   `orders:read` → `TELA_POLAR_TOKEN`.
+3. **Webhook.** Add an endpoint → `<PUBLIC_BASE_URL>/api/billing/webhook`,
+   format **Raw**, subscribing to the `subscription.*` and `order.paid` events.
+   Copy its signing secret **verbatim** → `TELA_POLAR_WEBHOOK_SECRET`.
+4. **Map** plan keys → product UUIDs in `TELA_POLAR_PRODUCTS`.
+5. Redeploy the backend. Verify `Enabled()` by hitting the upgrade button in
+   Settings → Plan & Usage.
+
+Test the whole loop against the **sandbox** first:
+`TELA_POLAR_BASE_URL=https://sandbox-api.polar.sh` with a sandbox token, secret,
+and product UUIDs (sandbox is a fully separate environment; card `4242…`).
+
+## Gotchas
+
+- **Webhook secret encoding.** Polar's dashboard secret is the **raw HMAC key**
+  — do *not* base64-decode it and there is *no* `whsec_` prefix to strip (that's
+  the Svix convention; Polar's SDK nets the raw UTF-8 bytes). `VerifyWebhook`
+  uses `[]byte(secret)` directly. This is the #1 first-timer failure.
+- **Raw body.** The signature covers `id.timestamp.body` over the *exact* bytes —
+  the handler verifies before any JSON re-marshal.
+- **Redelivery.** Polar redelivers on any non-2xx/slow response and can duplicate
+  or reorder events; reconciliation is idempotent and deduped on `webhook-id`.
+- **Sandbox isolation.** Separate token, secret, product UUIDs, and dashboard
+  from prod — everything routes through env so it's a one-config switch.
+- **Seats.** Org checkout seeds seats from the member count at purchase time;
+  syncing seats on later member add/remove is a follow-up (not yet wired).
+- **Rotating `TELA_POLAR_WEBHOOK_SECRET`** invalidates in-flight signatures; the
+  verifier accepts any signature in the (space-separated) header list, which
+  covers Polar's own rotation window.

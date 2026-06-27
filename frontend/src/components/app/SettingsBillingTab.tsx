@@ -1,13 +1,23 @@
 import { Check, HardDrive, Layers, Sparkles, Users } from 'lucide-react'
 import { useMe } from '../../lib/queries/auth'
 import { useOrgs } from '../../lib/queries/orgs'
-import { useMyUsage, useOrgUsage, usePlans } from '../../lib/queries/billing'
+import {
+  useBillingPortal,
+  useCheckout,
+  useMyUsage,
+  useOrgUsage,
+  usePlans,
+} from '../../lib/queries/billing'
 import type { Plan, Usage } from '../../lib/types'
+import { ApiError } from '../../lib/api'
 import { formatBytes } from '../../lib/format'
+import { localDateFromSqlite } from '../../lib/relativeTime'
 import { PlanTierSelect } from './PlanTierSelect'
 import { Badge } from '../ui/badge'
+import { Button } from '../ui/button'
 import { Card } from '../ui/card'
 import { Progress } from '../ui/progress'
+import { toast } from '../ui/toast'
 
 // SettingsBillingTab — "Plan & Usage". Shows the caller's personal-account tier
 // and live usage, the same for every org they belong to, and the full tier
@@ -70,7 +80,84 @@ export function Metric({ icon, label, used, max, format }: MetricProps) {
   )
 }
 
-// One account's plan + usage. account identifies who to re-plan (admin only).
+// Self-serve billing controls for one account: upgrade (Polar checkout) when
+// unsubscribed, or manage/cancel (customer portal) once subscribed. Rendered for
+// the account's own controller (the user for their personal account; an org
+// admin for an org) — the backend re-checks the same authority.
+function BillingActions({ usage, plans }: { usage: Usage; plans: Plan[] }) {
+  const checkout = useCheckout()
+  const portal = useBillingPortal()
+  const orgId = usage.account_kind === 'org' ? usage.account_id : undefined
+  const sub = usage.subscription
+  const busy = checkout.isPending || portal.isPending
+
+  function onError(e: unknown) {
+    toast({
+      title: 'Billing',
+      description: e instanceof ApiError ? e.message : 'Something went wrong',
+      variant: 'destructive',
+    })
+  }
+
+  // Subscribed → manage it, with a status line.
+  if (sub) {
+    return (
+      <div className="flex flex-col gap-[var(--space-2)] border-t border-[var(--border-subtle)] pt-[var(--space-3)]">
+        {sub.cancel_at_period_end && sub.period_end ? (
+          <p className="m-0 text-[length:var(--text-xs)] text-[var(--text-muted)]">
+            Cancels on {localDateFromSqlite(sub.period_end)} — access continues until then.
+          </p>
+        ) : sub.status === 'past_due' ? (
+          <p className="m-0 text-[length:var(--text-xs)] text-[var(--danger)]">
+            Payment past due — update your card to keep this plan.
+          </p>
+        ) : sub.period_end ? (
+          <p className="m-0 text-[length:var(--text-xs)] text-[var(--text-muted)]">
+            Renews on {localDateFromSqlite(sub.period_end)}.
+          </p>
+        ) : null}
+        <Button
+          variant="secondary"
+          size="sm"
+          className="self-start"
+          disabled={busy}
+          onClick={() => portal.mutate({ org_id: orgId }, { onError })}
+        >
+          Manage subscription
+        </Button>
+      </div>
+    )
+  }
+
+  // Unsubscribed → offer the purchasable (paid, listed) tiers for this account
+  // kind. Includes a trial tier so a trial converts to a real subscription.
+  const targets = plans.filter(
+    (p) =>
+      p.account_kind === usage.account_kind &&
+      p.listed &&
+      p.price_cents != null &&
+      p.price_cents > 0,
+  )
+  if (targets.length === 0) return null
+  return (
+    <div className="flex flex-wrap items-center gap-[var(--space-2)] border-t border-[var(--border-subtle)] pt-[var(--space-3)]">
+      {targets.map((p) => (
+        <Button
+          key={p.key}
+          variant="primary"
+          size="sm"
+          disabled={busy}
+          onClick={() => checkout.mutate({ plan_key: p.key, org_id: orgId }, { onError })}
+        >
+          Upgrade to {p.name}
+        </Button>
+      ))}
+    </div>
+  )
+}
+
+// One account's plan + usage. account identifies who to re-plan (admin only);
+// canManage gates the self-serve billing controls (plans must be loaded too).
 function UsageCard({
   title,
   subtitle,
@@ -78,6 +165,8 @@ function UsageCard({
   isPending,
   isError,
   account,
+  plans,
+  canManage,
 }: {
   title: string
   subtitle?: string
@@ -85,6 +174,8 @@ function UsageCard({
   isPending: boolean
   isError: boolean
   account?: { kind: 'user' | 'org'; id: number } | null
+  plans?: Plan[]
+  canManage?: boolean
 }) {
   return (
     <Card className="flex flex-col gap-[var(--space-4)] p-[var(--space-5)]">
@@ -141,6 +232,10 @@ function UsageCard({
           />
         </div>
       )}
+
+      {canManage && usage && plans ? (
+        <BillingActions usage={usage} plans={plans} />
+      ) : null}
 
       {account && usage ? (
         <div className="flex items-center gap-[var(--space-2)] border-t border-[var(--border-subtle)] pt-[var(--space-3)]">
@@ -263,6 +358,8 @@ export function SettingsBillingTab() {
         isPending={myUsage.isPending}
         isError={myUsage.isError}
         account={isAdmin && me.data ? { kind: 'user', id: me.data.id } : null}
+        plans={plans.data}
+        canManage
       />
 
       {myOrgs.length > 0 ? (
@@ -272,7 +369,14 @@ export function SettingsBillingTab() {
           </h3>
           <div className="flex flex-col gap-[var(--space-3)]">
             {myOrgs.map((o) => (
-              <OrgUsageCard key={o.id} orgId={o.id} name={o.name} isAdmin={isAdmin} />
+              <OrgUsageCard
+                key={o.id}
+                orgId={o.id}
+                name={o.name}
+                isAdmin={isAdmin}
+                canManage={o.my_role === 'admin'}
+                plans={plans.data}
+              />
             ))}
           </div>
         </div>
@@ -329,10 +433,14 @@ function OrgUsageCard({
   orgId,
   name,
   isAdmin,
+  canManage,
+  plans,
 }: {
   orgId: number
   name: string
   isAdmin: boolean
+  canManage: boolean
+  plans: Plan[] | undefined
 }) {
   const usage = useOrgUsage(orgId)
   return (
@@ -343,6 +451,8 @@ function OrgUsageCard({
       isPending={usage.isPending}
       isError={usage.isError}
       account={isAdmin ? { kind: 'org', id: orgId } : null}
+      plans={plans}
+      canManage={canManage}
     />
   )
 }
