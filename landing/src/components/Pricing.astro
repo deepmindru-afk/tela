@@ -15,11 +15,14 @@ const includes = [
   'Plain markdown you own — export anytime',
 ];
 
-// action drives the CTA wiring (no self-serve billing yet):
-//  'app'     → straight to the hosted instance (free signup)
-//  'trial'   → opens the early-access dialog (start free now, upgrade by email)
+// action drives the CTA wiring (self-serve billing is live via Polar):
+//  'app'     → free signup on the hosted instance (the two Free tiers)
+//  'buy'     → the in-app upgrade/checkout page (login-gated; bounces to login
+//              then lands on Plan & Usage where checkout is one click)
 //  'contact' → mailto for sales / enterprise
 const CONTACT_EMAIL = 'tela@cagdas.io';
+const REGISTER_URL = 'https://tela.cagdas.io/register';
+const UPGRADE_URL = 'https://tela.cagdas.io/settings?tab=billing';
 
 const personal = [
   {
@@ -29,7 +32,7 @@ const personal = [
     blurb: 'Personal notes and trying tela.',
     specs: ['1 Atlas source', '3 spaces', '100 pages / space', '100 MB storage', '50 AI answers / month'],
     cta: 'Get started',
-    href: 'https://tela.cagdas.io/register',
+    href: REGISTER_URL,
     action: 'app',
     featured: false,
   },
@@ -39,9 +42,9 @@ const personal = [
     period: 'per month',
     blurb: 'For power users who live in their wiki.',
     specs: ['5 Atlas sources', '25 spaces', '1,000 pages / space', '5 GB storage', '1,000 AI answers / month'],
-    cta: 'Get started',
-    href: 'https://tela.cagdas.io/register',
-    action: 'trial',
+    cta: 'Get Plus',
+    href: UPGRADE_URL,
+    action: 'buy',
     featured: false,
   },
 ];
@@ -54,7 +57,7 @@ const org = [
     blurb: 'A small team getting started.',
     specs: ['1 Atlas source', '10 spaces', '500 pages / space', '1 GB storage', '5 members', '50 AI answers / month'],
     cta: 'Get started',
-    href: 'https://tela.cagdas.io/register',
+    href: REGISTER_URL,
     action: 'app',
     featured: false,
   },
@@ -64,9 +67,9 @@ const org = [
     period: 'per member / month',
     blurb: 'A growing team that runs on its docs.',
     specs: ['20 Atlas sources', '100 spaces', 'Unlimited pages', '50 GB storage', '50 members', '2,000 AI answers / month'],
-    cta: 'Get started',
-    href: 'https://tela.cagdas.io/register',
-    action: 'trial',
+    cta: 'Get Team',
+    href: UPGRADE_URL,
+    action: 'buy',
     featured: true,
   },
   {
@@ -90,10 +93,6 @@ const org = [
       A personal account and every organization carry their own tier.
       <strong>Every plan includes the whole product — Atlas, semantic search, ask-your-docs, and the agent connector</strong>.
       Tiers only change the limits: spaces, storage, how many AI answers a month, and how much Atlas generation you get.
-    </p>
-    <p class="trial-note">
-      <span class="trial-dot"></span>
-      Every new account starts on a <strong>30-day Plus trial</strong> — full AI limits, no card.
     </p>
   </div>
 
@@ -128,7 +127,6 @@ const org = [
               class={p.featured ? 'price-cta price-cta--primary' : 'price-cta'}
               target="_blank"
               rel="noopener"
-              data-plan-cta={p.action === 'trial' ? p.name : undefined}
             >{p.cta}</a>
           )}
         </article>
@@ -158,13 +156,16 @@ const org = [
               class={p.featured ? 'price-cta price-cta--primary' : 'price-cta'}
               target="_blank"
               rel="noopener"
-              data-plan-cta={p.action === 'trial' ? p.name : undefined}
             >{p.cta}</a>
           )}
         </article>
       ))}
     </div>
   </div>
+
+  <p class="trial-foot reveal-up">
+    No card to start — every new account gets a 30-day Plus trial, then settles onto your plan.
+  </p>
 
   <div class="includes reveal-up">
     <p class="includes-label">Every plan includes</p>
@@ -191,75 +192,16 @@ const org = [
     </a>
   </div>
 
-  {/* Paid-plan CTA dialog — there's no self-serve checkout yet, so a paid CTA
-      explains the honest path (start free now, upgrade by email) instead of
-      silently dropping you into a free signup. Progressive enhancement: the
-      CTAs are real <a href> links to the app, intercepted only when <dialog>
-      is supported — JS off / unsupported still reaches the hosted instance. */}
-  <dialog id="trial-dialog" class="trial-dialog" aria-labelledby="trial-dialog-title">
-    <div class="trial-dialog-inner">
-      <button type="button" class="trial-dialog-close" data-close aria-label="Close">
-        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
-      </button>
-      <p class="kicker"><span class="kicker-dot"></span><span data-plan-label>Plus</span> plan</p>
-      <h3 id="trial-dialog-title" class="trial-dialog-title">Start free, upgrade when you're ready</h3>
-      <p class="trial-dialog-body">
-        Self-serve billing isn't live during early access. Every new account starts on a
-        <strong>30-day Plus trial</strong> — full AI limits, no card — so you can get going right
-        now. When you're ready to move to a paid plan, drop us a line and we'll set it up.
-      </p>
-      <div class="trial-dialog-actions">
-        <a href="https://tela.cagdas.io/register" class="price-cta price-cta--primary" target="_blank" rel="noopener">Start free →</a>
-        <a href="mailto:tela@cagdas.io?subject=tela%20paid%20plan" class="price-cta">Email us</a>
-      </div>
-    </div>
-  </dialog>
 </section>
 
-<script is:inline>
-  (function () {
-    var dlg = document.getElementById('trial-dialog');
-    // No native <dialog> → leave the CTAs as plain links to the hosted instance.
-    if (!dlg || typeof dlg.showModal !== 'function') return;
-    var labels = dlg.querySelectorAll('[data-plan-label]');
-    document.querySelectorAll('[data-plan-cta]').forEach(function (cta) {
-      cta.addEventListener('click', function (e) {
-        e.preventDefault();
-        var name = cta.getAttribute('data-plan-cta') || 'Plus';
-        labels.forEach(function (el) { el.textContent = name; });
-        dlg.showModal();
-      });
-    });
-    dlg.querySelectorAll('[data-close]').forEach(function (el) {
-      el.addEventListener('click', function () { dlg.close(); });
-    });
-    // Click the backdrop (outside the inner card) to dismiss.
-    dlg.addEventListener('click', function (e) {
-      if (e.target === dlg) dlg.close();
-    });
-  })();
-</script>
-
 <style>
-  .trial-note {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.5rem;
-    margin-top: 1rem;
-    padding: 0.4rem 0.8rem 0.4rem 0.7rem;
-    border: 1px solid var(--pill-border);
-    border-radius: var(--radius-full);
-    background: var(--brand-wash);
-    font-size: var(--text-sm);
-    color: var(--fg-soft);
-  }
-  .trial-note strong { color: var(--fg); font-weight: 600; }
-  .trial-dot {
-    width: 6px; height: 6px;
-    border-radius: var(--radius-full);
-    background: var(--brand);
-    box-shadow: var(--glow-brand);
-    flex: none;
+  /* Trial reassurance, deliberately quiet fine-print under the tiers — the trial
+     is a perk, not the headline. Purchase (the plan CTAs) leads; this reassures. */
+  .trial-foot {
+    margin: 1.75rem 0 0;
+    text-align: center;
+    font-size: var(--text-xs);
+    color: var(--fg-faint);
   }
 
   /* Atlas flagship band — leads the plan ladder. Carries the section's one
@@ -427,74 +369,6 @@ const org = [
     color: var(--cta-fg);
   }
   .price-cta--primary:hover { background: var(--cta-bg-hover); }
-
-  /* Paid-plan dialog */
-  .trial-dialog {
-    /* Tailwind preflight zeroes dialog margin (kills UA centering) — re-center. */
-    position: fixed;
-    inset: 0;
-    margin: auto;
-    height: fit-content;
-    width: min(30rem, calc(100vw - 2 * var(--space-gutter)));
-    padding: 0;
-    border: 1px solid var(--border-strong);
-    border-radius: var(--radius-lg);
-    background: var(--surface);
-    color: var(--fg);
-    box-shadow: var(--shadow-pop);
-  }
-  .trial-dialog::backdrop {
-    background: var(--scrim);
-    backdrop-filter: blur(2px);
-  }
-  .trial-dialog-inner {
-    position: relative;
-    display: flex;
-    flex-direction: column;
-    gap: 0.85rem;
-    padding: 1.75rem;
-  }
-  .trial-dialog .kicker { margin: 0; }
-  .trial-dialog-title {
-    margin: 0;
-    font-family: var(--font-display);
-    font-size: var(--text-xl);
-    font-weight: 600;
-    letter-spacing: var(--tracking-tight);
-    color: var(--fg);
-  }
-  .trial-dialog-body {
-    margin: 0;
-    font-size: var(--text-sm);
-    line-height: var(--leading-normal);
-    color: var(--fg-soft);
-  }
-  .trial-dialog-body strong { color: var(--fg); font-weight: 600; }
-  .trial-dialog-actions {
-    display: flex;
-    gap: 0.75rem;
-    flex-wrap: wrap;
-    margin-top: 0.35rem;
-  }
-  .trial-dialog-actions .price-cta { margin-top: 0; }
-  .trial-dialog-close {
-    position: absolute;
-    top: 0.85rem;
-    right: 0.85rem;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 1.9rem;
-    height: 1.9rem;
-    padding: 0;
-    border: 1px solid transparent;
-    border-radius: var(--radius-md);
-    background: transparent;
-    color: var(--fg-faint);
-    cursor: pointer;
-    transition: color var(--dur) var(--ease-out), border-color var(--dur) var(--ease-out);
-  }
-  .trial-dialog-close:hover { color: var(--fg); border-color: var(--border-strong); }
 
   .includes {
     margin-top: 2.5rem;
