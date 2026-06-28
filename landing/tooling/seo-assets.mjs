@@ -1,6 +1,9 @@
-// Generates SEO image assets into public/: og-image.png (1200×630 social card),
-// apple-touch-icon.png (180), icon-192.png, icon-512.png. Rendered with the
-// Playwright chromium (brand colors inline; Geist via Google Fonts).
+// Generates SEO image assets: og-image.png (1200×630 social card), og-mcp.png
+// (page card for /mcp), apple-touch-icon.png (180), icon-192.png, icon-512.png
+// into public/, plus the GitHub repo social-preview (1280×640) into
+// ../docs/submission-assets/. Rendered with the Playwright chromium (brand
+// colors inline; Geist via Google Fonts). The canonical URL on every card comes
+// from one place below — re-run after a domain change so nothing drifts.
 import { chromium } from 'playwright-core';
 import { execSync } from 'node:child_process';
 let exe; try { exe = execSync('node -e "console.log(require(\'@playwright/test\').chromium.executablePath())"').toString().trim(); } catch {}
@@ -78,6 +81,10 @@ const OG_MCP_HTML = OG_HTML
   )
   .replace('<span class="url">telawiki.com</span>', '<span class="url">telawiki.com/mcp</span>');
 
+// GitHub repo social-preview card — same design as the home OG card, sized for
+// GitHub's 2:1 (1280×640) social slot. Lives with the directory-submission set.
+const GH_HTML = OG_HTML.replace(/1200px;height:630px/g, '1280px;height:640px');
+
 const icon = (s) => `<!doctype html><html><head><meta charset="utf-8"><style>
   *{margin:0;padding:0}html,body{width:${s}px;height:${s}px}
   .i{width:${s}px;height:${s}px;background:#4f46e5;overflow:hidden}
@@ -104,6 +111,16 @@ await p.waitForTimeout(400);
 await p.screenshot({ path: 'public/og-mcp.png', clip: { x: 0, y: 0, width: 1200, height: 630 } });
 await ctx.close();
 console.log('✓ og-mcp.png');
+
+// GitHub social-preview (1280×640) → ../docs/submission-assets/
+ctx = await browser.newContext({ viewport: { width: 1280, height: 640 }, deviceScaleFactor: 1 });
+p = await ctx.newPage();
+await p.setContent(GH_HTML, { waitUntil: 'networkidle' });
+await p.evaluate(async () => { if (document.fonts?.ready) await document.fonts.ready; });
+await p.waitForTimeout(400);
+await p.screenshot({ path: '../docs/submission-assets/github-social-1280x640.png', clip: { x: 0, y: 0, width: 1280, height: 640 } });
+await ctx.close();
+console.log('✓ github-social-1280x640.png');
 
 for (const [s, name] of [[180, 'apple-touch-icon.png'], [192, 'icon-192.png'], [512, 'icon-512.png']]) {
   ctx = await browser.newContext({ viewport: { width: s, height: s }, deviceScaleFactor: 1 });
