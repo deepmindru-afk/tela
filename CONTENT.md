@@ -104,7 +104,7 @@
 
 # Content Contract — tela  (LOCKED)
 
-One-page marketing landing page. Standalone, anchored sections. Hosted instance + product: https://tela.cagdas.io
+One-page marketing landing page. Standalone, anchored sections. Hosted instance + product: https://telawiki.com
 
 ---
 
@@ -114,7 +114,7 @@ One-page marketing landing page. Standalone, anchored sections. Hosted instance 
 - **Unique attributes (+ proof):**
   - **The wiki documents itself from your sources — and proves how complete it is.** Point **Atlas** at a git repo or a Jira project; it reads the source, plans a wiki structure, drafts cited markdown pages, and publishes them as ordinary tela pages — then measures those pages against a *deterministic spine* (the actual routes, CLI flags, env vars, DB models, entrypoints, and state it extracted from the source) and reports an objective **coverage score** with the specific gaps named (kind, name, `file:line`) and every citation resolved to `file:line`. It then probes the source for drift roughly every 15 minutes and regenerates on a schedule when it moves ahead. *Proof: the spine + coverage score + named gaps are how a run is judged; generated pages carry validated `file:line` citations and are tagged `generator=atlas`; `atlas_*` MCP tools exist. Two sources today (git + Jira); more coming.*
   - **Your agents search your docs by meaning, not just keywords.** tela chunks every page (heading-aware), embeds it, and serves **hybrid retrieval** — keyword (Postgres full-text) and vector similarity (pgvector) fused with reciprocal-rank fusion. Agents call `research` and `read_chunk` to pull the *right section*, with citations, instead of the whole document. *Proof: the RAG service is open (`internal/rag`); `research` is a live MCP tool.*
-  - **A real remote MCP server — usable inside Claude and ChatGPT.** Not a local CLI shim. `https://tela.cagdas.io/api/mcp` is a Streamable-HTTP MCP server with OAuth 2.1 sign-in (one click, no token to paste) and **39 scoped tools** that wrap the same API the UI uses — including knowledge-intelligence tools (`related_pages`, `suggest_links`, `find_overlaps`) that keep the wiki connected. Submitted to the Claude and ChatGPT connector directories. *Proof: the OAuth + tool surface is open (`internal/api/mcp*.go`); the connector signs you in with your tela account.*
+  - **A real remote MCP server — usable inside Claude and ChatGPT.** Not a local CLI shim. `https://telawiki.com/api/mcp` is a Streamable-HTTP MCP server with OAuth 2.1 sign-in (one click, no token to paste) and **39 scoped tools** that wrap the same API the UI uses — including knowledge-intelligence tools (`related_pages`, `suggest_links`, `find_overlaps`) that keep the wiki connected. Submitted to the Claude and ChatGPT connector directories. *Proof: the OAuth + tool surface is open (`internal/api/mcp*.go`); the connector signs you in with your tela account.*
   - **Markdown is canonical forever — under a block editor that feels like Notion.** `pages.body` is plain markdown text; there is no block table, no proprietary format. The editor is full block-editing — drag-to-reorder, slash menu, turn-into, callouts, tables, diagrams — and every block operation round-trips straight back to clean markdown. *Proof: "no block table" is an architectural rule; drag = a markdown line reorder; bulk import/export is first-class.*
   - **Secure and team-shaped out of the box.** Single sign-on (WorkOS), email-verified accounts (Argon2id), organizations and sub-team groups, per-space roles with hard invariants, and scoped API keys that are HMAC-stored, expiring, space-pinnable, and fully audited. *Proof: the access model is documented (`docs/access-model.md`) and the auth/key code is open.*
   - **Real multiplayer + comments that survive edits.** Live collaborative editing over Yjs, rebased onto the canonical markdown on save; comments anchor to a `{prefix, exact, suffix}` text window so they don't drift when the doc is reflowed. *Proof: collab transport in `lib/collab`; anchoring model in architecture.md.*
@@ -195,7 +195,7 @@ Read it as: **Atlas + Ask = tela's first-party intelligence** (both grounded-and
 - **Headline (H1):** `Docs that write themselves. An AI that already knows your project.`  (two-sentence; accent the two halves: "write themselves" and "already knows your project". Name the referent — "your project" (code + Jira), not a vague "them". The eyebrow carries "team wiki"; the subhead carries the proof. Avoid the clunkier "reasons over" framing.)
 - **Subhead:** `Point tela at your sources — a git repo, a Jira project — and Atlas writes a cited, coverage-checked wiki, then keeps it fresh as they change. Your agents search that wiki by meaning and read, write, and cite it from inside Claude and ChatGPT. Real-time editing for the humans; SSO, scoped access, and an audit trail for the team.`
 - **Signature / wow moment (described for the build):** A looping *one-loop* moment beside the hero. A source feeds in on the left — a git repo node (or a Jira project) — and the woven-grid threads light up and resolve left-to-right into a freshly written tela page: cited markdown lines with `file:line` citations and a small **coverage badge** (e.g. `coverage 92%`). Then a chat-style turn shows an agent in Claude/ChatGPT calling `research` over that very page and citing it back. It must read in under 5 seconds as *"the source becomes a covered wiki, and the AI reasons over it — one loop."* Real names (a repo URL, real tool names, a `tela_pat_…`/connector shape), no fake data. (Carved-out signature moment — hand to the `wow` skill; DESIGN.md owns the visual.)
-- **Primary CTA:** `Get started` → https://tela.cagdas.io (hosted, free to start).  **Secondary CTA:** `Add to Claude or ChatGPT` → the MCP/connect section (`#agents`).
+- **Primary CTA:** `Get started` → https://telawiki.com (hosted, free to start).  **Secondary CTA:** `Add to Claude or ChatGPT` → the MCP/connect section (`#agents`).
 - **Friction microcopy under CTA:** `Free to start · your markdown, exportable anytime · self-host if you'd rather.`
 - 5-second test: a stranger learns *what* (markdown team wiki) + *why it's different* (it writes itself from your sources and stays fresh, and your AI reasons over it from Claude/ChatGPT) in one glance.
 
@@ -243,7 +243,7 @@ Read it as: **Atlas + Ask = tela's first-party intelligence** (both grounded-and
 - **Headline (H2, question-led for AEO):** `What can an agent actually do with tela?`
 - **Answer-first block (40–60 words):** `Everything your team can. tela runs a remote MCP server with 39 scoped tools over the same API the UI uses: search by meaning, read pages and sections, create and update, move, comment, surface related pages, manage spaces. Connect it in Claude or ChatGPT with one OAuth sign-in — no token to paste — or point any MCP client at the same URL.`
 - **Show the connect flow (3 steps, real):**
-  1. In Claude or ChatGPT, add a connector → `https://tela.cagdas.io/api/mcp`
+  1. In Claude or ChatGPT, add a connector → `https://telawiki.com/api/mcp`
   2. Sign in with your tela account (OAuth 2.1 — PKCE, no token pasted)
   3. The agent now searches, reads, and writes your wiki — scoped to what your account can see.
   - Caption: `Submitted to the Claude and ChatGPT connector directories.`
@@ -252,7 +252,7 @@ Read it as: **Atlas + Ask = tela's first-party intelligence** (both grounded-and
   {
     "mcpServers": {
       "tela": {
-        "url": "https://tela.cagdas.io/api/mcp",
+        "url": "https://telawiki.com/api/mcp",
         "headers": { "Authorization": "Bearer tela_pat_..." }
       }
     }
@@ -356,7 +356,7 @@ Read it as: **Atlas + Ask = tela's first-party intelligence** (both grounded-and
 - **Headline (H2):** `Why trust it? Don't — read it and run it.`
 - **Three proof tiles (transparency, not testimonials):**
   - `Open code` — `Backend, frontend, and the MCP server are open. See exactly what runs.` → GitHub.
-  - `Live instance` — `tela.cagdas.io runs the same code. Use it before you commit.` → live link.
+  - `Live instance` — `telawiki.com runs the same code. Use it before you commit.` → live link.
   - `Connector you can add` — `A real MCP connector, submitted to the Claude and ChatGPT directories and versioned against the backend.` → `/mcp` docs.
 - **Honesty line:** `tela is at v0 and usable today. No fabricated logos, no "trusted by thousands" — just the code, a running instance, a connector you can add, and a spec you can read.`
 
@@ -376,15 +376,15 @@ Read it as: **Atlas + Ask = tela's first-party intelligence** (both grounded-and
 ### 11. Final CTA  — Tier 1  (close)
 - **Headline:** `Give your agents a wiki they can reason over.`
 - **Subhead:** `Start free on the hosted instance, then connect it in Claude or ChatGPT.`
-- **Primary CTA:** `Get started` → https://tela.cagdas.io.  **Secondary:** `Add to Claude or ChatGPT` → `#agents` / `/mcp`.
+- **Primary CTA:** `Get started` → https://telawiki.com.  **Secondary:** `Add to Claude or ChatGPT` → `#agents` / `/mcp`.
 - **Friction microcopy:** `Free to start · markdown you own · self-host whenever you want.`
 
 ### 12. Footer  — Tier 4  (junk drawer)
 - Wordmark + one-line descriptor: `tela — the team wiki that documents itself and your AI reasons over.`
-- Links: GitHub · MCP / connector · Docs · Live instance (tela.cagdas.io) · Privacy · License.
+- Links: GitHub · MCP / connector · Docs · Live instance (telawiki.com) · Privacy · License.
 - Optional, sparing: `tela — Latin for the woven cloth. A grid you build on.` (use once or not at all.)
 
-- **Primary CTA (one, repeated):** `Get started` → https://tela.cagdas.io · friction: `Free to start · markdown you own · self-host whenever you want.`
+- **Primary CTA (one, repeated):** `Get started` → https://telawiki.com · friction: `Free to start · markdown you own · self-host whenever you want.`
 - **Secondary CTA (repeated):** `Add to Claude or ChatGPT` → `#agents` / `/mcp`.
 
 ## SEO & accessibility

@@ -26,7 +26,7 @@ research reports that produced it are the source.
 
 **D7 (Auth / Connect button) — settled in shape, AS provider TBD.** See §7.
 The self-hostable artifact is **backend + frontend**; the polished MCP connector
-(OAuth/Connect button) runs on the **canonical hosted instance** (tela.cagdas.io).
+(OAuth/Connect button) runs on the **canonical hosted instance** (telawiki.com).
 So: **PAT-bearer is the universal baseline** every backend ships — it works for
 self-hosters and for the Messages API connector with zero OAuth. The **OAuth
 Authorization Server is a config layer enabled on the hosted instance**
@@ -316,7 +316,7 @@ embed, like the migration files). Treat as a focused phase, not day-one.
    forwards JSON-RPC to `/api/mcp` with the PAT). Keeps `npx tela-mcp` working
    for stdio-only hosts during deprecation. ~50 lines.
 2. Point everyone at the HTTP transport directly
-   (`claude mcp add --transport http tela https://tela.cagdas.io/api/mcp`); local
+   (`claude mcp add --transport http tela https://telawiki.com/api/mcp`); local
    Claude Code, Cursor, VS Code, etc. all speak HTTP now.
 3. Delete the 19-tool TS implementation + its unit/smoke/integration suites
    (the Go protocol test replaces the drift guard — §8).
@@ -328,7 +328,7 @@ Net: one MCP implementation (Go), one optional ~50-line transport shim.
 ## 7. Auth (D7)
 
 The self-hostable artifact is **backend + frontend**. The polished MCP connector
-runs on the **canonical hosted instance** (tela.cagdas.io). This resolves the
+runs on the **canonical hosted instance** (telawiki.com). This resolves the
 self-hostability tension: the OAuth Connect experience is the hosted instance's
 job, not a burden every self-hoster must carry. Two layers:
 
@@ -504,7 +504,7 @@ annotations/titles + pagination + **interactive widgets**. See §13.
 - ✅ Deleted the TS 18-tool implementation (`src/tools`, `src/resources`, `client.ts`, `slug.ts`, `version-check.ts`) + the unit/smoke suites + `semver`/`zod` deps
 - ✅ Rewrote `mcp/README.md` (HTTP-first; proxy for stdio-only) + updated `CLAUDE.md`
 - ✅ New live E2E (`test/proxy.live.test.ts`) — client→stdio-proxy→HTTP→backend roundtrip (tools/list, list_spaces, get_page structured content, resource read). Verified green against a local backend.
-- ✅ **Deployed** — `/api/mcp` is LIVE at `https://tela.cagdas.io/api/mcp` (commit cb823b1; verified 401-without-token, route mounted + bearer verifier gating)
+- ✅ **Deployed** — `/api/mcp` is LIVE at `https://telawiki.com/api/mcp` (commit cb823b1; verified 401-without-token, route mounted + bearer verifier gating)
 - ⬜ **Publish** `tela-mcp@0.7.0` to npm (`make release-mcp BUMP=minor`) — endpoint is live so the proxy works; the old v0.6.0 (REST tools) still works for existing users until they upgrade. *Pending explicit go — public/permanent action.*
 - ✅ Decision taken: keep the package (proxy) for stdio-only hosts; modern hosts use `--transport http`
 
@@ -531,7 +531,7 @@ self-hosters can stay PAT-only.
 - ✅ FE: `login.tsx` hard-redirects (`window.location`) for `/oauth/*` next paths (backend route, not SPA). Route + `IsPublicPath` + Caddy `/oauth/*` added.
 - ✅ Tested: missing eid → 400, no-session → `/login` bounce, authed+email → mocked complete → redirect (body carries sub=tela id + email).
 - ✅ Creds in hand (staging): issuer `pleasing-puzzle-31-staging.authkit.app`, api key, client id — saved to `~/Sync/.secrets/workos.env`; issuer/jwks confirmed against the AS discovery doc.
-- ⬜ **WorkOS dashboard (Cagdas):** Connect → Configuration → **Login URI** = `https://tela.cagdas.io/oauth/workos/login`; add **Resource Indicator** `https://tela.cagdas.io/api/mcp`; enable **DCR + CIMD**; register redirect URIs (claude.ai/claude.com/chatgpt).
+- ⬜ **WorkOS dashboard (Cagdas):** Connect → Configuration → **Login URI** = `https://telawiki.com/oauth/workos/login`; add **Resource Indicator** `https://telawiki.com/api/mcp`; enable **DCR + CIMD**; register redirect URIs (claude.ai/claude.com/chatgpt).
 - ⬜ Set the 4 env vars in prod `deploy/.env` + recreate → enable OAuth on prod.
 - ⬜ End-to-end: click "Connect" in Claude.ai; decode a real token to confirm claim keys / signing alg.
 
@@ -540,7 +540,7 @@ self-hosters can stay PAT-only.
 2. Note the **AuthKit domain** (`https://<…>.authkit.app`) → `TELA_WORKOS_ISSUER`.
 3. Connect → enable **MCP authorization**; turn on **DCR** + **CIMD**.
 4. Set **Standalone** mode, redirect to tela's login URL.
-5. Add **Resource Indicator** `https://tela.cagdas.io/api/mcp` (⚠️ without this, `aud` binding silently breaks).
+5. Add **Resource Indicator** `https://telawiki.com/api/mcp` (⚠️ without this, `aud` binding silently breaks).
 6. Register redirect URIs: `https://claude.ai/api/mcp/auth_callback`, `https://claude.com/api/mcp/auth_callback`, `https://chatgpt.com/connector_platform_oauth_redirect` (+ loopback for Claude Code).
 7. Grab the **API key** (`WORKOS_API_KEY`) + **client id** (`WORKOS_CLIENT_ID`) → hand to tela env.
 8. (Firewall) allow Anthropic egress `160.79.104.0/21` if applicable.

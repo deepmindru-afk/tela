@@ -2,7 +2,7 @@
 
 > ✅ **CLAUDE SUBMITTED — 2026-06-06.** Confirmation page received ("Thank you for indicating your interest in being included in the Anthropic MCP Directory"). No duplicate (verified first-time on Page 6). Edit the existing response (don't resubmit) via:
 > `https://docs.google.com/forms/u/0/d/e/1FAIpQLSeafJF2NDI7oYx1r8o0ycivCSVLNq92Mpc1FPxMKSw1CzDkqA/viewform?usp=form_confirm&edit2=2_ABaOnuc4rtQ9ONh-MS-RuwIxvBxgxKf9p-4TFUItkQp5sXVyK3kTrArftGpnJNvxW-x2TMw`
-> Surfaces attested: Claude.ai web + Claude Desktop + Claude Code. Contact/support: tela@cagdas.io. Review has no SLA; escalation mcp-review@anthropic.com.
+> Surfaces attested: Claude.ai web + Claude Desktop + Claude Code. Contact/support: tela@telawiki.com. Review has no SLA; escalation mcp-review@anthropic.com.
 
 
 Grounded in the **actual** submission surfaces + policies (researched 2026-06-05):
@@ -16,17 +16,17 @@ Legend: ✅ done · 🔨 I can do now · 👤 Cagdas (account/dashboard) · 🖥
 ## A. Published artifacts (both hosts)
 | Item | Claude | ChatGPT | Status |
 |---|---|---|---|
-| Privacy policy (public URL) | mandatory | mandatory | ✅ `tela.cagdas.io/privacy` |
-| **Terms of Service (public URL, same domain)** | form attestation (Page 6) | required form field | ✅ `tela.cagdas.io/terms` |
-| Public documentation | mandatory | (docs link) | ✅ `tela.cagdas.io/mcp` — now includes Troubleshooting + Limitations |
-| Support contact | mandatory | mandatory | ✅ `tela@cagdas.io` |
+| Privacy policy (public URL) | mandatory | mandatory | ✅ `telawiki.com/privacy` |
+| **Terms of Service (public URL, same domain)** | form attestation (Page 6) | required form field | ✅ `telawiki.com/terms` |
+| Public documentation | mandatory | (docs link) | ✅ `telawiki.com/mcp` — now includes Troubleshooting + Limitations |
+| Support contact | mandatory | mandatory | ✅ `tela@telawiki.com` |
 | Security vulnerability reporting mechanism | mandatory (ongoing) | — | ✅ security-report line in /privacy + /mcp |
 
 ## B. Assets
 | Item | Spec | Status |
 |---|---|---|
-| Square logo SVG (Claude) | 1:1 SVG, served at a URL | ✅ `tela.cagdas.io/favicon.svg` |
-| Favicon verification (Claude) | `s2/favicons?domain=tela.cagdas.io&sz=64` must show tela's mark | ✅ raster `favicon.ico`+PNG added & linked (Google cache may lag a few days) |
+| Square logo SVG (Claude) | 1:1 SVG, served at a URL | ✅ `telawiki.com/favicon.svg` |
+| Favicon verification (Claude) | `s2/favicons?domain=telawiki.com&sz=64` must show tela's mark | ✅ raster `favicon.ico`+PNG added & linked (Google cache may lag a few days) |
 | App icon 64×64 PNG (ChatGPT) | 64×64 PNG | ✅ `landing/public/icon-64.png` |
 | Widget screenshots | Claude: 3–5 PNG ≥1000px. ChatGPT: 1–4 PNG, no chat prompt | ✅ 4 PNGs (page-reader + search-results, light/dark, 1640px) in `docs/submission-assets/` |
 | Promo/demo (optional) | Drive link; ChatGPT may want an MP4 demo on same domain | 👤/🖥️ optional |

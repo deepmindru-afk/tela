@@ -1,4 +1,4 @@
-# tela — https://tela.cagdas.io
+# tela — https://telawiki.com
 # The marketing landing is indexable. The app (auth-gated SPA) and the public
 # share/permalink pages are kept crawlable but noindex'd via X-Robots-Tag, so
 # crawlers see the directive (Disallow would hide it). AI crawlers are welcome —
@@ -9,7 +9,7 @@ Allow: /
 Disallow: /api/
 
 # Static landing pages.
-Sitemap: https://tela.cagdas.io/sitemap.xml
+Sitemap: https://telawiki.com/sitemap.xml
 # Public spaces / posts / author homes — backend-generated, updates as content
 # is published (backend/internal/api/public_og.go HandlePublicSitemap).
-Sitemap: https://tela.cagdas.io/sitemap-public.xml
+Sitemap: https://telawiki.com/sitemap-public.xml

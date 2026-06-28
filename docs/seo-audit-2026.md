@@ -32,7 +32,7 @@ Ranked by impact × ease. Duplicate findings (e.g. SQLite drift, missing sitemap
 
 | # | Issue | Severity | Surface | Fix | Effort |
 |---|---|---|---|---|---|
-| 1 | **GitHub repo has no description, no topics, no homepage URL** — zero on-GitHub discoverability, no link equity to site, generic social card | Critical | Off-page | `gh repo edit zcag/tela --description '…' --homepage https://tela.cagdas.io --add-topic wiki --add-topic mcp …` | XS (one command) |
+| 1 | **GitHub repo has no description, no topics, no homepage URL** — zero on-GitHub discoverability, no link equity to site, generic social card | Critical | Off-page | `gh repo edit zcag/tela --description '…' --homepage https://telawiki.com --add-topic wiki --add-topic mcp …` | XS (one command) |
 | 2 | **`llms.txt` / `llms-full.txt` assert SQLite/FTS5, "one binary", "no Postgres", 17 tools, `import_markdown`** — verbatim LLM-ingested misinformation, also tells self-hosters they don't need Postgres (breaks deploy) | Critical | GEO/LLM | Rewrite to Postgres + ranked FTS + semantic; drop single-binary; 17→20; remove `import_markdown` | S |
 | 3 | **`LICENSE` file missing** but linked from footer, terms, and JSON-LD (3+ live 404s); README says "TBD" | High | Off-page | Commit root MIT `LICENSE`; update README:95; verify the 3 links + JSON-LD resolve 200 | XS |
 | 4 | **npm `package.json` missing `keywords`/`repository`/`homepage`/`bugs`** — package page unrankable, leaks no authority back to site/repo | High | Off-page | Add the four fields; publish 0.7.1 | XS |
@@ -82,7 +82,7 @@ Ranked by impact × ease. Duplicate findings (e.g. SQLite drift, missing sitemap
 **Findings:**
 - **[High] Sitemap lists only `/`** (`landing/public/sitemap.xml:3-8`) — `/mcp/`, `/privacy/`, `/terms/` all 200/indexable but absent. *Fix:* add all three (trailing-slash) with real `lastmod`; generate via `@astrojs/sitemap`.
 - **[High] Soft-404** — `/this-does-not-exist-xyz` and `/foo/bar` → HTTP 200 (noindex shell); invalid `/share/` token → 200 to browsers but 404 to Twitterbot (inconsistent). Caddyfile catch-all (`deploy/proxy/Caddyfile:117-133`) sends all non-landing paths to the SPA. *Fix:* emit real 404 for unresolved routes and invalid share tokens.
-- **[Med] No HTTP→HTTPS 301** — `http://tela.cagdas.io/` serves 200 (`Caddyfile:11`, no CF redirect). *Fix:* Cloudflare "Always Use HTTPS."
+- **[Med] No HTTP→HTTPS 301** — `http://telawiki.com/` serves 200 (`Caddyfile:11`, no CF redirect). *Fix:* Cloudflare "Always Use HTTPS."
 - **[Low] HSTS** lacks `includeSubDomains` (`Caddyfile:14`); preload deliberately off — keep it off.
 - **[Low] Stale hardcoded `lastmod`** 2026-05-31 (`sitemap.xml:5`) while sources edited Jun 5–6.
 - **[Low] No `Cache-Control` on landing HTML shell** — only `/_astro/*` cached; apex is CF `DYNAMIC`.
@@ -175,7 +175,7 @@ Every factually wrong/stale **public** claim, with exact location and corrected 
 | `README.md:8` | "full-text search" | "semantic + keyword search" (or "search") |
 | `README.md:95` | "License: TBD" | definitive license (MIT) + badge, after committing root `LICENSE` |
 | `mcp/package.json:4` | "Thin stdio↔HTTP proxy to a Tela instance's…" | "MCP server for Tela — a self-hostable markdown team wiki. Lets Claude, Cursor and other agents search, read and write your wiki pages. Stdio↔HTTP proxy to {TELA_BASE_URL}/api/mcp for hosts that can't speak HTTP directly." |
-| `landing/src/pages/mcp.astro:159` | "open an issue on GitHub" | "Email tela@cagdas.io — the source is on GitHub." (no issue-filing CTA) |
+| `landing/src/pages/mcp.astro:159` | "open an issue on GitHub" | "Email tela@telawiki.com — the source is on GitHub." (no issue-filing CTA) |
 | `Base.astro:81` / `SiteFooter.astro:27` / `terms.astro:25` | LICENSE URL → 404 | resolves 200 after committing root `LICENSE` |
 
 > **Note (no change needed):** `mcp.astro:13,140` "Full-text search" and the home/sub-page HTML copy are **accurate** against `search.go`/`search_bodies.go` (ranked Postgres FTS). The HTML surfaces are correct — the drift is confined to the `.txt` files, the README, and npm metadata.
@@ -185,7 +185,7 @@ Every factually wrong/stale **public** claim, with exact location and corrected 
 ## 5. Quick Wins vs. Projects
 
 ### Quick wins (minutes to ~1 hour; outsized impact)
-- **GitHub About:** one `gh repo edit zcag/tela --description '…' --homepage https://tela.cagdas.io --add-topic wiki --add-topic mcp --add-topic self-hosted …` — #1 highest-leverage fix.
+- **GitHub About:** one `gh repo edit zcag/tela --description '…' --homepage https://telawiki.com --add-topic wiki --add-topic mcp --add-topic self-hosted …` — #1 highest-leverage fix.
 - **Commit a root MIT `LICENSE`** → kills 3 live 404s + JSON-LD broken link, unlocks GitHub license badge.
 - **Add 4 npm fields** (`keywords`/`repository`/`homepage`/`bugs`) + rewrite description → publish 0.7.1.
 - **Rewrite `llms.txt`/`llms-full.txt`** to current architecture (SQLite→Postgres, drop single-binary, 17→20, fix `import_markdown`) — pure content edits.

@@ -13,7 +13,7 @@ import tailwindcss from '@tailwindcss/vite';
 // keeps CLS ~0. cssVariables feed tokens.css (@theme --font-* → var(--af-*)).
 export default defineConfig({
   output: 'static',
-  site: 'https://tela.cagdas.io',
+  site: 'https://telawiki.com',
 
   fonts: [
     {

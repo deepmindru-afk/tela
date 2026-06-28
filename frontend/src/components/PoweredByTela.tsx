@@ -5,7 +5,7 @@ import { cn } from '../lib/utils'
 // canonical host the app is already tela-branded, so this renders nothing.
 // Links to the tela product site, so every white-labeled org domain quietly
 // credits (and markets) tela. Deliberately small/muted: present, not loud.
-const TELA_HOME = 'https://tela.cagdas.io'
+const TELA_HOME = 'https://telawiki.com'
 
 export function PoweredByTela({ className }: { className?: string }) {
   const org = useHostContext().data?.org ?? null

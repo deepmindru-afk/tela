@@ -4,7 +4,7 @@ Working context for tela. Read before contributing. Full architecture is in [`do
 
 ## What tela is
 
-A self-hostable, markdown-native team wiki: Go + PostgreSQL backend, React/TS frontend with a Milkdown editor, live Yjs collaboration, and a TypeScript MCP server so agents are first-class. Public face **https://tela.cagdas.io** (served behind a TLS-terminating reverse proxy; the standalone stack publishes Caddy on `:8780`). `pages.body` is canonical markdown forever — there is **no block table**.
+A self-hostable, markdown-native team wiki: Go + PostgreSQL backend, React/TS frontend with a Milkdown editor, live Yjs collaboration, and a TypeScript MCP server so agents are first-class. Public face **https://telawiki.com** (served behind a TLS-terminating reverse proxy; the standalone stack publishes Caddy on `:8780`). `pages.body` is canonical markdown forever — there is **no block table**.
 
 > History: tela was built by an autonomous agent ("forge"), now under conventional development. The old forge workspace is archived out-of-tree (reference only — this repo + git history are the source of truth). Research/design docs from that era live in that archive and were never committed here.
 

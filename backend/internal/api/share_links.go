@@ -83,7 +83,7 @@ type shareLinkPublicDTO struct {
 	IncludeDescendants bool    `json:"include_descendants"`
 	HasPassword        bool    `json:"has_password"`
 	ExpiresAt          *string `json:"expires_at"`
-	// #3 — canonical public base (e.g. https://tela.cagdas.io). The share
+	// #3 — canonical public base (e.g. https://telawiki.com). The share
 	// reader shows it in the cover meta; it must come from the server, not
 	// window.location, because the PDF export renders the reader from an
 	// internal origin (where window.location.host would read "proxy").

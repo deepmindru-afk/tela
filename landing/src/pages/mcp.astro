@@ -73,22 +73,22 @@ const shareTools = [
     '@graph': [
       {
         '@type': 'TechArticle',
-        '@id': 'https://tela.cagdas.io/mcp/#article',
+        '@id': 'https://telawiki.com/mcp/#article',
         headline: 'The tela MCP server',
         description: 'Connect Claude, ChatGPT or any MCP client to tela: a markdown wiki your agents can read, search and write over HTTP with OAuth.',
-        url: 'https://tela.cagdas.io/mcp/',
+        url: 'https://telawiki.com/mcp/',
         inLanguage: 'en',
         dateModified: '2026-06-27',
-        author: { '@id': 'https://tela.cagdas.io/#org' },
-        publisher: { '@id': 'https://tela.cagdas.io/#org' },
-        about: { '@id': 'https://tela.cagdas.io/#software' },
-        isPartOf: { '@id': 'https://tela.cagdas.io/#website' },
+        author: { '@id': 'https://telawiki.com/#org' },
+        publisher: { '@id': 'https://telawiki.com/#org' },
+        about: { '@id': 'https://telawiki.com/#software' },
+        isPartOf: { '@id': 'https://telawiki.com/#website' },
       },
       {
         '@type': 'BreadcrumbList',
         itemListElement: [
-          { '@type': 'ListItem', position: 1, name: 'Home', item: 'https://tela.cagdas.io/' },
-          { '@type': 'ListItem', position: 2, name: 'MCP server', item: 'https://tela.cagdas.io/mcp/' },
+          { '@type': 'ListItem', position: 1, name: 'Home', item: 'https://telawiki.com/' },
+          { '@type': 'ListItem', position: 2, name: 'MCP server', item: 'https://telawiki.com/mcp/' },
         ],
       },
     ],
@@ -104,7 +104,7 @@ const shareTools = [
   <h2>Endpoint</h2>
   <dl>
     <dt>URL</dt>
-    <dd><code>https://tela.cagdas.io/api/mcp</code></dd>
+    <dd><code>https://telawiki.com/api/mcp</code></dd>
     <dt>Transport</dt>
     <dd>Streamable HTTP (the current MCP transport; SSE is not used).</dd>
     <dt>Auth</dt>
@@ -138,7 +138,7 @@ const shareTools = [
       "command": "npx",
       "args": ["-y", "tela-mcp"],
       "env": {
-        "TELA_URL": "https://tela.cagdas.io",
+        "TELA_URL": "https://telawiki.com",
         "TELA_TOKEN": "<your personal access token>"
       }
     }
@@ -241,7 +241,7 @@ const shareTools = [
   <h2>Troubleshooting</h2>
   <dl>
     <dt>Connect fails / "couldn't register"</dt>
-    <dd>The host couldn't complete OAuth. Re-add the connector with the exact URL <code>https://tela.cagdas.io/api/mcp</code>, then sign in and consent when the tela login screen appears.</dd>
+    <dd>The host couldn't complete OAuth. Re-add the connector with the exact URL <code>https://telawiki.com/api/mcp</code>, then sign in and consent when the tela login screen appears.</dd>
     <dt>401 / tools don't appear</dt>
     <dd>The token is missing or invalid. For the OAuth flow, reconnect; for the npm proxy, check <code>TELA_TOKEN</code> is a current Personal Access Token.</dd>
     <dt>Tool returns <code>503 rag_disabled</code></dt>
@@ -251,16 +251,16 @@ const shareTools = [
     <dt>Write tool returns a permission error</dt>
     <dd>Your account or token lacks editor access to that space.</dd>
   </dl>
-  <p>Still stuck? Email <a href="mailto:tela@cagdas.io">tela@cagdas.io</a> — the source is on <a href="https://github.com/zcag/tela">GitHub</a>.</p>
+  <p>Still stuck? Email <a href="mailto:tela@telawiki.com">tela@telawiki.com</a> — the source is on <a href="https://github.com/zcag/tela">GitHub</a>.</p>
 
   <h2>Source, support &amp; security</h2>
   <p>
     tela is open-source at
     <a href="https://github.com/zcag/tela">github.com/zcag/tela</a>; the MCP
     proxy is <a href="https://www.npmjs.com/package/tela-mcp">tela-mcp</a> on
-    npm. Questions and support: <a href="mailto:tela@cagdas.io">tela@cagdas.io</a>.
+    npm. Questions and support: <a href="mailto:tela@telawiki.com">tela@telawiki.com</a>.
     Report security vulnerabilities privately to
-    <a href="mailto:tela@cagdas.io">tela@cagdas.io</a> — please don't open a
+    <a href="mailto:tela@telawiki.com">tela@telawiki.com</a> — please don't open a
     public issue for security reports.
   </p>
 </Prose>

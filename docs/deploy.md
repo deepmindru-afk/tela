@@ -1,6 +1,6 @@
 # Deploying tela
 
-The production deploy (tela.cagdas.io) is the **split topology** behind a shared
+The production deploy (telawiki.com) is the **split topology** behind a shared
 external edge. This doc is the one place for "how do I build & deploy."
 
 ## TL;DR

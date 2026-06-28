@@ -7,7 +7,7 @@
 
 A self-hostable, markdown-native team wiki — spaces, nested pages, a Milkdown editor, ranked full-text + semantic search, live collaboration, comments, page history, public sharing, and a first-class MCP server so AI agents are first-class citizens alongside humans.
 
-Public instance: **https://tela.cagdas.io**
+Public instance: **https://telawiki.com**
 
 ## Stack
 

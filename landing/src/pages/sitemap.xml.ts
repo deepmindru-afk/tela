@@ -4,7 +4,7 @@ import type { APIRoute } from 'astro';
 // trailing-slash canonical URLs (matching <link rel="canonical">), with a
 // build-date <lastmod> — so it never drifts from a hand-maintained file.
 // Served at /sitemap.xml (referenced by robots.txt).
-const SITE = 'https://tela.cagdas.io';
+const SITE = 'https://telawiki.com';
 
 // Per-route crawl hints, keyed by canonical path. Unlisted pages fall back.
 const HINTS: Record<string, { changefreq: string; priority: string }> = {

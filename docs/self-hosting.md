@@ -100,12 +100,12 @@ model means re-embedding everything: after editing the model, run
 ### Managed embedder (tela cloud)
 
 Don't want to run an embedder at all? Point at tela cloud's managed endpoint
-with a tela.cagdas.io PAT (requires a plan that includes managed semantic
+with a telawiki.com PAT (requires a plan that includes managed semantic
 search):
 
 ```bash
 # in deploy/.env
-TELA_RAG_EMBED_URL=https://tela.cagdas.io/api/cloud/ollama
+TELA_RAG_EMBED_URL=https://telawiki.com/api/cloud/ollama
 TELA_RAG_EMBED_TOKEN=tela_pat_xxxxxxxx
 TELA_RAG_EMBED_MODEL=qwen3-embedding:0.6b   # match the cloud's model/dim
 ```

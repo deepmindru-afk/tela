@@ -24,7 +24,7 @@ function mkShare(partial: Partial<ShareDTO> & { id: number; token: string }): Sh
     created_at: '2026-05-20 12:00:00',
     expires_at: null,
     revoked_at: null,
-    url: `https://tela.cagdas.io/share/${partial.token}`,
+    url: `https://telawiki.com/share/${partial.token}`,
     ...partial,
   }
 }

@@ -19,7 +19,7 @@ const {
   ogImagePath = '/og-image.png',
 } = Astro.props;
 
-// Absolute OG image URL (Astro.site = https://tela.cagdas.io).
+// Absolute OG image URL (Astro.site = https://telawiki.com).
 const ogImage = new URL(ogImagePath, Astro.site).href;
 ---
 
@@ -78,17 +78,17 @@ const ogImage = new URL(ogImagePath, Astro.site).href;
       '@graph': [
         {
           '@type': 'SoftwareApplication',
-          '@id': 'https://tela.cagdas.io/#software',
+          '@id': 'https://telawiki.com/#software',
           name: 'tela',
           description: 'A markdown team wiki with semantic search and a built-in MCP server, so AI agents search your docs by meaning and read, write and cite them — right inside Claude and ChatGPT. Real-time multiplayer, SSO, scoped access. Your markdown, hosted or self-hosted.',
           applicationCategory: 'DeveloperApplication',
           operatingSystem: 'Linux, macOS, Docker',
-          url: 'https://tela.cagdas.io',
-          image: 'https://tela.cagdas.io/og-image.png',
+          url: 'https://telawiki.com',
+          image: 'https://telawiki.com/og-image.png',
           isAccessibleForFree: true,
           license: 'https://github.com/zcag/tela/blob/main/LICENSE',
           offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' },
-          publisher: { '@id': 'https://tela.cagdas.io/#org' },
+          publisher: { '@id': 'https://telawiki.com/#org' },
         },
         {
           '@type': 'SoftwareSourceCode',
@@ -98,13 +98,13 @@ const ogImage = new URL(ogImagePath, Astro.site).href;
           runtimePlatform: 'Docker',
           url: 'https://github.com/zcag/tela',
         },
-        { '@type': 'WebSite', '@id': 'https://tela.cagdas.io/#website', name: 'tela', url: 'https://tela.cagdas.io', inLanguage: 'en', publisher: { '@id': 'https://tela.cagdas.io/#org' } },
+        { '@type': 'WebSite', '@id': 'https://telawiki.com/#website', name: 'tela', url: 'https://telawiki.com', inLanguage: 'en', publisher: { '@id': 'https://telawiki.com/#org' } },
         {
           '@type': 'Organization',
-          '@id': 'https://tela.cagdas.io/#org',
+          '@id': 'https://telawiki.com/#org',
           name: 'tela',
-          url: 'https://tela.cagdas.io',
-          logo: 'https://tela.cagdas.io/icon-512.png',
+          url: 'https://telawiki.com',
+          logo: 'https://telawiki.com/icon-512.png',
           sameAs: [
             'https://github.com/zcag/tela',
             'https://www.npmjs.com/package/tela-mcp',

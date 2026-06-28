@@ -54,7 +54,7 @@ const OG_HTML = `<!doctype html><html><head><meta charset="utf-8">
       <span class="pill">Self-hosted</span>
       <span class="pill">MCP built in</span>
     </div>
-    <span class="url">tela.cagdas.io</span>
+    <span class="url">telawiki.com</span>
   </div>
 </div></body></html>`;
 
@@ -76,7 +76,7 @@ const OG_MCP_HTML = OG_HTML
       <span class="pill">Claude · ChatGPT</span>
     </div>`,
   )
-  .replace('<span class="url">tela.cagdas.io</span>', '<span class="url">tela.cagdas.io/mcp</span>');
+  .replace('<span class="url">telawiki.com</span>', '<span class="url">telawiki.com/mcp</span>');
 
 const icon = (s) => `<!doctype html><html><head><meta charset="utf-8"><style>
   *{margin:0;padding:0}html,body{width:${s}px;height:${s}px}

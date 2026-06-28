@@ -66,7 +66,7 @@ title: One URL. OAuth or a scoped token.
 {
   "mcpServers": {
     "tela": {
-      "url": "https://tela.cagdas.io/api/mcp",
+      "url": "https://telawiki.com/api/mcp",
       "headers": { "Authorization": "Bearer tela_pat_..." }
     }
   }
@@ -83,5 +83,5 @@ title: Your team's memory, <em>shared</em> with its agents.
 layout: end
 title: Try tela
 subtitle: Your markdown, hosted or self-hosted.
-contact: tela.cagdas.io
+contact: telawiki.com
 ---

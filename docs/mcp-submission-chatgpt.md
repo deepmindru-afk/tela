@@ -1,19 +1,19 @@
 # Listing tela as a ChatGPT app (OpenAI Apps SDK / app directory)
 
 Submission payload, asset plan, and resolved research questions for publishing the
-tela MCP server (`https://tela.cagdas.io/api/mcp`) in the ChatGPT app directory via
+tela MCP server (`https://telawiki.com/api/mcp`) in the ChatGPT app directory via
 the Apps SDK. Companion to `docs/mcp-directory-submission.md` (which covers both
 Claude and ChatGPT at a higher level); this doc is the ChatGPT-specific, ready-to-fill
 package plus the answers to the items that file flagged for live verification.
 
-**Hard facts (verified 2026-06-05).** Endpoint `https://tela.cagdas.io/api/mcp` ·
+**Hard facts (verified 2026-06-05).** Endpoint `https://telawiki.com/api/mcp` ·
 transport Streamable HTTP · auth OAuth 2.1 via WorkOS AuthKit (issuer
 `https://decisive-relation-32-staging.authkit.app`, PKCE S256, DCR) **or** a Personal
 Access Token bearer header · 20 tools (10 read / 10 write), all with title + hints +
 `outputSchema` · 2 resource templates (`tela://page/{id}`, `tela://space/{id}`) · 2
 interactive widgets (page-reader, search-results cards) · `search` + `fetch` Deep
-Research pair present · docs `https://tela.cagdas.io/mcp` · privacy
-`https://tela.cagdas.io/privacy` · first-party · collects no PHI/PCI/gov-ID/secrets ·
+Research pair present · docs `https://telawiki.com/mcp` · privacy
+`https://telawiki.com/privacy` · first-party · collects no PHI/PCI/gov-ID/secrets ·
 no ads or in-app subscriptions · open-source `github.com/zcag/tela`.
 
 > Note on sources: `developers.openai.com/apps-sdk/*` was TLS-unreachable from this
@@ -209,14 +209,14 @@ Sources: [Define tools](https://developers.openai.com/apps-sdk/plan/tools) ·
 > (`github.com/zcag/tela`); the server is your own deployment at your own domain.
 
 ### Connection facts (for the Dashboard form)
-- **MCP endpoint:** `https://tela.cagdas.io/api/mcp`
+- **MCP endpoint:** `https://telawiki.com/api/mcp`
 - **Transport:** Streamable HTTP
 - **Auth:** OAuth 2.1 (WorkOS AuthKit, issuer `https://decisive-relation-32-staging.authkit.app`,
   PKCE S256, Dynamic Client Registration). PAT bearer also supported but the directory flow
   uses OAuth.
-- **Company / docs URL:** `https://tela.cagdas.io/mcp`
-- **Privacy policy URL:** `https://tela.cagdas.io/privacy`
-- **Support:** `tela@cagdas.io`
+- **Company / docs URL:** `https://telawiki.com/mcp`
+- **Privacy policy URL:** `https://telawiki.com/privacy`
+- **Support:** `tela@telawiki.com`
 - **Source:** `https://github.com/zcag/tela`
 
 ### Test prompts (must pass on ChatGPT web AND mobile)
@@ -268,7 +268,7 @@ demo account** so these resolve to real content.
   No advertising. No in-app digital subscriptions.
 - **Permissions model:** all calls run with the authenticated user's account permissions;
   write tools are scope-gated; read-only tokens cannot mutate.
-- These answers mirror `https://tela.cagdas.io/privacy`; keep the two in sync.
+- These answers mirror `https://telawiki.com/privacy`; keep the two in sync.
 
 ### Tool list with annotations + justifications
 
@@ -328,7 +328,7 @@ explicitly in code per section 5.
     don't actually return).
 - [ ] **App name + descriptions** — from section 2.
 - [ ] **5 positive + 3 negative test prompts** with expected responses — from section 2.
-- [ ] **Docs URL** `https://tela.cagdas.io/mcp` and **privacy URL** `https://tela.cagdas.io/privacy`
+- [ ] **Docs URL** `https://telawiki.com/mcp` and **privacy URL** `https://telawiki.com/privacy`
       live (both ship on `make deploy-landing` — verify they're deployed before submitting).
 - [ ] **Populated no-MFA demo account** with sample spaces/pages so every positive prompt
       resolves to real content and the negative prompts fail cleanly.
@@ -483,7 +483,7 @@ confirmation. Crop to the app response only.
 
 Drove the actual `platform.openai.com/apps-manage` editor (app "Tela", draft `asdk_app_6a22ce5f…`). Findings from the live form:
 
-- **App Info section — FILLED & saved as draft:** logo (centered `icon-512.png`), name `Tela`, subtitle `Wiki your agents read & write` (≤30), description, **category Productivity**, developer `Cagdas Salur`, website `tela.cagdas.io`, support `tela@cagdas.io`, privacy `/privacy`, terms `/terms`. App-Commerce box left unchecked (no purchases).
+- **App Info section — FILLED & saved as draft:** logo (centered `icon-512.png`), name `Tela`, subtitle `Wiki your agents read & write` (≤30), description, **category Productivity**, developer `Cagdas Salur`, website `telawiki.com`, support `tela@telawiki.com`, privacy `/privacy`, terms `/terms`. App-Commerce box left unchecked (no purchases).
 - 🔴 **`Demo Recording URL` is REQUIRED and GATES the whole flow** — you cannot reach the MCP Server / Testing / Global / Submit sections without it. (Our research had this as "SECONDARY/unverified" — now CONFIRMED mandatory.) It wants an **MP4 demonstrating tela in ChatGPT (Developer Mode), covering main use cases + tools across web/iOS/Android.** This is a Cagdas task — record + host the video, paste the URL.
 - Sections after App Info (MCP Server, Testing, Global, Submit) are gated behind it — couldn't inspect them yet.
 - Still pending account-side (will surface in Global/Submit): org identity verification, $5 billing, non-EU residency project, api.apps.write.

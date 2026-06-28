@@ -11,7 +11,7 @@ addons.setConfig({
   theme: create({
     base: 'dark',
     brandTitle: 'tela — components',
-    brandUrl: 'https://tela.cagdas.io',
+    brandUrl: 'https://telawiki.com',
     brandImage,
     brandTarget: '_self',
   }),

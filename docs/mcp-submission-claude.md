@@ -20,7 +20,7 @@ tela is a markdown-native team wiki you self-host. The MCP server is built into 
 
 Knowledge lives as plain markdown (`pages.body` is canonical — there is no proprietary block format), so an agent's edits are diffable, exportable, and identical to what the team reads. Three search paths are exposed: ranked full-text search, body search, and meaning-aware semantic search with citations (page id + heading path), which lets an agent answer a question and cite where the answer came from.
 
-tela is open source (`github.com/zcag/tela`) and first-party — the MCP server domain is the service domain (`tela.cagdas.io`). On hosts that support interactive MCP Apps, results can render as a page-reader widget or search-results cards instead of raw text.
+tela is open source (`github.com/zcag/tela`) and first-party — the MCP server domain is the service domain (`telawiki.com`). On hosts that support interactive MCP Apps, results can render as a page-reader widget or search-results cards instead of raw text.
 
 ---
 
@@ -40,12 +40,12 @@ Concrete agent workflows, each grounded in the actual tools:
 
 | Field | Value |
 |---|---|
-| **Endpoint URL** | `https://tela.cagdas.io/api/mcp` |
+| **Endpoint URL** | `https://telawiki.com/api/mcp` |
 | **Transport** | Streamable HTTP (current MCP transport; SSE not used) |
 | **Auth type** | OAuth 2.1 — WorkOS AuthKit, issuer `https://decisive-relation-32-staging.authkit.app`; PKCE S256 + Dynamic Client Registration. Personal Access Token bearer also accepted. |
 | **Read capabilities** | List/read spaces and pages, list backlinks, read page chunks, full-text search, body search, semantic search, document fetch (Deep Research). |
 | **Write capabilities** | Create/update/delete pages and spaces, move/reparent pages, add comments, import external pages, submit feedback. Write tools require editor+ scope on the target space; the token's permissions gate every call. |
-| **Allowed Link URIs** | `https://tela.cagdas.io/*` (the app surfaces page/space deep links under this origin). `‹TODO: confirm whether the form wants this populated; otherwise leave blank›` |
+| **Allowed Link URIs** | `https://telawiki.com/*` (the app surfaces page/space deep links under this origin). `‹TODO: confirm whether the form wants this populated; otherwise leave blank›` |
 
 ---
 
@@ -59,7 +59,7 @@ Concrete agent workflows, each grounded in the actual tools:
 - **Data category:** Productivity / knowledge management (team wiki content — markdown documents, comments, space metadata).
 - **What is read:** spaces, pages (markdown bodies + metadata), backlinks, comments, and search indexes the authenticated account can access.
 - **What is written:** pages (create/update/delete), spaces (create/update/delete), comments, imported pages, and free-text feedback — all under the account's permissions; body changes auto-snapshot a revision.
-- **What is stored:** content the agent creates/edits is stored in the operator's PostgreSQL database on the operator's server. tela is self-hosted; on the public instance, data lives on `tela.cagdas.io`'s host. No agent chat history or host memory is read or stored.
+- **What is stored:** content the agent creates/edits is stored in the operator's PostgreSQL database on the operator's server. tela is self-hosted; on the public instance, data lives on `telawiki.com`'s host. No agent chat history or host memory is read or stored.
 
 ---
 
@@ -116,9 +116,9 @@ Concrete agent workflows, each grounded in the actual tools:
 
 | Field | Value |
 |---|---|
-| **Documentation** | `https://tela.cagdas.io/mcp` |
-| **Privacy policy** | `https://tela.cagdas.io/privacy` |
-| **Support channel** | `tela@cagdas.io` |
+| **Documentation** | `https://telawiki.com/mcp` |
+| **Privacy policy** | `https://telawiki.com/privacy` |
+| **Support channel** | `tela@telawiki.com` |
 | **Source** | `https://github.com/zcag/tela` |
 | **npm proxy** | `tela-mcp` (`https://www.npmjs.com/package/tela-mcp`) |
 | **Review escalation (Anthropic)** | `mcp-review@anthropic.com` |
@@ -135,7 +135,7 @@ A reviewer connects via OAuth and exercises a read→write round-trip in a demo 
 
 **Steps:**
 
-1. **Connect.** Add tela as a custom connector pointing at `https://tela.cagdas.io/api/mcp`. Claude runs the OAuth flow.
+1. **Connect.** Add tela as a custom connector pointing at `https://telawiki.com/api/mcp`. Claude runs the OAuth flow.
 2. **Sign in.** The flow opens the tela login screen. Sign in with the demo credentials above (no MFA, no email step). Consent on the WorkOS consent screen.
 3. **Tools appear.** After consent the 20 tools become available in chat.
 4. **Try, in order:**
@@ -153,8 +153,8 @@ Everything runs with the demo account's permissions; an agent can only touch wha
 ## 8. Branding
 
 - **Connector icon:** served by the backend as a full-bleed square SVG **data URI** in the MCP `Implementation.Icons` (`backend/internal/api/mcp.go`), MIME `image/svg+xml`, sizes `any`. Full-bleed by design (no baked-in rounded corners) so the host's rounding mask renders clean — no white corners.
-- **Favicon:** `https://tela.cagdas.io/favicon.svg` (source: `landing/public/favicon.svg`).
-- **Server branding:** the MCP `Implementation` advertises title **"Tela"** and `WebsiteURL` `https://tela.cagdas.io` for the connector card.
+- **Favicon:** `https://telawiki.com/favicon.svg` (source: `landing/public/favicon.svg`).
+- **Server branding:** the MCP `Implementation` advertises title **"Tela"** and `WebsiteURL` `https://telawiki.com` for the connector card.
 - **Logo asset (standalone, if the form wants a separate upload):** `‹TODO: provide a standalone logo SVG/PNG URL if the data-URI icon isn't accepted as-is›`
 - **Widget screenshots (MCP Apps category):** `‹TODO: capture page-reader + search-results carousel screenshots if opting the widgets into the MCP Apps category›`
 

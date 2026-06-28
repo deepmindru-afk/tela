@@ -25,7 +25,7 @@ import (
 //   - GET /api/diagrams/{page_id}/{hash}.png — PUBLIC, no session. Reachable
 //     from any context including share-mode. Content-addressed by hash, so the
 //     response carries Cache-Control: immutable + a strong ETag and respects
-//     If-None-Match (Cloudflare in front of tela.cagdas.io will revalidate).
+//     If-None-Match (Cloudflare in front of telawiki.com will revalidate).
 //
 // The public GET prefix /api/diagrams/ is added to auth.IsPublicPath in the
 // same shape as /p/* (M11.0) and /api/share/* (M15.0) — page-derived image

@@ -44,6 +44,6 @@ animates it on scroll — so no-JS / reduced-motion always show the finished sta
 
 ## Deploy
 
-Static output (`landing/dist/`). The apex `https://tela.cagdas.io/` should serve this;
+Static output (`landing/dist/`). The apex `https://telawiki.com/` should serve this;
 the app keeps `/login`, `/spaces`, `/share/*`, `/api/*`, etc. The Caddy route + a
 `deploy-landing` target are **not wired yet** — see the deploy note in the repo root.
