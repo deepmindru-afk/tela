@@ -24,15 +24,17 @@ const CONTACT_EMAIL = 'tela@cagdas.io';
 const REGISTER_URL = 'https://tela.cagdas.io/register';
 const UPGRADE_URL = 'https://tela.cagdas.io/settings?tab=billing';
 
-// Paid tiers carry a yearly cadence (priceYear / periodYear / saveYear). Free and
-// Enterprise have no yearly option (priceYear: null) — the toggle leaves them as-is.
-// 2 months free: Plus $80/yr (save $16), Team $60/seat/yr (save $12/seat).
+// Yearly is the DEFAULT cadence (like most products): the headline number is the
+// per-MONTH equivalent of the annual price, with "billed annually" + the full
+// yearly figure on the save line. priceYearMo = annual / 12. Free and Enterprise
+// have no yearly option (priceYearMo: null) — the toggle leaves them as-is.
+// 2 months free: Plus $80/yr → $6.67/mo (save $16); Team $60/seat/yr → $5/mo (save $12/seat).
 const personal = [
   {
     name: 'Free',
     price: '$0',
     period: 'free forever',
-    priceYear: null,
+    priceYearMo: null,
     periodYear: null,
     saveYear: null,
     blurb: 'Personal notes and trying tela.',
@@ -46,9 +48,9 @@ const personal = [
     name: 'Plus',
     price: '$8',
     period: 'per month',
-    priceYear: '$80',
-    periodYear: 'per year',
-    saveYear: 'Save $16/yr',
+    priceYearMo: '$6.67',
+    periodYear: '/mo',
+    saveYear: 'Billed annually — $80/yr, save $16',
     blurb: 'For power users who live in their wiki.',
     specs: ['5 Atlas sources', '25 spaces', '1,000 pages / space', '5 GB storage', '1,000 AI answers / month'],
     cta: 'Get Plus',
@@ -63,7 +65,7 @@ const org = [
     name: 'Free',
     price: '$0',
     period: 'up to 5 members',
-    priceYear: null,
+    priceYearMo: null,
     periodYear: null,
     saveYear: null,
     blurb: 'A small team getting started.',
@@ -77,9 +79,9 @@ const org = [
     name: 'Team',
     price: '$6',
     period: 'per member / month',
-    priceYear: '$60',
-    periodYear: 'per member / year',
-    saveYear: 'Save $12/seat/yr',
+    priceYearMo: '$5',
+    periodYear: 'per member / mo',
+    saveYear: 'Billed annually — $60/member/yr, save $12',
     blurb: 'A growing team that runs on its docs.',
     specs: ['20 Atlas sources', '100 spaces', 'Unlimited pages', '50 GB storage', '50 members', '2,000 AI answers / month'],
     cta: 'Get Team',
@@ -91,7 +93,7 @@ const org = [
     name: 'Enterprise',
     price: 'Custom',
     period: "let's talk",
-    priceYear: null,
+    priceYearMo: null,
     periodYear: null,
     saveYear: null,
     blurb: 'SSO, audit, and scale for a big team.',
@@ -114,16 +116,6 @@ const org = [
     </p>
   </div>
 
-  {/* Monthly/Yearly toggle — progressive enhancement: hidden until the inline
-      script wires it (no-JS sees the default monthly prices, no dead control). */}
-  <div class="billing-toggle reveal-up" role="tablist" aria-label="Billing period" hidden>
-    <div class="billing-seg">
-      <button type="button" class="billing-opt is-active" data-period="month" role="tab" aria-selected="true">Monthly</button>
-      <button type="button" class="billing-opt" data-period="year" role="tab" aria-selected="false">Yearly</button>
-    </div>
-    <span class="billing-save">2 months free</span>
-  </div>
-
   <div class="atlas-band reveal-up">
     <p class="kicker"><span class="kicker-dot"></span>Flagship</p>
     <p class="atlas-band-text">
@@ -131,6 +123,19 @@ const org = [
       writes a cited, coverage-checked wiki and keeps it fresh. Paid tiers raise how much you
       can generate.
     </p>
+  </div>
+
+  {/* Monthly/Yearly toggle — sits directly above the cards so it reads as part
+      of the ladder, not a stray control. Yearly is the DEFAULT (prices show the
+      per-month equivalent, billed annually). Progressive enhancement: hidden
+      until the inline script wires it — no-JS still sees the default yearly
+      prices, so there's no dead control and no mismatch. */}
+  <div class="billing-toggle reveal-up" role="tablist" aria-label="Billing period" hidden>
+    <div class="billing-seg">
+      <button type="button" class="billing-opt" data-period="month" role="tab" aria-selected="false">Monthly</button>
+      <button type="button" class="billing-opt is-active" data-period="year" role="tab" aria-selected="true">Yearly</button>
+    </div>
+    <span class="billing-save">2 months free</span>
   </div>
 
   <div class="tiers tiers--duo reveal-up">
@@ -143,10 +148,10 @@ const org = [
             {p.featured ? <span class="price-tag">Recommended</span> : null}
           </header>
           <p class="price-amount">
-            <span class="price-amt" data-amt-month={p.price} data-amt-year={p.priceYear ?? p.price}>{p.price}</span>
-            <span class="price-period" data-per-month={p.period} data-per-year={p.periodYear ?? p.period}>{p.period}</span>
+            <span class="price-amt" data-amt-month={p.price} data-amt-year={p.priceYearMo ?? p.price}>{p.priceYearMo ?? p.price}</span>
+            <span class="price-period" data-per-month={p.period} data-per-year={p.periodYear ?? p.period}>{p.periodYear ?? p.period}</span>
           </p>
-          {p.saveYear ? <p class="price-save" data-save hidden>{p.saveYear}</p> : null}
+          {p.saveYear ? <p class="price-save" data-save>{p.saveYear}</p> : null}
           <p class="price-blurb">{p.blurb}</p>
           <ul class="price-specs">
             {p.specs.map((s) => <li>{s}</li>)}
@@ -155,7 +160,7 @@ const org = [
             <a href={p.href} class={p.featured ? 'price-cta price-cta--primary' : 'price-cta'}>{p.cta}</a>
           ) : (
             <a
-              href={p.href}
+              href={p.action === 'buy' ? `${p.href}&interval=year` : p.href}
               class={p.featured ? 'price-cta price-cta--primary' : 'price-cta'}
               target="_blank"
               rel="noopener"
@@ -178,10 +183,10 @@ const org = [
             {p.featured ? <span class="price-tag">Recommended</span> : null}
           </header>
           <p class="price-amount">
-            <span class="price-amt" data-amt-month={p.price} data-amt-year={p.priceYear ?? p.price}>{p.price}</span>
-            <span class="price-period" data-per-month={p.period} data-per-year={p.periodYear ?? p.period}>{p.period}</span>
+            <span class="price-amt" data-amt-month={p.price} data-amt-year={p.priceYearMo ?? p.price}>{p.priceYearMo ?? p.price}</span>
+            <span class="price-period" data-per-month={p.period} data-per-year={p.periodYear ?? p.period}>{p.periodYear ?? p.period}</span>
           </p>
-          {p.saveYear ? <p class="price-save" data-save hidden>{p.saveYear}</p> : null}
+          {p.saveYear ? <p class="price-save" data-save>{p.saveYear}</p> : null}
           <p class="price-blurb">{p.blurb}</p>
           <ul class="price-specs">
             {p.specs.map((s) => <li>{s}</li>)}
@@ -190,7 +195,7 @@ const org = [
             <a href={p.href} class={p.featured ? 'price-cta price-cta--primary' : 'price-cta'}>{p.cta}</a>
           ) : (
             <a
-              href={p.href}
+              href={p.action === 'buy' ? `${p.href}&interval=year` : p.href}
               class={p.featured ? 'price-cta price-cta--primary' : 'price-cta'}
               target="_blank"
               rel="noopener"
@@ -265,6 +270,7 @@ const org = [
     opts.forEach(function (b) {
       b.addEventListener('click', function () { apply(b.getAttribute('data-period')); });
     });
+    apply('year'); // yearly is the default cadence — sync prices, hrefs, and state
   })();
 </script>
 
@@ -282,7 +288,7 @@ const org = [
      earned indigo accent (the brand bar) so Atlas reads as the headline, without
      out-shouting the recommended Team card below. */
   .atlas-band {
-    margin: 2rem 0 2.5rem;
+    margin: 2rem 0 1.75rem;
     padding: 1.25rem 1.5rem;
     border: 1px solid var(--pill-border);
     border-left: 2px solid var(--brand);
@@ -299,26 +305,27 @@ const org = [
   }
   .atlas-band-text strong { color: var(--fg); font-weight: 600; }
 
-  /* Monthly/Yearly segmented toggle */
+  /* Monthly/Yearly segmented toggle — sits right above the cards as one tidy
+     unit (segment + savings), so it reads as part of the plan ladder. */
   .billing-toggle {
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 0.75rem;
-    margin: 1.75rem 0 0;
+    gap: 0.6rem;
+    margin: 0 0 1.5rem;
   }
   .billing-seg {
     display: inline-flex;
-    padding: 0.25rem;
-    border: 1px solid var(--pill-border);
+    padding: 0.2rem;
+    border: 1px solid var(--border);
     border-radius: var(--radius-full);
-    background: var(--brand-wash);
+    background: var(--surface-sunk);
   }
   .billing-opt {
     appearance: none;
     border: none;
     cursor: pointer;
-    padding: 0.4rem 1rem;
+    padding: 0.4rem 1.1rem;
     border-radius: var(--radius-full);
     background: transparent;
     color: var(--fg-soft);
@@ -327,10 +334,11 @@ const org = [
     font-weight: 500;
     transition: background var(--dur) var(--ease-out), color var(--dur) var(--ease-out);
   }
+  .billing-opt:hover { color: var(--fg); }
   .billing-opt.is-active {
     background: var(--surface);
     color: var(--fg);
-    box-shadow: var(--shadow-frame, none);
+    box-shadow: var(--shadow-card);
   }
   .billing-save {
     font-family: var(--font-mono);
@@ -339,14 +347,15 @@ const org = [
     letter-spacing: 0.06em;
     color: var(--brand-strong);
     border: 1px solid var(--pill-border);
-    border-radius: var(--radius-sm);
-    padding: 0.15rem 0.5rem;
+    border-radius: var(--radius-full);
+    background: var(--brand-wash);
+    padding: 0.25rem 0.6rem;
     white-space: nowrap;
   }
   .price-save {
-    margin: -0.4rem 0 0;
+    margin: -0.3rem 0 0;
     font-size: var(--text-xs);
-    font-weight: 600;
+    font-weight: 500;
     color: var(--brand-strong);
   }
 
