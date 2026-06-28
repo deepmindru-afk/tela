@@ -104,6 +104,33 @@
   --selection-fg:  var(--fg);
   --live-dot:      var(--cyan-accent);
 
+  /* ---- EXTERNAL PRODUCT SKINS (the "works-with" proof) ----------------
+     Honest, recognizable approximations of the Claude & ChatGPT chat
+     windows used ONLY in the agent-layer section, so "Already in Claude and
+     ChatGPT" reads at a glance. These are real third-party product palettes,
+     not tela's brand — so they are deliberately theme-INDEPENDENT (defined
+     once on :root; the light theme never overrides them) and live as named
+     tokens (the token gate forbids hardcoded color, not a documented skin).
+     Nominative fair use — recognizable, not pixel-cloned. */
+  /* Claude — warm paper canvas, clay sunburst, plain-text replies */
+  --ext-claude-bg:       oklch(0.971 0.008 83);   /* paper canvas */
+  --ext-claude-panel:    oklch(0.987 0.006 83);   /* top bar / composer */
+  --ext-claude-border:   oklch(0.898 0.010 78);
+  --ext-claude-fg:       oklch(0.255 0.014 70);   /* warm near-black ink */
+  --ext-claude-fg-soft:  oklch(0.468 0.012 70);
+  --ext-claude-clay:     oklch(0.620 0.110 48);   /* the recognizable clay mark */
+  --ext-claude-user-bg:  oklch(0.946 0.012 80);   /* user bubble */
+  /* ChatGPT — near-white canvas, gray user bubble, black blossom mark */
+  --ext-gpt-bg:          oklch(1 0 0);            /* white */
+  --ext-gpt-panel:       oklch(0.978 0.001 250);  /* faint gray bar / composer */
+  --ext-gpt-border:      oklch(0.906 0.002 250);
+  --ext-gpt-fg:          oklch(0.250 0.004 250);
+  --ext-gpt-fg-soft:     oklch(0.468 0.004 250);
+  --ext-gpt-user-bg:     oklch(0.957 0.002 250);  /* #f4f4f4 user bubble */
+  --ext-gpt-logo:        oklch(0.210 0.006 165);  /* near-black logo */
+  /* shared connector "live" green (both skins) */
+  --ext-ok:              oklch(0.700 0.160 150);
+
   /* ---- SPACING · 4px grid (semantic rhythm) --------------------------- */
   --space-gutter:  1.5rem;    /* 24 — mobile page gutter */
   --measure:       66ch;      /* prose measure */
