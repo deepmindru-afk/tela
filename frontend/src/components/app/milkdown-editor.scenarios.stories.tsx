@@ -2,7 +2,10 @@ import { useMemo, useState } from 'react'
 import type { Meta, StoryObj } from '@storybook/react-vite'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { expect, userEvent, waitFor, within } from 'storybook/test'
+import * as Y from 'yjs'
+import { Awareness } from 'y-protocols/awareness'
 import { MilkdownEditor } from './milkdown-editor'
+import type { CollabProviderFactory } from '../../lib/collab/use-collab-session'
 
 // Behavioural tests that drive the REAL editor (solo / non-collab mode,
 // collabPageId=null) end to end: markdown in → ProseMirror render → user edit →
@@ -381,24 +384,22 @@ function makeRoundTripStory(cases: RoundTripCase[]): Story {
 export const RoundTripsCore = makeRoundTripStory(CORE_CASES)
 export const RoundTripsRich = makeRoundTripStory(RICH_CASES)
 
-// ── Scenario 5: a real multi-step editing flow (solo mode) ──────────────────
+// ── Scenario 5: a real multi-step editing flow ──────────────────────────────
 // One editor, a representative sequence a user actually performs: heading via
 // markdown shortcut → paragraph → bold a selection via the bubble toolbar →
 // bullet list with a Tab-nested item → slash-insert a callout with a body. We
 // assert both the live DOM and the final serialized markdown.
 //
-// NOTE: this runs in SOLO mode only. The collab path is read-only until the
-// provider reaches 'connected' (a server sync-init), and the provider is
-// constructed internally against a real /ws URL — so it can't be driven offline
-// today. Running this same flow against the collab path is the acceptance test
-// for A1 (extracting an injectable useCollabSession).
-export const EditingFlow: Story = {
-  args: { defaultValue: '' },
-  play: async ({ canvasElement }) => {
-    const canvas = within(canvasElement)
-    const pm = await getEditable(canvasElement)
-    const out = () => canvas.getByTestId('md-out').textContent ?? ''
+// The exact same flow runs in BOTH modes: solo (EditingFlow) and collab
+// (CollabEditingFlow, driven through y-prosemirror via an injected offline
+// provider). That parity is the point of A1 — the editing experience must be
+// identical whether or not the page is collaborative.
+async function runEditingFlow(canvasElement: HTMLElement) {
+  const canvas = within(canvasElement)
+  const pm = await getEditable(canvasElement)
+  const out = () => canvas.getByTestId('md-out').textContent ?? ''
 
+  {
     // 1. heading via markdown shortcut — and prove onChange serializes it.
     await userEvent.click(pm)
     await userEvent.keyboard('# Project plan')
@@ -472,6 +473,92 @@ export const EditingFlow: Story = {
       },
       { timeout: 6000 },
     )
+  }
+}
+
+export const EditingFlow: Story = {
+  args: { defaultValue: '' },
+  play: async ({ canvasElement }) => {
+    await runEditingFlow(canvasElement)
+  },
+}
+
+// An offline TelaProvider stand-in: a real Y.Doc + Awareness (so y-prosemirror
+// binds and leader election works) that just reports 'connected' and fires
+// first-sync immediately — no WebSocket. This is what makes the collab path
+// drivable in a test; the real provider stays read-only until a server
+// sync-init it can't get here. Injected via MilkdownEditor.collabProviderFactory.
+function fakeCollabProviderFactory(): CollabProviderFactory {
+  return () => {
+    const doc = new Y.Doc()
+    const awareness = new Awareness(doc)
+    // Track destroyed state like the real provider — the editor's instant-paint
+    // guard checks isDestroyed() before applying a late /yjs fetch, and without
+    // an honest answer a post-unmount apply dispatches into the torn-down editor
+    // ("Context editorState not found").
+    let destroyed = false
+    const provider = {
+      doc,
+      awareness,
+      getStatus: () => 'connected',
+      onStatus: () => () => {},
+      onFirstSync: (fn: (i: { hadServerState: boolean }) => void) => {
+        fn({ hadServerState: false })
+        return () => {}
+      },
+      isDestroyed: () => destroyed,
+      destroy: () => {
+        destroyed = true
+        // Mirror TelaProvider.destroy(): detach all awareness observers BEFORE
+        // awareness.destroy(), or y-prosemirror's yCursorPlugin observes the
+        // teardown change and schedules a deferred view.dispatch into the
+        // already-removed editor ctx → "Context editorState not found".
+        const obs = (
+          awareness as unknown as { _observers?: Map<string, unknown> }
+        )._observers
+        if (obs && typeof obs.clear === 'function') obs.clear()
+        awareness.destroy()
+      },
+    }
+    return {
+      doc,
+      provider: provider as unknown as ReturnType<CollabProviderFactory>['provider'],
+    }
+  }
+}
+
+function CollabHarness() {
+  const qc = useMemo(
+    () => new QueryClient({ defaultOptions: { queries: { retry: false } } }),
+    [],
+  )
+  const [md, setMd] = useState('')
+  const factory = useMemo(() => fakeCollabProviderFactory(), [])
+  return (
+    <QueryClientProvider client={qc}>
+      <div style={{ padding: 16, maxWidth: '48rem' }}>
+        <MilkdownEditor
+          defaultValue=""
+          onChange={setMd}
+          collabPageId={4242}
+          collabProviderFactory={factory}
+          ariaLabel="Collab test editor"
+        />
+        <pre data-testid="md-out" style={{ display: 'none' }}>
+          {md}
+        </pre>
+      </div>
+    </QueryClientProvider>
+  )
+}
+
+// The SAME flow, now exercising the collab editor (y-prosemirror ySync + yUndo,
+// leader-gated save) via the injected offline provider. Parity with EditingFlow
+// is the acceptance criterion for A1.
+export const CollabEditingFlow: Story = {
+  render: () => <CollabHarness />,
+  play: async ({ canvasElement }) => {
+    await runEditingFlow(canvasElement)
   },
 }
 
