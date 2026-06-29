@@ -99,6 +99,7 @@ func (m *atlasManager) killStuckRuns(ctx context.Context) {
 			delete(m.active, h.sourceID)
 		}
 		m.mu.Unlock()
+		atlasKills.Inc()
 		_, _ = m.s.DB.ExecContext(ctx,
 			`UPDATE atlas_runs SET status='failed', err='timed out after 4h', finished_at=tela_now() WHERE id=$1`,
 			h.runID)

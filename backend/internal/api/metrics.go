@@ -53,6 +53,15 @@ var (
 		[]string{"kind"},
 	)
 
+	// atlasKills counts Atlas runs killed by the stuck-run watchdog (running for
+	// more than atlasRunTimeout = 4h). Any increment is a signal that a run hung
+	// badly enough to hit the watchdog; a spike means something is systematically
+	// wrong with the LLM or the clone path.
+	atlasKills = prometheus.NewCounter(prometheus.CounterOpts{
+		Name: "tela_atlas_stuck_runs_killed_total",
+		Help: "Atlas runs killed by the 4h stuck-run watchdog.",
+	})
+
 	// aiTokens counts estimated token consumption at the LLM service chokepoints
 	// (chat, embed, image). Input + output tokens are summed for each call so
 	// increase() over a window gives the total token rate — the alertable signal
@@ -72,6 +81,7 @@ func init() {
 		httpDuration,
 		clientErrors,
 		aiTokens,
+		atlasKills,
 		// Go runtime + process collectors (goroutines, GC, memory, open FDs,
 		// CPU, etc.).
 		collectors.NewGoCollector(),
