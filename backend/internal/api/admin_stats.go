@@ -109,6 +109,8 @@ type adminStats struct {
 	// the docs couldn't answer. Turns "ask someone to run SQL" into a glance.
 	NewUsers30     int64             `json:"new_users_30"`    // accounts created in the window
 	Activated      int64             `json:"activated"`       // users who have authored ≥1 page revision (all-time)
+	ActivatedNew30 int64             `json:"activated_new_30"` // of NewUsers30, how many have made ≥1 page revision (signup→first-edit rate)
+	RetainedNew30  int64             `json:"retained_new_30"`  // users who signed up 8-30d ago and were active in the last 7d (early retention proxy)
 	RecentSignups  []statsSignup     `json:"recent_signups"`  // newest accounts + whether they activated
 	UnansweredAsks []statsUnanswered `json:"unanswered_asks"` // recent Ask questions that returned nothing
 
@@ -347,6 +349,21 @@ func (s *Server) AdminStats(w http.ResponseWriter, r *http.Request) {
 	// real-work signal (a tyre-kicker who only logged in has none).
 	_ = s.DB.QueryRowContext(ctx,
 		`SELECT COUNT(DISTINCT author_id) FROM page_revisions WHERE author_id IS NOT NULL`).Scan(&out.Activated)
+	// Funnel: of the last-30d cohort, how many made ≥1 edit (signup→first-edit rate).
+	_ = s.DB.QueryRowContext(ctx,
+		`SELECT COUNT(DISTINCT r.author_id)
+		   FROM page_revisions r
+		   JOIN users u ON u.id = r.author_id
+		  WHERE u.created_at >= $1`, cut30).Scan(&out.ActivatedNew30)
+	// Early retention: users who signed up >7d ago (within 30d) and had any event in the last 7d.
+	_ = s.DB.QueryRowContext(ctx,
+		`SELECT COUNT(DISTINCT u.id)
+		   FROM users u
+		  WHERE u.created_at >= $1 AND u.created_at < $2
+		    AND EXISTS (
+		          SELECT 1 FROM events e
+		           WHERE e.actor_user_id = u.id AND e.created_at >= $2
+		        )`, cut30, cut7).Scan(&out.RetainedNew30)
 
 	// --- Recent signups (newest accounts + activated flag) ---
 	if rows, err := s.DB.QueryContext(ctx, `

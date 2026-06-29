@@ -414,18 +414,32 @@ func ResetPassword(to, username, resetURL string, brand Brand) Message {
 }
 
 // FeedbackNotice tells an instance admin that new feedback landed. `who` is the
-// submitter label, `subject`/`body` the feedback, and inboxURL the deep link to
-// the admin Feedback tab. Body is truncated to keep the email sane.
-func FeedbackNotice(to, who, subject, body, inboxURL string) Message {
+// submitter label, `subject`/`body` the feedback content, kind/source/page are
+// optional metadata (kind: idea|bug|other|""; source: web|api|mcp; page: page
+// context label or ""), and inboxURL the deep link to the admin Feedback tab.
+// Body is truncated to keep the email sane.
+func FeedbackNotice(to, who, subject, body, kind, source, page, inboxURL string) Message {
 	b := strings.TrimSpace(body)
 	if len(b) > 600 {
 		b = b[:600] + "…"
 	}
+	meta := source
+	if kind != "" {
+		meta = kind + " via " + source
+	}
+	if page != "" {
+		meta += " on " + page
+	}
+	intro := fmt.Sprintf("%s submitted feedback", who)
+	if meta != "" {
+		intro += " (" + meta + ")"
+	}
+	intro += fmt.Sprintf(" \u2014 \u201c%s\u201d: %s", subject, b)
 	v := emailView{
 		LogoOrigin: originOf(inboxURL),
 		Eyebrow:    "Feedback",
 		Heading:    "New feedback",
-		Intro:      fmt.Sprintf("%s submitted feedback — “%s”: %s", who, subject, b),
+		Intro:      intro,
 		CTALabel:   "Open feedback inbox",
 		CTAURL:     inboxURL,
 		Footer:     "You're receiving this because you're a tela instance admin.",

@@ -1253,6 +1253,7 @@ func (s *Server) mcpDeleteSpace(ctx context.Context, req *mcp.CallToolRequest, i
 type submitFeedbackIn struct {
 	Subject string `json:"subject" jsonschema:"short subject (1-200 chars)"`
 	Body    string `json:"body" jsonschema:"feedback body (1-8000 chars)"`
+	Kind    string `json:"kind,omitempty" jsonschema:"optional type: idea | bug | other"`
 }
 
 type submitFeedbackOut struct {
@@ -1264,7 +1265,7 @@ func (s *Server) mcpSubmitFeedback(ctx context.Context, req *mcp.CallToolRequest
 	if u == nil {
 		return mcpUnauthErr(), submitFeedbackOut{}, nil
 	}
-	dto, ae := s.feedbackCore(ctx, u, k, feedbackCreateRequest{Subject: in.Subject, Body: in.Body})
+	dto, ae := s.feedbackCore(ctx, u, k, feedbackCreateRequest{Subject: in.Subject, Body: in.Body, Kind: in.Kind}, "mcp", "")
 	if ae != nil {
 		return mcpErr(ae), submitFeedbackOut{}, nil
 	}
