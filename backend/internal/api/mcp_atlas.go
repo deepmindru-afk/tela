@@ -47,9 +47,12 @@ type atlasRunOut struct {
 }
 
 func (s *Server) mcpAtlasRun(ctx context.Context, req *mcp.CallToolRequest, in atlasRunIn) (*mcp.CallToolResult, atlasRunOut, error) {
-	u, _ := mcpIdentity(req)
+	u, k := mcpIdentity(req)
 	if u == nil {
 		return mcpUnauthErr(), atlasRunOut{}, nil
+	}
+	if ae := mcpRequireWrite(k); ae != nil {
+		return mcpErr(ae), atlasRunOut{}, nil
 	}
 	if ae := s.atlasProjectManageErr(ctx, u, in.ProjectID); ae != nil {
 		return mcpErr(ae), atlasRunOut{}, nil
