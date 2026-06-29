@@ -41,9 +41,10 @@ func (s *Server) ExportPageMarkdown(w http.ResponseWriter, r *http.Request) {
 
 // ExportSpaceMarkdownZip (GET /api/spaces/{id}/export.zip): session-authed.
 // Streams the whole space as a folder of .md files (one per page, full canonical
-// markdown), the page tree preserved as directories. A page with children
-// becomes `<slug>.md` plus a sibling `<slug>/` folder holding its descendants
-// (the Obsidian note-plus-folder layout).
+// markdown), the page tree preserved as directories. Uploaded attachments are
+// placed under `<page-slug>/_attachments/<filename>` alongside the .md. A page
+// with children becomes `<slug>.md` plus a sibling `<slug>/` folder holding its
+// descendants (the Obsidian note-plus-folder layout).
 func (s *Server) ExportSpaceMarkdownZip(w http.ResponseWriter, r *http.Request) {
 	id, ok := parseIDParam(w, r, "id")
 	if !ok {
@@ -67,6 +68,11 @@ func (s *Server) ExportSpaceMarkdownZip(w http.ResponseWriter, r *http.Request) 
 		writeError(w, http.StatusInternalServerError, "internal", "load pages failed")
 		return
 	}
+	attachments, err := loadSpaceAttachments(r.Context(), s.DB, id)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "internal", "load attachments failed")
+		return
+	}
 
 	w.Header().Set("Content-Type", "application/zip")
 	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%q", mdSlugOr(spaceName, "space")+".zip"))
@@ -74,7 +80,38 @@ func (s *Server) ExportSpaceMarkdownZip(w http.ResponseWriter, r *http.Request) 
 
 	zw := zip.NewWriter(w)
 	defer zw.Close()
-	writeSpaceZip(zw, pages)
+	writeSpaceZip(zw, pages, attachments)
+}
+
+// exportAttachment is a single uploaded file for the zip export — name + raw bytes.
+type exportAttachment struct {
+	name string
+	data []byte
+}
+
+// loadSpaceAttachments loads all live uploaded files for a space, keyed by the
+// parent page id. Attachment data (blob) is included so the zip export is
+// self-contained without any additional HTTP round-trip.
+func loadSpaceAttachments(ctx context.Context, db *sql.DB, spaceID int64) (map[int64][]exportAttachment, error) {
+	rows, err := db.QueryContext(ctx,
+		`SELECT parent_page_id, name, data FROM space_files
+		  WHERE space_id = $1 AND parent_page_id IS NOT NULL AND deleted_at IS NULL
+		  ORDER BY parent_page_id, id`, spaceID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := map[int64][]exportAttachment{}
+	for rows.Next() {
+		var pageID int64
+		var name string
+		var data []byte
+		if err := rows.Scan(&pageID, &name, &data); err != nil {
+			return nil, err
+		}
+		out[pageID] = append(out[pageID], exportAttachment{name: name, data: data})
+	}
+	return out, rows.Err()
 }
 
 // loadSpacePages returns every page in a space, ordered by position then id so
@@ -103,7 +140,8 @@ func loadSpacePages(ctx context.Context, db *sql.DB, spaceID int64) ([]models.Pa
 // a page's children nest under a folder of the same (deduped) slug. The layout
 // (slug derivation + dedup) is the shared sibling-folder model in pagetree.go,
 // so the zip and the live WebDAV surface emit byte-identical file trees.
-func writeSpaceZip(zw *zip.Writer, pages []models.Page) {
+// Attachments land at `<slug>/_attachments/<filename>` alongside their page.
+func writeSpaceZip(zw *zip.Writer, pages []models.Page, attachments map[int64][]exportAttachment) {
 	children := map[int64][]models.Page{}
 	var roots []models.Page
 	for _, p := range pages {
@@ -121,6 +159,11 @@ func writeSpaceZip(zw *zip.Writer, pages []models.Page) {
 			slug := slugs[p.ID]
 			if fw, err := zw.Create(prefix + slug + ".md"); err == nil {
 				_, _ = fw.Write(pagemd.Encode(p, canonicalBaseURL()))
+			}
+			for _, a := range attachments[p.ID] {
+				if fw, err := zw.Create(prefix + slug + "/_attachments/" + a.name); err == nil {
+					_, _ = fw.Write(a.data)
+				}
 			}
 			if kids := children[p.ID]; len(kids) > 0 {
 				walk(kids, prefix+slug+"/")
