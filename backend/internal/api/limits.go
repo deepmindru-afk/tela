@@ -160,16 +160,44 @@ func planFor(ctx context.Context, q queryer, acct account) (plan, error) {
 	return scanPlan(q.QueryRowContext(ctx, src, acct.ID))
 }
 
-// featureEnabled reports whether acct's effective plan grants the named feature.
-// Errors (missing account, etc.) resolve to false — fail closed. This is the
-// boolean-entitlement sibling to the quota gates; the cloud-connect path will
-// later overlay remote entitlements here.
+// featureEnabled reports whether acct's effective plan grants the named feature
+// via the plans.features map (the cloud entitlement path). Errors (missing
+// account, etc.) resolve to false — fail closed.
 func (s *Server) featureEnabled(ctx context.Context, acct account, feat string) bool {
 	p, err := planFor(ctx, s.DB, acct)
 	if err != nil {
 		return false
 	}
 	return p.Features[feat]
+}
+
+// licenser is the self-host Enterprise entitlement source: a verified offline
+// license key (Server.license). Implemented in Phase 2 (the ee/ license module);
+// nil on the managed cloud and on an unlicensed self-host instance.
+type licenser interface {
+	// Grants reports whether the active license includes the named feature.
+	Grants(feature string) bool
+}
+
+// entitled is THE gate every paid-feature check should call (not featureEnabled
+// directly). It has two unlock paths, OR'd — the account's cloud plan flag, and
+// (Phase 2) a self-host license key:
+//
+//	entitled = featureEnabled(plan)            // cloud: Polar-driven plan grant
+//	         || license.Grants(feat)           // self-host: offline license key
+//
+// Phase 1 wires only the plan path; s.license is nil. Phase 2 adds the license
+// path AND restricts the plan path to the managed-cloud instance, so a self-host
+// admin can't self-assign an Enterprise plan to bypass licensing. Routing all
+// gates through this one function now makes that a single-function change later.
+func (s *Server) entitled(ctx context.Context, acct account, feat string) bool {
+	if s.featureEnabled(ctx, acct, feat) {
+		return true
+	}
+	if s.license != nil && s.license.Grants(feat) {
+		return true
+	}
+	return false
 }
 
 // ── usage counters ────────────────────────────────────────────────────────────

@@ -142,6 +142,12 @@ type Server struct {
 	// rag/llm. The webhook reconciler (billing.go) maps Polar events onto plan_key.
 	billing *billing.Client
 
+	// license is the self-host Enterprise entitlement source — a verified offline
+	// license key that grants ee/ features (see entitled() in limits.go). nil on
+	// the managed cloud and on an unlicensed self-host instance (then only the
+	// cloud plan flag can grant a feature). Phase 2 builds the licenser.
+	license licenser
+
 	// askJobs holds detached ask-generation jobs so a streamed answer survives a
 	// dropped connection (backgrounded mobile Safari): the LLM runs in a goroutine
 	// appending to a replayable event log, the SSE handler tails it, and a

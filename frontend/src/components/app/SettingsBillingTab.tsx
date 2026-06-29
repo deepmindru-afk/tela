@@ -29,12 +29,15 @@ import { toast } from '../ui/toast'
 const INFINITY = '∞'
 
 // Capabilities every tier ships — tiers only change limits, never features.
+// Every plan ships the whole product; tiers change the metered AI + team
+// controls. SSO/audit are Enterprise (not every-plan) — kept off this list.
 const INCLUDED = [
-  'Semantic (RAG) + full-text search',
+  'Atlas — a cited wiki from a git repo or Jira project',
+  'Semantic (RAG) + full-text search, ask your docs',
   'MCP connector for Claude & ChatGPT',
   'Local folder sync over WebDAV',
   'Real-time multiplayer editing',
-  'SSO, organizations & per-space roles',
+  'Organizations & per-space roles',
   'Plain markdown you own — export anytime',
 ]
 
@@ -339,11 +342,13 @@ function UsageCard({
 
 // A compact spec line for a plan in the comparison grid.
 function planSpecs(p: Plan): string[] {
+  // Tiers are metered on AI (Atlas sources + monthly answers) and, for orgs,
+  // seats — not pages/spaces (unlimited on every tier now). Storage is a quiet
+  // backstop, shown as a usage line, not sold.
   const specs = [
-    `${formatCount(p.max_spaces)} spaces`,
-    `${p.max_pages_per_space == null ? INFINITY : p.max_pages_per_space} pages / space`,
+    `${formatCount(p.max_atlas_sources)} Atlas sources`,
+    `${formatCount(p.max_llm_calls_per_month)} AI answers / mo`,
     `${formatStorageLimit(p.max_storage_bytes)} attachments`,
-    `${formatCount(p.max_llm_calls_per_month)} AI calls / mo`,
   ]
   if (p.account_kind === 'org') specs.push(`${formatCount(p.max_members)} members`)
   return specs

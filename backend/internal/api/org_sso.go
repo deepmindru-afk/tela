@@ -81,6 +81,13 @@ func (s *Server) PutOrgSSO(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotFound, "not_found", "org not found")
 		return
 	}
+	// SSO is an Enterprise feature — don't let it be configured for an org whose
+	// plan (or license) doesn't grant it. The usage-time gate is in SSOStart; this
+	// is the config-time gate so the admin gets a clear reason up front.
+	if !s.entitled(ctx, account{Kind: accountOrg, ID: orgID}, "sso") {
+		writeError(w, http.StatusPaymentRequired, "upgrade_required", "single sign-on is an Enterprise feature — move this org to the Enterprise plan to configure it")
+		return
+	}
 
 	var req orgSSOPutRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -201,12 +208,20 @@ func (s *Server) passwordLoginBlocked(ctx context.Context, email string) bool {
 		return false
 	}
 	var enforced int
+	var orgID int64
 	err := s.DB.QueryRowContext(ctx, `
-		SELECT so.enforced
+		SELECT so.org_id, so.enforced
 		  FROM org_email_domains d
 		  JOIN org_sso so ON so.org_id = d.org_id
-		 WHERE d.domain = $1`, domain).Scan(&enforced)
-	return err == nil && enforced == 1
+		 WHERE d.domain = $1`, domain).Scan(&orgID, &enforced)
+	if err != nil || enforced != 1 {
+		return false
+	}
+	// Don't strand users: only enforce SSO-only login while the org is actually
+	// entitled to SSO. If entitlement lapsed (downgrade / lapsed license), SSO
+	// login is gated off (SSOStart) — so password login must keep working, else
+	// the org's users can't sign in at all.
+	return s.entitled(ctx, account{Kind: accountOrg, ID: orgID}, "sso")
 }
 
 // parseOrgID reads the {id} path value as an org id, writing a 400 on a bad value.

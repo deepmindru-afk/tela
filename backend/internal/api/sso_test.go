@@ -165,6 +165,9 @@ func TestSSO_OrgProvisionAndLink(t *testing.T) {
 	mustExec(t, d, `INSERT INTO org_email_domains (domain, org_id) VALUES ('acme.test', $1)`, orgID)
 	mustExec(t, d, `INSERT INTO org_sso (org_id, issuer, client_id, client_secret, enforced)
 		VALUES ($1, $2, 'test-client', 'test-secret', 0)`, orgID, idp.URL)
+	// SSO is an Enterprise entitlement (migration 0059) — put the org on a plan
+	// that grants it so the login flow isn't gated off.
+	mustExec(t, d, `UPDATE orgs SET plan_key = 'org_enterprise' WHERE id = $1`, orgID)
 
 	// (1) New user → provisioned, session set, redirected to next.
 	client := noRedirJarClient(t)
@@ -222,6 +225,9 @@ func TestSSO_StateMismatch(t *testing.T) {
 	mustExec(t, d, `INSERT INTO org_email_domains (domain, org_id) VALUES ('acme.test', $1)`, orgID)
 	mustExec(t, d, `INSERT INTO org_sso (org_id, issuer, client_id, client_secret, enforced)
 		VALUES ($1, $2, 'test-client', 'test-secret', 0)`, orgID, idp.URL)
+	// SSO is an Enterprise entitlement (migration 0059) — put the org on a plan
+	// that grants it so the login flow isn't gated off.
+	mustExec(t, d, `UPDATE orgs SET plan_key = 'org_enterprise' WHERE id = $1`, orgID)
 
 	client := noRedirJarClient(t)
 	r1, err := client.Get(ts.URL + "/api/auth/sso/org/start?domain=acme.test")
@@ -257,6 +263,9 @@ func TestSSO_EnforcedBlocksPassword(t *testing.T) {
 	mustExec(t, d, `INSERT INTO org_email_domains (domain, org_id) VALUES ('corp.test', $1)`, orgID)
 	mustExec(t, d, `INSERT INTO org_sso (org_id, issuer, client_id, client_secret, enforced)
 		VALUES ($1, 'https://idp.corp.test', 'cid', 'csec', 1)`, orgID)
+	// SSO is an Enterprise entitlement (migration 0059) — entitle the org so the
+	// enforced-SSO password block applies (an unentitled org wouldn't block).
+	mustExec(t, d, `UPDATE orgs SET plan_key = 'org_enterprise' WHERE id = $1`, orgID)
 
 	hash, _ := auth.HashPassword("password123")
 	mustExec(t, d, `INSERT INTO users (username, email, email_verified_at, password_hash, is_active)
@@ -435,5 +444,45 @@ func assertIdentity(t *testing.T, d *sql.DB, provider, subject string, wantUser 
 	}
 	if got != wantUser {
 		t.Fatalf("identity (%s,%s) → user %d, want %d", provider, subject, got, wantUser)
+	}
+}
+
+// TestSSO_OrgStartRequiresEntitlement — org SSO login is an Enterprise feature:
+// an org without the entitlement can't start an SSO login even with a connection
+// row (gated as "not configured"); entitling the org lets it proceed to the IdP.
+func TestSSO_OrgStartRequiresEntitlement(t *testing.T) {
+	t.Setenv("TELA_SHARE_SECRET", "tela-test-share-secret-fixed-32-byte!")
+	idp := startFakeOIDC(t)
+	d := newAPITestDB(t)
+	handler := Handler(d)
+	ts := httptest.NewServer(handler)
+	t.Cleanup(ts.Close)
+
+	orgID := seedOrg(t, d, "Acme", "acme") // org_free — no sso entitlement
+	mustExec(t, d, `INSERT INTO org_email_domains (domain, org_id) VALUES ('acme.test', $1)`, orgID)
+	mustExec(t, d, `INSERT INTO org_sso (org_id, issuer, client_id, client_secret, enforced)
+		VALUES ($1, $2, 'cid', 'csec', 0)`, orgID, idp.URL)
+
+	client := noRedirJarClient(t)
+
+	// Unentitled (org_free) → start is gated off as not-configured (404).
+	r1, err := client.Get(ts.URL + "/api/auth/sso/org/start?domain=acme.test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	r1.Body.Close()
+	if r1.StatusCode != http.StatusNotFound {
+		t.Fatalf("unentitled org SSO start: want 404, got %d", r1.StatusCode)
+	}
+
+	// Entitle the org (Enterprise) → start now proceeds to the IdP redirect.
+	mustExec(t, d, `UPDATE orgs SET plan_key = 'org_enterprise' WHERE id = $1`, orgID)
+	r2, err := client.Get(ts.URL + "/api/auth/sso/org/start?domain=acme.test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	r2.Body.Close()
+	if r2.StatusCode != http.StatusFound {
+		t.Fatalf("entitled org SSO start: want 302 redirect, got %d", r2.StatusCode)
 	}
 }

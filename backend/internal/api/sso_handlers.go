@@ -117,6 +117,14 @@ func (s *Server) SSOStart(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusNotFound, "not_found", "no SSO is configured for that domain")
 			return
 		}
+		// Usage-time entitlement gate: an org that lost its Enterprise entitlement
+		// (downgrade, lapsed license) can't be used to start an SSO login even if a
+		// connection row survives. Same not-configured response — don't leak plan
+		// state at the login screen.
+		if !s.entitled(ctx, account{Kind: accountOrg, ID: conn.OrgID}, "sso") {
+			writeError(w, http.StatusNotFound, "not_found", "no SSO is configured for that domain")
+			return
+		}
 		pp, err := buildOrgProvider(ctx, s.linkOrigin(r), conn.Issuer, conn.ClientID, conn.ClientSecret)
 		if err != nil {
 			writeError(w, http.StatusBadGateway, "sso_unavailable", "could not reach the SSO provider")

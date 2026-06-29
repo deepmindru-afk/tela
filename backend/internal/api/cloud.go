@@ -111,7 +111,7 @@ func (s *Server) CloudEmbed(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	if !s.featureEnabled(r.Context(), acct, "managed_rag") {
+	if !s.entitled(r.Context(), acct, "managed_rag") {
 		writeError(w, http.StatusForbidden, "forbidden", "plan does not include managed semantic search")
 		return
 	}
@@ -167,7 +167,7 @@ func (s *Server) CloudChat(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	if !s.featureEnabled(r.Context(), acct, "ask_docs") {
+	if !s.entitled(r.Context(), acct, "ask_docs") {
 		writeError(w, http.StatusForbidden, "forbidden", "plan does not include managed AI")
 		return
 	}

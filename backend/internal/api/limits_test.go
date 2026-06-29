@@ -105,7 +105,8 @@ func TestCheckSpaceQuota(t *testing.T) {
 	d := newAPITestDB(t)
 	s := &Server{DB: d}
 	ctx := context.Background()
-	u := seedUser(t, d, "u", "pw12345678", false) // personal_free: max_spaces 3
+	u := seedUser(t, d, "u", "pw12345678", false)
+	tunePlan(t, d, "personal_free", "max_spaces", 3) // space caps are off by default now; set one to exercise the gate
 
 	// A personal home is exempt; only owned team spaces count.
 	seedPersonalSpace(t, d, "Home", "home", u)
@@ -220,6 +221,7 @@ func TestCreateSpace_PersonalQuota_HTTP(t *testing.T) {
 	t.Setenv("TELA_DISABLE_WELCOME_SEED", "1")
 	ts, d := newWiredServer(t)
 	seedUser(t, d, "alice", "pw12345678", false)
+	tunePlan(t, d, "personal_free", "max_spaces", 3) // space caps are off by default now; set one to exercise the gate
 	c := loginClient(t, ts, "alice", "pw12345678")
 
 	for i := 0; i < 3; i++ {

@@ -461,7 +461,7 @@ func (s *Server) updateSpaceCore(ctx context.Context, u *auth.User, k *auth.APIK
 		if err != nil {
 			return models.Space{}, &apiErr{http.StatusInternalServerError, "internal", "resolve space owner failed"}
 		}
-		if !s.featureEnabled(ctx, owner, "publishing") {
+		if !s.entitled(ctx, owner, "publishing") {
 			return models.Space{}, &apiErr{http.StatusPaymentRequired, "upgrade_required", "publishing public spaces requires a plan that includes publishing"}
 		}
 	}

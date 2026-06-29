@@ -173,6 +173,12 @@ export interface Plan {
   max_storage_bytes: number | null
   max_members: number | null
   max_llm_calls_per_month: number | null
+  // How many Atlas sources (a git repo / Jira project Atlas keeps generated +
+  // refreshed) the account may keep live. null = unlimited.
+  max_atlas_sources: number | null
+  // Boolean entitlement map (e.g. managed_rag, publishing, sso, audit) — the
+  // feature layer beside the numeric quotas.
+  features: Record<string, boolean>
   // false = an internal/comp tier kept out of the public catalog (still
   // admin-assignable). The plan-comparison UI shows only listed tiers.
   listed: boolean
