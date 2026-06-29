@@ -119,6 +119,7 @@ import { PageTrustStrip } from './PageTrustStrip'
 import { MarkdownView } from '../view/MarkdownView'
 import { prefetchMilkdownEditor } from '../../lib/prefetchEditor'
 import { useFileDownload } from './use-file-download'
+import { toast, dismissToast } from '../ui/toast'
 
 // Milkdown is the largest dependency in the app (~700 KB raw). Lazy-load it so
 // non-editor routes (sidebar, spaces list, command palette) don't pay for it
@@ -642,6 +643,21 @@ function PageActionsMenu({
   const copy = (url: string) => {
     void navigator.clipboard?.writeText?.(url)
   }
+  // The menu closes on select, so there's no inline spot for the busy state —
+  // a deck PDF renders headless Chromium frames and can take several seconds.
+  // Surface a persistent toast that clears when the download lands (or errors).
+  const exportPdf = () => {
+    const id = toast({ title: 'Preparing PDF…', duration: 0 })
+    void downloadPdf().then((ok) => {
+      dismissToast(id)
+      if (!ok)
+        toast({
+          title: 'PDF export failed',
+          description: 'Please try again.',
+          variant: 'destructive',
+        })
+    })
+  }
 
   return (
     <DropdownMenu>
@@ -674,7 +690,7 @@ function PageActionsMenu({
         >
           <Share2 width={14} height={14} /> Open in graph
         </DropdownMenuItem>
-        <DropdownMenuItem onSelect={() => void downloadPdf()}>
+        <DropdownMenuItem onSelect={exportPdf}>
           <FileDown width={14} height={14} /> Export PDF
         </DropdownMenuItem>
         <DropdownMenuItem onSelect={() => void downloadMd()}>

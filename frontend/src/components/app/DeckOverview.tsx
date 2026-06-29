@@ -5,6 +5,8 @@ import { api } from '../../lib/api'
 import { useUpdatePage } from '../../lib/queries/pages'
 import type { Page } from '../../lib/types'
 import { DeckCoverImage } from './deck-cover-image'
+import { useFileDownload } from './use-file-download'
+import { toast, dismissToast } from '../ui/toast'
 import { Button } from '../ui/button'
 import {
   DropdownMenu,
@@ -74,6 +76,26 @@ export function DeckOverview({ page }: { page: Page }) {
   // Same-origin → the session cookie carries RBAC.
   const present = () => window.open(`/api/pages/${pageId}/deck/spa/`, '_blank', 'noopener')
 
+  // Export renders headless Chromium frames (several seconds) — drive a fetch +
+  // toast so the menu gives feedback instead of a silent new tab that hangs.
+  const { download: downloadPdf } = useFileDownload(`/api/pages/${pageId}/deck.pdf`)
+  const { download: downloadPptx } = useFileDownload(
+    `/api/pages/${pageId}/deck.pptx`,
+    { fallbackName: 'deck.pptx' },
+  )
+  const exportDeck = (kind: 'PDF' | 'PPTX') => {
+    const id = toast({ title: `Preparing ${kind}…`, duration: 0 })
+    void (kind === 'PDF' ? downloadPdf() : downloadPptx()).then((ok) => {
+      dismissToast(id)
+      if (!ok)
+        toast({
+          title: `${kind} export failed`,
+          description: 'Please try again.',
+          variant: 'destructive',
+        })
+    })
+  }
+
   const features = data?.features
     ? featureLabels.filter(([k]) => Boolean(data.features?.[k])).map(([, label]) => label)
     : []
@@ -133,15 +155,11 @@ export function DeckOverview({ page }: { page: Page }) {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuItem asChild>
-              <a href={`/api/pages/${pageId}/deck.pdf`} target="_blank" rel="noreferrer">
-                Download PDF
-              </a>
+            <DropdownMenuItem onSelect={() => exportDeck('PDF')}>
+              Download PDF
             </DropdownMenuItem>
-            <DropdownMenuItem asChild>
-              <a href={`/api/pages/${pageId}/deck.pptx`} target="_blank" rel="noreferrer">
-                Download PPTX
-              </a>
+            <DropdownMenuItem onSelect={() => exportDeck('PPTX')}>
+              Download PPTX
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

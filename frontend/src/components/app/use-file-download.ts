@@ -13,8 +13,11 @@ export function useFileDownload(
   const [busy, setBusy] = useState(false)
   const [failed, setFailed] = useState(false)
 
-  const download = useCallback(async () => {
-    if (busy) return
+  // Resolves true on a completed download, false on failure — so callers without
+  // a persistent affordance (e.g. a dropdown item that closes on click) can drive
+  // a toast off the result instead of polling `busy`/`failed`.
+  const download = useCallback(async (): Promise<boolean> => {
+    if (busy) return false
     setBusy(true)
     setFailed(false)
     try {
@@ -35,8 +38,10 @@ export function useFileDownload(
       a.click()
       a.remove()
       URL.revokeObjectURL(objUrl)
+      return true
     } catch {
       setFailed(true)
+      return false
     } finally {
       setBusy(false)
     }
