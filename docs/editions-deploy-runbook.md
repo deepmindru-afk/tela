@@ -60,6 +60,7 @@ SELECT o.id, o.name, o.plan_key
 | 4 | `managed_rag`/`ask_docs`/`publishing` | routed through `entitled()`; on cloud `entitled == featureEnabled` (license nil) | 🟢 none | identical behavior — verified |
 | 5 | **migration 0059** | data-only UPDATEs on `plans`; storage raised (more lenient); forward-only | 🟢 low | re-runnable; small table |
 | 6 | **license load on boot** | `TELA_LICENSE_KEY` unset on cloud → `s.license` nil → plan-flag path; invalid key logs+nil (never boot-fatal) | 🟢 none | no new required env on cloud |
+| 6b | **managedCloud gate** | entitlement plan-flag path is honoured only when `managedCloud` = (Polar billing on \|\| `TELA_CLOUD=1`). The live cloud has Polar → auto-true, so plan entitlements (managed_rag, sso, …) keep working with NO new env. | 🟡 | if Polar is ever unset on the cloud, also set `TELA_CLOUD=1` or plan entitlements go dark |
 | 7 | `/api/admin/license` | instance-admin only; token stored under `secret/` (excluded from settings dump; generic settings-patch 403s `secret/`) | 🟢 none | verified |
 | 8 | **landing deploy** | `/pricing` self-host section is contact-sales (mailto) — honest pre-EE-sales; cloud half needs Polar reprice | 🟡 | deploy landing only after gates 1–2 |
 

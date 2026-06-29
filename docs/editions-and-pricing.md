@@ -93,13 +93,14 @@ that AI through **cloud (managed/included)**, not by crippling self-host.
 
 A single `entitled(ctx, acct, feature)` gates every paid feature (`sso`, `audit`, `scim`,
 `premium_connectors`, `retention`, …). It returns true if **either**:
-- **cloud:** the account's plan grants it (`plans.features[feature]`, the existing
-  `featureEnabled` path), **or**
-- **self-host:** a valid installed **license key** grants it.
+- **self-host:** a valid installed **license key** grants it, **or**
+- **cloud:** the instance is the managed cloud (`managedCloud` — Polar billing on, or
+  `TELA_CLOUD=1`) **and** the account's plan grants it (`plans.features[feature]`).
 
-So the same feature code is gated once; cloud unlocks via the plan, self-host via the key.
-No duplicate gating, no `ee/`-only forks of feature logic — just where the entitlement
-comes from.
+The plan-flag path is honoured **only** on the managed cloud — on self-host `plan_key` is
+freely admin-assignable, so it can't be trusted as an entitlement; there the license key
+is the only unlock. Same feature code, gated once; cloud unlocks via the plan, self-host
+via the key.
 
 ## 5. AI packaging
 

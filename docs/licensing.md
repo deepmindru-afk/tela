@@ -22,9 +22,15 @@ One gate, two unlock paths (`backend/internal/api/limits.go` → `entitled()`):
 
 ```
 entitled(account, feature) =
-      cloud plan grants it          // managed cloud: featureEnabled(plans.features)
-   || license key grants it          // self-host: a verified Enterprise key
+      license key grants it                       // self-host: a verified Enterprise key
+   || (managedCloud && plan grants it)            // cloud: featureEnabled(plans.features)
 ```
+
+`managedCloud` is true iff Polar billing is configured **or** `TELA_CLOUD=1`. The plan
+flag is honoured **only** on the managed cloud — on self-host `plan_key` is freely
+admin-assignable, so it isn't trustworthy as an entitlement; there the **license key is
+the only unlock**. (Shipping `ee/` as a closed binary is the packaging-level enforcement
+beyond this runtime gate.)
 
 - **Cloud** unlocks Enterprise features through the account's plan (Polar-driven).
 - **Self-host** unlocks them through an **offline, ed25519-signed license key**

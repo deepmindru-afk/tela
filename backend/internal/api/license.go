@@ -33,25 +33,22 @@ func (s *Server) loadLicense(ctx context.Context) {
 		token = strings.TrimSpace(token)
 	}
 	if token == "" {
-		s.license = nil
+		s.license.Store(nil)
 		return
 	}
 	lic, err := ee.Verify(token)
 	if err != nil {
 		slog.Warn("license: ignoring invalid Enterprise key", "err", err)
-		s.license = nil
+		s.license.Store(nil)
 		return
 	}
-	s.license = lic
+	s.license.Store(lic)
 	slog.Info("license: Enterprise key active", "customer", lic.Customer, "tier", lic.Tier)
 }
 
 // licenseStatus returns the active license summary, or a zero (invalid) status.
 func (s *Server) licenseStatus() ee.Status {
-	if l, ok := s.license.(*ee.License); ok {
-		return l.Status()
-	}
-	return ee.Status{}
+	return s.license.Load().Status() // Load()==nil → nil-receiver Status() → zero
 }
 
 // envLicensed reports whether the key is pinned via env (then the admin API is

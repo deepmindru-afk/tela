@@ -13,6 +13,11 @@ import (
 // below re-enables it on its own server instance.
 func TestMain(m *testing.M) {
 	os.Setenv("TELA_DISABLE_WELCOME_SEED", "1")
+	// The api suite exercises the managed-cloud product, where the account's plan
+	// flag is an authoritative entitlement. Self-host mode (plan flag does NOT
+	// grant ee features) is covered explicitly in TestEntitledViaLicense, which
+	// builds its Server directly and leaves managedCloud at its false zero value.
+	os.Setenv("TELA_CLOUD", "1")
 	os.Exit(m.Run())
 }
 

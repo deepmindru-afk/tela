@@ -9,23 +9,24 @@ import (
 	"github.com/zcag/tela/backend/internal/ee"
 )
 
-// TestEntitledViaLicense — the self-host unlock path: a license that grants a
-// feature entitles an account even on a plan whose flag doesn't, while the cloud
-// plan-flag path still works without a license.
+// TestEntitledViaLicense — the two entitlement paths and, crucially, that the
+// plan-flag path is NOT honoured on self-host (managedCloud=false here, the zero
+// value): only a license key unlocks ee features there. On the managed cloud the
+// plan flag is authoritative.
 func TestEntitledViaLicense(t *testing.T) {
 	d := newAPITestDB(t)
-	s := &Server{DB: d}
+	s := &Server{DB: d} // managedCloud defaults false → self-host semantics
 	ctx := context.Background()
-	org := seedOrg(t, d, "Acme", "acme") // org_free — no sso plan flag
+	org := seedOrg(t, d, "Acme", "acme")
 	acct := account{accountOrg, org}
 
-	// No license, free plan → not entitled.
+	// Self-host, free plan, no license → not entitled.
 	if s.entitled(ctx, acct, "sso") {
 		t.Fatal("free org without a license must not be entitled to sso")
 	}
 
-	// A license granting sso entitles the org even on the free plan.
-	s.license = &ee.License{Tier: "enterprise", Features: map[string]bool{"sso": true}}
+	// A license granting sso entitles the org regardless of plan.
+	s.license.Store(&ee.License{Tier: "enterprise", Features: map[string]bool{"sso": true}})
 	if !s.entitled(ctx, acct, "sso") {
 		t.Fatal("license granting sso should entitle the org")
 	}
@@ -33,11 +34,18 @@ func TestEntitledViaLicense(t *testing.T) {
 		t.Fatal("license without scim must not entitle scim")
 	}
 
-	// The cloud plan-flag path still works with no license installed.
-	s.license = nil
+	// Self-host bypass is CLOSED: assigning the Enterprise plan WITHOUT a license
+	// must NOT unlock ee features (plan_key is admin-assignable on self-host).
+	s.license.Store(nil)
 	mustExec(t, d, `UPDATE orgs SET plan_key='org_enterprise' WHERE id=$1`, org)
+	if s.entitled(ctx, acct, "sso") {
+		t.Fatal("self-host: an Enterprise plan alone must NOT unlock sso (needs a license)")
+	}
+
+	// On the managed cloud the same plan flag IS authoritative.
+	s.managedCloud = true
 	if !s.entitled(ctx, acct, "sso") {
-		t.Fatal("enterprise plan should entitle sso via the plan flag")
+		t.Fatal("managed cloud: Enterprise plan should entitle sso via the plan flag")
 	}
 }
 

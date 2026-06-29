@@ -171,30 +171,22 @@ func (s *Server) featureEnabled(ctx context.Context, acct account, feat string) 
 	return p.Features[feat]
 }
 
-// licenser is the self-host Enterprise entitlement source: a verified offline
-// license key (Server.license). Implemented in Phase 2 (the ee/ license module);
-// nil on the managed cloud and on an unlicensed self-host instance.
-type licenser interface {
-	// Grants reports whether the active license includes the named feature.
-	Grants(feature string) bool
-}
-
 // entitled is THE gate every paid-feature check should call (not featureEnabled
-// directly). It has two unlock paths, OR'd — the account's cloud plan flag, and
-// (Phase 2) a self-host license key:
+// directly). Two unlock paths, OR'd:
 //
-//	entitled = featureEnabled(plan)            // cloud: Polar-driven plan grant
-//	         || license.Grants(feat)           // self-host: offline license key
+//	entitled = license.Grants(feat)            // self-host: offline license key
+//	         || (managedCloud && featureEnabled(plan))  // cloud: Polar-driven plan
 //
-// Phase 1 wires only the plan path; s.license is nil. Phase 2 adds the license
-// path AND restricts the plan path to the managed-cloud instance, so a self-host
-// admin can't self-assign an Enterprise plan to bypass licensing. Routing all
-// gates through this one function now makes that a single-function change later.
+// The plan-flag path is honoured ONLY on the managed cloud (s.managedCloud). On
+// a self-host instance plan_key is freely admin-assignable, so the plan flag is
+// not trustworthy as an entitlement — there a valid license key is the only
+// unlock. (The license code lives in a separately-licensed ee module; shipping
+// it as a closed binary is the packaging-level enforcement beyond this gate.)
 func (s *Server) entitled(ctx context.Context, acct account, feat string) bool {
-	if s.featureEnabled(ctx, acct, feat) {
+	if lic := s.license.Load(); lic != nil && lic.Grants(feat) {
 		return true
 	}
-	if s.license != nil && s.license.Grants(feat) {
+	if s.managedCloud && s.featureEnabled(ctx, acct, feat) {
 		return true
 	}
 	return false

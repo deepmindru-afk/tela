@@ -5,10 +5,12 @@ import (
 	"database/sql"
 	"log/slog"
 	"os"
+	"sync/atomic"
 
 	"github.com/zcag/tela/backend/internal/agreement"
 	"github.com/zcag/tela/backend/internal/auth"
 	"github.com/zcag/tela/backend/internal/billing"
+	"github.com/zcag/tela/backend/internal/ee"
 	"github.com/zcag/tela/backend/internal/llm"
 	"github.com/zcag/tela/backend/internal/mailer"
 	"github.com/zcag/tela/backend/internal/rag"
@@ -142,11 +144,16 @@ type Server struct {
 	// rag/llm. The webhook reconciler (billing.go) maps Polar events onto plan_key.
 	billing *billing.Client
 
-	// license is the self-host Enterprise entitlement source — a verified offline
-	// license key that grants ee/ features (see entitled() in limits.go). nil on
-	// the managed cloud and on an unlicensed self-host instance (then only the
-	// cloud plan flag can grant a feature). Phase 2 builds the licenser.
-	license licenser
+	// license is the self-host Enterprise entitlement (a verified offline key) —
+	// nil until a valid key is installed. Read on every paid-feature request by
+	// entitled() and mutated at runtime by the admin License API, so it's atomic.
+	license atomic.Pointer[ee.License]
+
+	// managedCloud marks THIS instance as the managed cloud (Polar billing on, or
+	// TELA_CLOUD=1). On the cloud the account's plan flag is an authoritative
+	// entitlement; on self-host it is NOT (plan_key is freely admin-assignable),
+	// so there a license key is the only unlock for ee features. See entitled().
+	managedCloud bool
 
 	// askJobs holds detached ask-generation jobs so a streamed answer survives a
 	// dropped connection (backgrounded mobile Safari): the LLM runs in a goroutine
@@ -202,6 +209,11 @@ func New(db *sql.DB) *Server {
 	s.rag.SetUsageRecorder(func(model string, in int) {
 		s.recordAIUsage("embed", model, in, 0, 0)
 	})
+
+	// Managed cloud iff Polar billing is configured or TELA_CLOUD=1 — then plan
+	// flags are authoritative entitlements; otherwise (self-host) only a license
+	// key unlocks ee features. Must be set before any entitled() call.
+	s.managedCloud = os.Getenv("TELA_CLOUD") == "1" || s.billing.Enabled()
 
 	// Resolve the self-host Enterprise license (env → persisted) into s.license,
 	// so entitled() can grant ee features without a managed-cloud plan. No-op /
