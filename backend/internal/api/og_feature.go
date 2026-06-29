@@ -22,9 +22,10 @@ import (
 // reusing the page-card machinery, so /ask on a white-label domain is branded.
 
 type featureCard struct {
-	title    string // card heading + og:title base
-	subtitle string // rendered under the title on the image
-	desc     string // og:description / twitter:description
+	title    string   // card heading + og:title base
+	subtitle string   // rendered under the title on the image
+	desc     string   // og:description / twitter:description
+	chips    []string // capability pills along the bottom of the image
 }
 
 // featureCards maps an app path to its crawler card. To expose a new one: add an
@@ -35,21 +36,25 @@ var featureCards = map[string]featureCard{
 		title:    "Ask your docs",
 		subtitle: "AI answers grounded in your team's wiki",
 		desc:     "Ask a question and get an answer grounded in your team's wiki, with citations to the source pages.",
+		chips:    []string{"Grounded answers", "With citations"},
 	},
 	"/graph": {
 		title:    "Knowledge graph",
 		subtitle: "How your pages connect",
 		desc:     "Explore the wiki as a graph — every page and the links between them.",
+		chips:    []string{"Every page", "Every link"},
 	},
 	"/discover": {
 		title:    "Discover",
 		subtitle: "Public spaces & people",
 		desc:     "Browse the public spaces and authors published here.",
+		chips:    []string{"Public spaces", "Authors"},
 	},
 	"/atlas": {
 		title:    "Atlas",
 		subtitle: "Docs that write themselves, from your source",
 		desc:     "Point Atlas at a git repo or project and it drafts a cited, coverage-audited wiki — and keeps it fresh.",
+		chips:    []string{"Git & Jira", "Cited", "Always fresh"},
 	},
 }
 
@@ -155,13 +160,20 @@ func (s *Server) HandleFeatureOGImage(w http.ResponseWriter, r *http.Request) {
 	// (so it reads as a prompt to go ask, not an article) + a nudge CTA, capped to
 	// two lines so a long question is cut off rather than sprawling. No q → the
 	// generic feature card.
-	opts := ogCardOpts{title: fc.title, subtitle: fc.subtitle, brand: brand}
+	opts := ogCardOpts{
+		title:       fc.title,
+		subtitle:    fc.subtitle,
+		chips:       fc.chips,
+		accentLabel: s.ogHost(r),
+		brand:       brand,
+	}
 	if q := featureQuestion(r); q != "" {
 		opts = ogCardOpts{
 			kicker:        fc.title, // "Ask your docs"
 			title:         q,
 			subtitle:      "Open to see the answer →",
 			maxTitleLines: 2,
+			accentLabel:   s.ogHost(r),
 			brand:         brand,
 		}
 	}

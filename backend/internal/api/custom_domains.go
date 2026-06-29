@@ -4,6 +4,7 @@ import (
 	"cmp"
 	"context"
 	"net/http"
+	"strings"
 
 	"github.com/zcag/tela/backend/internal/auth"
 )
@@ -55,6 +56,18 @@ func (s *Server) originFor(r *http.Request) string {
 		return requestScheme(r) + "://" + oc.Host
 	}
 	return canonicalBaseURL()
+}
+
+// ogHost returns the bare host (no scheme) of the request's effective origin —
+// the domain shown in accent on a hero OG card. Falls back to the canonical host.
+func (s *Server) ogHost(r *http.Request) string {
+	origin := s.originFor(r)
+	if origin == "" {
+		origin = canonicalBaseURL()
+	}
+	host := strings.TrimPrefix(origin, "https://")
+	host = strings.TrimPrefix(host, "http://")
+	return strings.TrimSuffix(host, "/")
 }
 
 // linkOrigin is originFor with the dev fallback applied — for surfaces that must

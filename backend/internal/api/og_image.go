@@ -61,6 +61,18 @@ const (
 	ogLogoMaxHeight = 68
 	ogWeaveCell     = 44 // woven-grid pitch (tela = loom; the signature device)
 	ogKickerSize    = 26 // accent eyebrow (e.g. "ASK YOUR DOCS") above the title
+
+	// Hero composition (root + feature cards): a brand lockup (mark + wordmark)
+	// top-left, then a bottom band of pill chips on the left and the domain in
+	// accent on the right — echoing the marketing OG, but rendered + branded.
+	ogMarkSize     = 60 // rounded accent square holding the brand initial
+	ogMarkRadius   = 16
+	ogWordmarkSize = 40 // wordmark next to the mark in the lockup
+	ogChipH        = 50 // pill height in the bottom band
+	ogChipRadius   = 25
+	ogChipPadX     = 22 // horizontal text padding inside a chip
+	ogChipGap      = 14 // gap between chips
+	ogChipTextSize = 23
 )
 
 // ogAccentTintWeight is how much the org accent bleeds into the dark ink
@@ -77,6 +89,8 @@ var (
 	ogRuleColor     = color.RGBA{R: 0x2b, G: 0x2d, B: 0x38, A: 0xff} // line-rule hairline
 	ogWeaveColor    = color.RGBA{R: 0x1b, G: 0x1c, B: 0x24, A: 0xff} // dim woven thread
 	ogAccentColor   = color.RGBA{R: 0x52, G: 0x4c, B: 0xe3, A: 0xff} // indigo-fill (tela brand)
+	ogWhite         = color.RGBA{R: 0xff, G: 0xff, B: 0xff, A: 0xff} // brand-mark initial
+	ogChipBgColor   = color.RGBA{R: 0x1a, G: 0x1c, B: 0x27, A: 0xff} // chip fill (panel over the void)
 )
 
 // *opentype.Font is concurrent-safe per its docstring; the per-request
@@ -252,6 +266,8 @@ type ogCardOpts struct {
 	title         string
 	subtitle      string
 	maxTitleLines int
+	chips         []string // pill labels along the bottom-left (hero cards)
+	accentLabel   string   // bottom-right accent text, e.g. the domain (hero cards)
 	brand         ogBrand
 }
 
@@ -296,14 +312,31 @@ func renderOGCardOpts(o ogCardOpts) ([]byte, error) {
 	}
 	paintOGBackground(img, accent, o.brand.hasAccent)
 
-	// Header cursor: optional org logo, then an accent kicker eyebrow (when set),
-	// else a short accent rule (the plain page-card look). The title sits below.
+	// "Hero" cards (root + feature) carry chips and/or a domain label: they get a
+	// brand lockup up top and a bottom band of chips + domain, echoing the
+	// marketing OG. Entity cards (page/space) have neither → the plain footer.
+	hero := len(o.chips) > 0 || o.accentLabel != ""
+
+	// Header cursor: org logo if present; else, on a hero card, a mark+wordmark
+	// brand lockup; else a short accent rule (the plain page-card look). The
+	// kicker eyebrow (when set) and the title sit below.
 	top := ogMargin
-	if o.brand.logo != nil {
-		top += drawLogoFit(img, o.brand.logo, ogMargin, ogMargin, ogLogoMaxWidth, ogLogoMaxHeight)
+	headerH := 0
+	switch {
+	case o.brand.logo != nil:
+		headerH = drawLogoFit(img, o.brand.logo, ogMargin, ogMargin, ogLogoMaxWidth, ogLogoMaxHeight)
+	case hero:
+		lh, lerr := drawBrandLockup(img, accent, brandName(o.brand))
+		if lerr != nil {
+			return nil, lerr
+		}
+		headerH = lh
 	}
+	top += headerH
+
 	var titleY int
-	if o.kicker != "" {
+	switch {
+	case o.kicker != "":
 		kickerFace, kerr := opentype.NewFace(ogBoldFont, &opentype.FaceOptions{
 			Size: ogKickerSize, DPI: 72, Hinting: font.HintingFull,
 		})
@@ -312,7 +345,7 @@ func renderOGCardOpts(o ogCardOpts) ([]byte, error) {
 		}
 		defer kickerFace.Close()
 		ky := ogMargin + ogKickerSize
-		if o.brand.logo != nil {
+		if headerH > 0 {
 			ky = top + 26 + ogKickerSize
 		}
 		mk := ogKickerSize - 7
@@ -320,9 +353,9 @@ func renderOGCardOpts(o ogCardOpts) ([]byte, error) {
 		kd := &font.Drawer{Dst: img, Src: &image.Uniform{C: accent}, Face: kickerFace, Dot: fixed.P(ogMargin+mk+14, ky)}
 		kd.DrawString(strings.ToUpper(o.kicker))
 		titleY = ky + 30 + ogTitleSize
-	} else if o.brand.logo != nil {
+	case headerH > 0:
 		titleY = top + 44 + ogTitleSize
-	} else {
+	default:
 		draw.Draw(img, image.Rect(ogMargin, ogAccentY, ogMargin+ogAccentWidth, ogAccentY+ogAccentHeight),
 			&image.Uniform{C: accent}, image.Point{}, draw.Src)
 		titleY = ogAccentY + ogAccentHeight + 34 + ogTitleSize
@@ -343,12 +376,18 @@ func renderOGCardOpts(o ogCardOpts) ([]byte, error) {
 		titleDrawer.DrawString(line)
 	}
 
-	// Draw the subtitle only if it clears the footer rule — a long title (esp.
-	// under a logo) can push it into the footer; there the title is the message
-	// and the subtitle is dropped rather than colliding. ruleY mirrors the footer.
+	// The bottom band sits at the same baseline whichever mode: hero = chips +
+	// domain; entity = a hairline rule + accent mark + wordmark. clearanceY is the
+	// top of that band — the subtitle is dropped rather than colliding into it.
+	var clearanceY int
+	if hero {
+		clearanceY = drawHeroBand(img, footerFace, accent, o.chips, o.accentLabel)
+	} else {
+		clearanceY = drawEntityFooter(img, footerFace, accent, brandName(o.brand))
+	}
+
 	subtitleY := titleY + (len(titleLines)-1)*ogTitleLineH + 24 + ogSubtitleSize
-	ruleY := ogCanvasHeight - ogMargin - ogFooterSize - 20
-	if o.subtitle != "" && subtitleY <= ruleY-12 {
+	if o.subtitle != "" && subtitleY <= clearanceY-12 {
 		sub := truncateToWidth(subtitleFace, o.subtitle, ogDrawableWidth)
 		subtitleDrawer := &font.Drawer{
 			Dst:  img,
@@ -359,13 +398,104 @@ func renderOGCardOpts(o ogCardOpts) ([]byte, error) {
 		subtitleDrawer.DrawString(sub)
 	}
 
-	// Footer: a hairline rule, then a small accent mark + the wordmark (org name
-	// when branded, else "tela"). The rule + mark anchor the lower third so the
-	// card doesn't read as an empty void below the title.
-	footer := "tela"
-	if o.brand.name != "" {
-		footer = o.brand.name
+	var buf bytes.Buffer
+	if err := png.Encode(&buf, img); err != nil {
+		return nil, err
 	}
+	return buf.Bytes(), nil
+}
+
+// brandName is the org name when branded, else "tela".
+func brandName(b ogBrand) string {
+	if b.name != "" {
+		return b.name
+	}
+	return "tela"
+}
+
+// drawBrandLockup paints a mark+wordmark lockup at the top-left for hero cards
+// with no org logo: an accent rounded square holding the name's initial, then the
+// wordmark. Returns the lockup height so the caller can place the title below it.
+func drawBrandLockup(img *image.RGBA, accent color.RGBA, name string) (int, error) {
+	fillRoundRect(img, image.Rect(ogMargin, ogMargin, ogMargin+ogMarkSize, ogMargin+ogMarkSize), ogMarkRadius, accent)
+
+	glyphFace, err := opentype.NewFace(ogBoldFont, &opentype.FaceOptions{Size: 34, DPI: 72, Hinting: font.HintingFull})
+	if err != nil {
+		return 0, fmt.Errorf("og: mark face: %w", err)
+	}
+	defer glyphFace.Close()
+	initial := strings.ToUpper(string([]rune(name)[0]))
+	gm := glyphFace.Metrics()
+	gw := font.MeasureString(glyphFace, initial)
+	gx := fixed.I(ogMargin) + (fixed.I(ogMarkSize)-gw)/2
+	gy := fixed.I(ogMargin) + (fixed.I(ogMarkSize)-(gm.Ascent+gm.Descent))/2 + gm.Ascent
+	gd := &font.Drawer{Dst: img, Src: &image.Uniform{C: ogWhite}, Face: glyphFace, Dot: fixed.Point26_6{X: gx, Y: gy}}
+	gd.DrawString(initial)
+
+	wmFace, err := opentype.NewFace(ogBoldFont, &opentype.FaceOptions{Size: ogWordmarkSize, DPI: 72, Hinting: font.HintingFull})
+	if err != nil {
+		return 0, fmt.Errorf("og: wordmark face: %w", err)
+	}
+	defer wmFace.Close()
+	wm := truncateToWidth(wmFace, name, ogDrawableWidth-ogMarkSize-22)
+	wmMetrics := wmFace.Metrics()
+	wy := fixed.I(ogMargin) + (fixed.I(ogMarkSize)-(wmMetrics.Ascent+wmMetrics.Descent))/2 + wmMetrics.Ascent
+	wd := &font.Drawer{Dst: img, Src: &image.Uniform{C: ogTitleColor}, Face: wmFace, Dot: fixed.Point26_6{X: fixed.I(ogMargin + ogMarkSize + 22), Y: wy}}
+	wd.DrawString(wm)
+	return ogMarkSize, nil
+}
+
+// drawHeroBand paints the bottom band of a hero card: pill chips from the left
+// and an accent domain label on the right, vertically centered on the chip row.
+// Returns the band's top Y (the subtitle clearance).
+func drawHeroBand(img *image.RGBA, footerFace font.Face, accent color.RGBA, chips []string, accentLabel string) int {
+	bandTop := ogCanvasHeight - ogMargin - ogChipH
+	centerY := bandTop + ogChipH/2
+
+	chipFace, err := opentype.NewFace(ogRegularFont, &opentype.FaceOptions{Size: ogChipTextSize, DPI: 72, Hinting: font.HintingFull})
+	if err == nil {
+		defer chipFace.Close()
+		cm := chipFace.Metrics()
+		baseline := fixed.I(centerY) + (cm.Ascent-cm.Descent)/2
+		// Reserve room on the right for the domain so chips never overlap it.
+		rightLimit := ogCanvasWidth - ogMargin
+		if accentLabel != "" {
+			rightLimit -= font.MeasureString(footerFace, accentLabel).Round() + 28
+		}
+		x := ogMargin
+		for _, label := range chips {
+			label = strings.TrimSpace(label)
+			if label == "" {
+				continue
+			}
+			w := font.MeasureString(chipFace, label).Round() + 2*ogChipPadX
+			if x+w > rightLimit {
+				break
+			}
+			rect := image.Rect(x, bandTop, x+w, bandTop+ogChipH)
+			fillRoundRect(img, rect, ogChipRadius, ogRuleColor)
+			fillRoundRect(img, rect.Inset(1), ogChipRadius-1, ogChipBgColor)
+			cd := &font.Drawer{Dst: img, Src: &image.Uniform{C: ogSubtitleColor}, Face: chipFace, Dot: fixed.Point26_6{X: fixed.I(x + ogChipPadX), Y: baseline}}
+			cd.DrawString(label)
+			x += w + ogChipGap
+		}
+	}
+
+	if accentLabel != "" {
+		fm := footerFace.Metrics()
+		baseline := fixed.I(centerY) + (fm.Ascent-fm.Descent)/2
+		lw := font.MeasureString(footerFace, accentLabel)
+		ld := &font.Drawer{Dst: img, Src: &image.Uniform{C: accent}, Face: footerFace, Dot: fixed.Point26_6{X: fixed.I(ogCanvasWidth-ogMargin) - lw, Y: baseline}}
+		ld.DrawString(accentLabel)
+	}
+	return bandTop
+}
+
+// drawEntityFooter paints the plain footer for page/space cards: a hairline rule,
+// a small accent mark, and the wordmark. Returns the rule Y (the subtitle
+// clearance) so a long title's subtitle is dropped instead of colliding.
+func drawEntityFooter(img *image.RGBA, footerFace font.Face, accent color.RGBA, name string) int {
+	ruleY := ogCanvasHeight - ogMargin - ogFooterSize - 20
 	footerY := ogCanvasHeight - ogMargin
 	draw.Draw(img, image.Rect(ogMargin, ruleY, ogCanvasWidth-ogMargin, ruleY+2),
 		&image.Uniform{C: ogRuleColor}, image.Point{}, draw.Src)
@@ -375,7 +505,7 @@ func renderOGCardOpts(o ogCardOpts) ([]byte, error) {
 		&image.Uniform{C: accent}, image.Point{}, draw.Src)
 
 	footerX := ogMargin + mark + 18
-	footer = truncateToWidth(footerFace, footer, ogDrawableWidth-mark-18)
+	footer := truncateToWidth(footerFace, name, ogDrawableWidth-mark-18)
 	footerDrawer := &font.Drawer{
 		Dst:  img,
 		Src:  &image.Uniform{C: ogFooterColor},
@@ -383,12 +513,43 @@ func renderOGCardOpts(o ogCardOpts) ([]byte, error) {
 		Dot:  fixed.P(footerX, footerY),
 	}
 	footerDrawer.DrawString(footer)
+	return ruleY
+}
 
-	var buf bytes.Buffer
-	if err := png.Encode(&buf, img); err != nil {
-		return nil, err
+// fillRoundRect fills a rounded rectangle with col (opaque). Uses the clamped-
+// center test: a pixel is inside when its distance to the inner rect (inset by
+// rad) is ≤ rad — straight zones clamp to 0 distance, corners round off.
+func fillRoundRect(img *image.RGBA, rect image.Rectangle, rad int, col color.RGBA) {
+	if rad < 0 {
+		rad = 0
 	}
-	return buf.Bytes(), nil
+	if rad*2 > rect.Dx() {
+		rad = rect.Dx() / 2
+	}
+	if rad*2 > rect.Dy() {
+		rad = rect.Dy() / 2
+	}
+	r2 := rad * rad
+	for y := rect.Min.Y; y < rect.Max.Y; y++ {
+		for x := rect.Min.X; x < rect.Max.X; x++ {
+			nx := x
+			if nx < rect.Min.X+rad {
+				nx = rect.Min.X + rad
+			} else if nx > rect.Max.X-1-rad {
+				nx = rect.Max.X - 1 - rad
+			}
+			ny := y
+			if ny < rect.Min.Y+rad {
+				ny = rect.Min.Y + rad
+			} else if ny > rect.Max.Y-1-rad {
+				ny = rect.Max.Y - 1 - rad
+			}
+			dx, dy := x-nx, y-ny
+			if dx*dx+dy*dy <= r2 {
+				img.SetRGBA(x, y, col)
+			}
+		}
+	}
 }
 
 // paintOGBackground draws tela's signature atmosphere: a near-black ink gradient,

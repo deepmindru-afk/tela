@@ -17,7 +17,7 @@ import (
 // request with no org (dev / unknown host) falls back to the generic tela card.
 // On auth.IsPublicPath; served to cookieless crawlers, so it self-authenticates.
 
-const ogRootSubtitle = "Team knowledge base"
+const ogRootTagline = "Team knowledge base"
 
 // HandleRootOG emits the OG envelope for the white-label apex.
 func (s *Server) HandleRootOG(w http.ResponseWriter, r *http.Request) {
@@ -28,7 +28,7 @@ func (s *Server) HandleRootOG(w http.ResponseWriter, r *http.Request) {
 	}
 	writeOGDoc(w, ogDoc{
 		Title:        runeTruncate(siteName, 110),
-		Description:  runeTruncate(siteName+" — "+ogRootSubtitle+".", 200),
+		Description:  runeTruncate(siteName+" — "+ogRootTagline+".", 200),
 		CanonicalURL: origin + "/",
 		ImageURL:     origin + "/og.png",
 		OGType:       "website",
@@ -36,14 +36,21 @@ func (s *Server) HandleRootOG(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// HandleRootOGImage renders the apex card: the org name under its brand, with a
-// generic "knowledge base" subtitle. Served to all UAs (link-preview fetchers
-// carry arbitrary UAs). Org-branded via the request's custom-domain org.
+// ogRootChips are the capability pills on the apex card — generic across orgs
+// (they describe what every tela space offers), since an org carries no tagline.
+var ogRootChips = []string{"Docs", "Search", "Decks"}
+
+// HandleRootOGImage renders the apex card: the org brand lockup (logo or
+// mark+name), the "knowledge base" tagline as the headline, capability chips, and
+// the domain in accent. The org NAME lives in the lockup, so the headline is the
+// tagline (not the name repeated). Served to all UAs (link-preview fetchers carry
+// arbitrary UAs). Org-branded via the request's custom-domain org.
 func (s *Server) HandleRootOGImage(w http.ResponseWriter, r *http.Request) {
 	png, err := renderOGCardOpts(ogCardOpts{
-		title:    s.ogSiteName(r, 0),
-		subtitle: ogRootSubtitle,
-		brand:    s.resolveOGBrand(r, 0),
+		title:       ogRootTagline,
+		chips:       ogRootChips,
+		accentLabel: s.ogHost(r),
+		brand:       s.resolveOGBrand(r, 0),
 	})
 	if err != nil {
 		writeInternalHTML(w)
