@@ -70,6 +70,10 @@ export interface AdminStats {
   mcp_users: number
   active_pats: number
   public_spaces: number
+  active_trials: number
+  paid_subscriptions: number
+  ai_healthy: boolean
+  ai_reason?: string
 }
 
 export const adminStatsKeys = { stats: ['admin-stats'] as const }

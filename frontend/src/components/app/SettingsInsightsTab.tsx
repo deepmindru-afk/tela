@@ -151,6 +151,21 @@ export function SettingsInsightsTab() {
 
         {/* AI & retrieval */}
         <Section title="AI & retrieval" desc="Ask usage and the questions your docs couldn't answer — a to-do list for what to write.">
+          <div className="mb-[var(--space-3)] flex items-center gap-[var(--space-2)]">
+            <span className={cn(
+              'inline-flex items-center gap-[var(--space-1)] rounded-full px-[var(--space-2)] py-0.5',
+              'text-[length:var(--text-xs)] font-medium',
+              s.ai_healthy
+                ? 'bg-[var(--accent-positive-subtle)] text-[var(--accent-positive-fg)]'
+                : 'bg-[var(--accent-negative-subtle)] text-[var(--accent-negative-fg)]',
+            )}>
+              <span className={cn('h-1.5 w-1.5 rounded-full', s.ai_healthy ? 'bg-[var(--accent-positive-fg)]' : 'bg-[var(--accent-negative-fg)]')} />
+              {s.ai_healthy ? 'AI available' : 'AI unavailable'}
+            </span>
+            {!s.ai_healthy && s.ai_reason && (
+              <span className="text-[length:var(--text-xs)] text-[var(--text-muted)]">{s.ai_reason}</span>
+            )}
+          </div>
           <div className="grid gap-[var(--space-5)] lg:grid-cols-[auto_1fr] items-start">
             <div className="flex items-center gap-[var(--space-4)] lg:flex-col lg:items-start">
               <CoverageGauge value={answerRate} caption="answered" size="md" />
