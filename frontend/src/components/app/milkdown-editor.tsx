@@ -1,13 +1,10 @@
 /* eslint-disable react-hooks/refs --
    This file deliberately treats refs as render-readable stable state:
-   `collabRef` is lazily initialized during render (the React-sanctioned
-   lazy-init escape — a Y.Doc + provider must exist before the first editor
-   build and stay identity-stable across parent re-renders or collab state
-   would be trashed), and `callbacks`/`isLeaderRef`/`editableRef` are the
-   latest-value sync pattern read from PM callbacks that are wired once at
-   editor build. Restructuring to satisfy the rule would change init/teardown
-   timing in the most regression-prone file in the app for no behavioral
-   gain. */
+   `callbacks`/`editableRef` are the latest-value sync pattern read from PM
+   callbacks wired once at editor build (`isLeaderRef` likewise, surfaced by
+   useCollabSession). Restructuring to satisfy the rule would change init/
+   teardown timing in the most regression-prone file in the app for no
+   behavioral gain. */
 import { Suspense, lazy, memo, useEffect, useRef, useState } from 'react'
 import {
   Editor,
@@ -54,11 +51,14 @@ import { cn } from '../../lib/utils'
 import { setErrorReportPageId } from '../../lib/client-errors'
 import { configureRefractor } from '../../lib/milkdown/refractor-config'
 import { emitOpenNewPage } from '../../lib/newPageEvent'
-import { TelaProvider, type TelaProviderStatus } from '../../lib/collab/tela-provider'
+import type { TelaProvider } from '../../lib/collab/tela-provider'
 import { DiagramSession } from '../../lib/collab/diagram-session'
 import { decodeSyncInit } from '../../lib/collab/encode'
 import { cursorBuilder, selectionBuilder } from '../../lib/collab/cursor-builder'
-import { useLeaderElection } from '../../lib/collab/use-leader-election'
+import {
+  useCollabSession,
+  type CollabProviderFactory,
+} from '../../lib/collab/use-collab-session'
 import { slashPlugin, SlashView } from './milkdown-slash'
 import { bubblePlugin, BubbleToolbarView } from './milkdown-bubble-toolbar'
 import { BlockHandleView } from './milkdown-block-handle'
@@ -137,7 +137,6 @@ import {
   excalidrawPresenceCtx,
   excalidrawPresencePlugin,
 } from './milkdown-excalidraw-presence'
-import { useDiagramEditors } from '../../lib/collab/use-awareness'
 import {
   modifierClickEnabledCtx,
   modifierClickPlugin,
@@ -225,6 +224,10 @@ export interface MilkdownEditorProps {
   // PageView header (PresenceAvatars) and PageView's awareness local-state
   // seeding can hook into the same provider. Not invoked in non-collab mode.
   onCollabReady?: (provider: TelaProvider) => void
+  // Dependency-injection seam for the collab provider (tests). Defaults to the
+  // real /ws WebSocket provider; tests pass an offline fake so the collab path
+  // is editable without a backend. See useCollabSession.
+  collabProviderFactory?: CollabProviderFactory
   // M8.3 — selection bridge. `onViewReady` fires once with the EditorView on
   // mount (and once with null on unmount) so CommentsPanel can snapshot
   // anchors at submit time. `onSelectionChange` fires whenever the PM
@@ -281,6 +284,7 @@ function MilkdownEditorInner({
   collabPageId,
   readOnly,
   onCollabReady,
+  collabProviderFactory,
   onViewReady,
   onSelectionChange,
   commentThreads,
@@ -333,7 +337,7 @@ function MilkdownEditorInner({
     useState<ExcalidrawOpenRequest | null>(null)
   // SPIKE — live multiplayer Excalidraw session for the open diagram. State is
   // declared here with the other sheet state; the effect that builds it lives
-  // below the collab provider setup (it reads collabRef).
+  // below the collab provider setup (it reads the collab session).
   const [diagramSession, setDiagramSession] = useState<DiagramSession | null>(
     null,
   )
@@ -374,49 +378,19 @@ function MilkdownEditorInner({
     cb({ isEmpty: empty, text })
   }
 
-  // M7.2 — lazy-init Y.Doc + TelaProvider in a stable ref so the editor
-  // factory captures them once. Y.Doc lifecycle pitfall: a re-render with
-  // a non-stable doc would trash collab state on every parent update.
-  const collabRef = useRef<{ doc: Y.Doc; provider: TelaProvider } | null>(
-    null,
-  )
-  if (collabPageId != null && collabRef.current == null) {
-    const doc = new Y.Doc()
-    const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
-    const url = `${proto}//${window.location.host}/ws/pages/${collabPageId}`
-    const provider = new TelaProvider(url, doc)
-    // M7.3: seed local awareness state so this peer is visible in the
-    // awareness map and leader election can pick it up. Without this seed,
-    // getStates() would be empty and useLeaderElection would never claim
-    // leadership → no saves would ever fire. #65 will replace this with a
-    // real {user: {...}} payload on first 'connected' event; either ordering
-    // is fine because leader election only cares about clientID, not state
-    // contents.
-    provider.awareness.setLocalState({})
-    collabRef.current = { doc, provider }
-  }
-
-  const [collabStatus, setCollabStatus] = useState<TelaProviderStatus>(
-    () => collabRef.current?.provider.getStatus() ?? 'connected',
-  )
-  // Whether we've ever reached 'connected'. The reconnect banner is only for a
-  // *dropped* connection — the initial connect on every page open is normal and
-  // fast, and flashing "Reconnecting…" there made every navigation feel broken.
-  const [hasConnected, setHasConnected] = useState(false)
-  useEffect(() => {
-    const collab = collabRef.current
-    if (!collab) return
-    // Re-read status on attach so we don't miss a transition that happened
-    // between useState init and effect mount (race-prone for fast localhost
-    // connections where ws.onopen + sync-init can land before paint).
-    const initial = collab.provider.getStatus()
-    if (initial === 'connected') setHasConnected(true)
-    setCollabStatus(initial)
-    return collab.provider.onStatus((s) => {
-      if (s === 'connected') setHasConnected(true)
-      setCollabStatus(s)
-    })
-  }, [])
+  // M7.2 — live-collab session: owns the Y.Doc + provider, connection status,
+  // leader election, and per-diagram presence (see useCollabSession). `session`
+  // is null in non-collab mode. The provider is injectable for tests.
+  const {
+    session,
+    status: collabStatus,
+    hasConnected,
+    isLeaderRef,
+    diagramEditors,
+  } = useCollabSession(collabPageId, {
+    onReady: onCollabReady,
+    createProvider: collabProviderFactory,
+  })
 
   // Tag global error reports with the page being edited, so a crash here lands
   // in the events feed pointing at the right page (collab is the hotspot we're
@@ -427,37 +401,6 @@ function MilkdownEditorInner({
     return () => setErrorReportPageId(undefined)
   }, [collabPageId])
 
-  // M7.4 — hand the provider up to PageView so the header presence avatars and
-  // user-awareness seeding can share this exact instance. Fired once per
-  // editor mount; PageView remounts on page id change so the parent sees a
-  // fresh provider for each page.
-  useEffect(() => {
-    const collab = collabRef.current
-    if (!collab) return
-    if (!onCollabReady) return
-    onCollabReady(collab.provider)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
-
-  // M7.3: leader-election state. Read once per render via the hook, then
-  // mirror into a ref so the Milkdown listener callbacks (set up once at
-  // editor creation) can read the live value without being rebuilt on
-  // every leadership flip. In non-collab mode awareness is null and the
-  // hook returns false — callbacks below check `collabRef.current != null`
-  // before consulting the leader flag, so the legacy non-collab save path
-  // stays unconditional.
-  const isLeader = useLeaderElection(
-    collabRef.current?.provider.awareness ?? null,
-  )
-  const isLeaderRef = useRef(isLeader)
-  isLeaderRef.current = isLeader
-
-  // Live presence: which diagrams OTHER editors currently have open (from
-  // awareness). Pushed into the presence decoration plugin by the effect below.
-  const diagramEditors = useDiagramEditors(
-    collabRef.current?.provider.awareness ?? null,
-  )
-
   // SPIKE — live multiplayer Excalidraw. While a diagram is open in collab
   // mode, spin up a DiagramSession on the shared provider's ephemeral (tag
   // 0x07) channel so peers editing the SAME diagram see each other's strokes.
@@ -466,9 +409,8 @@ function MilkdownEditorInner({
   // when there's no collab provider (solo/share/view) → the sheet behaves
   // exactly as before.
   useEffect(() => {
-    const collab = collabRef.current
-    if (!excalidrawSheet || !collab) return
-    const provider = collab.provider
+    if (!excalidrawSheet || !session) return
+    const provider = session.provider
     const localUser = provider.awareness.getLocalState()?.user as
       | { id: number; username: string; colorIdx: number }
       | undefined
@@ -505,7 +447,7 @@ function MilkdownEditorInner({
   // status/readOnly changes to force PM to re-read.
   const editableRef = useRef(true)
   editableRef.current =
-    !readOnly && (collabRef.current == null || collabStatus === 'connected')
+    !readOnly && (session == null || collabStatus === 'connected')
 
   const { loading, get } = useEditor((root) =>
     Editor.make()
@@ -523,16 +465,16 @@ function MilkdownEditorInner({
             // Yjs has already converged the doc across the room, so a save
             // from any one peer carries the canonical body; multi-peer
             // saves would be wasted duplicates. In non-collab mode
-            // (collabRef == null) the legacy single-author path is
+            // (session == null) the legacy single-author path is
             // unconditional.
-            if (collabRef.current != null && !isLeaderRef.current) return
+            if (session != null && !isLeaderRef.current) return
             callbacks.current.onChange(md)
           })
           .blur(() => {
             // Same leader gate as markdownUpdated. Blur in PageView cancels
             // the pending debounce and saves immediately; non-leaders have
             // no pending save and shouldn't author one either.
-            if (collabRef.current != null && !isLeaderRef.current) return
+            if (session != null && !isLeaderRef.current) return
             callbacks.current.onBlur?.()
           })
         // M15.1 — slash + wikilink-autocomplete views are editor-surface
@@ -708,7 +650,7 @@ function MilkdownEditorInner({
         // initial PM doc into it iff the fragment is empty — naturally
         // seeding a fresh room from defaultValueCtx (the canonical
         // pages.body markdown) without us doing anything special.
-        const collab = collabRef.current
+        const collab = session
         if (collab) {
           const fragment = collab.doc.getXmlFragment('milkdown-doc')
           // M7.5: yCursorPlugin renders one widget per remote peer's caret +
@@ -1047,7 +989,7 @@ function MilkdownEditorInner({
   // doesn't address this; a deterministic seed lock is out of M7 scope.
   useEffect(() => {
     if (loading) return
-    const collab = collabRef.current
+    const collab = session
     if (!collab) return
     const editor = get()
     if (!editor) return
@@ -1094,7 +1036,7 @@ function MilkdownEditorInner({
   // stops NEW divergence.
   useEffect(() => {
     if (loading) return
-    const collab = collabRef.current
+    const collab = session
     if (!collab) return
     let firstSyncDone = false
     const unsubFirst = collab.provider.onFirstSync(() => {
@@ -1131,7 +1073,7 @@ function MilkdownEditorInner({
   // no-op, since Yjs update application is idempotent.
   useEffect(() => {
     if (collabPageId == null) return
-    const collab = collabRef.current
+    const collab = session
     if (!collab) return
     let cancelled = false
     void (async () => {
@@ -1191,35 +1133,11 @@ function MilkdownEditorInner({
     return () => dom.removeEventListener('click', onClick)
   }, [loading, get])
 
-  // Teardown: close ws + cancel reconnect on unmount. Without this, tabbing
-  // between pages would leak rooms and reconnect timers.
-  //
-  // We deliberately do NOT call collab.doc.destroy(). @milkdown/react's
-  // editor.destroy() is async and tears down across more than a microtask
-  // tick — including the y-prosemirror ySync binding's unobserve of the
-  // XmlFragment. Destroying the Y.Doc while that observer is still attached
-  // makes it dispatch a transaction into an editor whose Milkdown ctx is
-  // already half-removed → "Context editorState not found", thrown on every
-  // page switch (neither a synchronous destroy nor a setTimeout(0)-deferred
-  // one reliably lands after the async editor teardown). Skipping the destroy
-  // removes the only thing that mutates the fragment during teardown, so the
-  // observer never fires. provider.destroy() already stops the ws, reconnect
-  // timer, awareness and outbound doc updates; once collabRef is nulled the
-  // doc + provider have no remaining references and are garbage-collected.
-  useEffect(() => {
-    return () => {
-      const collab = collabRef.current
-      if (!collab) return
-      collabRef.current = null
-      collab.provider.destroy()
-    }
-  }, [])
-
   // Only after a real drop (we were connected, now we're not) — never during
   // the initial connect on page open.
   const showReconnectBanner =
     !readOnly &&
-    collabRef.current != null &&
+    session != null &&
     collabStatus !== 'connected' &&
     hasConnected
 
