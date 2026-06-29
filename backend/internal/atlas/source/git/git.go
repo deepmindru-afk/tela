@@ -10,6 +10,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"go/ast"
 	"go/parser"
@@ -250,9 +251,17 @@ func (*Connector) HasChanges(ctx context.Context, src core.Source, fromRef strin
 	if src.Branch != "" {
 		ref = src.Branch
 	}
-	out, err := exec.CommandContext(ctx, "git", "ls-remote", authURL(src), ref).Output()
+	cmd := exec.CommandContext(ctx, "git", "ls-remote", authURL(src), ref)
+	out, err := cmd.Output()
 	if err != nil {
-		return false, fmt.Errorf("git ls-remote: %w", err)
+		// Mirror the Acquire pattern: use CombinedOutput-equivalent stderr scrub so
+		// a git server that echoes the auth URL in its error output can't leak the token.
+		var exitErr *exec.ExitError
+		stderr := ""
+		if errors.As(err, &exitErr) {
+			stderr = ": " + redactSecret(strings.TrimSpace(string(exitErr.Stderr)), src.SecretValue)
+		}
+		return false, fmt.Errorf("git ls-remote: %v%s", err, stderr)
 	}
 	sha, _, _ := strings.Cut(strings.TrimSpace(string(out)), "\t")
 	if sha == "" {
