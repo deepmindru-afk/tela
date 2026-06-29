@@ -77,7 +77,7 @@ func TestFeedback_SyntheticOAuthKey(t *testing.T) {
 
 	k := &auth.APIKey{UserID: uid, Scope: auth.ScopeWrite} // ID 0 → no api_keys row
 	dto, ae := srv.feedbackCore(context.Background(), &auth.User{ID: uid}, k,
-		feedbackCreateRequest{Subject: "via oauth", Body: "cowork feedback body"})
+		feedbackCreateRequest{Subject: "via oauth", Body: "cowork feedback body"}, "mcp", "")
 	if ae != nil {
 		t.Fatalf("feedbackCore errored for synthetic OAuth key: %+v", ae)
 	}
@@ -134,14 +134,15 @@ func TestFeedback_ValidationRejects400(t *testing.T) {
 	seedUser(t, d, "admin", "testpass123", true)
 	c := loginClient(t, ts, "admin", "testpass123")
 
+	// NB: an empty/whitespace subject is NOT rejected — it's derived from the
+	// body's first line (the single-textarea widget omits the subject). Only an
+	// empty body, or an explicitly-supplied oversize subject/body, is a 400.
 	cases := []struct {
 		name string
 		body string
 	}{
-		{"empty subject", `{"subject":"","body":"x"}`},
 		{"empty body", `{"subject":"x","body":""}`},
 		{"both empty", `{"subject":"","body":""}`},
-		{"whitespace subject", `{"subject":"   ","body":"x"}`},
 		{"whitespace body", `{"subject":"x","body":"   "}`},
 		{"oversize subject", `{"subject":"` + strings.Repeat("a", 201) + `","body":"x"}`},
 		{"oversize body", `{"subject":"x","body":"` + strings.Repeat("a", 8001) + `"}`},
@@ -171,6 +172,77 @@ func TestFeedback_ValidationRejects400(t *testing.T) {
 	}
 	if n != 0 {
 		t.Fatalf("feedback row count=%d after validation failures, want 0", n)
+	}
+}
+
+// TestFeedback_DerivesSubjectAndStampsContext — the widget posts a body, a
+// kind, and a client context bag but no subject. The subject is derived from
+// the first line, kind persists, source is 'web' (session caller), and the
+// backend stamps app_version + the request UA into the context JSONB.
+func TestFeedback_DerivesSubjectAndStampsContext(t *testing.T) {
+	ts, d := newWiredServer(t)
+	seedUser(t, d, "admin", "testpass123", true)
+	c := loginClient(t, ts, "admin", "testpass123")
+
+	payload := `{"body":"Dark mode flickers\nsecond line of detail","kind":"bug",` +
+		`"context":{"route":"/spaces/3/pages/42","page_id":42,"space_id":3,"page_title":"Roadmap","theme":"dark"}}`
+	resp, err := c.Post(ts.URL+"/api/feedback", "application/json", strings.NewReader(payload))
+	if err != nil {
+		t.Fatalf("post: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusCreated {
+		b, _ := io.ReadAll(resp.Body)
+		t.Fatalf("status=%d body=%s", resp.StatusCode, b)
+	}
+	var env feedbackEnvelope
+	if err := json.NewDecoder(resp.Body).Decode(&env); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if env.Feedback.Subject != "Dark mode flickers" {
+		t.Fatalf("derived subject=%q want first line", env.Feedback.Subject)
+	}
+	if env.Feedback.Kind == nil || *env.Feedback.Kind != "bug" {
+		t.Fatalf("kind=%v want bug", env.Feedback.Kind)
+	}
+	if env.Feedback.Source != "web" {
+		t.Fatalf("source=%q want web", env.Feedback.Source)
+	}
+	ctx := env.Feedback.Context
+	if ctx["route"] != "/spaces/3/pages/42" || ctx["page_title"] != "Roadmap" {
+		t.Fatalf("client context not preserved: %+v", ctx)
+	}
+	// JSON numbers decode to float64 through map[string]any.
+	if pid, _ := ctx["page_id"].(float64); pid != 42 {
+		t.Fatalf("page_id=%v want 42", ctx["page_id"])
+	}
+	if ctx["source"] != "web" || ctx["app_version"] == "" || ctx["app_version"] == nil {
+		t.Fatalf("app/source not stamped: %+v", ctx)
+	}
+	if ua, _ := ctx["user_agent"].(string); ua == "" {
+		t.Fatalf("user_agent not stamped: %+v", ctx)
+	}
+}
+
+// TestFeedback_UnknownKindIsNull — a kind outside {idea,bug,other} is dropped
+// to NULL rather than stored, so the column stays a clean enum.
+func TestFeedback_UnknownKindIsNull(t *testing.T) {
+	ts, d := newWiredServer(t)
+	seedUser(t, d, "admin", "testpass123", true)
+	c := loginClient(t, ts, "admin", "testpass123")
+
+	resp, err := c.Post(ts.URL+"/api/feedback", "application/json",
+		strings.NewReader(`{"body":"hello","kind":"rant"}`))
+	if err != nil {
+		t.Fatalf("post: %v", err)
+	}
+	defer resp.Body.Close()
+	var env feedbackEnvelope
+	if err := json.NewDecoder(resp.Body).Decode(&env); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if env.Feedback.Kind != nil {
+		t.Fatalf("kind=%v want nil for unknown value", *env.Feedback.Kind)
 	}
 }
 

@@ -423,6 +423,7 @@ func FeedbackNotice(to, who, subject, body, kind, source, page, inboxURL string)
 	if len(b) > 600 {
 		b = b[:600] + "…"
 	}
+	// meta condenses provenance into one parenthetical: "bug via web on “Page”".
 	meta := source
 	if kind != "" {
 		meta = kind + " via " + source
@@ -434,7 +435,7 @@ func FeedbackNotice(to, who, subject, body, kind, source, page, inboxURL string)
 	if meta != "" {
 		intro += " (" + meta + ")"
 	}
-	intro += fmt.Sprintf(" \u2014 \u201c%s\u201d: %s", subject, b)
+	intro += fmt.Sprintf(" — “%s”: %s", subject, b)
 	v := emailView{
 		LogoOrigin: originOf(inboxURL),
 		Eyebrow:    "Feedback",
