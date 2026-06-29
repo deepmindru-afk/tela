@@ -120,6 +120,7 @@ type adminStats struct {
 
 	// Billing signals — revenue visibility at a glance.
 	ActiveTrials      int64 `json:"active_trials"`       // users currently on an active (non-expired) trial
+	ExpiredTrials     int64 `json:"expired_trials"`      // trials that ended without converting (trial_plan_key set, trial_ends_at past)
 	PaidSubscriptions int64 `json:"paid_subscriptions"`  // users on any paid plan (not free or trial)
 
 	// AI service health — the last background-probe result from StartAIHealthProbe.
@@ -324,6 +325,8 @@ func (s *Server) AdminStats(w http.ResponseWriter, r *http.Request) {
 	// --- Billing ---
 	_ = s.DB.QueryRowContext(ctx,
 		`SELECT COUNT(*) FROM users WHERE trial_plan_key IS NOT NULL AND trial_ends_at > tela_now() AND deleted_at IS NULL`).Scan(&out.ActiveTrials)
+	_ = s.DB.QueryRowContext(ctx,
+		`SELECT COUNT(*) FROM users WHERE trial_plan_key IS NOT NULL AND trial_ends_at <= tela_now() AND deleted_at IS NULL`).Scan(&out.ExpiredTrials)
 	_ = s.DB.QueryRowContext(ctx,
 		`SELECT COUNT(*) FROM users WHERE plan_key NOT IN ('personal_free','plus_trial') AND deleted_at IS NULL`).Scan(&out.PaidSubscriptions)
 

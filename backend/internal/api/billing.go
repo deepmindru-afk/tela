@@ -164,7 +164,8 @@ func (s *Server) CreateCheckout(w http.ResponseWriter, r *http.Request) {
 }
 
 type portalRequest struct {
-	OrgID int64 `json:"org_id"` // 0 = the caller's personal account
+	OrgID        int64  `json:"org_id"`        // 0 = the caller's personal account
+	CancelReason string `json:"cancel_reason"` // optional; stored for churn analysis
 }
 
 // CreateBillingPortal returns a Polar customer-portal URL so the account holder
@@ -205,6 +206,15 @@ func (s *Server) CreateBillingPortal(w http.ResponseWriter, r *http.Request) {
 	if !custID.Valid || custID.String == "" {
 		writeError(w, http.StatusBadRequest, "no_subscription", "no subscription to manage yet")
 		return
+	}
+
+	if r := strings.TrimSpace(req.CancelReason); r != "" {
+		if len(r) > 500 {
+			r = r[:500]
+		}
+		_, _ = s.DB.ExecContext(ctx,
+			`UPDATE `+acctTable(acct.Kind)+` SET cancel_reason = $1, updated_at = tela_now() WHERE id = $2`,
+			r, acct.ID)
 	}
 
 	url, err := s.billing.CreateCustomerSession(ctx, acctExternalID(acct))
