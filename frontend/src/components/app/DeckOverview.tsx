@@ -6,7 +6,7 @@ import { useUpdatePage } from '../../lib/queries/pages'
 import type { Page } from '../../lib/types'
 import { DeckCoverImage } from './deck-cover-image'
 import { useFileDownload } from './use-file-download'
-import { toast, dismissToast } from '../ui/toast'
+import { toast, updateToast } from '../ui/toast'
 import { Button } from '../ui/button'
 import {
   DropdownMenu,
@@ -84,16 +84,27 @@ export function DeckOverview({ page }: { page: Page }) {
     { fallbackName: 'deck.pptx' },
   )
   const exportDeck = (kind: 'PDF' | 'PPTX') => {
-    const id = toast({ title: `Preparing ${kind}…`, duration: 0 })
-    void (kind === 'PDF' ? downloadPdf() : downloadPptx()).then((ok) => {
-      dismissToast(id)
-      if (!ok)
-        toast({
-          title: `${kind} export failed`,
-          description: 'Please try again.',
-          variant: 'destructive',
-        })
-    })
+    const id = toast({ title: `Preparing ${kind}…`, loading: true, duration: 0 })
+    void (kind === 'PDF' ? downloadPdf() : downloadPptx()).then((ok) =>
+      updateToast(
+        id,
+        ok
+          ? {
+              title: `${kind} ready`,
+              description: 'Your download has started.',
+              variant: 'success',
+              loading: false,
+              duration: 4000,
+            }
+          : {
+              title: `${kind} export failed`,
+              description: 'Please try again.',
+              variant: 'destructive',
+              loading: false,
+              duration: 6000,
+            },
+      ),
+    )
   }
 
   const features = data?.features

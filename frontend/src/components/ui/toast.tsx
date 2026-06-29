@@ -1,5 +1,5 @@
 import { useEffect, useSyncExternalStore } from 'react'
-import { X } from 'lucide-react'
+import { Loader2, X } from 'lucide-react'
 import { cn } from '../../lib/utils'
 
 // Owned, dependency-free toast layer. A tiny module-level store + a <Toaster/>
@@ -18,9 +18,12 @@ export interface ToastOptions {
   variant?: ToastVariant
   /** ms before auto-dismiss; 0 keeps it until dismissed. Default 5000. */
   duration?: number
+  /** Show a spinner + accent border for an in-flight task (pair with duration 0). */
+  loading?: boolean
 }
 
-interface ToastItem extends Required<Omit<ToastOptions, 'title' | 'description'>> {
+interface ToastItem
+  extends Required<Omit<ToastOptions, 'title' | 'description'>> {
   id: number
   title?: string
   description?: string
@@ -48,7 +51,10 @@ function getSnapshot() {
 // eslint-disable-next-line react-refresh/only-export-components
 export function toast(opts: ToastOptions): number {
   const id = ++counter
-  items = [...items, { id, variant: 'default', duration: 5000, ...opts }]
+  items = [
+    ...items,
+    { id, variant: 'default', duration: 5000, loading: false, ...opts },
+  ]
   emit()
   return id
 }
@@ -56,6 +62,14 @@ export function toast(opts: ToastOptions): number {
 // eslint-disable-next-line react-refresh/only-export-components
 export function dismissToast(id: number) {
   items = items.filter((t) => t.id !== id)
+  emit()
+}
+
+// Mutate an existing toast in place (e.g. flip a loading toast to a success
+// result) so a task's start and end read as one notification, not two.
+// eslint-disable-next-line react-refresh/only-export-components
+export function updateToast(id: number, opts: ToastOptions) {
+  items = items.map((t) => (t.id === id ? { ...t, ...opts } : t))
   emit()
 }
 
@@ -68,10 +82,17 @@ function ToastCard({ item }: { item: ToastItem }) {
 
   return (
     <div
-      className={cn('tela-toast', `tela-toast-${item.variant}`)}
+      className={cn(
+        'tela-toast',
+        `tela-toast-${item.variant}`,
+        item.loading && 'tela-toast-loading',
+      )}
       role={item.variant === 'destructive' ? 'alert' : 'status'}
       aria-live={item.variant === 'destructive' ? 'assertive' : 'polite'}
     >
+      {item.loading && (
+        <Loader2 className="tela-toast-spinner" aria-hidden="true" />
+      )}
       <div className="tela-toast-body">
         {item.title && <div className="tela-toast-title">{item.title}</div>}
         {item.description && <div className="tela-toast-description">{item.description}</div>}

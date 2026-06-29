@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/react-vite'
 import { Button } from './button'
-import { Toaster, toast } from './toast'
+import { Toaster, toast, updateToast } from './toast'
 
 // The toast store is module-level, so a story just renders <Toaster/> and fires
 // toast() from a trigger. Variants map to semantic tokens (success=green,
@@ -26,6 +26,26 @@ const meta: Meta = {
           }
         >
           Error
+        </Button>
+        <Button
+          variant="secondary"
+          onClick={() => {
+            // A long-running task: spinner toast that morphs to a success result.
+            const id = toast({ title: 'Preparing PDF…', loading: true, duration: 0 })
+            setTimeout(
+              () =>
+                updateToast(id, {
+                  title: 'PDF ready',
+                  description: 'Your download has started.',
+                  variant: 'success',
+                  loading: false,
+                  duration: 4000,
+                }),
+              2000,
+            )
+          }}
+        >
+          Loading
         </Button>
       </div>
       <Toaster />

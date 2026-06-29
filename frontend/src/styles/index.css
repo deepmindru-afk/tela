@@ -191,6 +191,27 @@
   .tela-toast-destructive {
     border-color: var(--danger);
   }
+  /* In-flight task toast: accent ring + glow so it reads as active work, plus a
+     spinning leading icon. */
+  .tela-toast-loading {
+    border-color: var(--accent);
+    box-shadow:
+      var(--shadow-lg),
+      0 0 0 1px color-mix(in oklch, var(--accent) 45%, transparent);
+  }
+  .tela-toast-spinner {
+    flex-shrink: 0;
+    width: var(--space-5);
+    height: var(--space-5);
+    margin-top: 1px;
+    color: var(--accent);
+    animation: tela-spin 0.8s linear infinite;
+  }
+  @keyframes tela-spin {
+    to {
+      transform: rotate(360deg);
+    }
+  }
   .tela-toast-destructive .tela-toast-title {
     color: var(--danger);
   }

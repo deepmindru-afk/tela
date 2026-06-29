@@ -119,7 +119,7 @@ import { PageTrustStrip } from './PageTrustStrip'
 import { MarkdownView } from '../view/MarkdownView'
 import { prefetchMilkdownEditor } from '../../lib/prefetchEditor'
 import { useFileDownload } from './use-file-download'
-import { toast, dismissToast } from '../ui/toast'
+import { toast, updateToast } from '../ui/toast'
 
 // Milkdown is the largest dependency in the app (~700 KB raw). Lazy-load it so
 // non-editor routes (sidebar, spaces list, command palette) don't pay for it
@@ -645,18 +645,29 @@ function PageActionsMenu({
   }
   // The menu closes on select, so there's no inline spot for the busy state —
   // a deck PDF renders headless Chromium frames and can take several seconds.
-  // Surface a persistent toast that clears when the download lands (or errors).
+  // Surface a spinner toast that morphs to the result when the download lands.
   const exportPdf = () => {
-    const id = toast({ title: 'Preparing PDF…', duration: 0 })
-    void downloadPdf().then((ok) => {
-      dismissToast(id)
-      if (!ok)
-        toast({
-          title: 'PDF export failed',
-          description: 'Please try again.',
-          variant: 'destructive',
-        })
-    })
+    const id = toast({ title: 'Preparing PDF…', loading: true, duration: 0 })
+    void downloadPdf().then((ok) =>
+      updateToast(
+        id,
+        ok
+          ? {
+              title: 'PDF ready',
+              description: 'Your download has started.',
+              variant: 'success',
+              loading: false,
+              duration: 4000,
+            }
+          : {
+              title: 'PDF export failed',
+              description: 'Please try again.',
+              variant: 'destructive',
+              loading: false,
+              duration: 6000,
+            },
+      ),
+    )
   }
 
   return (
