@@ -7,6 +7,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"strconv"
 	"strings"
@@ -108,6 +109,7 @@ func (s *Server) mcpVerifier(ctx context.Context, token string, _ *http.Request)
 	case s.oauth != nil:
 		ti, err = s.verifyWorkOSToken(ctx, token)
 	default:
+		slog.Warn("mcp: token has no recognized prefix and OAuth disabled", "prefix", safePrefix(token, 20))
 		return nil, sdkauth.ErrInvalidToken
 	}
 	// Stamp MCP-last-seen for the resolved user — this is the one place that sees

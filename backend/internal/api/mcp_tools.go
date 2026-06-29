@@ -39,7 +39,7 @@ func (s *Server) registerMCPTools(server *mcp.Server) {
 	// is a closed world (its own DB): every tool sets OpenWorldHint false. *bool
 	// so the value survives the SDK's omitempty.
 	no, yes := false, true
-	readOnly := &mcp.ToolAnnotations{ReadOnlyHint: true, OpenWorldHint: &no}
+	readOnly := &mcp.ToolAnnotations{ReadOnlyHint: &yes, DestructiveHint: &no, OpenWorldHint: &no}
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "list_spaces",
@@ -148,14 +148,14 @@ func (s *Server) registerMCPTools(server *mcp.Server) {
 		Name:        "create_page",
 		Title:       "Create page",
 		Description: "Create a page in a space (editor+). Body is markdown; tela://page/{id} links and [[Page Title]] wikilinks (resolved by title within the space) are indexed as backlinks. " + authoringToolHint() + deckAuthoringToolHint(),
-		Annotations: &mcp.ToolAnnotations{DestructiveHint: &no, OpenWorldHint: &no},
+		Annotations: &mcp.ToolAnnotations{ReadOnlyHint: &no, DestructiveHint: &no, OpenWorldHint: &no},
 	}, s.mcpCreatePage)
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "update_page",
 		Title:       "Update page",
 		Description: "Patch a page's title and/or body (editor+). A body change auto-snapshots a revision. " + authoringToolHint() + deckAuthoringToolHint(),
-		Annotations: &mcp.ToolAnnotations{IdempotentHint: true, DestructiveHint: &no, OpenWorldHint: &no},
+		Annotations: &mcp.ToolAnnotations{ReadOnlyHint: &no, IdempotentHint: true, DestructiveHint: &no, OpenWorldHint: &no},
 	}, s.mcpUpdatePage)
 
 	mcp.AddTool(server, &mcp.Tool{
@@ -183,77 +183,77 @@ func (s *Server) registerMCPTools(server *mcp.Server) {
 		Name:        "patch_page",
 		Title:       "Patch page section",
 		Description: "Surgically edit ONE section of a page instead of rewriting the whole body (editor+). First call get_page format:\"map\" to see the section paths, then patch the target. Cheaper and safer than update_page on a long page — it never touches the rest of the document. Snapshots a revision like any edit.",
-		Annotations: &mcp.ToolAnnotations{DestructiveHint: &no, OpenWorldHint: &no},
+		Annotations: &mcp.ToolAnnotations{ReadOnlyHint: &no, DestructiveHint: &no, OpenWorldHint: &no},
 	}, s.mcpPatchPage)
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "delete_page",
 		Title:       "Delete page",
 		Description: "Delete a page (editor+). Backlinks from other pages are preserved with the last-known title.",
-		Annotations: &mcp.ToolAnnotations{DestructiveHint: &yes, OpenWorldHint: &no},
+		Annotations: &mcp.ToolAnnotations{ReadOnlyHint: &no, DestructiveHint: &yes, OpenWorldHint: &no},
 	}, s.mcpDeletePage)
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "move_page",
 		Title:       "Move page",
 		Description: "Move a page: reparent (parent_id), detach to top-level (make_root), reorder (position), and/or relocate to another space (space_id). Editor+ in both source and target space. Provide at least one of space_id / parent_id / make_root / position.",
-		Annotations: &mcp.ToolAnnotations{IdempotentHint: true, DestructiveHint: &no, OpenWorldHint: &no},
+		Annotations: &mcp.ToolAnnotations{ReadOnlyHint: &no, IdempotentHint: true, DestructiveHint: &no, OpenWorldHint: &no},
 	}, s.mcpMovePage)
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "share_page",
 		Title:       "Share page (public link)",
 		Description: "Mint a public share link for a page — a URL anyone can open with NO tela login (editor+). Returns the absolute `url` plus the link's `id` and `token`. Options: include_descendants shares the whole subtree (not just this page); password gates it behind a passphrase; expires_at (UTC 'YYYY-MM-DD HH:MM:SS') auto-expires it. Each call mints a NEW link — use list_shares to see existing ones and revoke_share to disable one. This shares a single page tree; to publish a WHOLE space, use the space's visibility setting instead.",
-		Annotations: &mcp.ToolAnnotations{DestructiveHint: &no, OpenWorldHint: &no},
+		Annotations: &mcp.ToolAnnotations{ReadOnlyHint: &no, DestructiveHint: &no, OpenWorldHint: &no},
 	}, s.mcpSharePage)
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "list_shares",
 		Title:       "List share links",
 		Description: "List a page's public share links (editor+): id, token, absolute url, has_password, include_descendants, expires_at, revoked_at. Active links only by default; pass include_revoked to also see revoked ones. Tokens are bearer secrets, so this needs a write-scoped key.",
-		Annotations: &mcp.ToolAnnotations{ReadOnlyHint: true, OpenWorldHint: &no},
+		Annotations: &mcp.ToolAnnotations{ReadOnlyHint: &yes, DestructiveHint: &no, OpenWorldHint: &no},
 	}, s.mcpListShares)
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "revoke_share",
 		Title:       "Revoke share link",
 		Description: "Disable a public share link by its share id (editor+; ids come from list_shares). The link stops working immediately. Idempotent — revoking an already-revoked link is a no-op.",
-		Annotations: &mcp.ToolAnnotations{IdempotentHint: true, DestructiveHint: &yes, OpenWorldHint: &no},
+		Annotations: &mcp.ToolAnnotations{ReadOnlyHint: &no, IdempotentHint: true, DestructiveHint: &yes, OpenWorldHint: &no},
 	}, s.mcpRevokeShare)
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "add_comment",
 		Title:       "Add comment",
 		Description: "Attach a root comment to a page, anchored by a {prefix, exact, suffix} text triplet (editor+).",
-		Annotations: &mcp.ToolAnnotations{DestructiveHint: &no, OpenWorldHint: &no},
+		Annotations: &mcp.ToolAnnotations{ReadOnlyHint: &no, DestructiveHint: &no, OpenWorldHint: &no},
 	}, s.mcpAddComment)
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "create_space",
 		Title:       "Create space",
 		Description: "Create a space. The caller becomes its owner. slug is derived from name when omitted.",
-		Annotations: &mcp.ToolAnnotations{DestructiveHint: &no, OpenWorldHint: &no},
+		Annotations: &mcp.ToolAnnotations{ReadOnlyHint: &no, DestructiveHint: &no, OpenWorldHint: &no},
 	}, s.mcpCreateSpace)
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "update_space",
 		Title:       "Update space",
 		Description: "Patch a space's name and/or slug (editor+).",
-		Annotations: &mcp.ToolAnnotations{IdempotentHint: true, DestructiveHint: &no, OpenWorldHint: &no},
+		Annotations: &mcp.ToolAnnotations{ReadOnlyHint: &no, IdempotentHint: true, DestructiveHint: &no, OpenWorldHint: &no},
 	}, s.mcpUpdateSpace)
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "delete_space",
 		Title:       "Delete space",
 		Description: "Delete a space AND all its pages, comments, revisions and share links. Owner only. Irreversible.",
-		Annotations: &mcp.ToolAnnotations{DestructiveHint: &yes, OpenWorldHint: &no},
+		Annotations: &mcp.ToolAnnotations{ReadOnlyHint: &no, DestructiveHint: &yes, OpenWorldHint: &no},
 	}, s.mcpDeleteSpace)
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "submit_feedback",
 		Title:       "Submit feedback",
 		Description: "Submit free-text feedback about tela / tela-mcp itself (friction, bugs, missing capabilities). NOT for page content — use add_comment for that.",
-		Annotations: &mcp.ToolAnnotations{DestructiveHint: &no, OpenWorldHint: &no},
+		Annotations: &mcp.ToolAnnotations{ReadOnlyHint: &no, DestructiveHint: &no, OpenWorldHint: &no},
 	}, s.mcpSubmitFeedback)
 
 	// ---- attachments (files on a page: images, PDFs, datasets, …) ----
@@ -269,42 +269,42 @@ func (s *Server) registerMCPTools(server *mcp.Server) {
 		Name:        "upload_attachment",
 		Title:       "Upload attachment",
 		Description: "Upload a file (base64) and attach it to a page (editor+) — an image, PDF, dataset, etc. Returns the serve URL plus a ready-to-paste `markdown` snippet; then call update_page or patch_page to place it in the body (images render inline as ![](…), other files as a download card). The payload is inline base64 and rides through the model's context, so it is capped at 5 MB — keep it to small files (screenshots, charts, short PDFs). For larger files use request_attachment_upload (a direct PUT URL, bytes off-context), or the tela editor (drag-drop).",
-		Annotations: &mcp.ToolAnnotations{DestructiveHint: &no, OpenWorldHint: &no},
+		Annotations: &mcp.ToolAnnotations{ReadOnlyHint: &no, DestructiveHint: &no, OpenWorldHint: &no},
 	}, s.mcpUploadAttachment)
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "treat_deck_image",
 		Title:       "Treat deck image",
 		Description: "Make an image tahta-grade for a deck's variant (editor+): crop to 16:9, apply a scheme-aware duotone (palette-lock), grain, and an optional contrast scrim. Upload the source with upload_attachment first, then pass its attachment_id; the treated JPEG is saved as a new attachment and returned with a ready-to-place ![](…) snippet for a bg:/image: slot. This is the tahta-imagine treat step — a FALLBACK for off-palette or reused images; prefer rich on-palette images raw, and never duotone (mode=duotone) a real-colour focal subject — use mode=none for those. See the imagery capability module (deck_authoring_guide module=\"imagery\").",
-		Annotations: &mcp.ToolAnnotations{DestructiveHint: &no, OpenWorldHint: &no},
+		Annotations: &mcp.ToolAnnotations{ReadOnlyHint: &no, DestructiveHint: &no, OpenWorldHint: &no},
 	}, s.mcpTreatDeckImage)
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "generate_deck_image",
 		Title:       "Generate deck image",
 		Description: "Generate an image from a prompt and attach it to a deck page (editor+), ready for a bg:/image: slot. Returns the serve URL + a ![](…) snippet; reference it by path (don't regenerate on re-render). Read the imagery module first (deck_authoring_guide module=\"imagery\"): most slides need NO image — use it for atmosphere/concept/focal only, reuse ONE background, write rich on-palette prompts, and prefer images raw. May be unavailable (503) if the instance hasn't configured image generation or AI is paused; generation can take from ~20s to a few minutes depending on the model.",
-		Annotations: &mcp.ToolAnnotations{DestructiveHint: &no, OpenWorldHint: &no},
+		Annotations: &mcp.ToolAnnotations{ReadOnlyHint: &no, DestructiveHint: &no, OpenWorldHint: &no},
 	}, s.mcpGenerateDeckImage)
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "delete_attachment",
 		Title:       "Delete attachment",
 		Description: "Detach a file from a page by attachment id (editor+; ids come from list_attachments). Soft-delete. It does NOT edit the page body, so remove any inline embed separately with update_page/patch_page.",
-		Annotations: &mcp.ToolAnnotations{DestructiveHint: &yes, OpenWorldHint: &no},
+		Annotations: &mcp.ToolAnnotations{ReadOnlyHint: &no, DestructiveHint: &yes, OpenWorldHint: &no},
 	}, s.mcpDeleteAttachment)
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "request_attachment_upload",
 		Title:       "Request a direct upload URL",
 		Description: "Get a short-lived signed PUT URL to upload a file WITHOUT sending its bytes through the model context — for files over upload_attachment's 5 MB inline cap, or to avoid context bloat. Flow: call this → the host PUTs the raw bytes to the returned `put_url` over HTTP → then either read that PUT response or call confirm_attachment_upload to get the embed snippet, and place it with update_page/patch_page. Editor+. Only works on hosts that can make an outbound HTTP PUT; otherwise use upload_attachment.",
-		Annotations: &mcp.ToolAnnotations{DestructiveHint: &no, OpenWorldHint: &no},
+		Annotations: &mcp.ToolAnnotations{ReadOnlyHint: &no, DestructiveHint: &no, OpenWorldHint: &no},
 	}, s.mcpRequestAttachmentUpload)
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "confirm_attachment_upload",
 		Title:       "Confirm a direct upload",
 		Description: "After the bytes have been PUT to a request_attachment_upload URL, return the stored file's serve URL + ready-to-embed `markdown` (for hosts that couldn't read the PUT response). Editor+. Then place the snippet with update_page/patch_page.",
-		Annotations: &mcp.ToolAnnotations{IdempotentHint: true, DestructiveHint: &no, OpenWorldHint: &no},
+		Annotations: &mcp.ToolAnnotations{ReadOnlyHint: &no, IdempotentHint: true, DestructiveHint: &no, OpenWorldHint: &no},
 	}, s.mcpConfirmAttachmentUpload)
 
 	// ---- atlas (source-grounded, coverage-audited doc generation) ----
@@ -325,7 +325,7 @@ func (s *Server) registerMCPTools(server *mcp.Server) {
 		Name:        "atlas_run",
 		Title:       "Run atlas generation",
 		Description: "Trigger a FULL doc-generation run for every source in an atlas project (project_id from atlas_list_projects): re-ingest the sources, regenerate the cited pages, and re-audit coverage. Management-level (project owner / org admin) — a run fetches the sources, spends LLM budget, and rewrites the generated subtree (creating the output space on the first run). Returns run_ids (one per source); poll each with atlas_run_status. Returns 503 ai_unavailable when the instance has no embedder/LLM configured.",
-		Annotations: &mcp.ToolAnnotations{DestructiveHint: &no, OpenWorldHint: &no},
+		Annotations: &mcp.ToolAnnotations{ReadOnlyHint: &no, DestructiveHint: &no, OpenWorldHint: &no},
 	}, s.mcpAtlasRun)
 
 	mcp.AddTool(server, &mcp.Tool{
