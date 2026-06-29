@@ -26,7 +26,7 @@ import {
   Strikethrough,
 } from 'lucide-react'
 import { Input } from '../ui/input'
-import { setPos, setShow } from './milkdown-floating'
+import { positionFloating, setShow } from './milkdown-floating'
 import { cn } from '../../lib/utils'
 
 // eslint-disable-next-line react-refresh/only-export-components -- milkdown plugin slice lives with its view
@@ -169,19 +169,12 @@ export function BubbleToolbarView() {
       return
     }
     const centerLeft = (start.left + end.left) / 2
-    setPos(el, centerLeft, start.top)
-    // Re-measure after paint to sit fully above the selection, flip below when
-    // there's no room, and clamp horizontally inside the viewport.
-    const rafId = requestAnimationFrame(() => {
-      const r = el.getBoundingClientRect()
-      const vw = window.innerWidth
-      let top = start.top - r.height - 8
-      if (top < 4) top = end.bottom + 8
-      let left = centerLeft - r.width / 2
-      left = Math.max(4, Math.min(left, vw - r.width - 4))
-      setPos(el, left, top)
-    })
-    return () => cancelAnimationFrame(rafId)
+    // Sit above the selection (centered); flip below when there's no room.
+    return positionFloating(
+      el,
+      { top: start.top, bottom: end.bottom, left: centerLeft },
+      { place: 'above', gap: 8, align: 'center' },
+    )
   })
 
   // Focus the URL field when link mode opens.

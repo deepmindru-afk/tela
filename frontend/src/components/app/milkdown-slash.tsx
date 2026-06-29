@@ -19,7 +19,7 @@ import { insertExcalidraw } from './milkdown-excalidraw'
 import { insertTaskList } from './milkdown-task-list'
 import { insertMathBlock } from './milkdown-math'
 import { TEMPLATES, insertTemplate } from './milkdown-templates'
-import { setPos, setShow } from './milkdown-floating'
+import { positionFloating, setShow } from './milkdown-floating'
 import { insertBlock } from '../../lib/milkdown/insert-block'
 import { insertMermaid } from './milkdown-mermaid'
 import { insertChart } from './milkdown-chart'
@@ -240,35 +240,18 @@ export function SlashView() {
     }
     const { from } = view.state.selection
     const coords = view.coordsAtPos(from)
-    setPos(el, coords.left, coords.bottom + 4)
     setShow(el, true)
     setSlashState((prev) =>
       prev.visible && prev.query === next.query
         ? prev
         : { visible: true, query: next.query },
     )
-    // Re-measure after paint so we can flip / clamp if the rendered menu
-    // would overflow the viewport. Without this, opening near the bottom
-    // of the page can leave the menu partially off-screen.
-    const rafId = requestAnimationFrame(() => {
-      const r = el.getBoundingClientRect()
-      const vh = window.innerHeight
-      const vw = window.innerWidth
-      let top = coords.bottom + 4
-      // Prefer below; if it overflows bottom AND there's more room above,
-      // flip up. Then clamp so the menu always stays inside the viewport.
-      if (top + r.height > vh && coords.top > vh - coords.bottom) {
-        top = coords.top - r.height - 4
-      }
-      top = Math.max(4, Math.min(top, vh - r.height - 4))
-      let left = coords.left
-      if (left + r.width > vw) {
-        left = vw - r.width - 4
-      }
-      left = Math.max(4, left)
-      setPos(el, left, top)
-    })
-    return () => cancelAnimationFrame(rafId)
+    // Place below the caret; flip up + clamp into the viewport after measuring.
+    return positionFloating(
+      el,
+      { top: coords.top, bottom: coords.bottom, left: coords.left },
+      { place: 'below', align: 'start', clampVertical: true },
+    )
   })
 
   useEffect(() => {
