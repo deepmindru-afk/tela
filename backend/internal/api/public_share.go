@@ -83,6 +83,13 @@ func (s *Server) HandlePublicShare(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Bot UAs must also respect space visibility — private-space pages must not
+	// leak their titles via OG cards. Mirrors the gate added to og_space.go.
+	if visibility != spaceVisibilityPublic {
+		writeNotFoundHTML(w)
+		return
+	}
+
 	s.writeOGHTML(r, w, pageID, title, body, spaceName, ownerOrgID)
 }
 
