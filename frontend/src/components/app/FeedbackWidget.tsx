@@ -44,10 +44,25 @@ export function FeedbackWidget() {
   const [text, setText] = useState('')
   const [status, setStatus] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle')
   const textRef = useRef<HTMLTextAreaElement>(null)
+  // True for a short window after a programmatic open (user-menu / cmdk). Those
+  // triggers live in a Radix dropdown / cmdk dialog that, as it closes, restores
+  // focus to its OWN trigger — a focus-outside event that would dismiss this
+  // popover the same frame it opens. We swallow exactly those dismissals.
+  const suppressDismissRef = useRef(false)
   const create = useCreateFeedback()
 
   // User-menu item + command palette open the single mounted instance.
-  useEffect(() => subscribeToOpenFeedback(() => setOpen(true)), [])
+  useEffect(
+    () =>
+      subscribeToOpenFeedback(() => {
+        suppressDismissRef.current = true
+        setOpen(true)
+        setTimeout(() => {
+          suppressDismissRef.current = false
+        }, 300)
+      }),
+    [],
+  )
 
   // After a send lands, the close itself is the acknowledgment (Geist): hold the
   // gentle "thanks" briefly, then dismiss — no toast, no celebratory modal.
@@ -107,6 +122,12 @@ export function FeedbackWidget() {
         align="end"
         sideOffset={8}
         className="w-[21rem] p-[var(--space-4)]"
+        // Swallow the dropdown/cmdk focus-restore dismiss right after a
+        // programmatic open (see suppressDismissRef); normal outside clicks
+        // still close the popover.
+        onInteractOutside={(e) => {
+          if (suppressDismissRef.current) e.preventDefault()
+        }}
         // Focus the textarea on open (not the first chip), so typing is immediate.
         onOpenAutoFocus={(e) => {
           if (status === 'sent') return

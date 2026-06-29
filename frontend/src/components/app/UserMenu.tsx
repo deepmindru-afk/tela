@@ -133,10 +133,11 @@ export function UserMenu() {
             ) : null}
           </DropdownMenuItem>
           <DropdownMenuItem
-            onSelect={(e) => {
-              e.preventDefault()
-              // Close the menu, then open the shared feedback popover (anchored
-              // on the header trigger) via the event bus.
+            onSelect={() => {
+              // Let the menu close on select (no preventDefault) — it's a modal
+              // focus-trap layer, so the feedback popover can't take over while
+              // it's open. The widget defers opening to the next tick so this
+              // dropdown's closing dismiss events don't immediately dismiss it.
               emitOpenFeedback()
             }}
           >
