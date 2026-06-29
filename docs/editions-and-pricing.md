@@ -6,10 +6,12 @@ and **self-host**. This is the source of truth for the strategy; the landing
 products all implement *this*. Supersedes the scratch `pricing-handoff.md` (research
 only) and the prior split-ladder model frozen in `CONTENT.md` §8b.
 
-> Status: **design locked, not yet implemented.** The live product + Polar still run the
-> previous split personal/org ladder. Building this = backend `plans` rework + a
-> proprietary `ee/` module + license keys + repriced Polar products. Do not deploy a
-> landing that advertises this until the backend catches up (checkout would mismatch).
+> Status (2026-06-30): **built + tested, NOT deployed.** Phases 1–4 are implemented and
+> committed (unified ladder + `entitled()` gate, `internal/ee` offline license keys + admin
+> License tab, org-audit gating, one-command BYO-AI). SCIM + live premium connectors are a
+> scoped follow-on (need external OAuth apps). The live product + Polar still run the old
+> split ladder — **do not deploy until the Polar reprice + SSO-org checks in the runbook are
+> done.** See [`editions-deploy-runbook.md`](editions-deploy-runbook.md).
 
 ---
 
