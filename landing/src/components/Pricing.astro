@@ -1,22 +1,29 @@
 ---
-// Pricing — plans for a personal account and for an organization. Mirrors the
-// product's tiers (backend plans table). Honest + low-hype: every plan ships the
-// whole product; tiers only change the limits — spaces, storage, members, the
-// monthly AI-answer allowance, and the Atlas source cap. Indigo is earned on the
-// one recommended org tier, plus one earned accent on the Atlas flagship band.
-// Numbers (AI answers/month + Atlas sources) mirror the backend plans table; keep in sync.
+// Pricing — the cloud ladder. One unified per-seat ladder (Free → Personal → Team →
+// Enterprise), not a split personal/org grid. Honest + low-hype: every plan ships the
+// whole product; paid tiers raise the metered AI (Atlas sources + monthly answers) and
+// add team/enterprise controls — NOT page/space/storage caps. Managed AI is included on
+// every cloud plan; self-host is BYO AI and lives on the dedicated /pricing detail.
+// Indigo is earned on the one recommended Team tier + the Atlas flagship band.
+// Numbers (AI answers/month + Atlas sources + dollars) mirror docs/editions-and-pricing.md
+// and the backend plans table — keep in sync.
+//
+// Props: selfHostLink — where the "run it yourself" callout points (default: the
+// editions detail on /pricing). On the standalone /pricing page it's an in-page anchor.
+const { selfHostLink = '/pricing#self-host' } = Astro.props;
+
 const includes = [
   'Atlas — generate & refresh a cited, coverage-checked wiki from a git repo or Jira project',
   'Semantic search + ask your docs, with citations',
   'MCP connector for Claude & ChatGPT',
   'Local folder sync over WebDAV',
   'Real-time multiplayer editing',
-  'SSO, organizations & per-space roles',
+  'Organizations & per-space roles',
   'Plain markdown you own — export anytime',
 ];
 
 // action drives the CTA wiring (self-serve billing is live via Polar):
-//  'app'     → free signup on the hosted instance (the two Free tiers)
+//  'app'     → free signup on the hosted instance (Free tier)
 //  'buy'     → the in-app upgrade/checkout page (login-gated; bounces to login
 //              then lands on Plan & Usage where checkout is one click)
 //  'contact' → mailto for sales / enterprise
@@ -24,12 +31,11 @@ const CONTACT_EMAIL = 'tela@telawiki.com';
 const REGISTER_URL = 'https://telawiki.com/register';
 const UPGRADE_URL = 'https://telawiki.com/settings?tab=billing';
 
-// Yearly is the DEFAULT cadence (like most products): the headline number is the
-// per-MONTH equivalent of the annual price, with "billed annually" + the full
-// yearly figure on the save line. priceYearMo = annual / 12. Free and Enterprise
-// have no yearly option (priceYearMo: null) — the toggle leaves them as-is.
-// Plus $72/yr → $6/mo (25% off, save $24); Team $60/seat/yr → $5/mo (2 months free, save $12/seat).
-const personal = [
+// Yearly is the DEFAULT cadence: the headline number is the per-MONTH equivalent of the
+// annual price, with "billed annually" + the full yearly figure on the save line.
+// Personal $72/yr → $6/mo (25% off, save $24). Team $96/seat/yr → $8/mo (save $24/seat).
+// Free and Enterprise have no yearly option (priceYearMo: null) — the toggle leaves them.
+const cloud = [
   {
     name: 'Free',
     price: '$0',
@@ -38,52 +44,35 @@ const personal = [
     periodYear: null,
     saveYear: null,
     blurb: 'Personal notes and trying tela.',
-    specs: ['1 Atlas source', '3 spaces', '100 pages / space', '100 MB storage', '50 AI answers / month'],
+    specs: ['1 Atlas source', '50 AI answers / month', 'Unlimited pages & spaces', 'The whole wiki, decks & sync'],
     cta: 'Get started',
     href: REGISTER_URL,
     action: 'app',
     featured: false,
   },
   {
-    name: 'Plus',
+    name: 'Personal',
     price: '$8',
     period: 'per month',
     priceYearMo: '$6',
     periodYear: '/mo',
     saveYear: 'Billed annually — $72/yr, save $24',
     blurb: 'For power users who live in their wiki.',
-    specs: ['5 Atlas sources', '25 spaces', '1,000 pages / space', '5 GB storage', '1,000 AI answers / month'],
-    cta: 'Get Plus',
+    specs: ['5 Atlas sources', '1,000 AI answers / month', 'Custom domain & public spaces', 'Everything in Free'],
+    cta: 'Get Personal',
     href: UPGRADE_URL,
     action: 'buy',
     featured: false,
   },
-];
-
-const org = [
-  {
-    name: 'Free',
-    price: '$0',
-    period: 'up to 5 members',
-    priceYearMo: null,
-    periodYear: null,
-    saveYear: null,
-    blurb: 'A small team getting started.',
-    specs: ['1 Atlas source', '10 spaces', '500 pages / space', '1 GB storage', '5 members', '50 AI answers / month'],
-    cta: 'Get started',
-    href: REGISTER_URL,
-    action: 'app',
-    featured: false,
-  },
   {
     name: 'Team',
-    price: '$6',
-    period: 'per member / month',
-    priceYearMo: '$5',
-    periodYear: 'per member / mo',
-    saveYear: 'Billed annually — $60/member/yr, save $12',
-    blurb: 'A growing team that runs on its docs.',
-    specs: ['20 Atlas sources', '100 spaces', 'Unlimited pages', '50 GB storage', '50 members', '2,000 AI answers / month'],
+    price: '$10',
+    period: 'per seat / month',
+    priceYearMo: '$8',
+    periodYear: 'per seat / mo',
+    saveYear: 'Billed annually — $96/seat/yr, save $24',
+    blurb: 'A team that runs on its docs.',
+    specs: ['20 Atlas sources', '2,000 AI answers / month, pooled', 'Roles & member management', 'Everything in Personal'],
     cta: 'Get Team',
     href: UPGRADE_URL,
     action: 'buy',
@@ -97,7 +86,7 @@ const org = [
     periodYear: null,
     saveYear: null,
     blurb: 'SSO, audit, and scale for a big team.',
-    specs: ['Unlimited Atlas sources', 'Unlimited spaces', 'Unlimited pages', 'Unlimited storage', 'Unlimited members', 'Unlimited AI'],
+    specs: ['Unlimited Atlas & AI', 'SSO, SCIM & audit log', 'Advanced roles & governance', 'Priority support + SLA'],
     cta: 'Get in touch',
     href: `mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent('tela Enterprise')}`,
     action: 'contact',
@@ -110,9 +99,9 @@ const org = [
     <p class="kicker"><span class="kicker-dot"></span>Pricing</p>
     <h2 class="h2">Simple plans. Your markdown either way.</h2>
     <p class="lede">
-      A personal account and every organization carry their own tier.
-      <strong>Every plan includes the whole product — Atlas, semantic search, ask-your-docs, and the agent connector</strong>.
-      Tiers only change the limits: spaces, storage, how many AI answers a month, and how much Atlas generation you get.
+      One ladder, the whole product on every tier — <strong>Atlas, semantic search, ask-your-docs, and the agent connector</strong>.
+      Paid tiers raise your AI — how many sources Atlas keeps fresh and how many answers a month — and add team controls.
+      Managed AI is included on every cloud plan.
     </p>
   </div>
 
@@ -138,45 +127,9 @@ const org = [
     <span class="billing-save">Save up to 25%</span>
   </div>
 
-  <div class="tiers tiers--duo reveal-up">
-    <p class="tier-group-label">Personal</p>
-    <div class="grid grid-2">
-      {personal.map((p) => (
-        <article class={`price-card${p.featured ? ' price-card--featured' : ''}`}>
-          <header class="price-head">
-            <h3 class="price-name">{p.name}</h3>
-            {p.featured ? <span class="price-tag">Recommended</span> : null}
-          </header>
-          <p class="price-amount">
-            <span class="price-amt" data-amt-month={p.price} data-amt-year={p.priceYearMo ?? p.price}>{p.priceYearMo ?? p.price}</span>
-            <span class="price-period" data-per-month={p.period} data-per-year={p.periodYear ?? p.period}>{p.periodYear ?? p.period}</span>
-          </p>
-          {p.saveYear ? <p class="price-save" data-save>{p.saveYear}</p> : null}
-          <p class="price-blurb">{p.blurb}</p>
-          <ul class="price-specs">
-            {p.specs.map((s) => <li>{s}</li>)}
-          </ul>
-          {p.action === 'contact' ? (
-            <a href={p.href} class={p.featured ? 'price-cta price-cta--primary' : 'price-cta'}>{p.cta}</a>
-          ) : (
-            <a
-              href={p.action === 'buy' ? `${p.href}&interval=year` : p.href}
-              class={p.featured ? 'price-cta price-cta--primary' : 'price-cta'}
-              target="_blank"
-              rel="noopener"
-              data-buy-cta={p.action === 'buy' ? '' : undefined}
-              data-href-base={p.action === 'buy' ? p.href : undefined}
-            >{p.cta}</a>
-          )}
-        </article>
-      ))}
-    </div>
-  </div>
-
   <div class="tiers reveal-up">
-    <p class="tier-group-label">Organization</p>
-    <div class="grid grid-3">
-      {org.map((p) => (
+    <div class="grid grid-4">
+      {cloud.map((p) => (
         <article class={`price-card${p.featured ? ' price-card--featured' : ''}`}>
           <header class="price-head">
             <h3 class="price-name">{p.name}</h3>
@@ -209,7 +162,7 @@ const org = [
   </div>
 
   <p class="trial-foot reveal-up">
-    No card to start — every new account gets a 30-day Plus trial, then settles onto your plan.
+    No card to start — every new account gets a 30-day Personal trial, then settles onto your plan.
   </p>
 
   <div class="includes reveal-up">
@@ -226,15 +179,14 @@ const org = [
 
   <div class="selfhost reveal-up">
     <div class="selfhost-copy">
-      <p class="selfhost-label">Or run it yourself</p>
+      <p class="selfhost-label">Or run it yourself — free</p>
       <p class="selfhost-text">
-        tela is open source and self-hostable — Docker Compose, your Postgres, your disk,
-        your markdown. No seats to buy and no limits but the ones you set.
+        tela is open source (AGPL). Self-host the whole product — Atlas, search, agents, sync —
+        and bring your own AI. Community is free forever; Enterprise adds SSO, audit and governance.
       </p>
     </div>
-    <a href="https://github.com/zcag/tela" class="selfhost-cta" target="_blank" rel="noopener"
-       data-umami-event="outbound-link" data-umami-event-destination="github" data-umami-event-location="pricing-selfhost">
-      Self-host it <span class="arr" aria-hidden="true">→</span>
+    <a href={selfHostLink} class="selfhost-cta">
+      Compare editions <span class="arr" aria-hidden="true">→</span>
     </a>
   </div>
 
@@ -376,31 +328,10 @@ const org = [
     color: var(--brand-strong);
   }
 
-  .tiers { margin-bottom: 2.5rem; }
-  .tiers:last-of-type { margin-bottom: 0; }
-
-  .tier-group-label {
-    margin: 0 0 1rem;
-    font-family: var(--font-mono);
-    font-size: var(--text-xs);
-    text-transform: uppercase;
-    letter-spacing: 0.12em;
-    color: var(--fg-faint);
-  }
+  .tiers { margin-bottom: 0; }
 
   .grid { display: grid; gap: 1rem; }
-  .grid-2 { grid-template-columns: repeat(2, 1fr); }
-  .grid-3 { grid-template-columns: repeat(3, 1fr); }
-
-  /* The Personal tier has only two cards. Left at full width they balloon
-     ~50% wider than the three Organization cards below and the CTAs stretch
-     into long bars. Cap the grid to two Organization-column widths so the two
-     cards match the org cards and align under the first two columns — one
-     consistent rhythm across both sections. Only while org is 3-up (≥901px);
-     below that both stacks collapse and full width is correct. */
-  @media (min-width: 901px) {
-    .tiers--duo .grid-2 { max-width: calc((100% - 2rem) / 3 * 2 + 1rem); }
-  }
+  .grid-4 { grid-template-columns: repeat(4, 1fr); }
 
   .price-card {
     display: flex;
@@ -606,15 +537,10 @@ const org = [
 
   @media (max-width: 900px) {
     .includes-grid { grid-template-columns: 1fr 1fr; }
+    .grid-4 { grid-template-columns: 1fr 1fr; }
   }
   @media (max-width: 620px) {
     .includes-grid { grid-template-columns: 1fr; }
-  }
-
-  @media (max-width: 900px) {
-    .grid-3 { grid-template-columns: 1fr 1fr; }
-  }
-  @media (max-width: 620px) {
-    .grid-2, .grid-3 { grid-template-columns: 1fr; }
+    .grid-4 { grid-template-columns: 1fr; }
   }
 </style>

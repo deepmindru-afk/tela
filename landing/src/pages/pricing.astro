@@ -2,18 +2,20 @@
 import Base from '../layouts/Base.astro';
 import SiteHeader from '../components/SiteHeader.astro';
 import Pricing from '../components/Pricing.astro';
+import SelfHostPricing from '../components/SelfHostPricing.astro';
 import FinalCta from '../components/FinalCta.astro';
 import SiteFooter from '../components/SiteFooter.astro';
 ---
 
 <Base
   title="Pricing — tela"
-  description="Simple plans for individuals and teams. Personal Free & Plus; organization Free, Team, and Enterprise. Tiers change limits — spaces, storage, and monthly AI answers — not features. Every plan ships semantic search, ask your docs, the MCP connector, WebDAV sync, and real-time editing. New accounts start on a 30-day Plus trial. Self-host free and open."
-  ogDescription="tela pricing — personal and organization tiers, or self-host it free. Every plan includes semantic search, ask your docs with citations, the MCP connector for Claude & ChatGPT, WebDAV sync, and real-time editing. New accounts get a 30-day Plus trial."
+  description="One simple cloud ladder — Free, Personal, Team, and Enterprise — with managed AI included; tiers change limits (Atlas sources, monthly AI answers) and team controls, not features. Or self-host it: Community is the whole product, free and open, with bring-your-own AI; Enterprise adds SSO, audit and governance on your own infrastructure. New cloud accounts start on a 30-day Personal trial."
+  ogDescription="tela pricing — a simple cloud ladder (Free, Personal, Team, Enterprise) with managed AI included, or self-host it free with bring-your-own AI. Every plan ships Atlas, semantic search, ask-your-docs, the MCP connector, WebDAV sync and real-time editing. Enterprise adds SSO, SCIM and audit on cloud or self-host."
 >
   <SiteHeader />
   <main id="main">
     <Pricing />
+    <SelfHostPricing />
     <FinalCta />
   </main>
   <SiteFooter />
