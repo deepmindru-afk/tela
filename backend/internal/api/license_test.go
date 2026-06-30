@@ -2,12 +2,65 @@ package api
 
 import (
 	"context"
+	"crypto/ed25519"
+	"encoding/base64"
 	"encoding/json"
 	"net/http"
+	"os"
 	"testing"
 
 	"github.com/zcag/tela/backend/internal/ee"
 )
+
+// TestLicenseAPI_RealKeyInstall — end-to-end with a REAL key: sign with the
+// vendor private key (TELA_LICENSE_SIGNING_KEY), install it through the HTTP
+// admin API (which verifies against the EMBEDDED public key), and confirm it
+// activates and unlocks an ee feature. Skipped when the signing key isn't in the
+// env (CI / contributors), since it's the production keypair.
+func TestLicenseAPI_RealKeyInstall(t *testing.T) {
+	keyB64 := os.Getenv("TELA_LICENSE_SIGNING_KEY")
+	if keyB64 == "" {
+		t.Skip("TELA_LICENSE_SIGNING_KEY not set — skipping real-key round-trip")
+	}
+	raw, err := base64.RawStdEncoding.DecodeString(keyB64)
+	if err != nil || len(raw) != ed25519.PrivateKeySize {
+		t.Fatalf("bad signing key in env")
+	}
+	token, err := ee.Sign(ed25519.PrivateKey(raw), ee.License{
+		Customer: "RoundTrip Test", Tier: "enterprise", Seats: 10,
+		Features: map[string]bool{"sso": true, "audit": true},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	d := newAPITestDB(t)
+	srv := New(d)
+	adminID := seedUser(t, d, "admin", "adminpw123", true)
+	org := seedOrg(t, d, "Free Co", "freeco") // org_free, no plan sso
+
+	// Install the real key through the admin API.
+	put := recordHandler(srv.PutLicense, userRequest(http.MethodPut, "/api/admin/license",
+		`{"token":"`+token+`"}`, authUser(adminID, "admin", true)))
+	if put.Code != http.StatusOK {
+		t.Fatalf("install real key: want 200, got %d body=%q", put.Code, put.Body.String())
+	}
+
+	// GET shows it active with the granted features.
+	get := recordHandler(srv.GetLicense, userRequest(http.MethodGet, "/api/admin/license", "", authUser(adminID, "admin", true)))
+	var info struct {
+		License ee.Status `json:"license"`
+	}
+	_ = json.Unmarshal(get.Body.Bytes(), &info)
+	if !info.License.Valid || info.License.Customer != "RoundTrip Test" {
+		t.Fatalf("license not active after install: %+v", info.License)
+	}
+
+	// And it unlocks an ee feature for a free-plan org via the license path.
+	if !srv.entitled(context.Background(), account{accountOrg, org}, "sso") {
+		t.Fatal("installed license should entitle sso on a free-plan org")
+	}
+}
 
 // TestEntitledViaLicense — the two entitlement paths and, crucially, that the
 // plan-flag path is NOT honoured on self-host (managedCloud=false here, the zero

@@ -346,11 +346,11 @@ function planSpecs(p: Plan): string[] {
   // seats — not pages/spaces (unlimited on every tier now). Storage is a quiet
   // backstop, shown as a usage line, not sold.
   const specs = [
-    `${formatCount(p.max_atlas_sources)} Atlas sources`,
+    `${formatCount(p.max_atlas_sources)} Atlas source${p.max_atlas_sources === 1 ? '' : 's'}`,
     `${formatCount(p.max_llm_calls_per_month)} AI answers / mo`,
     `${formatStorageLimit(p.max_storage_bytes)} attachments`,
   ]
-  if (p.account_kind === 'org') specs.push(`${formatCount(p.max_members)} members`)
+  if (p.account_kind === 'org') specs.push(`${formatCount(p.max_members)} member${p.max_members === 1 ? '' : 's'}`)
   return specs
 }
 
