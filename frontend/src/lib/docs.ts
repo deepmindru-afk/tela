@@ -12,6 +12,6 @@ export const DOCS = {
   rclone: `${DOCS_BASE}/public/spaces/16/pages/219/sync-with-rclone`,
   mcp: `${DOCS_BASE}/public/spaces/16/pages/211/agents-mcp`,
   apiTokens: `${DOCS_BASE}/public/spaces/16/pages/224/api-personal-access-tokens`,
-  sso: `${DOCS_BASE}/public/spaces/16/pages/220/single-sign-on-sso`,
+  sso: `${DOCS_BASE}/public/spaces/16/pages/212/single-sign-on-sso`,
   selfHosting: `${DOCS_BASE}/public/spaces/16/pages/210/self-hosting`,
 } as const
