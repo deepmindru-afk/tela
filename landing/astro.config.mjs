@@ -15,6 +15,11 @@ export default defineConfig({
   output: 'static',
   site: 'https://telawiki.com',
 
+  // Vanity redirect → the tela Blog (a public tela space, served by the app).
+  redirects: {
+    '/blog': '/public/spaces/59',
+  },
+
   fonts: [
     {
       provider: fontProviders.google(),
