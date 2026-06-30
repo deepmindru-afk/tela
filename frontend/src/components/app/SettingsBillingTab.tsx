@@ -13,6 +13,7 @@ import {
 } from '../../lib/queries/billing'
 import type { Plan, Usage } from '../../lib/types'
 import { ApiError } from '../../lib/api'
+import { DOCS } from '../../lib/docs'
 import { formatBytes } from '../../lib/format'
 import { localDateFromSqlite } from '../../lib/relativeTime'
 import { PlanTierSelect } from './PlanTierSelect'
@@ -482,7 +483,15 @@ export function SettingsBillingTab() {
           </h2>
           <p className="m-0 text-[length:var(--text-sm)] text-[var(--text-muted)] max-w-[var(--measure,60ch)]">
             Your personal account and each organization you belong to carry their own
-            tier. Limits apply to whoever owns a space.
+            tier. Limits apply to whoever owns a space.{' '}
+            <a
+              href={DOCS.plans}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-[var(--accent)] no-underline hover:underline"
+            >
+              Plans &amp; billing →
+            </a>
           </p>
         </div>
         <BillingPeriodToggle value={period} onChange={setPeriod} />

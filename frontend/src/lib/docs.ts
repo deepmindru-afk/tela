@@ -6,6 +6,7 @@ const DOCS_BASE = 'https://telawiki.com'
 
 export const DOCS = {
   home: `${DOCS_BASE}/tela/docs`,
+  plans: `${DOCS_BASE}/public/spaces/16/pages/225/plans-billing`,
   tour: `${DOCS_BASE}/public/spaces/16/pages/325/tela-team-onboarding`,
   webdav: `${DOCS_BASE}/public/spaces/16/pages/218/sync-your-vault-webdav`,
   rclone: `${DOCS_BASE}/public/spaces/16/pages/219/sync-with-rclone`,
