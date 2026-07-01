@@ -1693,15 +1693,14 @@
   }
 
   /* Mermaid diagram preview, rendered as a widget below the ```mermaid code
-     block. The SVG comes from mermaid; we just center + bound it. */
+     block. The SVG comes from mermaid; we just center + bound it. No card
+     (bg/border) — the diagram sits directly on the page so it reads as part of
+     the doc; the subgraph clusters (their own --surface-2 fill) carry any
+     grouping. mermaid paints no bg of its own, so transparent = page bg. */
   .tela-milkdown .tela-mermaid {
     display: flex;
     justify-content: center;
-    margin: var(--space-2) 0 var(--space-4);
-    padding: var(--space-3);
-    background: var(--surface-2);
-    border: 1px solid var(--border-subtle);
-    border-radius: var(--radius-md);
+    margin: var(--space-3) 0 var(--space-4);
     overflow-x: auto;
   }
   .tela-milkdown .tela-mermaid svg {
