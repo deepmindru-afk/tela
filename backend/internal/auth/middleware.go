@@ -228,6 +228,12 @@ func IsPublicPath(p string) bool {
 	if strings.HasPrefix(p, "/api/auth/") {
 		return true
 	}
+	// One-click digest unsubscribe (api/digest.go). Self-authenticates via an
+	// HMAC token in the link so it works from an email with no session. Only this
+	// exact route is public — the digest preview/pref routes require a session.
+	if strings.HasPrefix(p, "/api/digest/unsubscribe") {
+		return true
+	}
 	// Org invitation lookup (api/org_invites.go). GET /api/invites/{token} renders
 	// the accept page for a possibly-logged-out invitee, self-authenticating via
 	// the unguessable token. Accepting (POST /api/me/accept-invite) is NOT here —

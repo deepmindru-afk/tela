@@ -209,6 +209,12 @@ func registerRoutes(srv *Server, mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/pages/{id}/polls/{pollId}/vote", srv.VotePoll)
 	mux.HandleFunc("POST /api/users/resolve", srv.ResolveUsers)
 
+	mux.HandleFunc("GET /api/me/digest/preview", srv.DigestPreview)
+	mux.HandleFunc("GET /api/me/digest", srv.GetDigestPref)
+	mux.HandleFunc("PATCH /api/me/digest", srv.SetDigestPref)
+	mux.HandleFunc("GET /api/admin/digest/preview", srv.AdminDigestPreview)
+	mux.HandleFunc("GET /api/digest/unsubscribe", srv.DigestUnsubscribe)
+
 	mux.HandleFunc("GET /api/pages/{id}/revisions", srv.ListPageRevisions)
 	mux.HandleFunc("GET /api/pages/{id}/revisions/{rev_id}", srv.GetPageRevision)
 

@@ -245,6 +245,9 @@ func New(db *sql.DB) *Server {
 	go s.cloudLimiter.sweepLoop(context.Background())
 	go s.clientErrorLimiter.sweepLoop(context.Background())
 	go s.davDeletes.sweepLoop(context.Background())
+	// Weekly digest sender — daily tick, per-user 7-day cadence. No-op until a
+	// user opts in (digest_frequency defaults to 'off').
+	go s.digestLoop(context.Background())
 	// Admin AI kill-switch (ai.disabled): pause EVERY background AI worker so a
 	// maintenance window on the AI backend isn't hammered by indexing, summaries,
 	// or agreement. Each worker leaves its queue intact and resumes (+ stale-sweep
