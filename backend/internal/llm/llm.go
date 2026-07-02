@@ -40,8 +40,9 @@ type Config struct {
 
 // ConfigFromEnv reads TELA_LLM_URL / _MODEL / _TOKEN / _MAX_TOKENS. _TOKEN is set
 // only when pointing URL at tela cloud's managed LLM endpoint. _MAX_TOKENS caps
-// answer length (default 1024) so a slow local model can't generate for minutes
-// and trip the request timeout; set 0 to disable the cap.
+// answer length (default 4096 — enough for long tables/enumerations and atlas
+// page drafts without truncation; the relief proxy's per-request timeout, now
+// generous, accommodates the generation time); set 0 to disable the cap.
 //
 // _MAX_INFLIGHT / _OVERFLOW_MODEL / _OVERFLOW_WAIT_MS configure the foreground
 // concurrency gate (see Config.MaxInflight). The default gate (20) is sized to the
@@ -52,7 +53,7 @@ func ConfigFromEnv() Config {
 		URL:           os.Getenv("TELA_LLM_URL"),
 		Model:         getenv("TELA_LLM_MODEL", "qwen2.5:7b"),
 		Token:         os.Getenv("TELA_LLM_TOKEN"),
-		MaxTokens:     atoiDefault(os.Getenv("TELA_LLM_MAX_TOKENS"), 1024),
+		MaxTokens:     atoiDefault(os.Getenv("TELA_LLM_MAX_TOKENS"), 4096),
 		MaxInflight:   atoiDefault(os.Getenv("TELA_LLM_MAX_INFLIGHT"), 20),
 		OverflowModel: os.Getenv("TELA_LLM_OVERFLOW_MODEL"),
 		OverflowWait:  time.Duration(atoiDefault(os.Getenv("TELA_LLM_OVERFLOW_WAIT_MS"), 12000)) * time.Millisecond,

@@ -32,7 +32,10 @@ Global:
     TELA_AI_NUM_RETRIES   (default 1)  same-layer retries before the next layer
     TELA_AI_ALLOWED_FAILS (default 2)  failures before a layer is cooled down
     TELA_AI_COOLDOWN      (default 30) seconds a cooled-down layer sits out
-    TELA_AI_TIMEOUT       (default 150) per-request timeout (seconds)
+    TELA_AI_TIMEOUT       (default 900) per-request timeout (seconds). Generous so
+                          a slow local model finishing a long draft (atlas pages,
+                          big tables) completes on L1 instead of falling over;
+                          allowed_fails/cooldown still fast-fail a genuinely-down L1.
 
 Output is JSON (valid YAML) — no yaml dep, no quoting pitfalls.
 """
@@ -62,7 +65,7 @@ if not MASTER_KEY:
 NUM_RETRIES = envint("TELA_AI_NUM_RETRIES", 1)
 ALLOWED_FAILS = envint("TELA_AI_ALLOWED_FAILS", 2)
 COOLDOWN = envint("TELA_AI_COOLDOWN", 30)
-TIMEOUT = envint("TELA_AI_TIMEOUT", 150)
+TIMEOUT = envint("TELA_AI_TIMEOUT", 900)
 
 
 def deployment(model_name, url, model, key, provider, max_parallel=0, rpm=0):
