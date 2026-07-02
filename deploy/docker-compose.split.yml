@@ -176,7 +176,10 @@ services:
   # (throughput). See deploy/.env.example → "AI relief proxy". Backend reaches it
   # by service name on the default network.
   litellm:
-    image: ghcr.io/berriai/litellm:main-stable
+    # Pinned by digest (litellm v1.90.1, main-stable @ 2026-06-30) so pull_policy:
+    # always can't silently grab a breaking build. Bump deliberately: pull a newer
+    # main-stable, verify, then paste its digest here.
+    image: ghcr.io/berriai/litellm:main-stable@sha256:09d98fd0c82d1a3731577fde7fe2f65db0afa4453e9da45c11ecda94d047248f
     profiles: ["relief"]
     entrypoint: ["sh", "-c"]
     command: ["python3 /etc/litellm/gen-config.py > /tmp/litellm.yaml && exec litellm --config /tmp/litellm.yaml --port 4000"]
