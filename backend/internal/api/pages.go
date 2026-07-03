@@ -451,6 +451,14 @@ func (s *Server) createPageCore(ctx context.Context, u *auth.User, k *auth.APIKe
 			return models.Page{}, ae
 		}
 	}
+	// Agent-authored sheets are structurally lint-gated (in-process defterparse)
+	// so a broken Defter body can't be saved silently — the agent gets the issues
+	// back to fix. A sheet stores its body verbatim, so `body` is what persists.
+	if isAgentWrite(ctx) && isSheetBag(props) {
+		if ae := s.sheetWriteGate(body); ae != nil {
+			return models.Page{}, ae
+		}
+	}
 
 	if err := verifySpaceExistsTx(ctx, tx, req.SpaceID); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -829,6 +837,14 @@ func (s *Server) updatePageCore(ctx context.Context, u *auth.User, k *auth.APIKe
 	// its body verbatim, so *req.Body is exactly what would be persisted.
 	if agentWrite && req.Body != nil && (isDeckBag(existing.Props) || isDeckBag(req.Props)) {
 		if ae := s.deckWriteGate(ctx, *req.Body); ae != nil {
+			return models.Page{}, ae
+		}
+	}
+	// Lint-gate agent rewrites of a sheet body (see createPageCore). Verbatim body,
+	// so *req.Body is exactly what would persist. Sheet-ness: explicit props wins,
+	// else the stored page.
+	if agentWrite && req.Body != nil && (isSheetBag(existing.Props) || isSheetBag(req.Props)) {
+		if ae := s.sheetWriteGate(*req.Body); ae != nil {
 			return models.Page{}, ae
 		}
 	}
