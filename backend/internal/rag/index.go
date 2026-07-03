@@ -8,6 +8,8 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+
+	defterparse "github.com/zcag/defter/go"
 )
 
 // chunkHash keys a chunk's embedding by (model, embed-text) so a reindex can
@@ -36,9 +38,10 @@ func (s *Service) reindexPage(ctx context.Context, pageID int64, force bool) (in
 	}
 
 	var title, body string
+	var isSheet sql.NullString
 	if err := s.db.QueryRowContext(ctx,
-		`SELECT title, body FROM pages WHERE id = $1`, pageID,
-	).Scan(&title, &body); err != nil {
+		`SELECT title, body, props->>'sheet' FROM pages WHERE id = $1`, pageID,
+	).Scan(&title, &body, &isSheet); err != nil {
 		// Page deleted between enqueue and reindex — benign; its chunks were
 		// already removed by ON DELETE CASCADE. Nothing to index.
 		if errors.Is(err, sql.ErrNoRows) {
@@ -47,7 +50,17 @@ func (s *Service) reindexPage(ctx context.Context, pageID int64, force bool) (in
 		return 0, err
 	}
 
-	chunks := ChunkMarkdown(title, StripExcalidrawFences(body))
+	// A sheet's body is Defter markdown (compact tables + a defter-style block).
+	// Embedding it raw buries the data under style noise and table syntax, so
+	// project it to self-describing prose ("Sheet — Header: value, …") first —
+	// this strips the presentation block and materializes literal cell values.
+	// (Formula-*computed* values still need the TS engine; that's a follow-up via
+	// a node projection step.)
+	embedBody := StripExcalidrawFences(body)
+	if isSheet.Valid && isSheet.String == "true" {
+		embedBody = defterparse.ProjectProse(defterparse.Parse(body))
+	}
+	chunks := ChunkMarkdown(title, embedBody)
 	cached := map[string]string{}
 	if !force {
 		var err error
