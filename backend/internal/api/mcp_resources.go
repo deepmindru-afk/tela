@@ -42,6 +42,16 @@ func (s *Server) registerMCPResources(server *mcp.Server) {
 		MIMEType:    "text/markdown",
 	}, s.mcpReadDeckAuthoringGuide)
 
+	// Sheet authoring guide — defter's Defter-format contract, tela-framed, so an
+	// agent authors valid spreadsheets (compact tables + defter-style) not guesses.
+	server.AddResource(&mcp.Resource{
+		Name:        "sheet-authoring-guide",
+		Title:       "Tela spreadsheet / sheet authoring guide",
+		Description: "How to make a spreadsheet in tela: the Defter text format (compact GFM tables + a ```defter-style block), coordinates, formulas, number formats, styling, and charts. Read this for any 'spreadsheet', 'budget', 'tracker', or 'table with formulas' request.",
+		URI:         sheetAuthoringGuideURI,
+		MIMEType:    "text/markdown",
+	}, s.mcpReadSheetAuthoringGuide)
+
 	server.AddResourceTemplate(&mcp.ResourceTemplate{
 		Name:        "page",
 		Title:       "Tela page",

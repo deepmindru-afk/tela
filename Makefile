@@ -229,6 +229,13 @@ blocks-gen:
 blocks-gate:
 	node scripts/blocks-manifest.mjs --check
 
+# Vendor defter's agent authoring contract (AGENTS.md) into the backend so the
+# sheet_authoring_guide MCP surface can go:embed it (go:embed can't reach into
+# frontend/node_modules). Single source of truth is the published @defterjs/core
+# package — re-run after bumping the @defterjs dep.
+sheets-gen:
+	cp frontend/node_modules/@defterjs/core/AGENTS.md backend/internal/api/sheet_authoring.md
+
 # Stop + remove the local dev/test Postgres (and its data).
 dev-db-clean:
 	-docker rm -f $(DEV_PG_CONTAINER)

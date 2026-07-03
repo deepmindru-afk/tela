@@ -354,6 +354,23 @@ func pageIsDeckTx(ctx context.Context, tx *sql.Tx, id int64) bool {
 	return v.Valid && v.String == "true"
 }
 
+// isSheetBag reports whether a props bag marks a spreadsheet ("sheet"). A sheet's
+// body is Defter markdown (compact GFM tables + a fenced defter-style block), so —
+// exactly like a deck — it is a verbatim-body doc-type: nothing in the body is page
+// frontmatter and it must never be run through the prose strip/normalize path.
+func isSheetBag(props map[string]any) bool {
+	b, _ := props["sheet"].(bool)
+	return b
+}
+
+// pageIsSheetTx reads the stored sheet flag for a page (body-only updates that
+// don't carry props). props->>'sheet' is the text 'true'/'false'.
+func pageIsSheetTx(ctx context.Context, tx *sql.Tx, id int64) bool {
+	var v sql.NullString
+	_ = tx.QueryRowContext(ctx, `SELECT props->>'sheet' FROM pages WHERE id = $1`, id).Scan(&v)
+	return v.Valid && v.String == "true"
+}
+
 // notify controls the social create notifications (mentions + page_created):
 // true for interactive creates (REST / MCP / assist), false for bulk ingestion
 // (file sync, conflict-resolve, seeded pages) so a vault sync can't storm space
@@ -365,18 +382,27 @@ func (s *Server) createPageCore(ctx context.Context, u *auth.User, k *auth.APIKe
 		return models.Page{}, &apiErr{http.StatusBadRequest, "invalid_title", "title is required"}
 	}
 	// Body invariant: frontmatter never lives in pages.body, at any ingress —
-	// EXCEPT decks, whose body is Slidev markdown: its leading `---...---` is the
-	// deck headmatter / first slide, NOT page properties. For a normal page strip
-	// leading frontmatter into props; for a deck keep the body verbatim.
+	// EXCEPT the verbatim-body doc-types (deck, sheet). A deck's body is Slidev
+	// markdown (leading `---...---` is the deck headmatter / first slide); a sheet's
+	// body is Defter markdown (compact tables + a defter-style block). Neither is
+	// prose, so their bodies are stored byte-for-byte — never strip/normalize. For a
+	// normal page strip leading frontmatter into props.
 	props := pagemd.FilterReserved(req.Props)
 	stripped, _, bodyProps := pagemd.Decode(req.Body)
+	isDeck := isDeckBag(props) || isDeckBag(bodyProps)
+	isSheet := isSheetBag(props) || isSheetBag(bodyProps)
 	var body string
-	if isDeckBag(props) || isDeckBag(bodyProps) {
+	if isDeck || isSheet {
 		body = req.Body
 		if props == nil {
 			props = map[string]any{}
 		}
-		props["deck"] = true
+		if isDeck {
+			props["deck"] = true
+		}
+		if isSheet {
+			props["sheet"] = true
+		}
 	} else {
 		body = stripLeadingTitleH1(stripped, title)
 		if props == nil {
@@ -675,21 +701,22 @@ func applyUpdateTx(ctx context.Context, tx *sql.Tx, id int64, req pageUpdateRequ
 		sets = append(sets, "title = $"+strconv.Itoa(len(args)))
 	}
 	// Body invariant: strip leading frontmatter into props (bodyStripped is what
-	// gets stored + link-synced) — EXCEPT decks, whose body is Slidev markdown
-	// (leading frontmatter is the deck headmatter / first slide) and must be kept
-	// verbatim. Deck-ness: an explicit props.deck wins; otherwise the stored page.
+	// gets stored + link-synced) — EXCEPT the verbatim-body doc-types (deck, sheet),
+	// whose bodies are Slidev / Defter markdown and must be kept byte-for-byte.
+	// Type: an explicit props flag wins; otherwise the stored page.
 	var bodyStripped string
 	var bodyProps map[string]any
 	if req.Body != nil {
-		deck := false
+		verbatim := false
 		if req.Props != nil {
-			deck = isDeckBag(pagemd.FilterReserved(req.Props))
+			fp := pagemd.FilterReserved(req.Props)
+			verbatim = isDeckBag(fp) || isSheetBag(fp)
 		} else {
-			deck = pageIsDeckTx(ctx, tx, id)
+			verbatim = pageIsDeckTx(ctx, tx, id) || pageIsSheetTx(ctx, tx, id)
 		}
 		stripped, _, bp := pagemd.Decode(*req.Body)
-		if deck || isDeckBag(bp) {
-			bodyStripped = *req.Body // verbatim — preserve the deck headmatter
+		if verbatim || isDeckBag(bp) || isSheetBag(bp) {
+			bodyStripped = *req.Body // verbatim — preserve deck headmatter / defter tables
 		} else {
 			bodyStripped = stripped
 			bodyProps = bp

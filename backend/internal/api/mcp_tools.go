@@ -147,14 +147,14 @@ func (s *Server) registerMCPTools(server *mcp.Server) {
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "create_page",
 		Title:       "Create page",
-		Description: "Create a page in a space (editor+). Body is markdown; tela://page/{id} links and [[Page Title]] wikilinks (resolved by title within the space) are indexed as backlinks. " + authoringToolHint() + deckAuthoringToolHint(),
+		Description: "Create a page in a space (editor+). Body is markdown; tela://page/{id} links and [[Page Title]] wikilinks (resolved by title within the space) are indexed as backlinks. " + authoringToolHint() + deckAuthoringToolHint() + sheetAuthoringToolHint(),
 		Annotations: &mcp.ToolAnnotations{ReadOnlyHint: &no, DestructiveHint: &no, OpenWorldHint: &no},
 	}, s.mcpCreatePage)
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "update_page",
 		Title:       "Update page",
-		Description: "Patch a page's title and/or body (editor+). A body change auto-snapshots a revision. " + authoringToolHint() + deckAuthoringToolHint(),
+		Description: "Patch a page's title and/or body (editor+). A body change auto-snapshots a revision. " + authoringToolHint() + deckAuthoringToolHint() + sheetAuthoringToolHint(),
 		Annotations: &mcp.ToolAnnotations{ReadOnlyHint: &no, IdempotentHint: true, DestructiveHint: &no, OpenWorldHint: &no},
 	}, s.mcpUpdatePage)
 
@@ -164,6 +164,13 @@ func (s *Server) registerMCPTools(server *mcp.Server) {
 		Description: "Return the full tela deck authoring guide as markdown — every tahta layout with its required/optional fields, the components, and the style variants. Read this FIRST when creating or editing a deck (a deck=true page) so you don't guess at layouts/fields. The guide lists optional capability modules (e.g. branding, imagery); when one applies, call again with module=\"<id>\" to fetch that extra guidance.",
 		Annotations: readOnly,
 	}, s.mcpDeckAuthoringGuide)
+
+	mcp.AddTool(server, &mcp.Tool{
+		Name:        "sheet_authoring_guide",
+		Title:       "Sheet authoring guide",
+		Description: "Return the full tela spreadsheet (sheet) authoring guide as markdown — the Defter text format, coordinates, the formula functions, and the ```defter-style styling/format/chart syntax. Read this FIRST when creating or editing a sheet (a sheet=true page) so you write valid, well-formatted Defter markdown instead of guessing.",
+		Annotations: readOnly,
+	}, s.mcpSheetAuthoringGuide)
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "lint_deck",
