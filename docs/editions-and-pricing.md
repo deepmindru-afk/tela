@@ -114,6 +114,16 @@ via the key.
   **Atlas source cap** per tier; overage handled by **purchasable credit top-ups**, not a
   forced tier jump. AI is a **first-class, visible line** in every cloud tier — because AI
   usage (not seats) is the real cloud COGS.
+- **Built-in vs. bring-your-own — the key framing:** the monthly answer allowance meters
+  only tela's **built-in** AI (in-app *ask your docs* / chat on our model). Driving tela from
+  the user's **own agent** over MCP (Claude, ChatGPT, …) runs on *their* model + tokens, so it
+  is **unmetered / unlimited on every tier, including Free** — the connector is the giveaway
+  that makes a stingy free answer-cap acceptable. Semantic *retrieval* (research / semantic
+  search) is never monthly-capped but is **fair-use rate-limited per account** (`TELA_EMBED_RATE_LIMIT`,
+  default 30/min) so the shared embedder can't be saturated; over-limit returns `429 rate_limited`.
+- **Scheduled Atlas refresh is paid.** Free plans get Atlas on **manual refresh only** (drift is
+  still detected, so the stale badge prompts a run); paid tiers + the trial refresh
+  **automatically** on a cadence. Gated by `plans.features.atlas_scheduled` (managed-cloud only).
 - **Self-host (all editions):** **BYO** — point tela at any OpenAI-compatible LLM + an
   Ollama-compatible embedder. To kill the cold-start, ship a **one-command "AI on"**
   (`docker-compose.ai.yml`: a recommended local model, `keep_alive` pinned) so Community
@@ -131,8 +141,10 @@ nobody gates on them) — keep generous, cap only for abuse.
 | Who | Trying tela | Individual power user | Any team (the real business) | Compliance / scale |
 | Price | **$0** | **$8/mo** ($72/yr → $6/mo) | **$10/seat/mo** ($96/yr → $8/seat/mo) | Custom |
 | Seats | 1 | 1 | 2+ | Negotiated |
-| Managed AI answers / mo | 50 | 1,000 | 2,000 pooled (+credits) | Negotiated |
+| Built-in AI answers / mo | 50 | 1,000 | 2,000 pooled (+credits) | Negotiated |
+| Your own agent (MCP) | Unlimited | Unlimited | Unlimited | Unlimited |
 | Atlas sources | 1 | 5 | 20 | Unlimited |
+| Atlas refresh | Manual | Automatic | Automatic | Automatic |
 | Wiki / decks / public spaces / WebDAV / MCP | ✅ | ✅ | ✅ | ✅ |
 | Pages / spaces / storage | Soft ceiling | Generous | Generous | Unlimited |
 | Custom domain | — | ✅ | ✅ | ✅ |
