@@ -16,6 +16,14 @@ func TestSheetWriteGate(t *testing.T) {
 		t.Fatalf("valid sheet rejected: %s", ae.Message)
 	}
 
+	// 0.1.5 checkbox/date directives must pass the gate (they previously tripped
+	// "bad target syntax" and blocked agent-authored checkbox sheets).
+	cbDate := "| Task | Due | Done |\n| --- | --- | --- |\n| A | 2026-07-10 | TRUE |\n\n" +
+		"```defter-style\ncheckbox C2:C2\ndate B2:B2\n```\n"
+	if ae := s.sheetWriteGate(cbDate); ae != nil {
+		t.Fatalf("checkbox/date sheet rejected: %s", ae.Message)
+	}
+
 	// A malformed defter-style rule (unknown attribute) is caught.
 	badAttr := "| A | B |\n| --- | --- |\n| 1 | 2 |\n\n```defter-style\nA1:B1  notanattr=5\n```\n"
 	ae := s.sheetWriteGate(badAttr)
