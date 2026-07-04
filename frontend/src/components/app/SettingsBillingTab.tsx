@@ -324,7 +324,7 @@ function UsageCard({
           ) : null}
           <Metric
             icon={<Sparkles width={15} height={15} />}
-            label="AI calls / mo"
+            label="Built-in AI / mo"
             used={usage.usage.llm_calls}
             max={usage.plan.max_llm_calls_per_month}
           />
@@ -358,8 +358,9 @@ function planSpecs(p: Plan): string[] {
   // seats — not pages/spaces (unlimited on every tier now). Storage is a quiet
   // backstop, shown as a usage line, not sold.
   const specs = [
-    `${formatCount(p.max_atlas_sources)} Atlas source${p.max_atlas_sources === 1 ? '' : 's'}`,
-    `${formatCount(p.max_llm_calls_per_month)} AI answers / mo`,
+    `${formatCount(p.max_atlas_sources)} Atlas source${p.max_atlas_sources === 1 ? '' : 's'} · ${p.features?.atlas_scheduled ? 'auto-refresh' : 'manual refresh'}`,
+    `${formatCount(p.max_llm_calls_per_month)} built-in AI answers / mo`,
+    `Unlimited with your own agent (MCP)`,
     `${formatStorageLimit(p.max_storage_bytes)} attachments`,
   ]
   if (p.account_kind === 'org') specs.push(`${formatCount(p.max_members)} member${p.max_members === 1 ? '' : 's'}`)

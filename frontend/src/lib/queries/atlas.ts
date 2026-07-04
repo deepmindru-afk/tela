@@ -65,6 +65,10 @@ export interface AtlasProject {
   last_run: AtlasLastRun | null
   created_at: string
   can_manage: boolean
+  // Whether the owning account's plan includes scheduled auto-refresh (paid/trial).
+  // When false, auto_update is a server-side no-op — the UI offers manual-only and
+  // an upgrade affordance instead of the automatic cadences.
+  scheduled_allowed: boolean
 }
 
 // ── source ────────────────────────────────────────────────────────────────────

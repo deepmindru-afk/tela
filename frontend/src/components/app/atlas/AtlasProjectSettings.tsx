@@ -73,9 +73,12 @@ export function AtlasProjectSettings() {
         : output.new_space_name
           ? { new_space_name: output.new_space_name }
           : undefined
+    // Scheduled refresh is a paid capability; if the owner's plan lacks it, force
+    // manual so we never persist an auto cadence the server will silently skip.
+    const effCadence = project.scheduled_allowed ? cadence : ''
     await patch.mutateAsync({
       id: project.id,
-      patch: { name: name.trim() || project.name, cadence, auto_update: cadence !== '', ...(out ? { output: out } : {}) },
+      patch: { name: name.trim() || project.name, cadence: effCadence, auto_update: effCadence !== '', ...(out ? { output: out } : {}) },
     })
     backToProject()
   }
@@ -101,11 +104,22 @@ export function AtlasProjectSettings() {
           <CardHeader><CardTitle>General</CardTitle></CardHeader>
           <CardBody className="flex flex-col gap-[var(--space-4)]">
             <Field label="Name"><Input value={name} onChange={(e) => setName(e.target.value)} /></Field>
-            <Field label="Refresh" hint="How often Atlas re-runs this project to keep its docs current.">
-              <Select value={cadence} onChange={(e) => setCadence(e.target.value as AtlasCadence)}>
-                {CADENCES.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
-              </Select>
-            </Field>
+            {project.scheduled_allowed ? (
+              <Field label="Refresh" hint="How often Atlas re-runs this project to keep its docs current.">
+                <Select value={cadence} onChange={(e) => setCadence(e.target.value as AtlasCadence)}>
+                  {CADENCES.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
+                </Select>
+              </Field>
+            ) : (
+              <Field label="Refresh" hint="Run this project manually any time from its page. Scheduled auto-refresh is available on paid plans.">
+                <Select value="" disabled>
+                  <option value="">Manual — I run it</option>
+                </Select>
+                <a href="/settings?tab=billing" className="mt-[var(--space-1)] inline-block text-[length:var(--text-xs)] font-medium text-[var(--accent)] hover:underline">
+                  Upgrade for scheduled refresh →
+                </a>
+              </Field>
+            )}
           </CardBody>
         </Card>
 

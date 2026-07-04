@@ -58,7 +58,7 @@ export function AtlasProject() {
   const { project, sources, runs } = q.data
   const canManage = project.can_manage
   const hs = headerState(project)
-  const schedule = project.cadence && project.auto_update
+  const schedule = project.cadence && project.auto_update && project.scheduled_allowed
     ? `auto · ${project.cadence}${project.next_due ? ` · next ${fmtUntil(project.next_due)}` : ''}`
     : 'manual refresh'
 

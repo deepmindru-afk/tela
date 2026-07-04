@@ -164,7 +164,7 @@ function ProjectRow({ p, first }: { p: AtlasProject; first: boolean }) {
   const { f, label } = freshnessOf(p)
   const navigate = useNavigate()
   const schedule =
-    p.cadence && p.auto_update
+    p.cadence && p.auto_update && p.scheduled_allowed
       ? `auto · ${p.cadence}${p.next_due ? ` · ${fmtUntil(p.next_due)}` : ''}`
       : 'manual'
   return (
