@@ -17,7 +17,7 @@ tela is a self-hostable, markdown-native team wiki built for a world where agent
 
 Public instance: **https://telawiki.com**
 
-![Atlas: point it at a repo, get a cited, coverage-checked wiki (real run on tela's own code)](docs/demo-atlas.gif)
+![Atlas turns a repo into a cited wiki and audits its own coverage: 6/6 must-cover documented, 42 citations, and the exact undocumented file:line gaps](docs/demo-atlas-audit.png)
 
 ## Why tela
 
