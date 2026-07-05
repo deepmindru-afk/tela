@@ -377,13 +377,14 @@ func (s *Server) notifyCommentReply(ctx context.Context, replier *auth.User, pag
 	})
 }
 
-// notifyUserRegistered tells every active instance admin that a new account just
-// confirmed its email and went live — the "who's signing up" signal an operator
-// wants while a wiki is still invitation-quiet. Rides the standard pipeline, so
+// notifyUserRegistered tells every active instance admin that someone just
+// signed up — the "who's signing up" signal an operator wants while a wiki is
+// still invitation-quiet. Fired at registration (not email confirmation) so an
+// account that never verifies is still visible. Rides the standard pipeline, so
 // it's in-app + email and each admin can mute it per channel like any other type.
-// Best-effort; DedupKey makes it one-ever per (admin, new user) so a stray
-// re-verify can't double-notify. The new user is never themselves an admin here
-// (registration creates non-admins), so no self-exclusion is needed.
+// Best-effort; DedupKey makes it one-ever per (admin, new user). The new user is
+// never themselves an admin here (registration creates non-admins), so no
+// self-exclusion is needed.
 func (s *Server) notifyUserRegistered(ctx context.Context, newUserID int64, username, displayName, email string) {
 	rows, err := s.DB.QueryContext(ctx,
 		`SELECT id FROM users WHERE is_instance_admin = 1 AND is_active = 1 AND id <> $1`, newUserID)
