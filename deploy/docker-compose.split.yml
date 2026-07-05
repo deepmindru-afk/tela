@@ -94,6 +94,11 @@ services:
       TELA_POLAR_WEBHOOK_SECRET: ${TELA_POLAR_WEBHOOK_SECRET:-}
       TELA_POLAR_BASE_URL:       ${TELA_POLAR_BASE_URL:-}
       TELA_POLAR_PRODUCTS:       ${TELA_POLAR_PRODUCTS:-}
+      # Self-serve self-host Enterprise licensing (issuance, managed cloud only):
+      # the seat-based Polar product + the vendor's private signing key. Both set →
+      # sales_enabled; unset → the buyer flow stays dark. See selfhost_license.go.
+      TELA_POLAR_SELFHOST_PRODUCT: ${TELA_POLAR_SELFHOST_PRODUCT:-}
+      TELA_LICENSE_SIGNING_KEY:    ${TELA_LICENSE_SIGNING_KEY:-}
       TELA_WORKOS_ISSUER:    ${TELA_WORKOS_ISSUER:-}
       TELA_MCP_RESOURCE:     ${TELA_MCP_RESOURCE:-}
       WORKOS_API_KEY:        ${WORKOS_API_KEY:-}
