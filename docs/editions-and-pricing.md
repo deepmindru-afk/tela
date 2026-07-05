@@ -139,7 +139,7 @@ nobody gates on them) — keep generous, cap only for abuse.
 | | **Free** | **Personal** | **Team** | **Enterprise** |
 |---|---|---|---|---|
 | Who | Trying tela | Individual power user | Any team (the real business) | Compliance / scale |
-| Price | **$0** | **$8/mo** ($72/yr → $6/mo) | **$10/seat/mo** ($96/yr → $8/seat/mo) | Custom |
+| Price | **$0** | **$8/mo** ($72/yr → $6/mo) | **$10/seat/mo** ($96/yr → $8/seat/mo) | **from $15/seat/mo** (annual) |
 | Seats | 1 | 1 | 2+ | Negotiated |
 | Built-in AI answers / mo | 50 | 1,000 | 2,000 pooled (+credits) | Negotiated |
 | Your own agent (MCP) | Unlimited | Unlimited | Unlimited | Unlimited |
@@ -152,16 +152,20 @@ nobody gates on them) — keep generous, cap only for abuse.
 | SSO / SCIM / audit / governance | — | — | — | ✅ |
 | Support | Community | Community | Email | Priority + SLA |
 
-**Open numbers (flagged):** Team moves **$6 → $10/seat** (below-band today + real AI COGS;
-market mid-tier is $8–15). Free tier carries managed-AI COGS with no revenue — capped to a
-**taste**; the "I want real AI for free" crowd is routed to **self-host Community** (their
-inference, zero cost to us). Trial: new accounts get a 30-day Personal trial, then settle.
+**Cloud Enterprise — published `from $15/seat/mo` (decided 2026-07-05).** On cloud there's
+no customer-side variable (we run the AI + ops uniformly), so a fixed floor is the honest
+shape rather than "Custom". $15 undercuts the incumbent SSO-tier price (Notion Business
+$20) — a new-tool price — while sitting above Team ($10) and self-host Enterprise ($8) so
+cloud ≥ self-host holds. The `from` + `Get in touch` CTA keeps a volume/SLA/procurement lane
+(what enterprise buyers actually negotiate — not the product). Free tier carries managed-AI
+COGS with no revenue — capped to a **taste**; the "I want real AI for free" crowd is routed
+to **self-host Community** (their inference, zero cost to us). Trial: 30-day Personal.
 
 ## 7. Self-host options
 
 | | **Community** | **Enterprise (self-host)** | **Commercial license (core only)** |
 |---|---|---|---|
-| Price | **Free** | Per-seat, annual (license key); self-serve, contact-sales for whales | Flat annual |
+| Price | **Free** | **$8/user/mo**, annual (license key) — = a Team seat; contact-sales for whales | Flat annual |
 | License | AGPL-3.0 | Commercial + EE key | Commercial (AGPL relief) |
 | AI | BYO | BYO | BYO |
 | Gets | Full core (§4) — wiki, Atlas, Ask, decks, sync, MCP, custom domains | Core + all Enterprise features + support/SLA | Full core, no EE, no copyleft obligation |
@@ -175,8 +179,14 @@ inference, zero cost to us). Trial: new accounts get a 30-day Personal trial, th
 - This lets self-host stay **two tiers** (Community + Enterprise) instead of inventing a
   mid rung — one paid SKU, self-serve, negotiated lane on top.
 
-**Open number (flagged):** self-host Enterprise indicative **from ~$12/user/mo billed
-annually**. Commercial-license flat-annual figure: TBD.
+**Self-host Enterprise — `$8/user/mo` billed annually (decided 2026-07-05).** Deliberately
+pegged to a **Team seat's displayed (yearly) price** so it never reads as *more* than Team
+on the default view — the confusing "$12 self-host > $10 Team" optics is removed at the
+number level, not just via the reconciler matrix. Self-host is ~zero marginal cost to serve
+(they run it, their AI), so floor pricing is near-pure margin + adoption for a new tool;
+it's at the market floor (Docmost $3.50, Mattermost $10, Gitea $9.50–19). Commercial-license
+flat-annual figure: TBD. **Note (2026-07-05):** these are landing-copy prices; the Polar/
+backend `plans` reprice is a separate follow-up before they're charged.
 
 ## 8. Naming / how it reads (kills the old confusion)
 
