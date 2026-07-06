@@ -584,9 +584,15 @@
     }
     .tela-reader[data-has-sidebar] .reader-article {
       grid-column: 1;
+      /* Share row 1 with the TOC. The TOC (grid-column 2) precedes the article in
+         source order, so default sparse auto-placement bumps the article — which
+         wants the earlier column 1 — down to row 2, leaving a gap the height of the
+         TOC above the title. Pinning both to row 1 keeps them side by side. */
+      grid-row: 1;
     }
     .tela-reader[data-has-sidebar] .reader-toc {
       grid-column: 2;
+      grid-row: 1;
       justify-self: stretch;
       max-width: none;
       padding-right: 0;
