@@ -25,6 +25,7 @@ Public instance: **https://telawiki.com**
 - **Built-in MCP server** — `/api/mcp` is part of the backend, not a bolt-on. Claude, Cursor, and other agents search, read, and author pages with scoped, per-tool write permissions.
 - **Semantic + full-text search** — ranked PostgreSQL FTS works out of the box; add an embedder for `pgvector`-backed semantic retrieval and grounded "ask your docs" answers.
 - **Live collaboration** — real-time multi-cursor editing over Yjs in a Milkdown editor, with comments, backlinks, and revision history.
+- **Teams that run themselves** — users create orgs and invite teammates by email, no admin ticket. Flip a space to public and it becomes a login-free blog surface with per-author home pages.
 - **Self-host & own your markdown** — `pages.body` is canonical markdown forever (no block table). Sync over WebDAV, export to zip/PDF, and run the whole stack with one `make up`.
 
 ## Quickstart
