@@ -212,7 +212,7 @@ function InsightsBody({ s }: { s: AdminStats }) {
         <AIUsageSection />
 
         {/* Knowledge health */}
-        <Section title="Knowledge health" desc="Сигналы, требующие периодической уборки.>
+        <Section title="Knowledge health" desc="Сигналы, требующие периодической уборки.">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-[var(--space-3)]">
             <Health label="Stale pages" value={s.stale_pages} sub="90d+ untouched" warn={s.stale_pages > 0} />
             <Health label="Orphan pages" value={s.orphan_pages} sub="no inbound links" warn={s.orphan_pages > 0} />
