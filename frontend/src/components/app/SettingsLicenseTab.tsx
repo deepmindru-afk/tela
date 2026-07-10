@@ -46,9 +46,7 @@ export function SettingsLicenseTab() {
   return (
     <div className="flex flex-col gap-[var(--space-6)] max-w-[var(--measure,60ch)]">
       <header className="flex flex-col gap-[var(--space-1)]">
-        <h2 className="m-0 text-[length:var(--text-lg)] font-medium text-[var(--text-primary)]">
-          License
-        </h2>
+        <h2 className="m-0 text-[length:var(--text-lg)] font-medium text-[var(--text-primary)]">Лицензия</h2>
         <p className="m-0 text-[length:var(--text-sm)] text-[var(--text-muted)]">
           tela is the open Community edition by default. An Enterprise license key unlocks
           SSO, audit, and the other team-of-record features on this instance.
@@ -87,9 +85,9 @@ export function SettingsLicenseTab() {
             </span>
           </div>
           {info.isPending ? null : active ? (
-            <Badge variant="accent">Active</Badge>
+            <Badge variant="accent">Активен</Badge>
           ) : (
-            <Badge>Free</Badge>
+            <Badge>Бесплатный</Badge>
           )}
         </div>
 

@@ -109,7 +109,7 @@ export function AtlasProject() {
             <Button asChild variant="ghost" aria-label="Project settings">
               <Link to="/atlas/projects/$projectId/settings" params={{ projectId: project.id }}><Settings2 className="size-[var(--space-4)]" /></Link>
             </Button>
-            <Button variant="secondary" onClick={() => setAddOpen(true)}><Plus className="size-[var(--space-4)]" /> Add source</Button>
+            <Button variant="secondary" onClick={() => setAddOpen(true)}><Plus className="size-[var(--space-4)]" />Добавить источник</Button>
             <Button variant="primary" disabled={sources.length === 0 || runAll.isPending} onClick={() => runAll.mutate(project.id)}>
               {runAll.isPending ? <Loader2 className="size-[var(--space-4)] motion-safe:animate-spin" /> : <Play className="size-[var(--space-4)]" />} Run all
             </Button>
@@ -120,7 +120,7 @@ export function AtlasProject() {
       {/* stats strip */}
       <div className="mt-[var(--space-5)] grid grid-cols-2 gap-[var(--space-3)] sm:grid-cols-4">
         <StatTile label="Sources" value={String(sources.length)} sub={project.stale_sources > 0 ? `${project.stale_sources} behind upstream` : 'all in sync'} />
-        <StatTile label="Pages" value={totalPages ? String(totalPages) : '—'} sub="generated docs" />
+        <StatTile label="Страницы" value={totalPages ? String(totalPages) : '—'} sub="generated docs" />
         <StatTile label="Must-cover" value={minMust != null ? `${Math.round(minMust * 100)}%` : '—'} sub={mustRates.length > 1 ? 'lowest source' : 'critical surface'} />
         <StatTile label="Last built" value={project.last_refresh_at ? fmtRelative(project.last_refresh_at) : '—'} sub={schedule} />
       </div>
@@ -133,7 +133,7 @@ export function AtlasProject() {
       {sources.length === 0 ? (
         <div className="flex flex-col items-center gap-[var(--space-3)] rounded-[var(--radius-lg)] border border-dashed border-[var(--border-subtle)] py-[var(--space-6)] text-center">
           <p className="text-[length:var(--text-sm)] text-[var(--text-muted)]">No sources yet. Add a git repo or Jira project to generate docs from.</p>
-          {canManage && <Button variant="secondary" onClick={() => setAddOpen(true)}><Plus className="size-[var(--space-4)]" /> Add source</Button>}
+          {canManage && <Button variant="secondary" onClick={() => setAddOpen(true)}><Plus className="size-[var(--space-4)]" />Добавить источник</Button>}
         </div>
       ) : (
         <div className="flex flex-col gap-[var(--space-3)]">
@@ -227,13 +227,13 @@ function SourceCard({ s, projectId, canManage, space }: { s: AtlasSource; projec
         </div>
         {canManage && (
           <div className="flex shrink-0 items-center gap-[var(--space-1)]">
-            <Button variant="ghost" size="sm" disabled={busy} onClick={doRun} aria-label="Run now" title="Run now">
+            <Button variant="ghost" size="sm" disabled={busy} onClick={doRun} aria-label="Run now" title="Запустить">
               {run.isPending ? <Loader2 className="size-[var(--space-4)] motion-safe:animate-spin" /> : <Play className="size-[var(--space-4)]" />}
             </Button>
-            <Button variant="ghost" size="sm" disabled={busy} onClick={doSync} aria-label="Sync changes" title="Sync changes">
+            <Button variant="ghost" size="sm" disabled={busy} onClick={doSync} aria-label="Sync changes" title="Синхронизировать">
               {sync.isPending ? <Loader2 className="size-[var(--space-4)] motion-safe:animate-spin" /> : <RefreshCw className="size-[var(--space-4)]" />}
             </Button>
-            <Button variant="ghost" size="sm" disabled={del.isPending} onClick={() => del.mutate(s.id)} aria-label="Delete source" title="Delete source">
+            <Button variant="ghost" size="sm" disabled={del.isPending} onClick={() => del.mutate(s.id)} aria-label="Delete source" title="Удалить источник">
               <Trash2 className="size-[var(--space-4)]" />
             </Button>
           </div>

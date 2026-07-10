@@ -76,7 +76,7 @@ export default function PdfDocument({ url }: { url: string }) {
             type="button"
             onClick={() => zoom(-1)}
             disabled={scale <= ZOOM_MIN}
-            aria-label="Zoom out"
+            aria-label="Уменьшить"
           >
             <ZoomOut width={15} height={15} aria-hidden />
           </button>
@@ -85,7 +85,7 @@ export default function PdfDocument({ url }: { url: string }) {
             type="button"
             onClick={() => zoom(1)}
             disabled={scale >= ZOOM_MAX}
-            aria-label="Zoom in"
+            aria-label="Увеличить"
           >
             <ZoomIn width={15} height={15} aria-hidden />
           </button>

@@ -43,8 +43,8 @@ export function PageProperties({ props }: PagePropertiesProps) {
           type="button"
           variant="ghost"
           size="sm"
-          aria-label="Page properties"
-          title="Properties"
+          aria-label="Свойства страницы"
+          title="Свойства"
           className="h-[var(--space-8)] w-[var(--space-8)] p-0"
         >
           <Braces width={16} height={16} />

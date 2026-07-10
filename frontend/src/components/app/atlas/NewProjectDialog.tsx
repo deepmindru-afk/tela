@@ -87,12 +87,12 @@ export function NewProjectDialog({
         </DialogHeader>
 
         <div className="flex flex-col gap-[var(--space-4)] py-[var(--space-2)]">
-          <Field label="Project name">
-            <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Payments API" autoFocus />
+          <Field label="Название проекта">
+            <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="например, Payments API" autoFocus />
           </Field>
 
           {owners.length > 1 && (
-            <Field label="Owner" hint="Who manages it — you, or an org's admins.">
+            <Field label="Владелец" hint="Who manages it — you, or an org's admins.">
               <Select value={String(ownerIdx)} onChange={(e) => setOwnerIdx(Number(e.target.value))}>
                 {owners.map((o, i) => (
                   <option key={`${o.kind}:${o.id}`} value={i}>
@@ -108,15 +108,15 @@ export function NewProjectDialog({
               spaces={(spacesQ.data ?? []).map((s) => ({ id: s.id, name: s.name }))}
               value={output}
               onChange={(v) => { setOutput(v); setParentId(undefined) }}
-              placeholder={name.trim() ? `Default: “${name.trim()}” (new space)` : 'Search a space, or name a new one…'}
+              placeholder={name.trim() ? `По умолчанию: “${name.trim()}” (новое пространство)` : 'Найти пространство или указать название…'}
             />
           </FieldBlock>
 
           {output.space_id != null && (
-            <Field label="Top-dir" hint="Optional folder inside the space; each source publishes under its own folder beneath it.">
+            <Field label="Корневая папка" hint="Необязательная папка внутри пространства; каждый источник публикуется в своей подпапке.">
               <Select value={parentId != null ? String(parentId) : ''} onChange={(e) => setParentId(e.target.value ? Number(e.target.value) : undefined)}>
-                <option value="">Space root</option>
-                {dirPages.map((p) => <option key={p.id} value={p.id}>Under “{p.title}”</option>)}
+                <option value="">Корень пространства</option>
+                {dirPages.map((p) => <option key={p.id} value={p.id}>Внутри “{p.title}”</option>)}
               </Select>
             </Field>
           )}
@@ -125,7 +125,7 @@ export function NewProjectDialog({
         </div>
 
         <DialogFooter>
-          <Button variant="ghost" onClick={() => onOpenChange(false)}>Cancel</Button>
+          <Button variant="ghost" onClick={() => onOpenChange(false)}>Отмена</Button>
           <Button variant="primary" disabled={!canSubmit} onClick={submit}>
             {create.isPending && <Loader2 className="size-[var(--space-4)] motion-safe:animate-spin" />}
             Create project

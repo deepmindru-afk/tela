@@ -124,9 +124,7 @@ export function ShareSpaceDialog({
 
         <DialogFooter>
           <DialogClose asChild>
-            <Button type="button" variant="ghost">
-              Close
-            </Button>
+            <Button type="button" variant="ghost">Закрыть</Button>
           </DialogClose>
         </DialogFooter>
       </DialogContent>
@@ -256,7 +254,7 @@ function MemberRow({
               void handleRoleChange(e.target.value as SpaceMember['role'])
             }
           >
-            <option value="owner">Owner</option>
+            <option value="owner">Владелец</option>
             <option value="editor">Editor</option>
             <option value="viewer">Viewer</option>
           </Select>
@@ -363,9 +361,7 @@ function LeaveSpaceConfirmDialog({
         ) : null}
         <DialogFooter>
           <DialogClose asChild>
-            <Button type="button" variant="ghost">
-              Cancel
-            </Button>
+            <Button type="button" variant="ghost">Отмена</Button>
           </DialogClose>
           <Button
             type="button"
@@ -424,7 +420,7 @@ function AddMemberForm({ spaceId }: { spaceId: number }) {
         <div className="flex-1 min-w-0">
           <Input
             id={`add-member-username-${spaceId}`}
-            placeholder="Username"
+            placeholder="Имя пользователя"
             autoComplete="off"
             value={username}
             onChange={(e) => setUsername(e.target.value)}
@@ -438,7 +434,7 @@ function AddMemberForm({ spaceId }: { spaceId: number }) {
             value={role}
             onChange={(e) => setRole(e.target.value as SpaceMember['role'])}
           >
-            <option value="owner">Owner</option>
+            <option value="owner">Владелец</option>
             <option value="editor">Editor</option>
             <option value="viewer">Viewer</option>
           </Select>
@@ -766,7 +762,7 @@ function AddGrantForm({
         <div className="w-[6.5rem] shrink-0">
           <Select
             size="md"
-            aria-label="Role"
+            aria-label="Роль"
             value={role}
             onChange={(e) => setRole(e.target.value as SpaceGrant['role'])}
           >
@@ -1009,9 +1005,7 @@ function TransferConfirmDialog({
         ) : null}
         <DialogFooter>
           <DialogClose asChild>
-            <Button type="button" variant="ghost">
-              Cancel
-            </Button>
+            <Button type="button" variant="ghost">Отмена</Button>
           </DialogClose>
           <Button
             type="button"

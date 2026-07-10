@@ -185,7 +185,7 @@ function PageHistoryAuthed({
 
       <div className="flex-1 grid grid-cols-1 lg:grid-cols-[20rem_1fr] gap-[var(--space-6)] p-[var(--space-7)] max-w-[72rem] w-full self-center min-h-0">
         <section
-          aria-label="Revisions"
+          aria-label="Версии"
           className="flex flex-col gap-[var(--space-3)] min-h-0"
         >
           <h2 className="m-0 text-[length:var(--text-xs)] uppercase tracking-wider text-[var(--text-muted)] font-[family-name:var(--font-sans)]">
@@ -408,9 +408,7 @@ function RevisionPaneSelected({
                 </DialogHeader>
                 <DialogFooter>
                   <DialogClose asChild>
-                    <Button type="button" variant="ghost">
-                      Cancel
-                    </Button>
+                    <Button type="button" variant="ghost">Отмена</Button>
                   </DialogClose>
                   <Button
                     type="button"
@@ -462,7 +460,7 @@ function HistoryBreadcrumb({
   const space = useSpace(spaceId)
   return (
     <nav
-      aria-label="Breadcrumb"
+      aria-label="Хлебные крошки"
       className="flex items-center min-w-0 text-[length:var(--text-sm)] text-[var(--text-muted)] font-[family-name:var(--font-sans)]"
     >
       <Link
@@ -491,9 +489,7 @@ function HistoryBreadcrumb({
         height={14}
         className="mx-[var(--space-1)] shrink-0"
       />
-      <span className="truncate text-[var(--text-primary)]" aria-current="page">
-        History
-      </span>
+      <span className="truncate text-[var(--text-primary)]" aria-current="page">История</span>
     </nav>
   )
 }
@@ -565,15 +561,13 @@ function HistoryNotFound({ spaceId }: { spaceId: number }) {
   return (
     <div className="flex-1 flex items-center justify-center p-[var(--space-7)]">
       <div className="flex flex-col items-center gap-[var(--space-3)] text-center max-w-[28rem]">
-        <h2 className="m-0 text-[length:var(--text-xl)] leading-[var(--leading-tight)] font-[family-name:var(--font-sans)] text-[var(--text-primary)]">
-          Page not found
-        </h2>
+        <h2 className="m-0 text-[length:var(--text-xl)] leading-[var(--leading-tight)] font-[family-name:var(--font-sans)] text-[var(--text-primary)]">Страница не найдена</h2>
         <p className="m-0 text-[length:var(--text-sm)] text-[var(--text-muted)]">
-          The page may have been deleted or moved to another space.
+          Страница могла быть удалена или перемещена в другое пространство.
         </p>
         <Button asChild variant="secondary">
           <Link to="/spaces/$spaceId" params={{ spaceId }}>
-            Back to space
+            Назад к пространству
           </Link>
         </Button>
       </div>

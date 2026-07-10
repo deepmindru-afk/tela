@@ -202,7 +202,7 @@ export function ShareRow({ share, onUpdate, onRevoke }: ShareRowProps) {
           {share.include_descendants ? (
             <Badge variant="muted">Includes child pages</Badge>
           ) : null}
-          {share.has_password ? <Badge variant="muted">Password</Badge> : null}
+          {share.has_password ? <Badge variant="muted">Пароль</Badge> : null}
           {expiryLabel ? (
             <Badge variant={expired ? 'accent' : 'muted'}>{expiryLabel}</Badge>
           ) : null}
@@ -259,9 +259,7 @@ export function ShareRow({ share, onUpdate, onRevoke }: ShareRowProps) {
               size="sm"
               onClick={() => setMode('idle')}
               disabled={busy}
-            >
-              Cancel
-            </Button>
+            >Отмена</Button>
             <Button
               type="button"
               variant="danger"
@@ -334,9 +332,7 @@ function PasswordInlineForm({
           size="sm"
           onClick={onCancel}
           disabled={busy}
-        >
-          Cancel
-        </Button>
+        >Отмена</Button>
         {hasPassword ? (
           <Button
             type="button"
@@ -397,7 +393,7 @@ function ExpiryInlineForm({
           autoFocus
           value={value}
           onChange={(e) => setValue(e.target.value)}
-          placeholder="YYYY-MM-DD HH:MM:SS"
+          placeholder="ГГГГ-ММ-ДД ЧЧ:ММ:СС"
           aria-label="Share expiry"
           disabled={busy}
         />
@@ -409,9 +405,7 @@ function ExpiryInlineForm({
           size="sm"
           onClick={onCancel}
           disabled={busy}
-        >
-          Cancel
-        </Button>
+        >Отмена</Button>
         {currentExpiresAt ? (
           <Button
             type="button"

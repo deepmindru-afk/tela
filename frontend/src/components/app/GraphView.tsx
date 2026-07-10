@@ -98,9 +98,7 @@ export function GraphRoute() {
     <div className="flex h-full flex-col">
       {/* Controls */}
       <div className="flex flex-wrap items-center gap-[var(--space-3)] border-b border-[var(--border-subtle)] px-[var(--space-5)] py-[var(--space-3)]">
-        <h1 className="m-0 text-[length:var(--text-base)] font-medium text-[var(--text-primary)]">
-          Graph
-        </h1>
+        <h1 className="m-0 text-[length:var(--text-base)] font-medium text-[var(--text-primary)]">Граф</h1>
         {focus != null ? (
           <Button
             variant="secondary"
@@ -125,7 +123,7 @@ export function GraphRoute() {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Highlight…"
-            aria-label="Highlight pages"
+            aria-label="Выделить страницы"
             className="h-[var(--space-8)] w-[12rem] rounded-[var(--radius-sm)] border border-[var(--border-subtle)] bg-[var(--surface-1)] pl-[calc(var(--space-2)*2+var(--space-2))] pr-[var(--space-2)] text-[length:var(--text-sm)] text-[var(--text-primary)] outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
           />
         </div>
@@ -154,7 +152,7 @@ export function GraphRoute() {
         <Button
           variant="ghost"
           size="sm"
-          aria-label="Fit graph to view"
+          aria-label="Вписать граф в окно"
           title="Fit to view"
           onClick={() => setFitNonce((n) => n + 1)}
         >
@@ -285,7 +283,7 @@ function StatsPanel({
         <button
           type="button"
           onClick={onClose}
-          aria-label="Close stats"
+          aria-label="Закрыть статистику"
           className="text-[var(--text-muted)] hover:text-[var(--text-primary)]"
         >
           <X width={14} height={14} />
@@ -303,19 +301,19 @@ function StatsPanel({
       </div>
       {stats.disputed.length > 0 ? (
         <StatList
-          label="Disputed"
+          label="Спорные"
           rows={stats.disputed.map((d) => ({ id: d.id, title: d.title, meta: `${d.n}` }))}
           onNavigate={onNavigate}
         />
       ) : null}
       {stats.stale.length > 0 ? (
         <StatList
-          label="Stale — needs review"
+          label="Устарело — требуется проверка"
           rows={stats.stale.slice(0, 8).map((s) => ({ id: s.id, title: s.title }))}
           onNavigate={onNavigate}
         />
       ) : null}
-      <StatList label="Most connected" rows={stats.hubs.map((h) => ({ id: h.id, title: h.title, meta: `${h.deg}` }))} onNavigate={onNavigate} />
+      <StatList label="Наиболее связанные" rows={stats.hubs.map((h) => ({ id: h.id, title: h.title, meta: `${h.deg}` }))} onNavigate={onNavigate} />
       <StatList label="Recently updated" rows={stats.recent.map((r) => ({ id: r.id, title: r.title }))} onNavigate={onNavigate} />
     </div>
   )

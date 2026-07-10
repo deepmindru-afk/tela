@@ -187,7 +187,7 @@ export function SpaceTree({ activeSpaceId, activePageId }: SpaceTreeProps) {
           dashboard. The tree is purely navigation. */}
       <section
         className="flex flex-col gap-[1px] px-[var(--space-3)]"
-        aria-label="Spaces"
+        aria-label="Пространства"
       >
         {spaces.isLoading ? <SpacesSkeleton /> : null}
 
@@ -212,8 +212,7 @@ export function SpaceTree({ activeSpaceId, activePageId }: SpaceTreeProps) {
                 className="w-full"
                 onClick={() => emitOpenNewSpace()}
               >
-                <Plus width={14} height={14} /> New space
-              </Button>
+                <Plus width={14} height={14} />Новое пространство</Button>
             </CardFooter>
           </Card>
         ) : null}
@@ -328,7 +327,7 @@ function SpacesError({ onRetry }: { onRetry: () => void }) {
   return (
     <div className="flex items-center justify-between gap-[var(--space-2)] px-[var(--space-2)] py-[var(--space-2)] rounded-[var(--radius-sm)] bg-[var(--surface-2)] text-[length:var(--text-sm)] text-[var(--danger)]">
       <span>Couldn't load spaces.</span>
-      <Button variant="ghost" size="sm" onClick={onRetry} aria-label="Retry">
+      <Button variant="ghost" size="sm" onClick={onRetry} aria-label="Повторить">
         <RotateCw width={14} height={14} />
       </Button>
     </div>
@@ -398,7 +397,7 @@ function SpaceRow({
           )}
         >
           {space.name || (
-            <span className="text-[var(--text-muted)]">Untitled space</span>
+            <span className="text-[var(--text-muted)]">Пространство без названия</span>
           )}
         </button>
 
@@ -408,7 +407,7 @@ function SpaceRow({
           <Globe
             width={13}
             height={13}
-            aria-label="Public on the web"
+            aria-label="Опубликовано в интернете"
             className="shrink-0 text-[var(--text-muted)] group-hover:hidden"
           />
         ) : null}
@@ -460,17 +459,14 @@ function SpaceRow({
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuItem onSelect={() => setRenameOpen(true)}>Rename</DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => setRenameOpen(true)}>Переименовать</DropdownMenuItem>
             <DropdownMenuItem onSelect={() => setShareOpen(true)}>
-              <UsersRound width={14} height={14} /> Share
-            </DropdownMenuItem>
+              <UsersRound width={14} height={14} />Поделиться</DropdownMenuItem>
             <DropdownMenuItem onSelect={() => void downloadZip()}>
-              <FileDown width={14} height={14} /> Export Markdown (.zip)
+              <FileDown width={14} height={14} /> Экспорт Markdown (.zip)
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem destructive onSelect={() => setDeleteOpen(true)}>
-              Delete
-            </DropdownMenuItem>
+            <DropdownMenuItem destructive onSelect={() => setDeleteOpen(true)}>Удалить</DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
@@ -573,9 +569,7 @@ function SpaceAccessPeek({ space }: { space: Space }) {
     <div className="flex flex-col gap-[var(--space-2)] max-w-[16rem]">
       {principals.length > 0 ? (
         <div className="flex flex-col gap-[2px]">
-          <span className="text-[length:var(--text-xs)] uppercase tracking-wider text-[var(--text-muted)]">
-            Shared with
-          </span>
+          <span className="text-[length:var(--text-xs)] uppercase tracking-wider text-[var(--text-muted)]">Доступно для</span>
           {principals.map((p) => (
             <span key={`${p.kind}:${p.name}`} className="flex items-center gap-[var(--space-1)]">
               {p.kind === 'group' ? (
@@ -676,9 +670,7 @@ function RenameSpaceDialog({ space, open, onOpenChange }: RenameSpaceDialogProps
             <label
               htmlFor={`rename-space-${space.id}`}
               className="text-[length:var(--text-sm)] text-[var(--text-muted)]"
-            >
-              Name
-            </label>
+            >Название</label>
             <Input
               id={`rename-space-${space.id}`}
               autoFocus
@@ -694,9 +686,7 @@ function RenameSpaceDialog({ space, open, onOpenChange }: RenameSpaceDialogProps
           </div>
           <DialogFooter>
             <DialogClose asChild>
-              <Button type="button" variant="ghost">
-                Cancel
-              </Button>
+              <Button type="button" variant="ghost">Отмена</Button>
             </DialogClose>
             <Button type="submit" disabled={updateSpace.isPending}>
               {updateSpace.isPending ? 'Saving…' : 'Save'}
@@ -766,9 +756,7 @@ function DeleteSpaceDialog({
         ) : null}
         <DialogFooter>
           <DialogClose asChild>
-            <Button type="button" variant="ghost">
-              Cancel
-            </Button>
+            <Button type="button" variant="ghost">Отмена</Button>
           </DialogClose>
           <Button
             type="button"

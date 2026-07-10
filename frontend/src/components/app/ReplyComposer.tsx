@@ -42,7 +42,7 @@ export function ReplyComposer({ onSubmit, onCancel, autoFocus }: ReplyComposerPr
         placeholder="Write a reply…"
         disabled={busy}
         autoFocus={autoFocus}
-        aria-label="Reply body"
+        aria-label="Текст ответа"
       />
       {error ? (
         <p
@@ -59,9 +59,7 @@ export function ReplyComposer({ onSubmit, onCancel, autoFocus }: ReplyComposerPr
           size="sm"
           onClick={onCancel}
           disabled={busy}
-        >
-          Cancel
-        </Button>
+        >Отмена</Button>
         <Button
           type="button"
           variant="primary"

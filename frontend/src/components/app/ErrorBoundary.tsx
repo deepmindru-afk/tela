@@ -44,9 +44,7 @@ export class ErrorBoundary extends Component<Props, State> {
         className="flex min-h-screen flex-col items-center justify-center gap-[var(--space-4)] p-[var(--space-6)] text-center"
       >
         <div className="flex flex-col gap-[var(--space-2)]">
-          <h1 className="m-0 text-[length:var(--text-xl)] font-semibold">
-            Something went wrong
-          </h1>
+          <h1 className="m-0 text-[length:var(--text-xl)] font-semibold">Что-то пошло не так</h1>
           <p className="m-0 max-w-[28rem] text-[length:var(--text-sm)] text-[var(--text-muted)] leading-[var(--leading-relaxed)]">
             This part of the app hit an unexpected error. It's been reported.
             Reloading usually fixes it.

@@ -43,11 +43,11 @@ export function PdfPreviewDialog({
               href={url}
               target="_blank"
               rel="noopener noreferrer"
-              aria-label="Open in new tab"
+              aria-label="Открыть в новой вкладке"
             >
               <ExternalLink width={16} height={16} aria-hidden />
             </a>
-            <a href={url} download={name || undefined} aria-label="Download">
+            <a href={url} download={name || undefined} aria-label="Скачать">
               <Download width={16} height={16} aria-hidden />
             </a>
           </div>

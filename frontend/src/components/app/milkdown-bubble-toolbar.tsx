@@ -233,7 +233,7 @@ export function BubbleToolbarView() {
           ref={inputRef}
           size="sm"
           type="url"
-          placeholder="Paste or type a link, then Enter"
+          placeholder="Вставьте или введите ссылку, затем Enter"
           aria-label="Link URL"
           className="tela-bubble-link-input"
           value={linkValue}

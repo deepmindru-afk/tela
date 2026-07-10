@@ -49,8 +49,8 @@ export function SettingsUsageTab() {
       <div className="grid grid-cols-2 gap-[var(--space-3)] sm:grid-cols-4">
         <Stat label="Users" value={d.totals.users} />
         <Stat label="Orgs" value={d.totals.orgs} />
-        <Stat label="Spaces" value={d.totals.spaces} />
-        <Stat label="Pages" value={d.totals.pages} />
+        <Stat label="Пространства" value={d.totals.spaces} />
+        <Stat label="Страницы" value={d.totals.pages} />
         <Stat label="Attachments" value={formatBytes(d.totals.storage_bytes)} />
         <Stat label="AI calls / mo" value={d.totals.llm_calls} />
         <Stat label="Asks / mo" value={d.totals.asks} />
@@ -203,12 +203,12 @@ function DraftGapDialog({
         </DialogHeader>
         <div className="flex flex-col gap-[var(--space-3)]">
           <div className="flex flex-col gap-[var(--space-1)]">
-            <label className="text-[length:var(--text-xs)] uppercase tracking-wider text-[var(--text-muted)]">Title</label>
+            <label className="text-[length:var(--text-xs)] uppercase tracking-wider text-[var(--text-muted)]">Название</label>
             <Input value={title} onChange={(e) => setTitle(e.target.value)} aria-label="Page title" />
           </div>
           <div className="flex flex-col gap-[var(--space-1)]">
-            <label className="text-[length:var(--text-xs)] uppercase tracking-wider text-[var(--text-muted)]">Space</label>
-            <Select value={effective} onChange={(e) => setSpaceId(e.target.value)} aria-label="Space">
+            <label className="text-[length:var(--text-xs)] uppercase tracking-wider text-[var(--text-muted)]">Пространство</label>
+            <Select value={effective} onChange={(e) => setSpaceId(e.target.value)} aria-label="Пространство">
               {opts.map((s) => (
                 <option key={s.id} value={s.id}>
                   {s.name}
@@ -224,9 +224,7 @@ function DraftGapDialog({
         </div>
         <DialogFooter>
           <DialogClose asChild>
-            <Button type="button" variant="ghost">
-              Cancel
-            </Button>
+            <Button type="button" variant="ghost">Отмена</Button>
           </DialogClose>
           <Button type="button" onClick={() => void handleCreate()} disabled={create.isPending || opts.length === 0}>
             {create.isPending ? 'Creating…' : 'Create page'}

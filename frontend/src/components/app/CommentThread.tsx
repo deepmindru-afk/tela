@@ -188,8 +188,7 @@ export function CommentThread({
             onClick={() => setReplying(true)}
             disabled={isOptimistic(root.id)}
           >
-            <CornerDownRight width={12} height={12} /> Reply
-          </Button>
+            <CornerDownRight width={12} height={12} />Ответить</Button>
         ) : null}
         <Button
           type="button"

@@ -41,25 +41,21 @@ export function ConnectAgentNudge() {
         <Plug width={16} height={16} />
       </span>
       <div className="flex-1 min-w-0 flex flex-col gap-[var(--space-1)]">
-        <span className="text-[length:var(--text-sm)] font-medium text-[var(--text-primary)]">
-          Connect an agent to your wiki
-        </span>
+        <span className="text-[length:var(--text-sm)] font-medium text-[var(--text-primary)]">Подключите агента к вашему wiki</span>
         <span className="text-[length:var(--text-sm)] text-[var(--text-muted)] leading-[var(--leading-relaxed)]">
           Use Claude, Cursor, or ChatGPT to search, read, and write your spaces —
           it takes a couple of minutes.
         </span>
         <div className="mt-[var(--space-1)]">
           <Button asChild variant="primary" size="sm">
-            <a href={DOCS.mcp} target="_blank" rel="noreferrer">
-              Set up MCP →
-            </a>
+            <a href={DOCS.mcp} target="_blank" rel="noreferrer">Настроить MCP →</a>
           </Button>
         </div>
       </div>
       <button
         type="button"
         onClick={dismiss}
-        aria-label="Dismiss"
+        aria-label="Закрыть"
         className="shrink-0 rounded-[var(--radius-xs)] p-[var(--space-1)] text-[var(--text-muted)] hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
       >
         <X width={15} height={15} />

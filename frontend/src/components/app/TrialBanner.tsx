@@ -28,9 +28,7 @@ export function TrialBanner() {
         to="/settings"
         search={{ tab: 'billing' }}
         className="shrink-0 font-medium text-[var(--accent)] no-underline hover:underline"
-      >
-        View plan
-      </Link>
+      >Посмотреть тариф</Link>
     </div>
   )
 }

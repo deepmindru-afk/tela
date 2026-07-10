@@ -382,7 +382,7 @@ export function WikilinkView() {
       className="tela-wikilink-menu"
     >
       {items.length === 0 ? (
-        <div className="tela-wikilink-empty">No matches.</div>
+        <div className="tela-wikilink-empty">Ничего не найдено.</div>
       ) : (
         items.map((item, idx) => {
           const key =

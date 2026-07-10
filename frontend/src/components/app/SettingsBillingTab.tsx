@@ -303,7 +303,7 @@ function UsageCard({
         <div className="flex flex-col gap-[var(--space-4)]">
           <Metric
             icon={<Layers width={15} height={15} />}
-            label="Spaces"
+            label="Пространства"
             used={usage.usage.spaces}
             max={usage.plan.max_spaces}
           />
@@ -317,7 +317,7 @@ function UsageCard({
           {usage.account_kind === 'org' ? (
             <Metric
               icon={<Users width={15} height={15} />}
-              label="Members"
+              label="Участники"
               used={usage.usage.members ?? 0}
               max={usage.plan.max_members}
             />
@@ -503,7 +503,7 @@ export function SettingsBillingTab() {
       </header>
 
       <UsageCard
-        title="Personal account"
+        title="Личный кабинет"
         subtitle={me.data?.username}
         usage={myUsage.data}
         isPending={myUsage.isPending}
@@ -549,9 +549,7 @@ export function SettingsBillingTab() {
           <div className="flex items-center gap-[var(--space-3)]">
             <CreateTeamDialog
               trigger={
-                <Button variant="secondary" size="sm">
-                  Create a team
-                </Button>
+                <Button variant="secondary" size="sm">Создать команду</Button>
               }
             />
             <a
@@ -630,7 +628,7 @@ function OrgUsageCard({
   return (
     <UsageCard
       title={name}
-      subtitle="Organization"
+      subtitle="Организация"
       usage={usage.data}
       isPending={usage.isPending}
       isError={usage.isError}

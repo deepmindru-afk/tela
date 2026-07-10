@@ -348,7 +348,7 @@ export function BlockHandleView() {
                 onClick={onDuplicate}
               >
                 <Copy size="1em" aria-hidden />
-                <span>Duplicate</span>
+                <span>Дублировать</span>
               </button>
               <button
                 type="button"
@@ -357,7 +357,7 @@ export function BlockHandleView() {
                 onClick={onDelete}
               >
                 <Trash2 size="1em" aria-hidden />
-                <span>Delete</span>
+                <span>Удалить</span>
               </button>
             </div>,
             document.body,

@@ -363,7 +363,7 @@ function UserActivitySheet({
         <SheetBody>
           {/* Stat grid — everything the list row can't fit. */}
           <div className="mb-[var(--space-4)] grid grid-cols-2 gap-[var(--space-2)]">
-            <DetailStat icon={<Boxes width={14} height={14} />} label="Spaces" value={u ? String(u.spaces) : '—'} />
+            <DetailStat icon={<Boxes width={14} height={14} />} label="Пространства" value={u ? String(u.spaces) : '—'} />
             <DetailStat icon={<Boxes width={14} height={14} />} label="Orgs" value={String(user.orgs ?? 0)} />
             <DetailStat icon={<Sparkles width={14} height={14} />} label="AI calls / mo" value={String(user.llm_calls ?? 0)} />
             <DetailStat
@@ -425,9 +425,7 @@ function UserActivitySheet({
               ))}
             </ul>
           ) : (
-            <p className="m-0 text-[length:var(--text-sm)] text-[var(--text-muted)]">
-              No edits yet.
-            </p>
+            <p className="m-0 text-[length:var(--text-sm)] text-[var(--text-muted)]">Правок пока нет.</p>
           )}
         </SheetBody>
       </SheetContent>
@@ -644,9 +642,7 @@ function CreateUserDialog({
           ) : null}
           <DialogFooter>
             <DialogClose asChild>
-              <Button type="button" variant="ghost">
-                Cancel
-              </Button>
+              <Button type="button" variant="ghost">Отмена</Button>
             </DialogClose>
             <Button type="submit" disabled={createUser.isPending}>
               {createUser.isPending ? 'Creating…' : 'Create user'}
@@ -743,9 +739,7 @@ function ResetPasswordDialog({
           ) : null}
           <DialogFooter>
             <DialogClose asChild>
-              <Button type="button" variant="ghost">
-                Cancel
-              </Button>
+              <Button type="button" variant="ghost">Отмена</Button>
             </DialogClose>
             <Button type="submit" disabled={updateUser.isPending}>
               {updateUser.isPending ? 'Saving…' : 'Reset password'}

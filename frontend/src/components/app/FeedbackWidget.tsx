@@ -112,7 +112,7 @@ export function FeedbackWidget() {
         <Button
           variant="ghost"
           size="sm"
-          aria-label="Send feedback"
+          aria-label="Отправить отзыв"
           className="h-[var(--space-8)] w-[var(--space-8)] p-0"
         >
           <MessageSquarePlus width={16} height={16} aria-hidden />
@@ -153,15 +153,13 @@ export function FeedbackWidget() {
             className="flex flex-col gap-[var(--space-3)]"
           >
             <div className="flex items-center justify-between">
-              <p className="m-0 text-[length:var(--text-sm)] font-semibold text-[var(--text-primary)]">
-                Send feedback
-              </p>
+              <p className="m-0 text-[length:var(--text-sm)] font-semibold text-[var(--text-primary)]">Отправить отзыв</p>
               <span className="text-[length:var(--text-xs)] text-[var(--text-muted)]">
                 to the tela team
               </span>
             </div>
 
-            <div role="group" aria-label="Type" className="flex gap-[var(--space-2)]">
+            <div role="group" aria-label="Тип" className="flex gap-[var(--space-2)]">
               {KINDS.map((k) => {
                 const selected = kind === k.value
                 return (

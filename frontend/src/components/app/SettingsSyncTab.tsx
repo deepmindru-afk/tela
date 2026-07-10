@@ -155,7 +155,7 @@ function ConnectForm({ onCreated }: ConnectFormProps) {
             id="sync-name"
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder="e.g. laptop, work-desktop"
+            placeholder="например, ноутбук, рабочий-пк"
             maxLength={NAME_MAX_LEN}
             autoComplete="off"
           />
@@ -362,9 +362,7 @@ function ConnectionRow({ row }: { row: ApiKeyRow }) {
               size="sm"
               onClick={() => setConfirming(false)}
               disabled={revoke.isPending}
-            >
-              Cancel
-            </Button>
+            >Отмена</Button>
             <Button
               type="button"
               variant="danger"
@@ -498,9 +496,7 @@ function SetupDialog({ created, onOpenChange }: SetupDialogProps) {
                 type="button"
                 variant="primary"
                 onClick={() => onOpenChange(false)}
-              >
-                Done
-              </Button>
+              >Готово</Button>
             </DialogFooter>
           </div>
         ) : null}

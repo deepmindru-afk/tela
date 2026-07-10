@@ -99,8 +99,7 @@ export function UserMenu() {
               void navigate({ to: '/shared' })
             }}
           >
-            <Link2 width={14} height={14} /> Shared
-          </DropdownMenuItem>
+            <Link2 width={14} height={14} />Общие</DropdownMenuItem>
           <DropdownMenuItem
             onSelect={(e) => {
               e.preventDefault()
@@ -112,7 +111,7 @@ export function UserMenu() {
               })
             }}
           >
-            <Settings width={14} height={14} /> Settings
+            <Settings width={14} height={14} /> Настройки
             {feedbackUnseen > 0 ? (
               <Badge variant="accent" className="ml-auto">
                 {feedbackUnseen}
@@ -125,7 +124,7 @@ export function UserMenu() {
               goToBilling()
             }}
           >
-            <CreditCard width={14} height={14} /> Plan &amp; usage
+            <CreditCard width={14} height={14} /> Тариф и использование
             {planName ? (
               <Badge variant="muted" className="ml-auto">
                 {planName}
@@ -141,8 +140,7 @@ export function UserMenu() {
               emitOpenFeedback()
             }}
           >
-            <MessageSquarePlus width={14} height={14} /> Send feedback
-          </DropdownMenuItem>
+            <MessageSquarePlus width={14} height={14} />Отправить отзыв</DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem
             onSelect={(e) => {
@@ -160,16 +158,14 @@ export function UserMenu() {
               )
             }}
           >
-            <Globe width={14} height={14} /> Landing page
-          </DropdownMenuItem>
+            <Globe width={14} height={14} />Сайт компании</DropdownMenuItem>
           <DropdownMenuItem
             onSelect={(e) => {
               e.preventDefault()
               void handleSignOut()
             }}
           >
-            <LogOut width={14} height={14} /> Sign out
-          </DropdownMenuItem>
+            <LogOut width={14} height={14} />Выйти</DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
     </div>

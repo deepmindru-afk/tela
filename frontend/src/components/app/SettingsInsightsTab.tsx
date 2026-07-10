@@ -91,7 +91,7 @@ function InsightsBody({ s }: { s: AdminStats }) {
             accent
           />
           <Kpi
-            label="Pages"
+            label="Страницы"
             value={s.pages}
             delta={newInWeek(s.pages_cum)}
             deltaSuffix="this week"
@@ -126,7 +126,7 @@ function InsightsBody({ s }: { s: AdminStats }) {
                 </span>
               </div>
             </div>
-            <Panel title="Recent signups" empty="No signups yet.">
+            <Panel title="Недавние регистрации" empty="Регистраций пока нет.>
               {s.recent_signups.map((u) => (
                 <SignupRow key={u.user_id} u={u} />
               ))}
@@ -135,13 +135,13 @@ function InsightsBody({ s }: { s: AdminStats }) {
         </Section>
 
         {/* Activity */}
-        <Section title="Activity" desc="Daily volume over 30 days, with the week-over-week change.">
+        <Section title="Activity" desc="Ежедневный объём за 30 дней с изменением за неделю.>
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-[var(--space-3)]">
             <Trend label="Page views" series={s.views} />
             <Trend label="Edits" series={s.edits} />
             <Trend label="Sign-ins" series={s.logins} />
             <Trend label="Asks" series={s.asks} />
-            <Trend label="Errors" series={s.errors} invert tone="danger" />
+            <Trend label="Ошибки" series={s.errors} invert tone="danger" />
           </div>
         </Section>
 
@@ -153,7 +153,7 @@ function InsightsBody({ s }: { s: AdminStats }) {
                 <PageRow key={p.page_id} p={p} rank={i + 1} />
               ))}
             </Panel>
-            <Panel title="Top contributors" empty="No edits yet.">
+            <Panel title="Лучшие авторы" empty="Правок пока нет.>
               {s.top_contributors.map((c, i) => (
                 <ContributorRow key={c.label} c={c} rank={i + 1} />
               ))}
@@ -197,7 +197,7 @@ function InsightsBody({ s }: { s: AdminStats }) {
               </div>
             </div>
             <Panel
-              title="Unanswered questions"
+              title="Вопросы без ответа"
               empty="Every recent question found something."
             >
               {s.unanswered_asks.map((a, i) => (
@@ -212,7 +212,7 @@ function InsightsBody({ s }: { s: AdminStats }) {
         <AIUsageSection />
 
         {/* Knowledge health */}
-        <Section title="Knowledge health" desc="Signals worth a periodic tidy-up.">
+        <Section title="Knowledge health" desc="Сигналы, требующие периодической уборки.>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-[var(--space-3)]">
             <Health label="Stale pages" value={s.stale_pages} sub="90d+ untouched" warn={s.stale_pages > 0} />
             <Health label="Orphan pages" value={s.orphan_pages} sub="no inbound links" warn={s.orphan_pages > 0} />

@@ -205,9 +205,7 @@ function CreateOrgDialog({
         </DialogHeader>
         <form onSubmit={handleSubmit} className="flex flex-col gap-[var(--space-3)]" noValidate>
           <div className="flex flex-col gap-[var(--space-2)]">
-            <label htmlFor="new-org-name" className="text-[length:var(--text-sm)] text-[var(--text-muted)]">
-              Name
-            </label>
+            <label htmlFor="new-org-name" className="text-[length:var(--text-sm)] text-[var(--text-muted)]">Название</label>
             <Input
               id="new-org-name"
               autoFocus
@@ -237,9 +235,7 @@ function CreateOrgDialog({
           ) : null}
           <DialogFooter>
             <DialogClose asChild>
-              <Button type="button" variant="ghost">
-                Cancel
-              </Button>
+              <Button type="button" variant="ghost">Отмена</Button>
             </DialogClose>
             <Button type="submit" disabled={createOrg.isPending}>
               {createOrg.isPending ? 'Creating…' : 'Create org'}

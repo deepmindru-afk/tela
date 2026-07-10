@@ -274,7 +274,7 @@ export function ImportSection() {
             >
               <CommandInlinePicker
                 items={pickerItems}
-                placeholder="Search pages in this space…"
+                placeholder="Поиск страниц в пространстве…"
                 emptyMessage="No pages."
                 label="Import parent"
                 value={pickerValue}
@@ -384,9 +384,7 @@ export function ImportSection() {
             'font-[family-name:var(--font-sans)]',
             'animate-pulse',
           )}
-        >
-          Importing…
-        </div>
+        >Импорт…</div>
       ) : null}
 
       {showResult && result ? (

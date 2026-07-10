@@ -89,7 +89,7 @@ export function AddSourceDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Add source</DialogTitle>
+          <DialogTitle>Добавить источник</DialogTitle>
           <DialogDescription>
             Its docs land under a folder named after it, inside the project's output space.
           </DialogDescription>
@@ -97,7 +97,7 @@ export function AddSourceDialog({
 
         <div className="flex flex-col gap-[var(--space-4)] py-[var(--space-2)]">
           <div className="grid grid-cols-[8rem_1fr] gap-[var(--space-3)]">
-            <Field label="Type">
+            <Field label="Тип">
               <Select value={type} onChange={(e) => setType(e.target.value as AtlasSourceType)}>
                 <option value="git">Git repo</option>
                 <option value="jira">Jira project</option>
@@ -109,8 +109,8 @@ export function AddSourceDialog({
           </div>
 
           <div className="grid grid-cols-2 gap-[var(--space-3)]">
-            <Field label="Name" hint="Folder name in the space.">
-              <Input value={effectiveName} onChange={(e) => { setNameTouched(true); setName(e.target.value) }} placeholder="repo" />
+            <Field label="Название" hint="Folder name in the space.">
+              <Input value={effectiveName} onChange={(e) => { setNameTouched(true); setName(e.target.value) }} placeholder="репозиторий" />
             </Field>
             {type === 'git' && (
               <Field label="Branch" hint="Default branch if blank.">
@@ -136,7 +136,7 @@ export function AddSourceDialog({
         </div>
 
         <DialogFooter>
-          <Button variant="ghost" onClick={() => onOpenChange(false)}>Cancel</Button>
+          <Button variant="ghost" onClick={() => onOpenChange(false)}>Отмена</Button>
           <Button variant="primary" disabled={!location.trim() || create.isPending} onClick={submit}>
             {create.isPending && <Loader2 className="size-[var(--space-4)] motion-safe:animate-spin" />}Add source
           </Button>

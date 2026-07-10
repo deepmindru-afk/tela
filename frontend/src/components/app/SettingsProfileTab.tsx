@@ -469,9 +469,7 @@ function SessionsSection() {
             type="button"
             variant="danger"
             onClick={() => setLogoutOpen(true)}
-          >
-            Sign out of all other devices
-          </Button>
+          >Выйти на всех остальных устройствах</Button>
         </div>
       ) : null}
       <LogoutEverywhereDialog
@@ -559,7 +557,7 @@ function RevokeButton({
           {button}
         </span>
       </TooltipTrigger>
-      <TooltipContent>Sign out from this menu</TooltipContent>
+      <TooltipContent>Выйти из этого меню</TooltipContent>
     </Tooltip>
   )
 }
@@ -597,7 +595,7 @@ function LogoutEverywhereDialog({
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Sign out of all other devices?</DialogTitle>
+          <DialogTitle>Выйти на всех остальных устройствах?</DialogTitle>
           <DialogDescription>
             You'll need to log in again on every device except this one.
           </DialogDescription>
@@ -609,9 +607,7 @@ function LogoutEverywhereDialog({
         ) : null}
         <DialogFooter>
           <DialogClose asChild>
-            <Button type="button" variant="ghost">
-              Cancel
-            </Button>
+            <Button type="button" variant="ghost">Отмена</Button>
           </DialogClose>
           <Button
             type="button"
@@ -728,9 +724,7 @@ function DeleteAccountDialog({
         ) : null}
         <DialogFooter>
           <DialogClose asChild>
-            <Button type="button" variant="ghost">
-              Cancel
-            </Button>
+            <Button type="button" variant="ghost">Отмена</Button>
           </DialogClose>
           <Button
             type="button"

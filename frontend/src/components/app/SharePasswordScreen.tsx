@@ -104,9 +104,7 @@ export function SharePasswordScreen({ token }: SharePasswordScreenProps) {
                 <label
                   htmlFor="share-password"
                   className="text-[length:var(--text-sm)] text-[var(--text-muted)]"
-                >
-                  Password
-                </label>
+                >Пароль</label>
                 <Input
                   id="share-password"
                   ref={inputRef}

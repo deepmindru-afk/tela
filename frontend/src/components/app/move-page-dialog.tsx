@@ -233,7 +233,7 @@ export function MovePageDialog({
           onSubmit={handleSubmit}
           className="flex flex-col gap-[var(--space-4)]"
         >
-          <Field label="Destination space" htmlFor={spaceSelectId}>
+          <Field label="Целевое пространство" htmlFor={spaceSelectId}>
             <Select
               id={spaceSelectId}
               value={String(targetSpaceId)}
@@ -258,7 +258,7 @@ export function MovePageDialog({
                   : 'Search pages in this space…'
             }
             emptyMessage={loadingTargets ? 'Loading…' : 'No matches.'}
-            label="Parent page"
+            label="Родительская страница"
             value={pickerValue}
             onValueChange={setPickerValue}
           />
@@ -271,9 +271,7 @@ export function MovePageDialog({
 
           <DialogFooter>
             <DialogClose asChild>
-              <Button type="button" variant="ghost">
-                Cancel
-              </Button>
+              <Button type="button" variant="ghost">Отмена</Button>
             </DialogClose>
             <Button type="submit" disabled={submitDisabled}>
               {movePage.isPending ? 'Moving…' : 'Move'}

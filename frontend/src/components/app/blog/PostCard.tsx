@@ -35,7 +35,7 @@ export function PostCard({
   // replaces the reading time — it's an entry point, not an article.
   sectionLabel?: string
 }) {
-  const title = post.title || 'Untitled'
+  const title = post.title || 'Без названия'
   const Heading = headingLevel === 2 ? 'h2' : 'h3'
   return (
     <Link
@@ -104,14 +104,14 @@ export function PostCard({
             <span>{sectionLabel}</span>
           ) : post.kind === 'deck' ? (
             <span className="inline-flex items-center gap-[var(--space-1)]">
-              <Play width={11} height={11} /> Presentation
+              <Play width={11} height={11} /> Презентация
             </span>
           ) : post.kind === 'sheet' ? (
             <span className="inline-flex items-center gap-[var(--space-1)]">
-              <Table2 width={11} height={11} /> Spreadsheet
+              <Table2 width={11} height={11} /> Таблица
             </span>
           ) : (
-            <span>{post.reading_minutes} min read</span>
+            <span>{post.reading_minutes} мин чтения</span>
           )}
         </div>
       </div>

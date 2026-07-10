@@ -188,7 +188,7 @@ function commandItemClass(item: CommandItem): string {
 
 function HelpModeBody() {
   return (
-    <div className="tela-command-help" role="list" aria-label="Keyboard shortcuts">
+    <div className="tela-command-help" role="list" aria-label="Сочетания клавиш">
       {KEYBOARD_HELP.map(({ keys, description }, i) => (
         <div key={i} className="tela-command-help-row" role="listitem">
           <span className="tela-command-help-desc">{description}</span>
@@ -520,7 +520,7 @@ export function CommandPalette({
         <DialogPrimitive.Overlay className="tela-dialog-overlay" />
         <DialogPrimitive.Content
           className="tela-command-content"
-          aria-label="Command palette"
+          aria-label="Палитра команд"
         >
           <DialogPrimitive.Title className="tela-sr-only">
             {subPicker ? subPicker.label : 'Command palette'}

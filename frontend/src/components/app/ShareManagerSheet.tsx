@@ -60,7 +60,7 @@ export function ShareManagerSheet({
         }}
       >
         <SheetHeader>
-          <SheetTitle>Share this page</SheetTitle>
+          <SheetTitle>Поделиться этой страницей</SheetTitle>
           <SheetDescription>
             Anyone with the link can read this page. Optional password and
             subtree options below.

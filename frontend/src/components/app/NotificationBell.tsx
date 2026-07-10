@@ -86,9 +86,7 @@ export function NotificationBell() {
         className="w-[22rem] max-h-[28rem] overflow-y-auto p-[var(--space-1)]"
       >
         <div className="flex items-center justify-between px-[var(--space-2)] py-[var(--space-1)]">
-          <span className="text-[length:var(--text-sm)] font-semibold text-[var(--text-primary)]">
-            Notifications
-          </span>
+          <span className="text-[length:var(--text-sm)] font-semibold text-[var(--text-primary)]">Уведомления</span>
           {count > 0 ? (
             <button
               type="button"
@@ -98,8 +96,7 @@ export function NotificationBell() {
               }}
               className="inline-flex items-center gap-[var(--space-1)] text-[length:var(--text-xs)] text-[var(--text-muted)] hover:text-[var(--text-primary)]"
             >
-              <Check width={12} height={12} /> Mark all read
-            </button>
+              <Check width={12} height={12} />Отметить все прочитанными</button>
           ) : null}
         </div>
 

@@ -168,7 +168,7 @@ export function PublicReaderView({
       <>
         <ChildGallery spaceId={space.id} posts={childPosts} />
         {hasPostNav ? (
-          <nav className="reader-postnav" aria-label="More posts">
+          <nav className="reader-postnav" aria-label="Другие записи">
             {postNav!.older ? (
               <PostNavLink spaceId={space.id} post={postNav!.older} dir="older" />
             ) : (
@@ -256,7 +256,7 @@ export function PublicReaderView({
           ) : null}
           <a
             href={telaHome}
-            aria-label="tela home"
+            aria-label="tela домой"
             className="inline-block rounded-[var(--radius-xs)] font-[family-name:var(--font-sans)] text-[length:var(--text-base)] font-medium text-[var(--text-primary)] no-underline transition-opacity duration-[var(--duration-fast)] hover:opacity-70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
           >
             tela
@@ -322,7 +322,7 @@ function PublicDeckView({
         <span className="flex min-w-0 items-center gap-[var(--space-2)]">
           <a
             href={telaHome ?? '/'}
-            aria-label="tela home"
+            aria-label="tela домой"
             className="font-[family-name:var(--font-sans)] text-[length:var(--text-base)] font-medium text-[var(--text-primary)] no-underline hover:opacity-70"
           >
             tela
@@ -357,8 +357,7 @@ function PublicDeckView({
           />
           <span className="absolute inset-0 flex items-center justify-center bg-[color-mix(in_srgb,var(--text-primary)_45%,transparent)] opacity-0 transition-opacity duration-[var(--duration-fast)] group-hover:opacity-100">
             <span className="flex items-center gap-[var(--space-2)] rounded-[var(--radius-md)] bg-[var(--surface-1)] px-[var(--space-4)] py-[var(--space-2)] text-[length:var(--text-sm)] font-medium shadow-[var(--shadow-md)]">
-              <Play width={16} height={16} /> Present
-            </span>
+              <Play width={16} height={16} />Показать</span>
           </span>
         </button>
         <div className="flex flex-col items-center gap-[var(--space-3)] text-center">
@@ -371,8 +370,7 @@ function PublicDeckView({
             </p>
           ) : null}
           <Button onClick={present} size="md">
-            <Play width={16} height={16} /> Present
-          </Button>
+            <Play width={16} height={16} />Показать</Button>
         </div>
       </main>
     </div>
@@ -501,7 +499,7 @@ function PublicSpaceNavSheet({
         <Button
           variant="ghost"
           size="sm"
-          aria-label="Pages in this space"
+          aria-label="Страницы в этом пространстве"
           className="lg:hidden h-[var(--space-8)] w-[var(--space-8)] p-0"
         >
           <Menu width={18} height={18} />

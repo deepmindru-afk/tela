@@ -45,9 +45,7 @@ export function RelatedPagesSection({ pageId, spaceId }: RelatedPagesSectionProp
         id={`related-pages-${pageId}`}
         className="m-0 flex items-center gap-[var(--space-2)] text-[length:var(--text-xs)] uppercase tracking-wider text-[var(--text-muted)] font-[family-name:var(--font-sans)]"
       >
-        <Sparkles aria-hidden width={13} height={13} className="text-[var(--accent)]" />
-        Related pages
-      </h2>
+        <Sparkles aria-hidden width={13} height={13} className="text-[var(--accent)]" />Связанные страницы</h2>
       <ul className="m-0 p-0 list-none flex flex-col gap-[1px]">
         {rows.map((row) => {
           const crossSpace = row.space_id !== spaceId

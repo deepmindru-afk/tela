@@ -46,7 +46,7 @@ export function SettingsFollowingTab() {
                 size="sm"
                 disabled={unfollow.isPending}
                 aria-label={`Unfollow ${s.title}`}
-                title="Unfollow"
+                title="Отписаться"
                 onClick={() => unfollow.mutate({ kind: s.kind, id: s.id })}
                 className="h-[var(--space-8)] w-[var(--space-8)] shrink-0 p-0"
               >

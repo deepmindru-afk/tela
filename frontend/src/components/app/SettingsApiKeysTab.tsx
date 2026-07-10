@@ -162,7 +162,7 @@ function CreateApiKeyForm({ onCreated }: CreateApiKeyFormProps) {
 
   return (
     <section
-      aria-label="Create API key"
+      aria-label="Создать API-ключ"
       className={cn(
         'rounded-[var(--radius-md)] border border-[var(--border-subtle)]',
         'bg-[var(--surface-1)]',
@@ -173,19 +173,19 @@ function CreateApiKeyForm({ onCreated }: CreateApiKeyFormProps) {
         Create a new key
       </h2>
       <form onSubmit={handleSubmit} className="flex flex-col gap-[var(--space-4)]" noValidate>
-        <Field label="Name" htmlFor="apikey-name">
+        <Field label="Название" htmlFor="apikey-name">
           <Input
             id="apikey-name"
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder="e.g. claude-code laptop"
+            placeholder="например, claude-code laptop"
             maxLength={NAME_MAX_LEN}
             autoComplete="off"
             aria-invalid={fieldError === 'name' ? true : undefined}
           />
         </Field>
 
-        <Field label="Scope">
+        <Field label="Область">
           <ToggleGroup
             type="single"
             value={scope}
@@ -194,14 +194,14 @@ function CreateApiKeyForm({ onCreated }: CreateApiKeyFormProps) {
                 setScope(next)
               }
             }}
-            aria-label="API key scope"
+            aria-label="Область API-ключа"
           >
             <ToggleGroupItem value="read">Read</ToggleGroupItem>
             <ToggleGroupItem value="write">Write</ToggleGroupItem>
             {/* Admin scope = full instance-admin powers; only offered to instance
                 admins (the backend rejects it for anyone else). */}
             {me.data?.is_instance_admin ? (
-              <ToggleGroupItem value="admin">Admin</ToggleGroupItem>
+              <ToggleGroupItem value="admin">Администратор</ToggleGroupItem>
             ) : null}
           </ToggleGroup>
           <p className="m-0 text-[length:var(--text-xs)] text-[var(--text-muted)] font-[family-name:var(--font-sans)]">
@@ -209,7 +209,7 @@ function CreateApiKeyForm({ onCreated }: CreateApiKeyFormProps) {
           </p>
         </Field>
 
-        <Field label="Space" htmlFor="apikey-space">
+        <Field label="Пространство" htmlFor="apikey-space">
           {spaces.isLoading ? (
             <p className="m-0 text-[length:var(--text-sm)] text-[var(--text-muted)]">
               Loading spaces…
@@ -237,7 +237,7 @@ function CreateApiKeyForm({ onCreated }: CreateApiKeyFormProps) {
           )}
         </Field>
 
-        <Field label="Expires (optional)" htmlFor="apikey-expires">
+        <Field label="Срок действия (необязательно)" htmlFor="apikey-expires">
           <Input
             id="apikey-expires"
             type="text"
@@ -420,9 +420,7 @@ function ApiKeyRowItem({ row }: { row: ApiKeyRow }) {
               size="sm"
               onClick={() => setMode('idle')}
               disabled={revoke.isPending}
-            >
-              Cancel
-            </Button>
+            >Отмена</Button>
             <Button
               type="button"
               variant="danger"

@@ -166,7 +166,7 @@ function ReaderMessage({
     <div className="tela-reader items-center justify-center">
       <div className="flex flex-col items-center gap-[var(--space-3)] text-center max-w-[28rem] p-[var(--space-7)]">
         <h2 className="m-0 text-[length:var(--text-xl)] leading-[var(--leading-tight)] font-[family-name:var(--font-sans)] text-[var(--text-primary)]">
-          {notFound ? 'Page not found' : "Couldn't load this page"}
+          {notFound ? 'Страница не найдена' : 'Не удалось загрузить страницу'}
         </h2>
         <p className="m-0 text-[length:var(--text-sm)] text-[var(--text-muted)]">
           {notFound

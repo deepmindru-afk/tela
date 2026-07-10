@@ -286,7 +286,7 @@ export function NewPageDialog({
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Create a new page</DialogTitle>
+          <DialogTitle>Создать новую страницу</DialogTitle>
           <DialogDescription>
             Pick a parent page and a space. The new page opens in the editor
             once it's created.
@@ -303,26 +303,22 @@ export function NewPageDialog({
             className="flex flex-col gap-[var(--space-4)]"
           >
             <div className="flex flex-col gap-[var(--space-2)]">
-              <span className="text-[length:var(--text-sm)] text-[var(--text-muted)]">
-                Type
-              </span>
-              <div className="flex gap-[var(--space-2)]" role="group" aria-label="Page type">
+              <span className="text-[length:var(--text-sm)] text-[var(--text-muted)]">Тип</span>
+              <div className="flex gap-[var(--space-2)]" role="group" aria-label="Тип страницы">
                 <Button
                   type="button"
                   variant={docType === 'doc' ? 'secondary' : 'ghost'}
                   aria-pressed={docType === 'doc'}
                   onClick={() => setDocType('doc')}
                 >
-                  <FileText width={14} height={14} /> Doc
-                </Button>
+                  <FileText width={14} height={14} />Документ</Button>
                 <Button
                   type="button"
                   variant={docType === 'sheet' ? 'secondary' : 'ghost'}
                   aria-pressed={docType === 'sheet'}
                   onClick={() => setDocType('sheet')}
                 >
-                  <Table2 width={14} height={14} /> Sheet
-                </Button>
+                  <Table2 width={14} height={14} />Таблица</Button>
               </div>
               {docType === 'sheet' ? (
                 <div className="mt-[var(--space-1)] flex min-w-0 items-center gap-[var(--space-2)]">
@@ -357,9 +353,7 @@ export function NewPageDialog({
                           setImportedBody(null)
                           setImportName(null)
                         }}
-                      >
-                        clear
-                      </button>
+                      >очистить</button>
                     </span>
                   ) : (
                     <span className="truncate text-[length:var(--text-sm)] text-[var(--text-muted)]">
@@ -374,15 +368,13 @@ export function NewPageDialog({
               <label
                 htmlFor="new-page-title"
                 className="text-[length:var(--text-sm)] text-[var(--text-muted)]"
-              >
-                Title
-              </label>
+              >Название</label>
               <Input
                 id="new-page-title"
                 autoFocus
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                placeholder="e.g. Architecture overview"
+                placeholder="например, Обзор архитектуры"
                 aria-invalid={error != null && title.trim().length === 0}
               />
             </div>
@@ -391,16 +383,14 @@ export function NewPageDialog({
               <label
                 htmlFor="new-page-parent"
                 className="text-[length:var(--text-sm)] text-[var(--text-muted)]"
-              >
-                Parent page
-              </label>
+              >Родительская страница</label>
               <CommandInlinePicker
                 items={pickerItems}
-                placeholder="Search pages in this space…"
+                placeholder="Поиск страниц в пространстве…"
                 emptyMessage={
                   pagesQuery.isLoading ? 'Loading pages…' : 'No matches.'
                 }
-                label="Parent page"
+                label="Родительская страница"
                 autoFocus={false}
                 value={pickerValue}
                 onValueChange={setPickerValue}
@@ -411,9 +401,7 @@ export function NewPageDialog({
               <label
                 htmlFor="new-page-space"
                 className="text-[length:var(--text-sm)] text-[var(--text-muted)]"
-              >
-                Space
-              </label>
+              >Пространство</label>
               <Select
                 id="new-page-space"
                 value={spaceId == null ? '' : String(spaceId)}
@@ -436,9 +424,7 @@ export function NewPageDialog({
 
             <DialogFooter>
               <DialogClose asChild>
-                <Button type="button" variant="ghost">
-                  Cancel
-                </Button>
+                <Button type="button" variant="ghost">Отмена</Button>
               </DialogClose>
               <Button type="submit" disabled={submitDisabled}>
                 {createPage.isPending

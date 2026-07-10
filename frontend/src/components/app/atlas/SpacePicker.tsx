@@ -74,7 +74,7 @@ export function SpacePicker({
           {q && !exact && (
             <div className="flex items-center gap-[var(--space-2)] px-[var(--space-3)] py-[var(--space-2)] text-[length:var(--text-sm)] text-[var(--accent)]">
               <FolderPlus className="size-[var(--space-4)] shrink-0" />
-              <span className="truncate">Create new space “{query.trim()}”</span>
+              <span className="truncate">Создать новое пространство “{query.trim()}”</span>
             </div>
           )}
           {matches.length === 0 && !q && (

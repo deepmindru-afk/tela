@@ -100,7 +100,7 @@ function ToastCard({ item }: { item: ToastItem }) {
       <button
         type="button"
         className="tela-toast-close"
-        aria-label="Dismiss notification"
+        aria-label="Закрыть уведомление"
         onClick={() => dismissToast(item.id)}
       >
         <X className="tela-toast-close-icon" />
@@ -113,7 +113,7 @@ export function Toaster() {
   const list = useSyncExternalStore(subscribe, getSnapshot)
   if (list.length === 0) return null
   return (
-    <div className="tela-toast-viewport" aria-label="Notifications">
+    <div className="tela-toast-viewport" aria-label="Уведомления">
       {list.map((item) => (
         <ToastCard key={item.id} item={item} />
       ))}

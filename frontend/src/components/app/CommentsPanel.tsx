@@ -141,7 +141,7 @@ export function CommentsPanel({
         onInteractOutside={(e) => e.preventDefault()}
       >
         <SheetHeader>
-          <SheetTitle>Comments</SheetTitle>
+          <SheetTitle>Комментарии</SheetTitle>
           <SheetDescription>
             {totalOpenCount === 0
               ? 'No open threads on this page yet.'

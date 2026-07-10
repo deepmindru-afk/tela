@@ -60,7 +60,7 @@ export function Sidebar({
 
   return (
     <aside
-      aria-label="Navigation"
+      aria-label="Навигация"
       className={cn(
         'flex flex-col w-[var(--sidebar-width)] shrink-0 border-r border-[var(--border-subtle)] bg-[var(--surface-2)] overflow-hidden',
         // Mobile: a fixed slide-in drawer toggled by the header hamburger.
@@ -75,7 +75,7 @@ export function Sidebar({
       <div className="px-[var(--space-3)] pt-[var(--space-4)] flex flex-col gap-[var(--space-1)]">
         <Link
           to="/"
-          aria-label="tela — home"
+          aria-label="tela — домой"
           className="mb-[var(--space-2)] inline-flex items-center px-[var(--space-1)] no-underline transition-opacity duration-[var(--duration-fast)] hover:opacity-80"
         >
           <BrandLogo
@@ -110,9 +110,9 @@ export function Sidebar({
           size="sm"
           className={cn('w-full justify-start', navActive('/ask') && activeRow)}
         >
-          <Link to="/ask" aria-label="Ask your docs" title="Ask your docs">
+          <Link to="/ask" aria-label="Задать вопрос документам" title="Задать вопрос документам">
             <Sparkles width={14} height={14} className="text-[var(--accent)]" />
-            <span className="flex-1 text-left">Ask</span>
+            <span className="flex-1 text-left">Спросить</span>
           </Link>
         </Button>
         {/* New page (one of the two most-used actions) keeps its ⌘N global
@@ -124,8 +124,8 @@ export function Sidebar({
               variant="ghost"
               size="sm"
               className="w-full justify-start"
-              aria-label="Create new"
-              title="Create new"
+              aria-label="Создать"
+              title="Создать"
             >
               <Plus width={14} height={14} />
               <span className="flex-1 text-left">New…</span>
@@ -144,24 +144,24 @@ export function Sidebar({
             </DropdownMenuItem>
             <DropdownMenuItem onSelect={() => emitOpenNewSpace()}>
               <FolderPlus width={14} height={14} />
-              <span className="flex-1">Space</span>
+              <span className="flex-1">Пространство</span>
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
         <Button asChild variant="ghost" size="sm" className={cn('w-full justify-start', navActive('/', true) && activeRow)}>
-          <Link to="/" aria-label="Home" title="Home">
+          <Link to="/" aria-label="Главная" title="Главная">
             <Home width={14} height={14} />
-            <span className="flex-1 text-left">Home</span>
+            <span className="flex-1 text-left">Главная</span>
           </Link>
         </Button>
         <Button asChild variant="ghost" size="sm" className={cn('w-full justify-start', navActive('/graph') && activeRow)}>
-          <Link to="/graph" aria-label="Graph view" title="Graph view">
+          <Link to="/graph" aria-label="Просмотр графа" title="Просмотр графа">
             <Share2 width={14} height={14} />
-            <span className="flex-1 text-left">Graph</span>
+            <span className="flex-1 text-left">Граф</span>
           </Link>
         </Button>
         <Button asChild variant="ghost" size="sm" className={cn('w-full justify-start', navActive('/atlas') && activeRow)}>
-          <Link to="/atlas" aria-label="Atlas" title="Atlas — generate docs from sources">
+          <Link to="/atlas" aria-label="Atlas" title="Atlas — генерация документации">
             <Wand2 width={14} height={14} />
             <span className="flex-1 text-left">Atlas</span>
           </Link>
@@ -171,8 +171,8 @@ export function Sidebar({
             href={DOCS.home}
             target="_blank"
             rel="noopener"
-            aria-label="Documentation"
-            title="Documentation"
+            aria-label="Документация"
+            title="Документация"
           >
             <BookOpen width={14} height={14} />
             <span className="flex-1 text-left">Docs</span>

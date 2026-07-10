@@ -74,7 +74,7 @@ export function NewSpaceDialog({ open, onOpenChange }: NewSpaceDialogProps) {
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Create a new space</DialogTitle>
+          <DialogTitle>Создать новое пространство</DialogTitle>
           <DialogDescription>
             Spaces hold a tree of pages. The slug is derived from the name.
           </DialogDescription>
@@ -84,15 +84,13 @@ export function NewSpaceDialog({ open, onOpenChange }: NewSpaceDialogProps) {
             <label
               htmlFor="new-space-name"
               className="text-[length:var(--text-sm)] text-[var(--text-muted)]"
-            >
-              Name
-            </label>
+            >Название</label>
             <Input
               id="new-space-name"
               autoFocus
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="e.g. Engineering"
+              placeholder="например, Разработка"
               aria-invalid={error != null}
             />
           </div>
@@ -102,15 +100,13 @@ export function NewSpaceDialog({ open, onOpenChange }: NewSpaceDialogProps) {
               <label
                 htmlFor="new-space-owner"
                 className="text-[length:var(--text-sm)] text-[var(--text-muted)]"
-              >
-                Owner
-              </label>
+              >Владелец</label>
               <Select
                 id="new-space-owner"
                 value={owner}
                 onChange={(e) => setOwner(e.target.value)}
               >
-                <option value={PERSONAL}>Personal</option>
+                <option value={PERSONAL}>Личное</option>
                 {myOrgs.map((o) => (
                   <option key={o.id} value={String(o.id)}>
                     {o.name}
@@ -141,9 +137,7 @@ export function NewSpaceDialog({ open, onOpenChange }: NewSpaceDialogProps) {
                       handleClose(false)
                       void navigate({ to: '/settings' })
                     }}
-                  >
-                    View plan &amp; usage
-                  </button>
+                  >Посмотреть тариф</button>
                 </>
               ) : null}
             </p>
@@ -151,9 +145,7 @@ export function NewSpaceDialog({ open, onOpenChange }: NewSpaceDialogProps) {
 
           <DialogFooter>
             <DialogClose asChild>
-              <Button type="button" variant="ghost">
-                Cancel
-              </Button>
+              <Button type="button" variant="ghost">Отмена</Button>
             </DialogClose>
             <Button type="submit" disabled={createSpace.isPending}>
               {createSpace.isPending ? 'Creating…' : 'Create'}

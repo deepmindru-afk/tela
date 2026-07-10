@@ -241,7 +241,7 @@ export function AskRoute() {
             onChange={(e) => setQuestion(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder={aiPaused ? 'Ask is temporarily unavailable…' : 'Ask anything about your pages…'}
-            aria-label="Question"
+            aria-label="Вопрос"
             rows={2}
             autoFocus
             disabled={ask.isPending || aiPaused}
@@ -265,7 +265,7 @@ export function AskRoute() {
               variant="primary"
               size="sm"
               onClick={submit}
-              aria-label="Ask"
+              aria-label="Спросить"
               disabled={question.trim().length === 0 || ask.isPending || aiPaused || demoTyping}
               className="size-[var(--space-8)] shrink-0 rounded-full p-0"
             >
@@ -279,7 +279,7 @@ export function AskRoute() {
         </CardBody>
       </Card>
 
-      <section aria-label="Answer" aria-live="polite" className="min-h-0">
+      <section aria-label="Ответ" aria-live="polite" className="min-h-0">
         {aiPaused ? (
           <EmptyState
             icon={Wrench}
@@ -302,9 +302,7 @@ export function AskRoute() {
             title={isModelUnreachable(ask.error) ? 'The answer model didn’t respond' : 'Couldn’t generate an answer'}
             description={askErrorMessage(ask.error)}
             actions={
-              <Button variant="secondary" size="sm" onClick={submit}>
-                Try again
-              </Button>
+              <Button variant="secondary" size="sm" onClick={submit}>Попробовать снова</Button>
             }
           />
         ) : retrieving ? (
@@ -330,7 +328,7 @@ export function AskRoute() {
                 <button
                   type="button"
                   onClick={copyAskLink}
-                  aria-label="Copy a shareable link that re-asks this question"
+                  aria-label="Копировать ссылку на этот вопрос"
                   title="Copy a link that re-asks this for someone"
                   className="inline-flex items-center gap-[var(--space-1)] rounded-[var(--radius-md)] px-[var(--space-2)] py-[var(--space-1)] text-[length:var(--text-xs)] text-[var(--text-muted)] font-[family-name:var(--font-sans)] cursor-pointer outline-none transition-colors duration-[var(--duration-fast)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-2)] focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
                 >
@@ -563,7 +561,7 @@ function ScopePicker({
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="max-h-[18rem] overflow-y-auto">
         <ScopeOption
-          label="All spaces"
+          label="Все пространства"
           icon={<Library width={14} height={14} aria-hidden className="text-[var(--text-muted)]" />}
           selected={value == null}
           onSelect={() => onChange(undefined)}

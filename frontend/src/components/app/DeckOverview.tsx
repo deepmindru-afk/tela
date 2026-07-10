@@ -164,8 +164,7 @@ export function DeckOverview({ page }: { page: Page }) {
           </DropdownMenuContent>
         </DropdownMenu>
         <Button variant="primary" size="sm" onClick={present}>
-          <Play width={16} height={16} /> Present
-        </Button>
+          <Play width={16} height={16} />Показать</Button>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="sm" aria-label="Export deck">
@@ -173,9 +172,7 @@ export function DeckOverview({ page }: { page: Page }) {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuItem onSelect={() => exportDeck('PDF')}>
-              Download PDF
-            </DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => exportDeck('PDF')}>Скачать PDF</DropdownMenuItem>
             <DropdownMenuItem onSelect={() => exportDeck('PPTX')}>
               Download PPTX
             </DropdownMenuItem>
@@ -226,7 +223,7 @@ function DeckCover({
     <button
       type="button"
       onClick={onPresent}
-      aria-label="Present"
+      aria-label="Показать"
       className="group relative block aspect-video w-full max-w-2xl overflow-hidden rounded-[var(--radius-md)] border border-[var(--border-subtle)] bg-[var(--surface-2)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
     >
       <DeckCoverImage
@@ -237,8 +234,7 @@ function DeckCover({
       />
       <span className="absolute inset-0 flex items-center justify-center bg-[color-mix(in_srgb,var(--text-primary)_40%,transparent)] opacity-0 transition-opacity duration-[var(--duration-fast)] group-hover:opacity-100">
         <span className="flex items-center gap-[var(--space-2)] rounded-[var(--radius-md)] bg-[var(--surface-1)] px-[var(--space-3)] py-[var(--space-2)] text-[length:var(--text-sm)] font-medium shadow-[var(--shadow-md)]">
-          <Play width={16} height={16} /> Present
-        </span>
+          <Play width={16} height={16} />Показать</span>
       </span>
     </button>
   )

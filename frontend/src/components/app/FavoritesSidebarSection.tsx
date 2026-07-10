@@ -22,9 +22,7 @@ export function FavoritesSidebarSection({
       <h2
         id="sidebar-favorites-heading"
         className="m-0 px-[var(--space-2)] text-[length:var(--text-xs)] uppercase tracking-wider text-[var(--text-muted)] font-[family-name:var(--font-sans)]"
-      >
-        Favorites
-      </h2>
+      >Избранное</h2>
       <ul className="m-0 p-0 list-none flex flex-col gap-[1px]">
         {data.map((f) => (
           <li key={f.page_id}>

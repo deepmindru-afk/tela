@@ -169,7 +169,7 @@ function PagesError({ onRetry }: { onRetry: () => void }) {
   return (
     <div className="flex items-center justify-between gap-[var(--space-2)] ml-[var(--space-4)] px-[var(--space-2)] py-[var(--space-2)] rounded-[var(--radius-sm)] bg-[var(--surface-2)] text-[length:var(--text-sm)] text-[var(--danger)]">
       <span>Couldn't load pages.</span>
-      <Button variant="ghost" size="sm" onClick={onRetry} aria-label="Retry">
+      <Button variant="ghost" size="sm" onClick={onRetry} aria-label="Повторить">
         <RotateCw width={14} height={14} />
       </Button>
     </div>
@@ -338,9 +338,7 @@ function PageNode({
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuItem onSelect={() => setRenameOpen(true)}>
-              Rename
-            </DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => setRenameOpen(true)}>Переименовать</DropdownMenuItem>
             <DropdownMenuItem onSelect={() => void handleNewChild()}>
               New child page
             </DropdownMenuItem>
@@ -348,9 +346,7 @@ function PageNode({
               Move…
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem destructive onSelect={() => setDeleteOpen(true)}>
-              Delete
-            </DropdownMenuItem>
+            <DropdownMenuItem destructive onSelect={() => setDeleteOpen(true)}>Удалить</DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
@@ -447,9 +443,7 @@ function RenamePageDialog({ node, open, onOpenChange }: RenamePageDialogProps) {
             <label
               htmlFor={`rename-page-${node.id}`}
               className="text-[length:var(--text-sm)] text-[var(--text-muted)]"
-            >
-              Title
-            </label>
+            >Название</label>
             <Input
               id={`rename-page-${node.id}`}
               autoFocus
@@ -465,9 +459,7 @@ function RenamePageDialog({ node, open, onOpenChange }: RenamePageDialogProps) {
           </div>
           <DialogFooter>
             <DialogClose asChild>
-              <Button type="button" variant="ghost">
-                Cancel
-              </Button>
+              <Button type="button" variant="ghost">Отмена</Button>
             </DialogClose>
             <Button type="submit" disabled={updatePage.isPending}>
               {updatePage.isPending ? 'Saving…' : 'Save'}
@@ -540,9 +532,7 @@ function DeletePageDialog({
         ) : null}
         <DialogFooter>
           <DialogClose asChild>
-            <Button type="button" variant="ghost">
-              Cancel
-            </Button>
+            <Button type="button" variant="ghost">Отмена</Button>
           </DialogClose>
           <Button
             type="button"

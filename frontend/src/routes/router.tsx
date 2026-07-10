@@ -97,7 +97,7 @@ const rootRoute = createRootRoute({
       <EmptyState
         fullScreen
         icon={FileQuestion}
-        title="Page not found"
+        title="Страница не найдена"
         description="That page doesn’t exist or you don’t have access to it."
         actions={
           <Button asChild variant="primary" size="lg">

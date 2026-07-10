@@ -86,9 +86,7 @@ export function PublicDiscover({
                     <Button
                       variant="secondary"
                       onClick={() => onOffset(Math.max(0, offset - DISCOVER_PAGE_SIZE))}
-                    >
-                      Back
-                    </Button>
+                    >Назад</Button>
                   ) : undefined
                 }
               />
@@ -123,9 +121,7 @@ export function PublicDiscover({
                       size="sm"
                       disabled={!hasNext}
                       onClick={() => onOffset(offset + DISCOVER_PAGE_SIZE)}
-                    >
-                      Next
-                    </Button>
+                    >Далее</Button>
                   </nav>
                 )}
               </>

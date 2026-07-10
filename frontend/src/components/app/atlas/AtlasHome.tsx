@@ -106,8 +106,7 @@ export function AtlasHome() {
             <KeyRound className="size-[var(--space-4)]" /> Credentials
           </Button>
           <Button variant="primary" onClick={() => setNewOpen(true)} disabled={ownerOptions.length === 0}>
-            <Plus className="size-[var(--space-4)]" /> New project
-          </Button>
+            <Plus className="size-[var(--space-4)]" />Новый проект</Button>
         </div>
       </div>
 
@@ -121,8 +120,7 @@ export function AtlasHome() {
             description="Point Atlas at a git repo or Jira project and it generates coverage-audited docs into a space — then keeps them current."
             actions={
               <Button variant="primary" onClick={() => setNewOpen(true)} disabled={ownerOptions.length === 0}>
-                <Plus className="size-[var(--space-4)]" /> New project
-              </Button>
+                <Plus className="size-[var(--space-4)]" />Новый проект</Button>
             }
           />
         </div>

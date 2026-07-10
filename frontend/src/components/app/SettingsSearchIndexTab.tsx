@@ -96,9 +96,7 @@ function SpaceRow({ space }: { space: SpaceFreshness }) {
       {open && (
         <div className="border-0 border-t border-[var(--border-subtle)] bg-[var(--surface-1)]">
           {pageQuery.isLoading && (
-            <p className="m-0 p-[var(--space-4)] text-[length:var(--text-sm)] text-[var(--text-muted)]">
-              Loading pages…
-            </p>
+            <p className="m-0 p-[var(--space-4)] text-[length:var(--text-sm)] text-[var(--text-muted)]">Загрузка страниц…</p>
           )}
           {pageQuery.data && pageQuery.data.pages.length === 0 && (
             <p className="m-0 p-[var(--space-4)] text-[length:var(--text-sm)] text-[var(--text-muted)]">

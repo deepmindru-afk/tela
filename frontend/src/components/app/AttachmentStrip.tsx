@@ -97,7 +97,7 @@ export function AttachmentStripView({
           setOpen(false)
           setShowAll(false)
         }}
-        aria-label="Hide attachments"
+        aria-label="Скрыть вложения"
         aria-expanded
         className="text-[var(--text-muted)] hover:text-[var(--text-primary)] shrink-0"
       >
@@ -212,7 +212,7 @@ function AttachmentChip({
       ) : null}
       {a.embedded ? (
         <CornerLeftUp
-          aria-label="Embedded in page"
+          aria-label="Встроено в страницу"
           width={13}
           height={13}
           className="text-[var(--text-muted)] shrink-0"

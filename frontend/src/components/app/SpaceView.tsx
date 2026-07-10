@@ -75,7 +75,7 @@ export function SpaceView({ spaceId }: { spaceId: number }) {
               <Skeleton />
             ) : (
               <>
-                <Section title="Contents" icon={Folder}>
+                <Section title="Содержание" icon={Folder}>
                   {data && data.top_level.length > 0 ? (
                     <List>
                       {data.top_level.map((p) => (
@@ -98,7 +98,7 @@ export function SpaceView({ spaceId }: { spaceId: number }) {
                 </Section>
 
                 {data && data.recent.length > 0 ? (
-                  <Section title="Recently updated" icon={Clock}>
+                  <Section title="Недавно обновлено" icon={Clock}>
                     <List>
                       {data.recent.map((p) => (
                         <Row
@@ -129,7 +129,7 @@ export function SpaceView({ spaceId }: { spaceId: number }) {
             ) : (
               <>
                 {h && h.disputed.length > 0 ? (
-                  <Section title="Disputed" icon={ShieldAlert} tone="danger">
+                  <Section title="Спорные" icon={ShieldAlert} tone="danger">
                     <List>
                       {h.disputed.map((d) => (
                         <Row
@@ -146,7 +146,7 @@ export function SpaceView({ spaceId }: { spaceId: number }) {
                 ) : null}
 
                 {h && h.review_overdue.length > 0 ? (
-                  <Section title="Needs review" icon={CalendarClock} tone="warning">
+                  <Section title="Требуют проверки" icon={CalendarClock} tone="warning">
                     <List>
                       {h.review_overdue.map((p) => (
                         <Row
@@ -163,7 +163,7 @@ export function SpaceView({ spaceId }: { spaceId: number }) {
                 ) : null}
 
                 {h && h.orphans.length > 0 ? (
-                  <Section title="Orphans" icon={Unlink}>
+                  <Section title="Сироты" icon={Unlink}>
                     <List>
                       {h.orphans.map((p) => (
                         <Row

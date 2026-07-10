@@ -160,9 +160,7 @@ export function CommentItem({
                 setDraft(comment.body)
               }}
               disabled={busy}
-            >
-              Cancel
-            </Button>
+            >Отмена</Button>
             <Button
               type="button"
               variant="primary"
@@ -212,8 +210,7 @@ export function CommentItem({
               disabled={busy}
               aria-label="Cancel delete"
             >
-              <X width={12} height={12} /> Cancel
-            </Button>
+              <X width={12} height={12} />Отмена</Button>
             <Button
               type="button"
               variant="danger"

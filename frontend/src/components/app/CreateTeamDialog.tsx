@@ -45,7 +45,7 @@ export function CreateTeamDialog({ trigger }: { trigger: React.ReactNode }) {
       <DialogContent>
         <form onSubmit={submit}>
           <DialogHeader>
-            <DialogTitle>Create a team</DialogTitle>
+            <DialogTitle>Создать команду</DialogTitle>
             <DialogDescription>
               Spin up an organization, invite teammates, then upgrade to the Team plan. It starts
               free — no card required.
@@ -55,14 +55,12 @@ export function CreateTeamDialog({ trigger }: { trigger: React.ReactNode }) {
             <label
               htmlFor="team-name"
               className="text-[length:var(--text-sm)] font-medium text-[var(--text-primary)]"
-            >
-              Team name
-            </label>
+            >Название команды</label>
             <Input
               id="team-name"
               value={name}
               onChange={(e: React.ChangeEvent<HTMLInputElement>) => setName(e.target.value)}
-              placeholder="Acme Inc"
+              placeholder="Название компании"
               autoFocus
               maxLength={200}
             />
@@ -72,9 +70,7 @@ export function CreateTeamDialog({ trigger }: { trigger: React.ReactNode }) {
           </div>
           <DialogFooter>
             <DialogClose asChild>
-              <Button type="button" variant="ghost">
-                Cancel
-              </Button>
+              <Button type="button" variant="ghost">Отмена</Button>
             </DialogClose>
             <Button type="submit" variant="primary" disabled={createOrg.isPending || name.trim() === ''}>
               {createOrg.isPending ? 'Creating…' : 'Create team'}

@@ -205,9 +205,7 @@ function TagBar({
         params={{ spaceId }}
         search={{ tag: undefined }}
         className={blogChip(!active)}
-      >
-        All
-      </Link>
+      >Все</Link>
       {tags.map((t) => (
         <Link
           key={t}

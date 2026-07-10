@@ -79,9 +79,7 @@ export function ImportResult({
             >
               {confirmPending ? 'Importing…' : 'Confirm import'}
             </Button>
-            <Button type="button" variant="ghost" onClick={onCancel}>
-              Cancel
-            </Button>
+            <Button type="button" variant="ghost" onClick={onCancel}>Отмена</Button>
           </div>
         ) : onOpenFirstPage && pages.length > 0 ? (
           <div>
@@ -144,7 +142,7 @@ export function ImportResult({
         ) : null}
 
         {errors.length > 0 ? (
-          <ImportDetails label="Errors" count={errors.length}>
+          <ImportDetails label="Ошибки" count={errors.length}>
             <ul className="m-0 p-0 list-none flex flex-col gap-[var(--space-1)]">
               {errors.map((e) => (
                 <li

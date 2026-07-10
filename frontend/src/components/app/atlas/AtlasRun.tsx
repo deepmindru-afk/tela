@@ -64,14 +64,14 @@ export function AtlasRun() {
   if (runQ.isLoading) {
     return (
       <Shell>
-        <p className="text-[length:var(--text-sm)] text-[var(--text-muted)]">Loading run…</p>
+        <p className="text-[length:var(--text-sm)] text-[var(--text-muted)]">Загрузка запуска…</p>
       </Shell>
     )
   }
   if (!run) {
     return (
       <Shell>
-        <EmptyState icon={FileText} title="Run not found" description="This run doesn't exist or you can't access it." />
+        <EmptyState icon={FileText} title="Запуск не найден" description="Этот запуск не существует или у вас нет доступа." />
       </Shell>
     )
   }
@@ -82,25 +82,25 @@ export function AtlasRun() {
     <Shell>
       {projectId ? (
         <Link to="/atlas/projects/$projectId" params={{ projectId }} className="mb-[var(--space-2)] inline-flex items-center gap-[var(--space-1)] text-[length:var(--text-xs)] text-[var(--text-muted)] hover:text-[var(--text-primary)]">
-          <ArrowLeft className="size-[var(--space-3)]" /> Back to project
+          <ArrowLeft className="size-[var(--space-3)]" /> Назад к проекту
         </Link>
       ) : (
         <Link to="/atlas" className="mb-[var(--space-2)] inline-flex items-center gap-[var(--space-1)] text-[length:var(--text-xs)] text-[var(--text-muted)] hover:text-[var(--text-primary)]">
-          <ArrowLeft className="size-[var(--space-3)]" /> Atlas
+          <ArrowLeft className="size-[var(--space-3)]" /> Атлас
         </Link>
       )}
 
       <div className="flex flex-wrap items-center gap-[var(--space-3)]">
-        <h1 className="text-[length:var(--text-2xl)] font-semibold text-[var(--text-primary)]">Run #{run.id}</h1>
+        <h1 className="text-[length:var(--text-2xl)] font-semibold text-[var(--text-primary)]">Запуск #{run.id}</h1>
         <StatusBadge tone={runTone(run.status)} dot={run.status === 'running'}>{runLabel(run.status)}</StatusBadge>
         <span className="rounded-[var(--radius-sm)] border border-[var(--border-subtle)] px-[var(--space-2)] py-[1px] text-[length:var(--text-xs)] font-[family-name:var(--font-mono)] text-[var(--text-muted)]">{run.kind}</span>
       </div>
 
       <p className="mt-[var(--space-2)] flex flex-wrap items-center gap-x-[var(--space-3)] gap-y-[var(--space-1)] text-[length:var(--text-sm)] text-[var(--text-muted)]">
-        <span>started {fmtRelative(run.started_at, now)}</span>
+        <span>начат {fmtRelative(run.started_at, now)}</span>
         <Dot />
         <span>
-          {run.status === 'running' ? 'elapsed ' : 'took '}
+          {run.status === 'running' ? 'прошло ' : 'заняло '}
           <b className="font-[family-name:var(--font-mono)] text-[var(--text-primary)]">{fmtDuration(prog.elapsedSec)}</b>
         </span>
         {run.stats && (
@@ -120,7 +120,7 @@ export function AtlasRun() {
       {run.status === 'pending' && (
         <Card className="mt-[var(--space-4)]">
           <CardBody className="text-[length:var(--text-sm)] text-[var(--text-muted)]">
-            <span className="font-medium text-[var(--text-primary)]">Queued.</span> Runs execute one at a time so generation never clogs the shared model that also powers ask &amp; search — this run starts automatically when the one ahead of it finishes.
+            <span className="font-medium text-[var(--text-primary)]">В очереди.</span> Запуски выполняются по очереди, чтобы генерация не перегружала общую модель, используемую также для поиска и вопросов — этот запуск начнётся автоматически, когда завершится предыдущий.
           </CardBody>
         </Card>
       )}
@@ -130,7 +130,7 @@ export function AtlasRun() {
           <CardBody className="flex flex-col gap-[var(--space-2)]">
             <div className="flex items-center justify-between text-[length:var(--text-sm)]">
               <span className="font-medium text-[var(--text-primary)]">
-                {prog.currentIndex >= 0 ? `${ATLAS_STAGES[prog.currentIndex].label} · stage ${prog.currentIndex + 1}/12` : 'Starting…'}
+                {prog.currentIndex >= 0 ? `${ATLAS_STAGES[prog.currentIndex].label} · этап ${prog.currentIndex + 1}/12` : 'Запуск…'}
               </span>
               <span className="text-[var(--text-muted)]">
                 {Math.round(prog.overallProgress * 100)}%{prog.etaSec != null ? ` · ${fmtEta(prog.etaSec)}` : ''}
@@ -144,13 +144,13 @@ export function AtlasRun() {
       {run.status === 'failed' && run.err && (
         <div className="mt-[var(--space-4)] flex items-start gap-[var(--space-2)] rounded-[var(--radius-md)] border border-[var(--border-subtle)] bg-[var(--accent-negative-soft)] p-[var(--space-3)] text-[length:var(--text-sm)] text-[var(--accent-negative-fg)]">
           <AlertCircle className="mt-[2px] size-[var(--space-4)] shrink-0" />
-          <span><b>Failed at {ATLAS_STAGES[failedIdx]?.label ?? run.stage}.</b> {run.err}</span>
+          <span><b>Ошибка на {ATLAS_STAGES[failedIdx]?.label ?? run.stage}.</b> {run.err}</span>
         </div>
       )}
 
       <div className="mt-[var(--space-4)] grid grid-cols-1 gap-[var(--space-4)] lg:grid-cols-[1.3fr_1fr]">
         <Card>
-          <CardHeader><CardTitle>Pipeline · {prog.doneCount}/12 stages</CardTitle></CardHeader>
+          <CardHeader><CardTitle>Конвейер · {prog.doneCount}/12 этапов</CardTitle></CardHeader>
           <CardBody>
             <ol className="flex flex-col">
               {prog.stages.map((s, i) => <StageRow key={s.def.key} s={s} last={i === prog.stages.length - 1} />)}
@@ -158,7 +158,7 @@ export function AtlasRun() {
           </CardBody>
         </Card>
         <Card>
-          <CardHeader><CardTitle>Live log</CardTitle></CardHeader>
+          <CardHeader><CardTitle>Живой лог</CardTitle></CardHeader>
           <CardBody><RunLog events={events} terminal={run.status === 'done' || run.status === 'failed' || run.status === 'canceled'} /></CardBody>
         </Card>
       </div>
@@ -227,7 +227,7 @@ function RunLog({ events, terminal }: { events: { stage: string; msg: string; le
   if (events.length === 0) {
     return (
       <p className="text-[length:var(--text-sm)] text-[var(--text-muted)]">
-        {terminal ? 'No live log retained for this run.' : 'Waiting for the run to start…'}
+        {terminal ? 'Живой лог для этого запуска не сохранён.' : 'Ожидание запуска…'}
       </p>
     )
   }
@@ -249,25 +249,25 @@ function CoverageCard({ run }: { run: AtlasRun }) {
   const stats = run.stats
   return (
     <Card className="mt-[var(--space-4)]">
-      <CardHeader><CardTitle>Coverage &amp; results</CardTitle></CardHeader>
+      <CardHeader><CardTitle>Покрытие и результаты</CardTitle></CardHeader>
       <CardBody className="flex flex-col gap-[var(--space-5)]">
         <div className="flex flex-wrap items-center gap-[var(--space-6)]">
-          <CoverageGauge value={mustCoverRate(cov)} caption="must-cover" />
-          <CoverageGauge value={coverageRate(cov)} caption="surface" />
+          <CoverageGauge value={mustCoverRate(cov)} caption="обяз.покрытие" />
+          <CoverageGauge value={coverageRate(cov)} caption="поверхность" />
           <dl className="grid grid-cols-2 gap-x-[var(--space-6)] gap-y-[var(--space-2)] text-[length:var(--text-sm)]">
-            <Stat label="Surface covered" value={`${cov.covered}/${cov.total}`} />
-            <Stat label="Must-cover" value={`${cov.must_covered}/${cov.must_total}`} />
-            <Stat label="Citations" value={`${fmtNum(cov.citations)}${cov.bad_citations ? ` · ${cov.bad_citations} unresolved` : ''}`} />
-            <Stat label="Diagrams" value={`${cov.mermaid}${cov.mermaid_invalid ? ` · ${cov.mermaid_invalid} invalid` : ''}`} />
-            {stats && <Stat label="Pages" value={fmtNum(stats.pages)} />}
-            {stats && <Stat label="Files · chunks" value={`${fmtNum(stats.files)} · ${fmtNum(stats.chunks)}`} />}
-            {stats && <Stat label="Tokens" value={`${fmtNum(stats.usage.prompt_tokens + stats.usage.completion_tokens)} chat`} />}
-            {stats && <Stat label="Duration" value={fmtDuration(stats.duration_sec)} />}
+            <Stat label="Покрытая поверхность" value={`${cov.covered}/${cov.total}`} />
+            <Stat label="Обязательное покрытие" value={`${cov.must_covered}/${cov.must_total}`} />
+            <Stat label="Цитаты" value={`${fmtNum(cov.citations)}${cov.bad_citations ? ` · ${cov.bad_citations} нераспознано` : ''}`} />
+            <Stat label="Диаграммы" value={`${cov.mermaid}${cov.mermaid_invalid ? ` · ${cov.mermaid_invalid} некорректно` : ''}`} />
+            {stats && <Stat label="Страницы" value={fmtNum(stats.pages)} />}
+            {stats && <Stat label="Файлы · чанки" value={`${fmtNum(stats.files)} · ${fmtNum(stats.chunks)}`} />}
+            {stats && <Stat label="Токены" value={`${fmtNum(stats.usage.prompt_tokens + stats.usage.completion_tokens)} чат`} />}
+            {stats && <Stat label="Длительность" value={fmtDuration(stats.duration_sec)} />}
           </dl>
         </div>
         {cov.gaps.length > 0 && (
           <details className="rounded-[var(--radius-sm)] border border-[var(--border-subtle)] bg-[var(--surface-2)] p-[var(--space-3)]">
-            <summary className="cursor-pointer text-[length:var(--text-sm)] font-medium text-[var(--text-primary)]">Undocumented surface · {cov.gaps.length}</summary>
+            <summary className="cursor-pointer text-[length:var(--text-sm)] font-medium text-[var(--text-primary)]">Не задокументированная поверхность · {cov.gaps.length}</summary>
             <ul className="mt-[var(--space-2)] flex flex-col gap-[var(--space-1)] font-[family-name:var(--font-mono)] text-[length:var(--text-xs)] text-[var(--text-muted)]">
               {cov.gaps.slice(0, 100).map((g, i) => (
                 <li key={i}>

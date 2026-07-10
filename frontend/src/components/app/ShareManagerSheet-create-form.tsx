@@ -82,7 +82,7 @@ export function CreateShareForm({
           checked={includeDescendants}
           onCheckedChange={(v) => setIncludeDescendants(v === true)}
           disabled={pending}
-          aria-label="Include child pages"
+          aria-label="Включить дочерние страницы"
         />
         <span className="text-[length:var(--text-sm)] text-[var(--text-primary)] font-[family-name:var(--font-sans)]">
           Include child pages
@@ -98,8 +98,8 @@ export function CreateShareForm({
           type="text"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          placeholder="Optional password"
-          aria-label="Optional password"
+          placeholder="Пароль (необязательно)"
+          aria-label="Пароль (необязательно)"
           disabled={pending}
         />
       </label>
@@ -113,8 +113,8 @@ export function CreateShareForm({
           type="text"
           value={expiresAt}
           onChange={(e) => setExpiresAt(e.target.value)}
-          placeholder="YYYY-MM-DD HH:MM:SS — leave empty for none"
-          aria-label="Optional expiry"
+          placeholder="ГГГГ-ММ-ДД ЧЧ:ММ:СС — оставьте пустым"
+          aria-label="Срок действия (необязательно)"
           disabled={pending}
         />
       </label>

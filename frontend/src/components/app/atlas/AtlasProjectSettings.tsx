@@ -96,14 +96,14 @@ export function AtlasProjectSettings() {
       </Link>
       <h1 className="text-[length:var(--text-2xl)] font-semibold text-[var(--text-primary)]">Project settings</h1>
       <p className="mt-[var(--space-1)] text-[length:var(--text-sm)] text-[var(--text-muted)]">
-        {project.owner.kind === 'org' ? `${project.owner.name} · org` : 'Personal'}
+        {project.owner.kind === 'org' ? `${project.owner.name} · орг` : 'Личное'}
       </p>
 
       <div className="mt-[var(--space-5)] flex flex-col gap-[var(--space-4)]">
         <Card>
           <CardHeader><CardTitle>General</CardTitle></CardHeader>
           <CardBody className="flex flex-col gap-[var(--space-4)]">
-            <Field label="Name"><Input value={name} onChange={(e) => setName(e.target.value)} /></Field>
+            <Field label="Название"><Input value={name} onChange={(e) => setName(e.target.value)} /></Field>
             {project.scheduled_allowed ? (
               <Field label="Refresh" hint="How often Atlas re-runs this project to keep its docs current.">
                 <Select value={cadence} onChange={(e) => setCadence(e.target.value as AtlasCadence)}>
@@ -126,7 +126,7 @@ export function AtlasProjectSettings() {
         <Card>
           <CardHeader><CardTitle>Output</CardTitle></CardHeader>
           <CardBody className="flex flex-col gap-[var(--space-4)]">
-            <FieldBlock label="Space" hint="Where the docs land. Pick an existing space or type a name to create one on the next run.">
+            <FieldBlock label="Пространство" hint="Where the docs land. Pick an existing space or type a name to create one on the next run.">
               <SpacePicker
                 spaces={(spacesQ.data ?? []).map((s) => ({ id: s.id, name: s.name }))}
                 value={output}
@@ -137,7 +137,7 @@ export function AtlasProjectSettings() {
               <Field label="Top-dir" hint="Optional folder inside the space; each source publishes under its own folder beneath it.">
                 <Select value={parentId != null ? String(parentId) : ''} onChange={(e) => { setParentId(e.target.value ? Number(e.target.value) : undefined); setOutDirty(true) }}>
                   <option value="">Space root</option>
-                  {dirPages.map((p) => <option key={p.id} value={p.id}>Under “{p.title}”</option>)}
+                  {dirPages.map((p) => <option key={p.id} value={p.id}><option value={p.id}>Внутри "{p.title}"</option></option>)}
                 </Select>
               </Field>
             )}
@@ -145,21 +145,21 @@ export function AtlasProjectSettings() {
         </Card>
 
         <Card>
-          <CardHeader><CardTitle>Danger zone</CardTitle></CardHeader>
+          <CardHeader><CardTitle>Опасная зона</CardTitle></CardHeader>
           <CardBody>
             {confirmDel ? (
               <div className="flex flex-wrap items-center justify-between gap-[var(--space-3)]">
-                <span className="text-[length:var(--text-sm)] text-[var(--text-muted)]">Delete this project? Its output space and generated docs are kept.</span>
+                <span className="text-[length:var(--text-sm)] text-[var(--text-muted)]">Удалить проект? Пространство вывода и сгенерированные документы останутся.</span>
                 <div className="flex gap-[var(--space-2)]">
-                  <Button variant="ghost" size="sm" onClick={() => setConfirmDel(false)}>Cancel</Button>
+                  <Button variant="ghost" size="sm" onClick={() => setConfirmDel(false)}>Отмена</Button>
                   <Button variant="danger" size="sm" disabled={del.isPending} onClick={remove}>
-                    {del.isPending && <Loader2 className="size-[var(--space-4)] motion-safe:animate-spin" />}Delete project
+                    {del.isPending && <Loader2 className="size-[var(--space-4)] motion-safe:animate-spin" />}Удалить проект
                   </Button>
                 </div>
               </div>
             ) : (
               <button type="button" className="text-[length:var(--text-sm)] font-medium text-[var(--accent-negative-fg)] hover:underline" onClick={() => setConfirmDel(true)}>
-                Delete project…
+                Удалить проект…
               </button>
             )}
           </CardBody>
@@ -167,9 +167,9 @@ export function AtlasProjectSettings() {
       </div>
 
       <div className="mt-[var(--space-5)] flex justify-end gap-[var(--space-2)]">
-        <Button variant="ghost" onClick={backToProject}>Cancel</Button>
+        <Button variant="ghost" onClick={backToProject}>Отмена</Button>
         <Button variant="primary" disabled={patch.isPending} onClick={save}>
-          {patch.isPending && <Loader2 className="size-[var(--space-4)] motion-safe:animate-spin" />}Save changes
+          {patch.isPending && <Loader2 className="size-[var(--space-4)] motion-safe:animate-spin" />}Сохранить изменения
         </Button>
       </div>
     </Shell>

@@ -81,7 +81,7 @@ export function SheetExportMenu({
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" size="sm" aria-label="Export sheet" disabled={busy}>
           <Download width={16} height={16} aria-hidden />
-          <span className="hidden sm:inline">Export</span>
+          <span className="hidden sm:inline">Экспорт</span>
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">

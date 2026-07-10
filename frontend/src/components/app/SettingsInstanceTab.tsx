@@ -148,8 +148,8 @@ function MaintenanceNoticeEditor({
           aria-label="Notice level"
           className="w-[8rem] shrink-0"
         >
-          <option value="info">Info</option>
-          <option value="warning">Warning</option>
+          <option value="info">Информация</option>
+          <option value="warning">Предупреждение</option>
         </Select>
         <Button
           type="button"

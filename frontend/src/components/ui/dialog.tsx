@@ -56,7 +56,7 @@ export const DialogContent = forwardRef<
         {children}
         {showClose ? (
           <DialogPrimitive.Close
-            aria-label="Close"
+            aria-label="Закрыть"
             className={cn(
               'absolute top-[var(--space-3)] right-[var(--space-3)]',
               'inline-flex items-center justify-center',

@@ -38,9 +38,7 @@ export function SharedRoute() {
     <div className="flex-1 overflow-y-auto">
       <div className="max-w-[56rem] w-full mx-auto p-[var(--space-7)] flex flex-col gap-[var(--space-6)]">
         <header className="flex flex-col gap-[var(--space-1)]">
-          <h1 className="m-0 font-[family-name:var(--font-sans)] text-[length:var(--text-2xl)] leading-[var(--leading-tight)] text-[var(--text-primary)]">
-            Shared
-          </h1>
+          <h1 className="m-0 font-[family-name:var(--font-sans)] text-[length:var(--text-2xl)] leading-[var(--leading-tight)] text-[var(--text-primary)]">Общие</h1>
           <p className="m-0 text-[length:var(--text-sm)] text-[var(--text-muted)] leading-[var(--leading-relaxed)]">
             Every page in your spaces reachable by a link right now. Pages with
             no link are private to their space.

@@ -244,10 +244,10 @@ function OrgOverviewPanel({ org, isInstance }: { org: Org; isInstance: boolean }
         <p className="m-0 text-[length:var(--text-sm)] text-[var(--text-muted)]">Loading usage…</p>
       ) : u ? (
         <div className="flex flex-col gap-[var(--space-4)]">
-          <Metric icon={<Users width={15} height={15} />} label="Members" used={u.usage.members ?? org.member_count} max={u.plan.max_members} />
+          <Metric icon={<Users width={15} height={15} />} label="Участники" used={u.usage.members ?? org.member_count} max={u.plan.max_members} />
           <Metric icon={<Sparkles width={15} height={15} />} label="AI calls / mo" used={u.usage.llm_calls} max={u.plan.max_llm_calls_per_month} />
           <Metric icon={<HardDrive width={15} height={15} />} label="Attachments" used={u.usage.storage_bytes} max={u.plan.max_storage_bytes} format={formatBytes} />
-          <Metric icon={<Boxes width={15} height={15} />} label="Spaces" used={u.usage.spaces} max={u.plan.max_spaces} />
+          <Metric icon={<Boxes width={15} height={15} />} label="Пространства" used={u.usage.spaces} max={u.plan.max_spaces} />
         </div>
       ) : (
         <p role="alert" className="m-0 text-[length:var(--text-sm)] text-[var(--danger)]">Couldn't load usage.</p>
@@ -329,17 +329,17 @@ function OrgInvitesSection({ orgId, orgName }: { orgId: number; orgName: string 
       <form onSubmit={submit} className="flex flex-wrap items-center gap-[var(--space-2)]">
         <Input
           type="email"
-          placeholder="teammate@company.com"
+          placeholder="email@company.com"
           value={email}
           onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEmail(e.target.value)}
           className="flex-1 min-w-[12rem]"
         />
         <Select value={role} onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setRole(e.target.value as OrgRole)}>
-          <option value="member">Member</option>
-          <option value="admin">Admin</option>
+          <option value="member">Участник</option>
+          <option value="admin">Администратор</option>
         </Select>
         <Button type="submit" variant="secondary" size="sm" disabled={createInvite.isPending || email.trim() === ''}>
-          Send invite
+          Отправить приглашение
         </Button>
       </form>
       {error ? <p className="m-0 text-[length:var(--text-sm)] text-[var(--danger)]">{error}</p> : null}
@@ -425,8 +425,8 @@ function OrgMemberRow({ orgId, member }: { orgId: number; member: OrgMember }) {
           disabled={updateMember.isPending}
           onChange={(e) => void handleRoleChange(e.target.value as OrgRole)}
         >
-          <option value="admin">Admin</option>
-          <option value="member">Member</option>
+          <option value="admin">Администратор</option>
+          <option value="member">Участник</option>
         </Select>
       </div>
 
@@ -488,7 +488,7 @@ function AddOrgMemberForm({ orgId }: { orgId: number }) {
         <div className="flex-1 min-w-0">
           <Input
             id={`add-org-member-${orgId}`}
-            placeholder="Email or username"
+            placeholder="Email или имя пользователя"
             autoComplete="off"
             value={identifier}
             onChange={(e) => setIdentifier(e.target.value)}
@@ -502,8 +502,8 @@ function AddOrgMemberForm({ orgId }: { orgId: number }) {
             value={role}
             onChange={(e) => setRole(e.target.value as OrgRole)}
           >
-            <option value="admin">Admin</option>
-            <option value="member">Member</option>
+            <option value="admin">Администратор</option>
+            <option value="member">Участник</option>
           </Select>
         </div>
         <Button
@@ -620,9 +620,7 @@ function GroupRow({ org, group }: { org: Org; group: Group }) {
           {group.member_count} {group.member_count === 1 ? 'member' : 'members'}
         </Badge>
       </div>
-      <Button type="button" variant="ghost" size="sm" onClick={() => setMembersOpen(true)}>
-        Members
-      </Button>
+      <Button type="button" variant="ghost" size="sm" onClick={() => setMembersOpen(true)}>Участники</Button>
       <Button
         type="button"
         variant="ghost"
@@ -779,9 +777,7 @@ function GroupMembersDialog({
 
         <DialogFooter>
           <DialogClose asChild>
-            <Button type="button" variant="ghost">
-              Close
-            </Button>
+            <Button type="button" variant="ghost">Закрыть</Button>
           </DialogClose>
         </DialogFooter>
       </DialogContent>
@@ -905,13 +901,13 @@ function SSOPanel({ org }: { org: Org }) {
       <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-[var(--space-2)]">
         <Input
           aria-label="Issuer URL"
-          placeholder="https://idp.example.com"
+          placeholder="https://sso.example.com"
           value={issuer}
           onChange={(e) => setIssuer(e.target.value)}
         />
         <Input
           aria-label="Client ID"
-          placeholder="Client ID"
+          placeholder="ID клиента"
           value={clientId}
           onChange={(e) => setClientId(e.target.value)}
         />
@@ -955,9 +951,7 @@ function SSOPanel({ org }: { org: Org }) {
               onClick={() => void handleRemove()}
               disabled={del.isPending}
               className="text-[var(--text-muted)] hover:text-[var(--danger)]"
-            >
-              Remove
-            </Button>
+            >Удалить</Button>
           ) : null}
         </div>
       </form>
@@ -1186,9 +1180,7 @@ function OrgHostnameRow({
           </DialogHeader>
           <DialogFooter>
             <DialogClose asChild>
-              <Button type="button" variant="ghost">
-                Cancel
-              </Button>
+              <Button type="button" variant="ghost">Отмена</Button>
             </DialogClose>
             <Button
               type="button"
@@ -1417,8 +1409,7 @@ function BrandingSection({ orgId }: { orgId: number }) {
             </Button>
             {hasLogo ? (
               <Button type="button" variant="ghost" size="sm" disabled={deleteLogo.isPending} onClick={removeLogo}>
-                <Trash2 width={14} height={14} /> Remove
-              </Button>
+                <Trash2 width={14} height={14} />Удалить</Button>
             ) : null}
           </div>
         </div>
@@ -1696,7 +1687,7 @@ function DangerZone({ org }: { org: Org }) {
       <div>
         <Button type="button" variant="danger" size="sm" onClick={() => setOpen(true)}>
           <Trash2 width={14} height={14} />
-          <span>Delete organization</span>
+          <span>Удалить организацию</span>
         </Button>
       </div>
       <DeleteOrgDialog org={org} open={open} onOpenChange={setOpen} />
@@ -1749,9 +1740,7 @@ function DeleteOrgDialog({
         ) : null}
         <DialogFooter>
           <DialogClose asChild>
-            <Button type="button" variant="ghost">
-              Cancel
-            </Button>
+            <Button type="button" variant="ghost">Отмена</Button>
           </DialogClose>
           <Button
             type="button"

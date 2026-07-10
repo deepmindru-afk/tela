@@ -55,7 +55,7 @@ export function PublicHandleHome({ data }: { data: ByHandleResponse }) {
         </div>
       ) : null}
 
-      <SectionHeading className="mt-[var(--space-8)]">Spaces</SectionHeading>
+      <SectionHeading className="mt-[var(--space-8)]">Пространства</SectionHeading>
       <div className="mt-[var(--space-4)]">
         {spaces.length === 0 ? (
           <p className="text-[length:var(--text-sm)] text-[var(--text-muted)]">
