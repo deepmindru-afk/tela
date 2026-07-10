@@ -86,7 +86,7 @@ export function CredentialsDialog({
                     <div className="truncate text-[length:var(--text-sm)] font-medium text-[var(--text-primary)]">{c.name}</div>
                     <div className="text-[length:var(--text-xs)] text-[var(--text-muted)]">{c.kind} · {ownerName(c)}</div>
                   </div>
-                  <Button variant="ghost" size="sm" onClick={() => del.mutate(c.id)} aria-label={`Удалить ${c.name}`>
+                  <Button variant="ghost" size="sm" onClick={() => del.mutate(c.id)} aria-label={`Удалить ${c.name}`}>
                     <Trash2 className="size-[var(--space-4)]" />
                   </Button>
                 </li>
