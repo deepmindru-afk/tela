@@ -4,45 +4,45 @@
 // and an author home at /u/{handle}. Same markdown underneath — nothing
 // duplicated. Read-only by design: publishing grants no write access.
 const feats = [
-  'No-login public reader',
-  'RSS feed per space',
-  'OG, JSON-LD & sitemap for SEO',
-  'Author home at /u/handle',
+  'Публичное чтение без входа',
+  'RSS-лента для каждого пространства',
+  'OG, JSON-LD и sitemap для SEO',
+  'Страница автора по адресу /u/handle',
 ];
 ---
 <section id="publish" class="section">
   <div class="section-head reveal-up">
-    <p class="kicker"><span class="kicker-dot"></span>Publish</p>
-    <h2 class="h2">Your wiki doubles as a public site.</h2>
+    <p class="kicker"><span class="kicker-dot"></span>Публикация</p>
+    <h2 class="h2">Ваша вики удваивается как публичный сайт.</h2>
     <p class="lede">
-      Flip a space to public and it becomes a <strong>no-login, magazine-style blog</strong> — your
-      docs, changelog, or handbook on the open web, with RSS and SEO built in. Same plain markdown
-      underneath; nothing duplicated, nothing exported.
+      Сделайте пространство публичным, и оно станет <strong>блогом в журнальном стиле без входа</strong> — ваши
+      документы, журнал изменений или руководство в открытом вебе, с RSS и SEO из коробки. В основе всё тот же
+      простой markdown; ничего не дублируется, ничего не экспортируется.
     </p>
   </div>
 
   <div class="pub-wrap reveal-up">
     <!-- Blog front-page mock -->
-    <div class="pub-frame" role="img" aria-label="A public space rendered as a blog front page: masthead and post cards">
+    <div class="pub-frame" role="img" aria-label="Публичное пространство, отображённое как главная страница блога: шапка и карточки публикаций">
       <div class="pub-mast">
         <span class="pub-avatar" aria-hidden="true">E</span>
         <span class="pub-id">
           <span class="pub-name">Engineering</span>
-          <span class="pub-stand">How we build and run tela.</span>
+          <span class="pub-stand">Как мы создаём и развиваем tela.</span>
         </span>
         <span class="pub-rss" aria-hidden="true">RSS</span>
       </div>
       <div class="pub-cards">
         <article class="pub-card pub-lead">
           <span class="pub-cover" aria-hidden="true"><span class="pub-mono">P</span></span>
-          <span class="pub-meta">Jun 6 · 4 min · incident</span>
-          <span class="pub-title">Postmortem: the cache stampede</span>
-          <span class="pub-ex">What broke, why p99 tripled, and the guardrail we shipped.</span>
+          <span class="pub-meta">6 июн · 4 мин · инцидент</span>
+          <span class="pub-title">Postmortem: сбой кэша</span>
+          <span class="pub-ex">Что сломалось, почему p99 вырос втрое и какую защиту мы внедрили.</span>
         </article>
         <article class="pub-card">
-          <span class="pub-meta">May 28 · 6 min · rfc</span>
-          <span class="pub-title">RFC: hybrid retrieval</span>
-          <span class="pub-ex">Fusing keyword and vector search over heading-aware chunks.</span>
+          <span class="pub-meta">28 мая · 6 мин · RFC</span>
+          <span class="pub-title">RFC: гибридный поиск</span>
+          <span class="pub-ex">Объединение ключевого и векторного поиска по фрагментам с учётом заголовков.</span>
         </article>
       </div>
     </div>
@@ -56,7 +56,7 @@ const feats = [
         </li>
       ))}
       <li class="pub-note">
-        Read-only by design — making a space public grants no write access. Owner flips it on; flip it back anytime.
+        Только для чтения — публикация пространства не даёт прав на запись. Владелец включает; можно отключить в любой момент.
       </li>
     </ul>
   </div>

@@ -16,22 +16,22 @@
 //      screenshot a clip: formula bar → one empty row past the total, cols A–F.
 //   3. magick shot.png -resize 1408x -quality 82 public/sheets/budget.webp
 const feats = [
-  'Agents build whole spreadsheets for you',
-  'Live formulas, conditional formatting & number formats',
-  'Import & export CSV and XLSX',
-  'Plain markdown you own underneath',
+  'Агенты создают для вас целые таблицы',
+  'Живые формулы, условное форматирование и числовые форматы',
+  'Импорт и экспорт CSV и XLSX',
+  'Обычный markdown, принадлежащий вам',
 ];
 ---
 <section id="sheets" class="section">
   <div class="section-head reveal-up">
-    <p class="kicker"><span class="kicker-dot"></span>Spreadsheets</p>
-    <h2 class="h2">Spreadsheets, built in.</h2>
+    <p class="kicker"><span class="kicker-dot"></span>Электронные таблицы</p>
+    <h2 class="h2">Электронные таблицы, встроенные в систему.</h2>
     <p class="lede">
-      tela makes <strong>real spreadsheets</strong> — live formulas, conditional formatting and
-      number formats, with CSV and XLSX in and out. And because tela is agent-native, your agent
-      can build the whole sheet for you, from scratch: ask Claude or ChatGPT to <em>"build a Q3
-      marketing budget — a row per channel with spend against each cap, a totals row, and flag
-      anything over"</em> and it lays out the columns, writes the formulas, and styles it.
+      tela создаёт <strong>настоящие электронные таблицы</strong> — живые формулы, условное форматирование и
+      числовые форматы, с импортом и экспортом CSV и XLSX. И поскольку tela изначально поддерживает агентов, ваш агент
+      может создать всю таблицу с нуля: попросите Claude или ChatGPT <em>"создать маркетинговый бюджет на Q3 —
+      строка по каждому каналу с расходами относительно лимита, строка итогов, и отметить превышения"</em> — и он
+      расставит столбцы, напишет формулы и применит стили.
     </p>
   </div>
 
@@ -53,7 +53,7 @@ const feats = [
           src="/sheets/budget.webp"
           width="1408"
           height="550"
-          alt="A tela spreadsheet: a Q3 marketing budget with a =SUM total row, over-budget cells flagged red, and currency and percent number formats — rendered by the live grid."
+          alt="Таблица tela: маркетинговый бюджет на Q3 с итоговой строкой =SUM, ячейки с превышением отмечены красным, числовые форматы валюты и процентов — отображено живой таблицей."
           loading="lazy"
           decoding="async"
         />
@@ -69,15 +69,15 @@ const feats = [
         </li>
       ))}
       <li class="sheet-note">
-        Formulas compute at read time — never baked into stored numbers. Sheets are
-        live-collaborative (cursors and presence), and semantic search reads the <em>computed</em>
-        values, not the raw formulas.
+        Формулы вычисляются при чтении — никогда не запекаются в сохранённые числа. Таблицы —
+        с совместным редактированием в реальном времени (курсоры и присутствие), и семантический поиск
+        читает <em>вычисленные</em> значения, а не сырые формулы.
       </li>
     </ul>
   </div>
 
   <p class="sheet-credit reveal-up">
-    Powered by
+    На базе
     <a href="https://defter.cagdas.io" target="_blank" rel="noopener">defter</a>.
   </p>
 </section>

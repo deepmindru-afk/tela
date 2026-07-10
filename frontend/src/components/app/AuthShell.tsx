@@ -23,7 +23,7 @@ export function AuthShell({ children }: { children: ReactNode }) {
           /* The landing lives at "/" (served by Caddy, not an SPA route), so
              this is a real navigation with the ?home=1 hatch — not a router
              Link, which would resolve "/" in-app and bounce back. */
-          <a href="/?home=1" aria-label="tela — home" className="no-underline">
+          <a href="/?home=1" aria-label="tela — на главную" className="no-underline">
             <BrandLogo size={22} className={brandClass} />
           </a>
         )}

@@ -12,36 +12,36 @@
 //     --data-binary @../landing/tooling/showcase-deck.md   # -> {id, slides:[/d/<id>/<file>]}
 //   # fetch each frame, then: magick <png> -resize 1280x -quality 82 public/decks/slide-0N.webp
 const feats = [
-  'Agents build whole presentations for you',
-  'Present live — presenter mode, overview, draw',
-  'Export to PDF, PPTX or PNG',
-  'Plain markdown you own underneath',
+  'Агенты создают целые презентации за вас',
+  'Показывайте вживую — режим докладчика, обзор, рисование',
+  'Экспорт в PDF, PPTX или PNG',
+  'Простой Markdown, который вам принадлежит',
 ];
 // Real slides rendered from a tela deck. The viewer opens on a content slide
 // (the "What is tela?" define slide reads better than the cover); the filmstrip
 // keeps natural order 1–9.
 const DEFAULT_SLIDE = 2;
 const slides = [
-  { src: '/decks/slide-001.webp', label: 'Stop pasting docs into chat' },
-  { src: '/decks/slide-002.webp', label: 'Every task starts from zero' },
-  { src: '/decks/slide-003.webp', label: 'What is tela?' },
-  { src: '/decks/slide-004.webp', label: 'Retrieve, then write back' },
-  { src: '/decks/slide-005.webp', label: 'A real wiki underneath' },
-  { src: '/decks/slide-006.webp', label: 'Built for teams and agents' },
-  { src: '/decks/slide-007.webp', label: 'Connect it — one URL' },
-  { src: '/decks/slide-008.webp', label: "Your team's memory, shared" },
-  { src: '/decks/slide-009.webp', label: 'Try tela' },
+  { src: '/decks/slide-001.webp', label: 'Хватит вставлять документы в чат' },
+  { src: '/decks/slide-002.webp', label: 'Каждая задача начинается с нуля' },
+  { src: '/decks/slide-003.webp', label: 'Что такое tela?' },
+  { src: '/decks/slide-004.webp', label: 'Найти, затем записать обратно' },
+  { src: '/decks/slide-005.webp', label: 'Настоящая вики внутри' },
+  { src: '/decks/slide-006.webp', label: 'Создано для команд и агентов' },
+  { src: '/decks/slide-007.webp', label: 'Подключите — один URL' },
+  { src: '/decks/slide-008.webp', label: 'Общая память вашей команды' },
+  { src: '/decks/slide-009.webp', label: 'Попробовать tela' },
 ];
 ---
 <section id="decks" class="section">
   <div class="section-head reveal-up">
-    <p class="kicker"><span class="kicker-dot"></span>Presentations</p>
-    <h2 class="h2">Presentations, built in.</h2>
+    <p class="kicker"><span class="kicker-dot"></span>Презентации</p>
+    <h2 class="h2">Презентации, встроенные в систему.</h2>
     <p class="lede">
-      tela makes <strong>real presentations</strong> — present them live in the browser, or
-      export to PDF, PPTX or PNG. And because tela is agent-native, your agent can build the
-      whole thing for you: ask Claude or ChatGPT to <em>"turn the launch notes into a 10-slide
-      talk"</em> and it does.
+      tela создаёт <strong>настоящие презентации</strong> — демонстрируйте их в браузере или
+      экспортируйте в PDF, PPTX или PNG. И поскольку tela изначально поддерживает агентов, ваш агент может
+      создать всё за вас: попросите Claude или ChatGPT <em>"превратить заметки о запуске в 10-слайдовую
+      презентацию"</em> — и он сделает это.
     </p>
   </div>
 
@@ -51,7 +51,7 @@ const slides = [
       <div class="deck-bar">
         <span class="deck-dots" aria-hidden="true"><i></i><i></i><i></i></span>
         <span class="deck-chips">
-          <span class="deck-chip deck-chip--go">Present</span>
+          <span class="deck-chip deck-chip--go">Показать</span>
           <span class="deck-chip">PDF</span>
           <span class="deck-chip">PPTX</span>
         </span>
@@ -64,12 +64,12 @@ const slides = [
           src={slides[DEFAULT_SLIDE].src}
           width="1960"
           height="1104"
-          alt={`A tela presentation slide: ${slides[DEFAULT_SLIDE].label}. Made with the built-in deck theme.`}
+          alt={`Слайд презентации tela: ${slides[DEFAULT_SLIDE].label}. Создан с помощью встроенной темы оформления.`}
           loading="lazy"
           decoding="async"
         />
 
-        <ol class="deck-strip" aria-label="Slides in this presentation">
+        <ol class="deck-strip" aria-label="Слайды этой презентации">
           {slides.map((s, i) => (
             <li>
               <button
@@ -78,7 +78,7 @@ const slides = [
                 data-deck-thumb
                 data-src={s.src}
                 data-label={s.label}
-                aria-label={`Show slide ${i + 1}: ${s.label}`}
+                aria-label={`Показать слайд ${i + 1}: ${s.label}`}
                 aria-pressed={i === DEFAULT_SLIDE ? 'true' : 'false'}
               >
                 <img src={s.src} width="1960" height="1104" alt="" loading="lazy" decoding="async" />
@@ -98,16 +98,16 @@ const slides = [
         </li>
       ))}
       <li class="deck-note">
-        Slides are plain markdown underneath — portable like everything else in tela. Pick a
-        theme and accent; agents preview and fix their own slides before handing them over.
+        Слайды — обычный markdown — портативны, как и всё остальное в tela. Выберите тему и акцент; агенты
+        просматривают и исправляют свои слайды перед передачей.
       </li>
     </ul>
   </div>
 
   <p class="deck-credit reveal-up">
-    Powered by
+    На базе
     <a href="https://sli.dev" target="_blank" rel="noopener">Slidev</a>
-    and
+    и
     <a href="https://github.com/zcag/tahta" target="_blank" rel="noopener">tahta</a>.
   </p>
 </section>

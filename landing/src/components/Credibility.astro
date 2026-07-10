@@ -2,9 +2,9 @@
 // §10 — Credibility. Transparency as proof: open code, live instance, npm package.
 // No fabricated logos, no "trusted by thousands" — honest v0.
 const tiles = [
-  { t: 'Open code', d: 'Backend, frontend, and the MCP server are open. See exactly what runs.', cta: 'GitHub →', href: 'https://github.com/zcag/tela', i: 'code', event: 'outbound-link', eventDestination: 'github', eventLocation: 'credibility' },
-  { t: 'Live instance', d: 'telawiki.com runs the same code. Use it before you commit.', cta: 'Open it →', href: 'https://telawiki.com', i: 'globe', event: 'credibility-tile', eventLabel: 'live-instance' },
-  { t: 'A connector you can add', d: 'A real MCP connector, submitted to the Claude and ChatGPT directories and versioned against the backend.', cta: 'How it works →', href: '/mcp', i: 'package', event: 'credibility-tile', eventLabel: 'mcp-connector' },
+  { t: 'Открытый код', d: 'Бэкенд, фронтенд и MCP-сервер открыты. Увидите, что именно работает.', cta: 'GitHub →', href: 'https://github.com/zcag/tela', i: 'code', event: 'outbound-link', eventDestination: 'github', eventLocation: 'credibility' },
+  { t: 'Живой экземпляр', d: 'На telawiki.com работает тот же код. Попробуйте, прежде чем брать на себя обязательства.', cta: 'Открыть →', href: 'https://telawiki.com', i: 'globe', event: 'credibility-tile', eventLabel: 'live-instance' },
+  { t: 'Коннектор, который можно добавить', d: 'Настоящий MCP-коннектор, отправленный в каталоги Claude и ChatGPT и версионированный вместе с бэкендом.', cta: 'Как это работает →', href: '/mcp', i: 'package', event: 'credibility-tile', eventLabel: 'mcp-connector' },
 ];
 const icons: Record<string, string> = {
   code: 'm16 18 6-6-6-6M8 6l-6 6 6 6',
@@ -14,8 +14,8 @@ const icons: Record<string, string> = {
 ---
 <section class="section">
   <div class="section-head reveal-up">
-    <p class="kicker"><span class="kicker-dot"></span>Credibility</p>
-    <h2 class="h2">Why trust it? Don't — read it and run it.</h2>
+    <p class="kicker"><span class="kicker-dot"></span>Доверие</p>
+    <h2 class="h2">Почему стоит доверять? Не стоит — читайте код и запускайте сами.</h2>
   </div>
   <div class="tgrid">
     {tiles.map((t) => (
@@ -34,8 +34,8 @@ const icons: Record<string, string> = {
     ))}
   </div>
   <p class="honesty reveal-up">
-    tela is at <strong>v0</strong> and usable today. No fabricated logos, no "trusted by thousands" —
-    just the code, a running instance, a connector you can add, and a spec you can read.
+    tela на стадии <strong>v0</strong> и уже пригодна к использованию. Никаких вымышленных логотипов, никаких «нам доверяют тысячи» —
+    только код, рабочий экземпляр, коннектор, который можно добавить, и спецификация, которую можно прочитать.
   </p>
 </section>
 

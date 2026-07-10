@@ -58,7 +58,7 @@ export function SSOButtons({
     <div className="flex flex-col gap-[var(--space-3)]">
       <div className="flex items-center gap-[var(--space-3)] text-[length:var(--text-xs)] text-[var(--text-muted)]">
         <span className="h-px flex-1 bg-[var(--border-subtle)]" />
-        Or continue with
+        Или продолжите через
         <span className="h-px flex-1 bg-[var(--border-subtle)]" />
       </div>
 
@@ -101,7 +101,7 @@ function OrgSSODirect({ next, orgName }: { next: string; orgName: string | null 
       className="font-medium"
     >
       <Building2 size={18} aria-hidden />
-      {orgName ? `Sign in with ${orgName}` : 'Single sign-on (SSO)'}
+      {orgName ? `Войти через ${orgName}` : 'Единый вход (SSO)'}
     </Button>
   )
 }
@@ -160,14 +160,14 @@ function OrgSSO({
               setHint(null)
               go(v)
             } else {
-              setHint('Enter your work email in the field above, then click here.')
+              setHint('Введите рабочий email в поле выше, затем нажмите здесь.')
               mainEmail.focus()
             }
           }}
           className="font-medium hover:shadow-[var(--shadow-sm)]"
         >
           <Building2 size={18} aria-hidden />
-          Single sign-on (SSO)
+          Единый вход (SSO)
         </Button>
         {hint ? (
           <p role="status" className="m-0 text-[length:var(--text-sm)] text-[var(--text-muted)]">
@@ -189,7 +189,7 @@ function OrgSSO({
         className="font-medium hover:shadow-[var(--shadow-sm)]"
       >
         <Building2 size={18} aria-hidden />
-        Single sign-on (SSO)
+        Единый вход (SSO)
       </Button>
     )
   }
@@ -201,7 +201,7 @@ function OrgSSO({
         autoFocus
         placeholder="you@company.com"
         autoComplete="email"
-        aria-label="Work email for single sign-on"
+        aria-label="Рабочий email для единого входа"
         value={email}
         onChange={(e) => setEmail(e.target.value)}
         onKeyDown={(e) => {
@@ -218,7 +218,7 @@ function OrgSSO({
         onClick={() => go(email)}
         className="font-medium hover:shadow-[var(--shadow-sm)]"
       >
-        Continue with SSO
+        Продолжить через SSO
       </Button>
     </div>
   )

@@ -48,7 +48,7 @@ export function LoginPage() {
     e.preventDefault()
     const id = identifier.trim()
     if (!id || !password) {
-      setError('Email or username and password are required.')
+      setError('Email, имя пользователя и пароль обязательны.')
       return
     }
     setError(null)
@@ -71,14 +71,14 @@ export function LoginPage() {
         setUnverified(true)
       } else if (err instanceof ApiError && err.code === 'sso_required') {
         setError(
-          'Your organization requires single sign-on. Use an SSO option below.',
+          'Ваша организация требует единый вход. Используйте опцию SSO ниже.',
         )
       } else if (err instanceof ApiError && err.status === 401) {
-        setError('Invalid credentials.')
+        setError('Неверные учетные данные.')
       } else if (err instanceof ApiError) {
         setError(err.message)
       } else {
-        setError('Something went wrong. Please try again.')
+        setError('Что-то пошло не так. Пожалуйста, попробуйте снова.')
       }
     }
   }
@@ -100,12 +100,12 @@ export function LoginPage() {
       <Card className="tela-auth-card w-full bg-[var(--surface-1)] shadow-[var(--shadow-lg)]">
         <CardHeader className="gap-[var(--space-2)] px-[var(--space-7)] pt-[var(--space-7)] pb-[var(--space-2)]">
           <CardTitle className="text-[length:var(--text-2xl)] font-semibold tracking-[-0.01em]">
-            {org ? `Sign in to ${org.name}` : 'Sign in'}
+            {org ? `Войти в ${org.name}` : 'Войти'}
           </CardTitle>
           <CardDescription>
             {org
-              ? `Welcome back — sign in to ${org.name}.`
-              : 'Welcome back — sign in to your tela workspace.'}
+              ? `С возвращением — войдите в ${org.name}.`
+              : 'С возвращением — войдите в рабочее пространство tela.'}
           </CardDescription>
         </CardHeader>
         <CardBody className="gap-[var(--space-5)] px-[var(--space-7)] pb-[var(--space-7)] pt-[var(--space-2)]">
@@ -118,7 +118,7 @@ export function LoginPage() {
             className="flex flex-col gap-[var(--space-4)]"
             noValidate
           >
-            <AuthField id="login-identifier" label="Email or username">
+            <AuthField id="login-identifier" label="Email или имя пользователя">
               <Input
                 id="login-identifier"
                 autoFocus
@@ -130,13 +130,13 @@ export function LoginPage() {
             </AuthField>
             <AuthField
               id="login-password"
-              label="Password"
+              label="Пароль"
               labelSlot={
                 <Link
                   to="/forgot-password"
                   className="text-[length:var(--text-sm)] text-[var(--text-muted)] no-underline hover:text-[var(--text-primary)] hover:underline"
                 >
-                  Forgot password?
+                  Забыли пароль?
                 </Link>
               }
             >
@@ -156,12 +156,12 @@ export function LoginPage() {
               >
                 {resent ? (
                   <p className="m-0">
-                    If that account needs confirming, a new link is on its way.
+                    Если аккаунт требует подтверждения, новая ссылка уже в пути.
                   </p>
                 ) : (
                   <>
                     <p className="m-0 text-[var(--danger)]">
-                      Confirm your email before signing in.
+                      Подтвердите email перед входом.
                     </p>
                     <button
                       type="button"
@@ -170,8 +170,8 @@ export function LoginPage() {
                       className="self-start bg-transparent border-none p-0 text-[var(--accent)] underline cursor-pointer disabled:opacity-60"
                     >
                       {resend.isPending
-                        ? 'Sending…'
-                        : 'Resend confirmation email'}
+                        ? 'Отправка…'
+                        : 'Отправить письмо подтверждения'}
                     </button>
                   </>
                 )}
@@ -197,14 +197,14 @@ export function LoginPage() {
               size="lg"
               disabled={login.isPending}
             >
-              {login.isPending ? 'Signing in…' : 'Sign in'}
+              {login.isPending ? 'Вход…' : 'Войти'}
             </Button>
           </form>
           ) : (
             <div className="flex flex-col gap-[var(--space-4)]">
               <p className="m-0 text-[length:var(--text-sm)] text-[var(--text-muted)] leading-[var(--leading-relaxed)]">
-                Password sign-in is turned off for this domain. Use one of the
-                options below.
+                Вход по паролю отключен для этого домена. Используйте одну из
+                опций ниже.
               </p>
               {error ? (
                 <div
@@ -235,12 +235,12 @@ export function LoginPage() {
             }
           />
           <AuthFooterLink>
-            New to tela?{' '}
+            Впервые в tela?{' '}
             <Link
               to="/register"
               className="text-[var(--accent)] no-underline hover:underline"
             >
-              Create an account
+              Создать аккаунт
             </Link>
           </AuthFooterLink>
         </CardBody>

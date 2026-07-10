@@ -21,7 +21,7 @@ export function PoweredByTela({ className }: { className?: string }) {
         className,
       )}
     >
-      Powered by tela
+      Сделано на tela
     </a>
   )
 }

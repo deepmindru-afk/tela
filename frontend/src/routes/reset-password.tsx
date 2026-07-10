@@ -25,11 +25,11 @@ export function ResetPasswordPage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (password.length < 8) {
-      setError('Password must be at least 8 characters.')
+      setError('Пароль должен содержать не менее 8 символов.')
       return
     }
     if (password !== confirm) {
-      setError('Passwords do not match.')
+      setError('Пароли не совпадают.')
       return
     }
     setError(null)
@@ -38,11 +38,11 @@ export function ResetPasswordPage() {
       setDone(true)
     } catch (err) {
       if (err instanceof ApiError && err.code === 'invalid_token') {
-        setError('This reset link is invalid or has expired. Request a new one.')
+        setError('Эта ссылка для сброса недействительна или истекла. Запросите новую.')
       } else if (err instanceof ApiError) {
         setError(err.message)
       } else {
-        setError('Something went wrong. Please try again.')
+        setError('Что-то пошло не так. Пожалуйста, попробуйте снова.')
       }
     }
   }
@@ -53,15 +53,15 @@ export function ResetPasswordPage() {
         <Card className="tela-auth-card w-full bg-[var(--surface-1)] shadow-[var(--shadow-lg)] text-center">
           <CardHeader className="items-center">
             <CardTitle className="text-[length:var(--text-2xl)]">
-              Password updated
+              Пароль обновлен
             </CardTitle>
             <CardDescription>
-              You can now sign in with your new password.
+              Теперь вы можете войти с новым паролем.
             </CardDescription>
           </CardHeader>
           <CardBody>
             <Button asChild variant="primary" size="lg">
-              <Link to="/login">Sign in</Link>
+              <Link to="/login">Войти</Link>
             </Button>
           </CardBody>
         </Card>
@@ -75,15 +75,15 @@ export function ResetPasswordPage() {
         <Card className="tela-auth-card w-full bg-[var(--surface-1)] shadow-[var(--shadow-lg)] text-center">
           <CardHeader className="items-center">
             <CardTitle className="text-[length:var(--text-2xl)]">
-              Link invalid
+              Ссылка недействительна
             </CardTitle>
             <CardDescription>
-              This reset link is missing its token. Request a new one.
+              В этой ссылке отсутствует токен. Запросите новую.
             </CardDescription>
           </CardHeader>
           <CardBody>
             <Button asChild variant="primary" size="lg">
-              <Link to="/forgot-password">Request a new link</Link>
+              <Link to="/forgot-password">Запросить новую ссылку</Link>
             </Button>
           </CardBody>
         </Card>
@@ -96,10 +96,10 @@ export function ResetPasswordPage() {
       <Card className="tela-auth-card w-full bg-[var(--surface-1)] shadow-[var(--shadow-lg)]">
         <CardHeader>
           <CardTitle className="text-[length:var(--text-2xl)]">
-            Choose a new password
+            Выберите новый пароль
           </CardTitle>
           <CardDescription>
-            Enter a new password for your account.
+            Введите новый пароль для вашего аккаунта.
           </CardDescription>
         </CardHeader>
         <CardBody>
@@ -108,7 +108,7 @@ export function ResetPasswordPage() {
             className="flex flex-col gap-[var(--space-4)]"
             noValidate
           >
-            <AuthField id="reset-password" label="New password">
+            <AuthField id="reset-password" label="Новый пароль">
               <Input
                 id="reset-password"
                 type="password"
@@ -119,7 +119,7 @@ export function ResetPasswordPage() {
                 aria-invalid={error != null}
               />
             </AuthField>
-            <AuthField id="reset-confirm" label="Confirm password">
+            <AuthField id="reset-confirm" label="Подтвердите пароль">
               <Input
                 id="reset-confirm"
                 type="password"
@@ -143,7 +143,7 @@ export function ResetPasswordPage() {
               size="lg"
               disabled={reset.isPending}
             >
-              {reset.isPending ? 'Updating…' : 'Update password'}
+              {reset.isPending ? 'Обновление…' : 'Обновить пароль'}
             </Button>
           </form>
           <AuthFooterLink>
@@ -151,7 +151,7 @@ export function ResetPasswordPage() {
               to="/login"
               className="text-[var(--accent)] no-underline hover:underline"
             >
-              Back to sign in
+              Назад к входу
             </Link>
           </AuthFooterLink>
         </CardBody>

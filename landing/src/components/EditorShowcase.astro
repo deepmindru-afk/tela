@@ -3,44 +3,44 @@
 // plain markdown. Shown as an equivalence: the WYSIWYG block view (with a drag handle
 // + an open slash menu) beside the exact same content as raw markdown on disk.
 const chips = [
-  'slash menu', 'drag-to-reorder', 'turn-into', 'callouts', 'tables',
-  'task lists', 'Mermaid', 'KaTeX math', 'Excalidraw inline', 'paste-to-unfurl',
+  'меню слеша', 'перетаскивание', 'преобразование', 'коллауты', 'таблицы',
+  'списки задач', 'Mermaid', 'KaTeX-математика', 'Excalidraw-рисунки', 'вставка ссылок',
 ];
 const slash = [
-  { k: 'H1', t: 'Heading' },
-  { k: '☑', t: 'To-do list' },
-  { k: '!', t: 'Callout' },
-  { k: '⊞', t: 'Table' },
-  { k: '<>', t: 'Code block' },
+  { k: 'H1', t: 'Заголовок' },
+  { k: '☑', t: 'Список задач' },
+  { k: '!', t: 'Коллаут' },
+  { k: '⊞', t: 'Таблица' },
+  { k: '<>', t: 'Блок кода' },
 ];
 ---
 <section id="editor" class="section">
   <div class="section-head reveal-up">
-    <p class="kicker"><span class="kicker-dot"></span>Editor</p>
-    <h2 class="h2">Edits like a block editor.<br />Saves like a markdown file.</h2>
+    <p class="kicker"><span class="kicker-dot"></span>Редактор</p>
+    <h2 class="h2">Редактирование как в блочном редакторе.<br />Сохраняется как markdown-файл.</h2>
     <p class="lede">
-      Block-based editing: drag a block to reorder it, type <kbd>/</kbd> to insert headings, lists,
-      tables, callouts, diagrams, and math. Every page is stored as <strong>plain markdown</strong>
-      you can export at any time. No proprietary format.
+      Блочное редактирование: перетащите блок, чтобы изменить порядок, наберите <kbd>/</kbd> для вставки заголовков, списков,
+      таблиц, коллаутов, диаграмм и формул. Каждая страница хранится как <strong>обычный markdown</strong>,
+      который можно экспортировать в любой момент. Никакого проприетарного формата.
     </p>
   </div>
 
   <div class="eq reveal-up" aria-hidden="true">
     <!-- WYSIWYG block view -->
     <div class="pane pane-wys">
-      <div class="pane-top"><span class="pane-label">Editor</span><span class="pane-meta">WYSIWYG</span></div>
+      <div class="pane-top"><span class="pane-label">Редактор</span><span class="pane-meta">WYSIWYG</span></div>
       <div class="blocks">
         <div class="blk">
           <span class="handle"><svg viewBox="0 0 10 16" width="9" height="14" fill="currentColor"><circle cx="2.5" cy="3" r="1.3"/><circle cx="7.5" cy="3" r="1.3"/><circle cx="2.5" cy="8" r="1.3"/><circle cx="7.5" cy="8" r="1.3"/><circle cx="2.5" cy="13" r="1.3"/><circle cx="7.5" cy="13" r="1.3"/></svg></span>
-          <span class="bh1">Incident response</span>
+          <span class="bh1">Реагирование на инциденты</span>
         </div>
         <div class="blk dragging">
           <span class="handle on"><svg viewBox="0 0 10 16" width="9" height="14" fill="currentColor"><circle cx="2.5" cy="3" r="1.3"/><circle cx="7.5" cy="3" r="1.3"/><circle cx="2.5" cy="8" r="1.3"/><circle cx="7.5" cy="8" r="1.3"/><circle cx="2.5" cy="13" r="1.3"/><circle cx="7.5" cy="13" r="1.3"/></svg></span>
-          <span class="btext">When a service degrades, the on-call engineer owns the timeline.</span>
+          <span class="btext">Когда производительность сервиса падает, дежурный инженер управляет таймлайном.</span>
         </div>
         <div class="blk">
           <span class="handle"></span>
-          <span class="bcallout"><span class="bc-ic">!</span>Page <b>@on-call</b> before paging anyone else.</span>
+          <span class="bcallout"><span class="bc-ic">!</span>Сначала оповестите <b>@on-call</b>, затем остальных.</span>
         </div>
         <div class="blk has-slash">
           <span class="handle"><span class="addbtn">+</span></span>
@@ -62,7 +62,7 @@ const slash = [
 
     <!-- raw markdown -->
     <div class="pane pane-md">
-      <div class="pane-top"><span class="pane-label">pages.body</span><span class="pane-meta">on disk</span></div>
+      <div class="pane-top"><span class="pane-label">pages.body</span><span class="pane-meta">на диске</span></div>
       <pre class="md"><code><span class="k"># Incident response</span>
 
 When a service degrades, the on-call

@@ -13,8 +13,8 @@ interface Props {
 }
 
 const {
-  title = 'tela — the agent-native team wiki your AI reasons over',
-  description = 'Open-source markdown team wiki with a built-in MCP server and semantic search — so Claude and ChatGPT read, write, and cite your docs. Hosted or self-hosted.',
+  title = 'tela — командная вики для AI-агентов, которую понимает ваш ИИ',
+  description = 'Открытая markdown-вики с собственным MCP-сервером и семантическим поиском — чтобы Claude и ChatGPT читали, писали и цитировали ваши документы. В облаке или на вашем сервере.',
   ogDescription = description,
   ogImagePath = '/og-image.png',
 } = Astro.props;
@@ -24,7 +24,7 @@ const ogImage = new URL(ogImagePath, Astro.site).href;
 ---
 
 <!doctype html>
-<html lang="en">
+<html lang="ru">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -60,14 +60,14 @@ const ogImage = new URL(ogImagePath, Astro.site).href;
 
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="tela" />
-    <meta property="og:locale" content="en_US" />
+    <meta property="og:locale" content="ru_RU" />
     <meta property="og:title" content={title} />
     <meta property="og:description" content={ogDescription} />
     <meta property="og:url" content={Astro.url.href} />
     <meta property="og:image" content={ogImage} />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
-    <meta property="og:image:alt" content="tela — the wiki your agents reason over" />
+    <meta property="og:image:alt" content="tela — вики, которую понимают ваши агенты" />
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content={title} />
     <meta name="twitter:description" content={ogDescription} />
@@ -80,7 +80,7 @@ const ogImage = new URL(ogImagePath, Astro.site).href;
           '@type': 'SoftwareApplication',
           '@id': 'https://telawiki.com/#software',
           name: 'tela',
-          description: 'A markdown team wiki with semantic search and a built-in MCP server, so AI agents search your docs by meaning and read, write and cite them — right inside Claude and ChatGPT. Real-time multiplayer, SSO, scoped access. Your markdown, hosted or self-hosted.',
+          description: 'Markdown-вики для команды с семантическим поиском и встроенным MCP-сервером — AI-агенты ищут документы по смыслу, читают, пишут и цитируют их прямо в Claude и ChatGPT. Совместное редактирование в реальном времени, SSO, разграниченный доступ. Ваш markdown — в облаке или на вашем сервере.',
           applicationCategory: 'DeveloperApplication',
           operatingSystem: 'Linux, macOS, Docker',
           url: 'https://telawiki.com',
@@ -156,7 +156,7 @@ const ogImage = new URL(ogImagePath, Astro.site).href;
     </script>
   </head>
   <body>
-    <a href="#main" class="skip-link">Skip to content</a>
+    <a href="#main" class="skip-link">Перейти к содержанию</a>
     <slot />
 
     <script is:inline>

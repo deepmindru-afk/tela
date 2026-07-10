@@ -7,9 +7,9 @@
 ---
 <section id="features" class="bento-section">
   <div class="bento-head reveal-up">
-    <p class="kicker"><span class="kicker-dot"></span>Features</p>
-    <h2 class="bento-title">A rich editor, and the wiki essentials.</h2>
-    <p class="bento-sub">Far more than text — and all of it the day-to-day stuff your team actually uses.</p>
+    <p class="kicker"><span class="kicker-dot"></span>Возможности</p>
+    <h2 class="bento-title">Богатый редактор и всё необходимое для вики.</h2>
+    <p class="bento-sub">Гораздо больше, чем просто текст — всё то, что ваша команда использует каждый день.</p>
   </div>
 
   <div class="bento">
@@ -17,22 +17,22 @@
     <!-- ── Rich content blocks ──────────────────────────────────────── -->
     <article class="cell cell-blocks reveal-up">
       <div class="viz blocks">
-        <div class="bk bk-callout"><span class="bk-cic">!</span><span>Page <b>@on-call</b> first</span></div>
-        <div class="bk bk-toggle"><span class="bk-chev">▸</span><span>Rollback steps</span></div>
+        <div class="bk bk-callout"><span class="bk-cic">!</span><span>Сначала <b>@on-call</b></span></div>
+        <div class="bk bk-toggle"><span class="bk-chev">▸</span><span>Шаги отката</span></div>
         <div class="bk bk-todo">
-          <span class="bk-row done"><span class="bk-cb"><svg viewBox="0 0 24 24" width="9" height="9" fill="none" stroke="currentColor" stroke-width="3"><path d="M20 6 9 17l-5-5"/></svg></span>Cut release</span>
-          <span class="bk-row"><span class="bk-cb"></span>Purge cache</span>
+          <span class="bk-row done"><span class="bk-cb"><svg viewBox="0 0 24 24" width="9" height="9" fill="none" stroke="currentColor" stroke-width="3"><path d="M20 6 9 17l-5-5"/></svg></span>Выпуск срезан</span>
+          <span class="bk-row"><span class="bk-cb"></span>Очистить кэш</span>
         </div>
         <div class="bk bk-table">
-          <span class="bk-tr bk-th"><span>Step</span><span>Owner</span></span>
-          <span class="bk-tr"><span>Deploy</span><span>Sam</span></span>
-          <span class="bk-tr"><span>Verify</span><span>Lee</span></span>
+          <span class="bk-tr bk-th"><span>Шаг</span><span>Ответственный</span></span>
+          <span class="bk-tr"><span>Развернуть</span><span>Sam</span></span>
+          <span class="bk-tr"><span>Проверить</span><span>Lee</span></span>
         </div>
         <div class="bk bk-code"><code><span class="t">tela</span> incident open <span class="s">--sev&nbsp;2</span></code></div>
         <div class="bk bk-math"><span class="math">p99 = √(Σ&nbsp;tᵢ²)</span></div>
         <div class="bk bk-kanban">
-          <span class="bk-col"><span class="bk-ct">Todo</span><span class="bk-card"></span><span class="bk-card"></span></span>
-          <span class="bk-col"><span class="bk-ct">Done</span><span class="bk-card on"></span></span>
+          <span class="bk-col"><span class="bk-ct">К выполнению</span><span class="bk-card"></span><span class="bk-card"></span></span>
+          <span class="bk-col"><span class="bk-ct">Готово</span><span class="bk-card on"></span></span>
         </div>
         <div class="bk bk-diagram">
           <svg viewBox="0 0 110 44" fill="none" aria-hidden="true">
@@ -44,8 +44,8 @@
         </div>
       </div>
       <div class="cap cap-wide">
-        <h3>Every kind of block</h3>
-        <p>Callouts, toggles, tables, kanban boards, code, math, Mermaid and Excalidraw diagrams, task lists — inserted from a <code>/</code> menu and stored as plain markdown.</p>
+        <h3>Любые блоки</h3>
+        <p>Коллауты, сворачиваемые блоки, таблицы, канбан-доски, код, формулы, диаграммы Mermaid и Excalidraw, списки задач — вставляются из меню <code>/</code> и хранятся как обычный markdown.</p>
       </div>
     </article>
 
@@ -53,23 +53,23 @@
     <article class="cell cell-collab reveal-up">
       <div class="viz collab">
         <div class="collab-top">
-          <span class="crumb">Engineering / Release checklist</span>
-          <span class="collab-live"><span class="dot"></span>3 editing</span>
+          <span class="crumb">Разработка / Чеклист релиза</span>
+          <span class="collab-live"><span class="dot"></span>3 редактируют</span>
         </div>
         <div class="collab-doc">
-          <p class="ln"><span class="h">Ship checklist</span></p>
-          <p class="ln">Tag the release, then <span class="sel">push the image and re-probe</span><span class="caret a"><span class="flag fa">Sam</span></span></p>
-          <p class="ln">Verify <code>/api/version</code><span class="cmt"> matches HEAD<span class="cmt-pin"></span></span></p>
-          <p class="ln">Purge the edge cache last<span class="caret b"><span class="flag fb">Lee</span></span></p>
-          <p class="ln muted">Roll back in one click if it drifts</p>
+          <p class="ln"><span class="h">Чеклист релиза</span></p>
+          <p class="ln">Отметьте релиз, затем <span class="sel">отправьте образ и проверьте снова</span><span class="caret a"><span class="flag fa">Sam</span></span></p>
+          <p class="ln">Проверьте <code>/api/version</code><span class="cmt"> совпадает с HEAD<span class="cmt-pin"></span></span></p>
+          <p class="ln">Очистите краевой кэш в последнюю очередь<span class="caret b"><span class="flag fb">Lee</span></span></p>
+          <p class="ln muted">Откатите одним кликом при отклонении</p>
         </div>
         <div class="cmt-card" aria-hidden="true">
-          <span class="cmt-av">L</span><span class="cmt-txt"><b>Lee</b> does this auto-purge?</span>
+          <span class="cmt-av">L</span><span class="cmt-txt"><b>Lee</b> это очищается автоматически?</span>
         </div>
       </div>
       <div class="cap">
-        <h3>Real-time collaboration</h3>
-        <p>Several people edit a page at once with live cursors and no save conflicts. Comments stay attached to the text they mark.</p>
+        <h3>Совместная работа в реальном времени</h3>
+        <p>Несколько человек одновременно редактируют страницу с живыми курсорами и без конфликтов сохранения. Комментарии привязаны к тексту, который они отмечают.</p>
       </div>
     </article>
 
@@ -80,17 +80,17 @@
           <div class="sc-row">
             <svg class="sc-glob" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18 14 14 0 0 1 0-18z"/></svg>
             <span class="sc-url">telawiki.com/share/<span class="sc-tok">a9f2…</span></span>
-            <span class="sc-copy">Copy</span>
+            <span class="sc-copy">Копировать</span>
           </div>
           <div class="sc-opts">
-            <span class="sc-opt on"><span class="sc-check"><svg viewBox="0 0 24 24" width="9" height="9" fill="none" stroke="currentColor" stroke-width="3"><path d="M20 6 9 17l-5-5"/></svg></span>Password</span>
-            <span class="sc-opt on"><span class="sc-check"><svg viewBox="0 0 24 24" width="9" height="9" fill="none" stroke="currentColor" stroke-width="3"><path d="M20 6 9 17l-5-5"/></svg></span>Expires in 7d</span>
+            <span class="sc-opt on"><span class="sc-check"><svg viewBox="0 0 24 24" width="9" height="9" fill="none" stroke="currentColor" stroke-width="3"><path d="M20 6 9 17l-5-5"/></svg></span>Пароль</span>
+            <span class="sc-opt on"><span class="sc-check"><svg viewBox="0 0 24 24" width="9" height="9" fill="none" stroke="currentColor" stroke-width="3"><path d="M20 6 9 17l-5-5"/></svg></span>Действует 7 дней</span>
           </div>
         </div>
       </div>
       <div class="cap">
-        <h3>Public share links</h3>
-        <p>Share any page by link, with an optional password and expiry date.</p>
+        <h3>Публичные ссылки</h3>
+        <p>Делитесь любой страницей по ссылке, с опциональным паролем и датой истечения срока.</p>
       </div>
     </article>
 
@@ -107,8 +107,8 @@ When a service degrades, the
 <span class="c">`tela incident open`</span></code></pre>
       </div>
       <div class="cap">
-        <h3>Plain-markdown storage</h3>
-        <p>Every page is a markdown file. Search, diff, and export them; nothing is locked in a proprietary format.</p>
+        <h3>Хранение в виде обычного markdown</h3>
+        <p>Каждая страница — это markdown-файл. Ищите, сравнивайте, экспортируйте их; ничто не заперто в проприетарном формате.</p>
       </div>
     </article>
 
@@ -116,38 +116,38 @@ When a service degrades, the
     <article class="cell cell-history reveal-up">
       <div class="viz hist">
         <ol class="timeline">
-          <li class="now"><span class="d"></span><span class="vmeta"><b>Now</b> · Sam</span><span class="restore">current</span></li>
-          <li><span class="d"></span><span class="vmeta">2h ago · Lee</span><span class="restore">Restore</span></li>
-          <li><span class="d"></span><span class="vmeta">Yesterday · Sam</span><span class="restore">Restore</span></li>
-          <li class="muted"><span class="d"></span><span class="vmeta">3 days ago · agent</span><span class="restore">Restore</span></li>
+          <li class="now"><span class="d"></span><span class="vmeta"><b>Сейчас</b> · Sam</span><span class="restore">текущая</span></li>
+          <li><span class="d"></span><span class="vmeta">2 ч назад · Lee</span><span class="restore">Восстановить</span></li>
+          <li><span class="d"></span><span class="vmeta">Вчера · Sam</span><span class="restore">Восстановить</span></li>
+          <li class="muted"><span class="d"></span><span class="vmeta">3 дня назад · agent</span><span class="restore">Восстановить</span></li>
         </ol>
       </div>
       <div class="cap">
-        <h3>Version history</h3>
-        <p>Every change is saved. Compare versions and restore any of them.</p>
+        <h3>История версий</h3>
+        <p>Каждое изменение сохраняется. Сравнивайте версии и восстанавливайте любую из них.</p>
       </div>
     </article>
 
     <!-- ── Wikilinks & backlinks ────────────────────────────────────── -->
     <article class="cell cell-wikilinks reveal-up">
       <div class="viz wlink">
-        <p class="wl-line">Escalate via the <span class="wl-chip">[[On-call rotation]]</span> before paging anyone.</p>
+        <p class="wl-line">Эскалируйте через <span class="wl-chip">[[Дежурная смена]]</span> before paging anyone.</p>
         <div class="wl-back">
-          <span class="wl-back-h">Linked from</span>
+          <span class="wl-back-h">Связано с</span>
           <span class="wl-b"><span class="wl-pd"></span>Incident response</span>
           <span class="wl-b"><span class="wl-pd"></span>Deploy runbook</span>
         </div>
       </div>
       <div class="cap">
-        <h3>Wikilinks &amp; backlinks</h3>
-        <p>Link pages with <code>[[…]]</code>. Every page shows what links back to it.</p>
+        <h3>Вики-ссылки и обратные ссылки</h3>
+        <p>Связывайте страницы с помощью <code>[[…]]</code>. Каждая страница показывает, какие страницы на неё ссылаются.</p>
       </div>
     </article>
 
     <!-- ── The link graph ───────────────────────────────────────────── -->
     <article class="cell cell-graph reveal-up">
       <div class="viz graph">
-        <svg viewBox="0 0 360 210" preserveAspectRatio="xMidYMid meet" role="img" aria-label="A knowledge graph of linked pages">
+        <svg viewBox="0 0 360 210" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Граф связей между страницами">
           <g class="edges">
             <line x1="180" y1="105" x2="80"  y2="48"/>
             <line x1="180" y1="105" x2="300" y2="60"/>
@@ -175,15 +175,15 @@ When a service degrades, the
         </svg>
       </div>
       <div class="cap">
-        <h3>The link graph</h3>
-        <p>Wikilinks and backlinks draw a live graph of how your pages connect — for the whole space or around the page you're on.</p>
+        <h3>Граф связей</h3>
+        <p>Вики-ссылки и обратные ссылки строят живой граф связей страниц — всего пространства или текущей страницы.</p>
       </div>
     </article>
 
     <!-- ── Local folder sync (WebDAV / rclone) ──────────────────────── -->
     <article class="cell cell-sync reveal-up">
       <div class="viz syncviz">
-        <div class="sync-term" role="img" aria-label="rclone syncing a space to a local folder of markdown files">
+        <div class="sync-term" role="img" aria-label="rclone синхронизирует пространство с локальной папкой markdown-файлов">
           <div class="sync-cmd"><span class="sp">$</span> rclone sync <span class="sa">~/wiki</span> <span class="sb">tela:eng</span></div>
           <div class="sync-line"><span class="sok">✓</span> on-call.md</div>
           <div class="sync-line"><span class="sok">✓</span> postmortem.md</div>
@@ -191,8 +191,8 @@ When a service degrades, the
         </div>
       </div>
       <div class="cap">
-        <h3>Edit in your own editor</h3>
-        <p>Mount a space as a local folder over WebDAV and sync it with rclone — work in Obsidian, VS Code, or any editor. Round-trips as plain markdown, attachments and all.</p>
+        <h3>Редактируйте в своём редакторе</h3>
+        <p>Подключите пространство как локальную папку через WebDAV и синхронизируйте rclone — работайте в Obsidian, VS Code или любом редакторе. Двусторонняя синхронизация markdown и вложений.</p>
       </div>
     </article>
 
@@ -207,14 +207,14 @@ When a service degrades, the
         </div>
         <svg class="imp-flow" viewBox="0 0 60 24" fill="none" stroke="var(--brand)" stroke-width="1.6" aria-hidden="true"><path d="M2 12h50" stroke-dasharray="4 4"/><path d="M48 6l8 6-8 6"/></svg>
         <div class="imp-side imp-pages">
-          <span class="imp-p"><span class="pd"></span>Runbook</span>
-          <span class="imp-p"><span class="pd"></span>Design RFC</span>
-          <span class="imp-p"><span class="pd"></span>On-call</span>
+          <span class="imp-p"><span class="pd"></span>Инструкция</span>
+          <span class="imp-p"><span class="pd"></span>Дизайн RFC</span>
+          <span class="imp-p"><span class="pd"></span>Дежурные</span>
         </div>
       </div>
       <div class="cap cap-wide">
-        <h3>Markdown import &amp; export</h3>
-        <p>Import a folder of markdown in one step, and export everything at any time.</p>
+        <h3>Импорт и экспорт markdown</h3>
+        <p>Импортируйте папку с markdown в один клик и экспортируйте всё в любое время.</p>
       </div>
     </article>
 

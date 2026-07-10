@@ -30,15 +30,15 @@ export function RegisterPage() {
     const em = email.trim()
     const un = username.trim()
     if (!em || !un || !password) {
-      setError('Email, username and password are all required.')
+      setError('Email, имя пользователя и пароль обязательны.')
       return
     }
     if (password.length < 8) {
-      setError('Password must be at least 8 characters.')
+      setError('Пароль должен содержать не менее 8 символов.')
       return
     }
     if (password !== confirm) {
-      setError("Passwords don't match.")
+      setError('Пароли не совпадают.')
       return
     }
     setError(null)
@@ -51,11 +51,11 @@ export function RegisterPage() {
       setSentTo(confirmed)
     } catch (err) {
       if (err instanceof ApiError && err.status === 409) {
-        setError('That email or username is already taken.')
+        setError('Этот email или имя пользователя уже заняты.')
       } else if (err instanceof ApiError) {
         setError(err.message)
       } else {
-        setError('Something went wrong. Please try again.')
+        setError('Что-то пошло не так. Пожалуйста, попробуйте снова.')
       }
     }
   }
@@ -67,12 +67,12 @@ export function RegisterPage() {
         <Card className="tela-auth-card w-full bg-[var(--surface-1)] shadow-[var(--shadow-lg)]">
           <CardHeader>
             <CardTitle className="text-[length:var(--text-2xl)]">
-              Check your email
+              Проверьте почту
             </CardTitle>
             <CardDescription>
-              We sent a confirmation link to{' '}
+              Мы отправили ссылку для подтверждения на{' '}
               <span className="text-[var(--text-primary)]">{sentTo}</span>.
-              Follow it to activate your account.
+              Перейдите по ней, чтобы активировать аккаунт.
             </CardDescription>
           </CardHeader>
           <CardBody className="flex flex-col gap-[var(--space-4)]">
@@ -83,18 +83,18 @@ export function RegisterPage() {
               disabled={resend.isPending}
             >
               {resend.isPending
-                ? 'Resending…'
+                ? 'Отправка…'
                 : resend.isSuccess
-                  ? 'Sent again'
-                  : 'Resend confirmation email'}
+                  ? 'Отправлено'
+                  : 'Отправить письмо подтверждения'}
             </Button>
             <AuthFooterLink>
-              Already confirmed?{' '}
+              Уже подтвердили?{' '}
               <Link
                 to="/login"
                 className="text-[var(--accent)] no-underline hover:underline"
               >
-                Sign in
+                Войти
               </Link>
             </AuthFooterLink>
           </CardBody>
@@ -108,10 +108,10 @@ export function RegisterPage() {
       <Card className="tela-auth-card w-full bg-[var(--surface-1)] shadow-[var(--shadow-lg)]">
         <CardHeader>
           <CardTitle className="text-[length:var(--text-2xl)]">
-            Create your account
+            Создать аккаунт
           </CardTitle>
           <CardDescription>
-            Sign up to start writing in tela.
+            Зарегистрируйтесь, чтобы начать работу в tela.
           </CardDescription>
         </CardHeader>
         <CardBody>
@@ -131,7 +131,7 @@ export function RegisterPage() {
                 aria-invalid={error != null}
               />
             </AuthField>
-            <AuthField id="register-username" label="Username">
+            <AuthField id="register-username" label="Имя пользователя">
               <Input
                 id="register-username"
                 autoComplete="username"
@@ -140,7 +140,7 @@ export function RegisterPage() {
                 aria-invalid={error != null}
               />
             </AuthField>
-            <AuthField id="register-password" label="Password">
+            <AuthField id="register-password" label="Пароль">
               <Input
                 id="register-password"
                 type="password"
@@ -150,7 +150,7 @@ export function RegisterPage() {
                 aria-invalid={error != null}
               />
             </AuthField>
-            <AuthField id="register-confirm" label="Confirm password">
+            <AuthField id="register-confirm" label="Подтвердите пароль">
               <Input
                 id="register-confirm"
                 type="password"
@@ -174,16 +174,16 @@ export function RegisterPage() {
               size="lg"
               disabled={register.isPending}
             >
-              {register.isPending ? 'Creating account…' : 'Create account'}
+              {register.isPending ? 'Создание…' : 'Создать аккаунт'}
             </Button>
           </form>
           <AuthFooterLink>
-            Already have an account?{' '}
+            Уже есть аккаунт?{' '}
             <Link
               to="/login"
               className="text-[var(--accent)] no-underline hover:underline"
             >
-              Sign in
+              Войти
             </Link>
           </AuthFooterLink>
         </CardBody>

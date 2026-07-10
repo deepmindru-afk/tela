@@ -8,36 +8,36 @@
 // describing itself. No JSON, no raw scores.
 const sources = [
   {
-    title: 'Rebooking',
-    crumb: 'Disruptions ▸ Rebooking',
+    title: 'Перебронирование',
+    crumb: 'Сбои ▸ Перебронирование',
     gh: 'acme-air/ops/rebooking.md',
-    excerpt: 'Moves every passenger to the next flight with open seats, worst-affected first.',
-    when: '6d ago',
+    excerpt: 'Пересаживает каждого пассажира на следующий рейс со свободными местами, сначала самых пострадавших.',
+    when: '6 дн. назад',
   },
   {
     title: 'findRebooking',
-    crumb: 'Disruptions ▸ Rebooking logic',
+    crumb: 'Сбои ▸ Логика перебронирования',
     gh: 'acme-air/ops/rebook.go#L62',
-    excerpt: 'Ranks open seats by priority — protected fares jump the queue.',
-    when: '2w ago',
+    excerpt: 'Сортирует свободные места по приоритету — защищённые тарифы в начале очереди.',
+    when: '2 нед. назад',
   },
 ];
 // The answer's flow, as plaintext ASCII (rendered verbatim in a <pre>).
-const flow = `flight cancelled
+const flow = `рейс отменён
    │
    ▼
-seats on the next flight?
-   ├─ yes ─▶ auto-rebook, priority first
-   └─ no ──▶ search again, up to 4h
-               └─▶ still empty? partner airlines`;
+есть места на следующий рейс?
+   ├─ да ──▶ авто-перебронирование, сначала приоритетные
+   └─ нет ─▶ поиск снова, до 4ч
+               └─▶ всё ещё пусто? авиакомпании-партнёры`;
 ---
 <section id="ask" class="ask-section">
   <div class="ask-head reveal-up">
-    <p class="kicker"><span class="kicker-dot"></span>Ask your docs</p>
-    <h2 class="h2">Ask anything about your project. Get an answer that cites its sources.</h2>
+    <p class="kicker"><span class="kicker-dot"></span>Спросите свои документы</p>
+    <h2 class="h2">Спросите что угодно о вашем проекте. Получите ответ с указанием источников.</h2>
     <p class="lede">
-      tela’s own AI answers from your own pages — the ones Atlas wrote and your team maintains —
-      <strong>citing every source</strong>, and saying so when they don’t cover it instead of guessing.
+      Собственный ИИ tela отвечает по вашим страницам — тем, что написал Atlas и поддерживает ваша команда —
+      <strong>цитируя каждый источник</strong>, и сообщая, если ответа нет, вместо того чтобы выдумывать.
     </p>
   </div>
 
@@ -57,7 +57,7 @@ seats on the next flight?
         <div class="composer-bar">
           <span class="scope">
             <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="m16 6 4 14"/><path d="M12 6v14"/><path d="M8 8v12"/><path d="M4 4v16"/></svg>
-            Operations
+            Операции
             <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
           </span>
           <span class="composer-actions">
@@ -80,17 +80,17 @@ seats on the next flight?
           </svg>
         </span>
         <div class="ans-content">
-          <p class="ans-text">Every affected passenger is rebooked automatically the moment a flight’s cancelled:<sup class="cite">1</sup></p>
+          <p class="ans-text">Каждый пострадавший пассажир автоматически перебронируется в момент отмены рейса:<sup class="cite">1</sup></p>
           <pre class="dg-ascii">{flow}</pre>
           <p class="ans-text">
-            Protected passengers — tight connections, unaccompanied minors — get first pick of the open seats.<sup class="cite">2</sup>
+            Защищённые пассажиры — с тесными пересадками, несовершеннолетние без сопровождения — получают приоритет на свободные места.<sup class="cite">2</sup>
           </p>
         </div>
       </div>
 
       <!-- sources -->
       <div class="sources">
-        <p class="sources-label">Sources</p>
+        <p class="sources-label">Источники</p>
         <ul class="src-list">
           {sources.map((s) => (
             <li class="src">
@@ -113,32 +113,32 @@ seats on the next flight?
     <!-- SUPPORT rail -->
     <aside class="ask-rail">
       <div class="rail-item reveal-up">
-        <p class="rail-kick">How it knows your project</p>
+        <p class="rail-kick">Как он знает ваш проект</p>
         <p class="rail-d">
-          Every page — written by Atlas or a human — is split into heading-aware chunks, embedded,
-          and indexed. Keyword full-text (Postgres) and vector similarity (<code>pgvector</code>) are
-          fused, so it pulls the section that answers the question, not just keyword hits.
+          Каждая страница — написанная Atlas или человеком — разбивается на фрагменты с учётом заголовков,
+          эмбеддится и индексируется. Полнотекстовый поиск (Postgres) и векторное сходство (<code>pgvector</code>)
+          объединяются, так что он выдаёт раздел, отвечающий на вопрос, а не просто совпадения ключевых слов.
         </p>
       </div>
 
       <div class="rail-item reveal-up">
-        <p class="rail-kick">Prefer the raw section?</p>
+        <p class="rail-kick">Предпочитаете сырой раздел?</p>
         <p class="rail-d">
-          Search by meaning over the same index — it finds the section that answers you even when it
-          doesn’t share your words. Same retrieval, just the passage instead of an answer.
+          Поиск по смыслу по тому же индексу — он находит раздел, который отвечает на ваш вопрос, даже если
+          в нём нет ваших слов. Тот же поиск, только отрывок вместо ответа.
         </p>
       </div>
 
       <div class="doors reveal-up">
-        <p class="door"><span class="rs-tag">For your team</span> Ask inside tela, over every space you can read.</p>
-        <p class="door"><span class="rs-tag agent">For your agent</span> Claude and ChatGPT ground answers the same way, through the connector.</p>
+        <p class="door"><span class="rs-tag">Для вашей команды</span> Спрашивайте внутри tela по всем пространствам, к которым у вас есть доступ.</p>
+        <p class="door"><span class="rs-tag agent">Для вашего агента</span> Claude и ChatGPT так же обосновывают ответы через коннектор.</p>
       </div>
     </aside>
   </div>
 
   <p class="ask-honest reveal-up">
-    Ask-your-docs needs an embedder and an LLM — both on for the hosted instance, metered by your
-    plan’s monthly answer allowance; self-hosting, point tela at any OpenAI-compatible model.
+    Для «Спросить документы» нужен эмбеддер и LLM — оба настроены на хостированном экземпляре, тарифицируются
+    по месячному лимиту ответов вашего плана; при самостоятельном хостинге укажите любую совместимую с OpenAI модель.
   </p>
 </section>
 

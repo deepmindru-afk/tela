@@ -11,21 +11,21 @@
 const steps = [
   {
     n: '1',
-    t: 'Point it at a source',
-    d: 'A git repo (public, or private with a token) or a Jira project. Optional branch, subpath, include/exclude globs.',
+    t: 'Укажите источник',
+    d: 'Git-репозиторий (публичный или приватный с токеном) или Jira-проект. Опционально ветка, подпуть, маски включения/исключения.',
     code: 'git · jira',
   },
   {
     n: '2',
-    t: 'It reads and writes',
-    d: 'Atlas extracts the real surface — routes, flags, env vars, models, state — then drafts grounded, cited pages and publishes the tree.',
-    code: 'spine → draft → publish',
+    t: 'Он читает и пишет',
+    d: 'Atlas извлекает реальную поверхность — маршруты, флаги, переменные, модели, состояния — затем создаёт обоснованные страницы с цитатами и публикует дерево.',
+    code: 'скелет → черновик → публикация',
   },
   {
     n: '3',
-    t: 'It stays current',
-    d: 'A cheap probe checks for drift about every 15 minutes; on your schedule it regenerates only the sources that actually changed.',
-    code: 'hourly · daily · weekly',
+    t: 'Остаётся актуальным',
+    d: 'Лёгкий зонд проверяет расхождения каждые 15 минут; по вашему расписанию перегенерируются только те источники, которые действительно изменились.',
+    code: 'ежечасно · ежедневно · еженедельно',
   },
 ];
 
@@ -42,14 +42,14 @@ const cites = ['handlers/deploy.go:64', 'cmd/deployd/main.go:30'];
 
 <section id="atlas" class="atlas" data-reveal-root>
   <div class="head reveal-up">
-    <p class="eyebrow"><span class="eyebrow-dot"></span>Atlas · documents itself</p>
-    <h2 class="title">Where do all these docs come from?</h2>
+    <p class="eyebrow"><span class="eyebrow-dot"></span>Atlas · документирует себя</p>
+    <h2 class="title">Откуда берутся все эти документы?</h2>
     <p class="lede">
-      <strong>Atlas writes them.</strong> Point Atlas at a source — a git repo or a Jira project —
-      and it reads the source, plans a wiki structure, drafts cited markdown pages, and publishes
-      them into a space as ordinary tela pages. Then it watches the source and regenerates when it
-      moves ahead. The pages are real tela pages — searchable, shareable, revisioned — the same wiki
-      your agents reason over.
+      <strong>Их пишет Atlas.</strong> Укажите Atlas источник — git-репозиторий или Jira-проект —
+      и он прочитает исходники, спланирует структуру вики, создаст страницы в Markdown с цитатами и опубликует
+      их в пространстве как обычные страницы tela. Затем он следит за источником и перегенерирует страницы при изменениях.
+      Это настоящие страницы tela — доступные для поиска, публикации и с историей версий. Та же вики,
+      с которой работают ваши агенты.
     </p>
   </div>
 
@@ -57,13 +57,13 @@ const cites = ['handlers/deploy.go:64', 'cmd/deployd/main.go:30'];
   <div class="stage reveal-up">
     <!-- source -->
     <figure class="src">
-      <figcaption class="src-kind"><span class="src-tag git">git</span> source</figcaption>
+      <figcaption class="src-kind"><span class="src-tag git">git</span> источник</figcaption>
       <p class="src-loc">github.com/acme/deploy-svc</p>
       <div class="src-chips">
         <span class="chip">branch <b>main</b></span>
         <span class="chip">subpath <b>/cmd</b></span>
       </div>
-      <p class="src-fresh"><span class="fresh-dot"></span>behind upstream → regenerated 2h ago</p>
+      <p class="src-fresh"><span class="fresh-dot"></span>позади main → перегенерировано 2ч назад</p>
     </figure>
 
     <span class="flow-arrow" aria-hidden="true">
@@ -73,8 +73,8 @@ const cites = ['handlers/deploy.go:64', 'cmd/deployd/main.go:30'];
     <!-- generated page (real-feeling cited markdown) -->
     <figure class="page">
       <figcaption class="page-top">
-        <span class="page-crumb">Engineering / Deploy surface</span>
-        <span class="page-badge"><span class="badge-glyph">✳</span>Atlas · generated</span>
+        <span class="page-crumb">Разработка / Deploy surface</span>
+        <span class="page-badge"><span class="badge-glyph">✳</span>Atlas · создано</span>
       </figcaption>
       <div class="page-body">
         <p class="p-h">Deploy surface</p>
@@ -96,11 +96,11 @@ const cites = ['handlers/deploy.go:64', 'cmd/deployd/main.go:30'];
       <div class="cov-ring" data-cov style="--pct:92" role="img" aria-label="coverage 92 percent">
         <span class="cov-num">92<span class="cov-pct">%</span></span>
       </div>
-      <p class="cov-label">surface coverage</p>
-      <p class="cov-sub">covered against a deterministic spine — routes, flags, env vars, models, state — every citation resolved to <code>file:line</code>.</p>
+      <p class="cov-label">покрытие поверхности</p>
+      <p class="cov-sub">покрытие относительно детерминированного скелета — маршруты, флаги, переменные, модели, состояния — каждая цитата привязана к <code>файл:строка</code>.</p>
     </div>
     <div class="cov-gaps">
-      <p class="gaps-label">Named gaps — what the docs don't cover yet</p>
+      <p class="gaps-label">Именованные пробелы — что пока не покрыто документами</p>
       <ul class="gaps-list">
         {gaps.map((g) => (
           <li class="gap">
@@ -110,7 +110,7 @@ const cites = ['handlers/deploy.go:64', 'cmd/deployd/main.go:30'];
           </li>
         ))}
       </ul>
-      <p class="gaps-note">Measurably complete — not "the AI wrote something". Atlas regenerates the gaps until coverage clears your threshold.</p>
+      <p class="gaps-note">Измеримо полно — не «ИИ что-то написал». Atlas перегенерирует пробелы, пока покрытие не достигнет вашего порога.</p>
     </div>
   </div>
 
@@ -131,30 +131,30 @@ const cites = ['handlers/deploy.go:64', 'cmd/deployd/main.go:30'];
   <!-- supporting truths: credentials + the MCP loop tie-in -->
   <div class="notes reveal-up">
     <div class="note">
-      <p class="note-t">Your tokens stay yours</p>
+      <p class="note-t">Ваши токены остаются вашими</p>
       <p class="note-d">
-        git and Jira tokens are named, reusable credentials owned by a user or an org — write-only
-        over the API, never written to a page or a log. Lend a private-repo token to an org project
-        without putting it in a shared pool; nothing's left behind if you leave.
+        Токены git и Jira — это именованные переиспользуемые учётные данные, принадлежащие пользователю или организации — только
+        для записи через API, никогда не попадают на страницу или в лог. Дайте токен приватного репозитория проекту организации,
+        не помещая его в общий пул; ничего не остаётся, если вы уйдёте.
       </p>
     </div>
     <div class="note">
-      <p class="note-t">In the loop with your agents</p>
+      <p class="note-t">В цикле с вашими агентами</p>
       <p class="note-d">
-        Atlas is reachable over MCP, too — <code>atlas_list_projects</code>, <code>atlas_run</code>,
-        <code>atlas_run_status</code> let an agent in Claude or ChatGPT kick off and check a run, not
-        just read the result.
+        Atlas также доступен через MCP — <code>atlas_list_projects</code>, <code>atlas_run</code>,
+        <code>atlas_run_status</code> позволяют агенту в Claude или ChatGPT запустить и проверить выполнение,
+        а не просто прочитать результат.
       </p>
     </div>
   </div>
 
   <p class="honesty reveal-up">
-    Two source types today — <strong>git and Jira</strong>. More are coming. We name what Atlas reads
-    rather than imply a catalog it doesn't have. Atlas needs an LLM endpoint and an embedder — both on
-    for the hosted instance; self-hosting, you point it at your own.
+    Пока два типа источников — <strong>git и Jira</strong>. Другие появятся. Мы называем то, что Atlas читает,
+    а не подразумеваем каталог, которого у него нет. Atlas требует LLM-эндпоинт и эмбеддер — оба настроены
+    на хостированном экземпляре; при самостоятельном хостинге вы указываете свои.
   </p>
 
-  <a class="more" href="https://telawiki.com/tela/docs">See how Atlas works →</a>
+  <a class="more" href="https://telawiki.com/tela/docs">Как работает Atlas →</a>
 </section>
 
 <style>

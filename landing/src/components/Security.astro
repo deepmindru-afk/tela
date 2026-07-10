@@ -3,22 +3,22 @@
 // SSO, orgs + groups, per-space RBAC, scoped + audited keys, hardened import.
 // Ends with the short self-host escape hatch (demoted, present, not headline).
 const tiles = [
-  { t: 'Org-wide, a team, or private', d: 'Share a space with your whole organization, limit it to one group, or keep it private to you.', accent: false },
-  { t: 'Agents stay in scope', d: 'An agent in Claude or ChatGPT only ever sees what your account can. It can’t reach a space you’re not in.', accent: true },
-  { t: 'Roles per space', d: 'Give each person owner, editor, or viewer access. Access can be added but never silently lowered.', accent: false },
-  { t: 'Single sign-on', d: 'Sign in with the SAML/OIDC SSO your team already uses (Enterprise). Accounts are email-verified.', accent: false },
-  { t: 'Scoped agent keys', d: 'For code agents, each key is read-only or read-write, can expire, and can be pinned to one space.', accent: false },
-  { t: 'Password-protected sharing', d: 'Public links can require a password and an expiry date. Every key request is logged.', accent: false },
+  { t: 'Общеорганизационный, групповой или личный', d: 'Поделитесь пространством со всей организацией, ограничьте его одной группой или оставьте личным.', accent: false },
+  { t: 'Агенты не выходят за рамки', d: 'Агент в Claude или ChatGPT видит только то, что видит ваша учётная запись. Он не может получить доступ к пространству, где вас нет.', accent: true },
+  { t: 'Роли в каждом пространстве', d: 'Дайте каждому доступ владельца, редактора или зрителя. Доступ можно добавлять, но нельзя бесшумно понижать.', accent: false },
+  { t: 'Единый вход (SSO)', d: 'Вход через SAML/OIDC SSO, который ваша команда уже использует (Enterprise). Учётные записи подтверждаются по email.', accent: false },
+  { t: 'Ограниченные ключи агентов', d: 'Для агентов — каждый ключ только для чтения или для записи, может истекать и быть привязан к одному пространству.', accent: false },
+  { t: 'Общий доступ с паролем', d: 'Публичные ссылки могут требовать пароль и дату истечения. Каждый запрос ключа логируется.', accent: false },
 ];
 ---
 <section id="security" class="section">
   <div class="section-head reveal-up">
-    <p class="kicker"><span class="kicker-dot"></span>Security &amp; team</p>
-    <h2 class="h2">Built for a team you can trust it with.</h2>
+    <p class="kicker"><span class="kicker-dot"></span>Безопасность и команда</p>
+    <h2 class="h2">Создано для команды, которой можно доверять.</h2>
     <p class="lede">
-      Every space can be shared with your whole organization, opened to a specific team, or kept
-      private to you. People get owner, editor, or viewer access — and <strong>an agent connected
-      through Claude or ChatGPT can only ever see what your own account can</strong>.
+      Каждым пространством можно поделиться со всей организацией, открыть для конкретной команды или
+      оставить личным. Участники получают доступ владельца, редактора или зрителя — и <strong>агент, подключённый
+      через Claude или ChatGPT, видит только то, что доступно вашей учётной записи</strong>.
     </p>
   </div>
 
@@ -34,21 +34,21 @@ const tiles = [
 
   <div class="selfhost reveal-up">
     <div class="sh-copy">
-      <h3 class="sh-t">Self-host it if you prefer</h3>
+      <h3 class="sh-t">Разместите сами, если хотите</h3>
       <p class="sh-d">
-        tela is open-source and runs on your own server with Docker Compose — your Postgres, your
-        disk, your data. Self-hosting is optional; the hosted instance is ready to use.
+        tela — это открытое ПО, работающее на вашем сервере через Docker Compose — ваш Postgres, ваш
+        диск, ваши данные. Самостоятельный хостинг необязателен; хостированный экземпляр готов к использованию.
       </p>
-      <a class="sh-link" href="https://github.com/zcag/tela#readme" target="_blank" rel="noopener">Read the docs →</a>
+      <a class="sh-link" href="https://github.com/zcag/tela#readme" target="_blank" rel="noopener">Читать документацию →</a>
     </div>
-    <pre class="sh-code" tabindex="0" aria-label="self-host quickstart"><code><span class="c"># your server, your data</span>
+    <pre class="sh-code" tabindex="0" aria-label="быстрый старт самостоятельного хостинга"><code><span class="c"># ваш сервер, ваши данные</span>
 cp deploy/.env.example deploy/.env
 docker compose up</code></pre>
   </div>
 
   <p class="sec-honest reveal-up">
-    Honest caveats: orgs are admin-provisioned (not open self-service signup) and social login
-    isn't wired yet — by design for now. The access model is documented and the auth code is open.
+    Честные оговорки: организации настраиваются администратором (не открытая самостоятельная регистрация), а социальный вход
+    пока не реализован — по замыслу. Модель доступа документирована, а код аутентификации открыт.
   </p>
 </section>
 

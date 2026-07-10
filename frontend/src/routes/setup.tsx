@@ -29,11 +29,11 @@ export function SetupPage() {
     const un = username.trim()
     const em = email.trim()
     if (!un || !em || !password) {
-      setError('Username, email and password are all required.')
+      setError('Имя пользователя, email и пароль обязательны.')
       return
     }
     if (password.length < 8) {
-      setError('Password must be at least 8 characters.')
+      setError('Пароль должен содержать не менее 8 символов.')
       return
     }
     setError(null)
@@ -48,7 +48,7 @@ export function SetupPage() {
       } else if (err instanceof ApiError) {
         setError(err.message)
       } else {
-        setError('Something went wrong. Please try again.')
+        setError('Что-то пошло не так. Пожалуйста, попробуйте снова.')
       }
     }
   }
@@ -58,10 +58,10 @@ export function SetupPage() {
       <Card className="tela-auth-card w-full bg-[var(--surface-1)] shadow-[var(--shadow-lg)]">
         <CardHeader>
           <CardTitle className="text-[length:var(--text-2xl)]">
-            Welcome to tela
+            Добро пожаловать в tela
           </CardTitle>
           <CardDescription>
-            Create the first admin account to set up this instance.
+            Создайте первую учетную запись администратора для настройки.
           </CardDescription>
         </CardHeader>
         <CardBody>
@@ -70,7 +70,7 @@ export function SetupPage() {
             className="flex flex-col gap-[var(--space-4)]"
             noValidate
           >
-            <AuthField id="setup-username" label="Username">
+            <AuthField id="setup-username" label="Имя пользователя">
               <Input
                 id="setup-username"
                 autoFocus
@@ -90,7 +90,7 @@ export function SetupPage() {
                 aria-invalid={error != null}
               />
             </AuthField>
-            <AuthField id="setup-password" label="Password">
+            <AuthField id="setup-password" label="Пароль">
               <Input
                 id="setup-password"
                 type="password"
@@ -114,7 +114,7 @@ export function SetupPage() {
               size="lg"
               disabled={setup.isPending}
             >
-              {setup.isPending ? 'Creating admin…' : 'Create admin account'}
+              {setup.isPending ? 'Создание…' : 'Создать аккаунт администратора'}
             </Button>
           </form>
         </CardBody>
