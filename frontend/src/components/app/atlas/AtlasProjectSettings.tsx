@@ -18,11 +18,11 @@ import { Field, FieldBlock } from './NewProjectDialog'
 import { SpacePicker, type SpaceChoice } from './SpacePicker'
 
 const CADENCES: { value: AtlasCadence; label: string }[] = [
-  { value: '', label: 'Manual — I run it' },
-  { value: 'hourly', label: 'Automatic · hourly' },
-  { value: 'daily', label: 'Automatic · daily' },
-  { value: 'weekly', label: 'Automatic · weekly' },
-  { value: 'monthly', label: 'Automatic · monthly' },
+  { value: '', label: 'Вручную — запускаю сам' },
+  { value: 'hourly', label: 'Автоматически · ежечасно' },
+  { value: 'daily', label: 'Автоматически · ежедневно' },
+  { value: 'weekly', label: 'Автоматически · еженедельно' },
+  { value: 'monthly', label: 'Автоматически · ежемесячно' },
 ]
 
 export function AtlasProjectSettings() {
@@ -56,10 +56,10 @@ export function AtlasProjectSettings() {
   const dirPages = (dirPagesQ.data ?? []) as { id: number; title: string }[]
 
   if (q.isLoading) {
-    return <Shell><p className="text-[length:var(--text-sm)] text-[var(--text-muted)]">Loading…</p></Shell>
+    return <Shell><p className="text-[length:var(--text-sm)] text-[var(--text-muted)]">Загрузка…</p></Shell>
   }
   if (!project) {
-    return <Shell><EmptyState icon={FolderGit2} title="Project not found" description="It doesn't exist or you can't access it." /></Shell>
+    return <Shell><EmptyState icon={FolderGit2} title="Проект не найден" description="Он не существует или у вас нет доступа." /></Shell>
   }
 
   const backToProject = () => navigate({ to: '/atlas/projects/$projectId', params: { projectId: project.id } })
@@ -94,29 +94,29 @@ export function AtlasProjectSettings() {
       <Link to="/atlas/projects/$projectId" params={{ projectId: project.id }} className="mb-[var(--space-2)] inline-flex items-center gap-[var(--space-1)] text-[length:var(--text-xs)] text-[var(--text-muted)] hover:text-[var(--text-primary)]">
         <ArrowLeft className="size-[var(--space-3)]" /> {project.name}
       </Link>
-      <h1 className="text-[length:var(--text-2xl)] font-semibold text-[var(--text-primary)]">Project settings</h1>
+      <h1 className="text-[length:var(--text-2xl)] font-semibold text-[var(--text-primary)]">Настройки проекта</h1>
       <p className="mt-[var(--space-1)] text-[length:var(--text-sm)] text-[var(--text-muted)]">
         {project.owner.kind === 'org' ? `${project.owner.name} · орг` : 'Личное'}
       </p>
 
       <div className="mt-[var(--space-5)] flex flex-col gap-[var(--space-4)]">
         <Card>
-          <CardHeader><CardTitle>General</CardTitle></CardHeader>
+          <CardHeader><CardTitle>Основное</CardTitle></CardHeader>
           <CardBody className="flex flex-col gap-[var(--space-4)]">
             <Field label="Название"><Input value={name} onChange={(e) => setName(e.target.value)} /></Field>
             {project.scheduled_allowed ? (
-              <Field label="Refresh" hint="How often Atlas re-runs this project to keep its docs current.">
+              <Field label="Обновление" hint="Как часто Атлас перезапускает проект для актуализации документации.">
                 <Select value={cadence} onChange={(e) => setCadence(e.target.value as AtlasCadence)}>
                   {CADENCES.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
                 </Select>
               </Field>
             ) : (
-              <Field label="Refresh" hint="Run this project manually any time from its page. Scheduled auto-refresh is available on paid plans.">
+              <Field label="Обновление" hint="Запускайте проект вручную в любое время со страницы проекта. Автоматическое обновление доступно на платных тарифах.">
                 <Select value="" disabled>
-                  <option value="">Manual — I run it</option>
+                  <option value="">Вручную — запускаю сам</option>
                 </Select>
                 <a href="/settings?tab=billing" className="mt-[var(--space-1)] inline-block text-[length:var(--text-xs)] font-medium text-[var(--accent)] hover:underline">
-                  Upgrade for scheduled refresh →
+                  Обновить тариф для автозапуска →
                 </a>
               </Field>
             )}
@@ -124,9 +124,9 @@ export function AtlasProjectSettings() {
         </Card>
 
         <Card>
-          <CardHeader><CardTitle>Output</CardTitle></CardHeader>
+          <CardHeader><CardTitle>Вывод</CardTitle></CardHeader>
           <CardBody className="flex flex-col gap-[var(--space-4)]">
-            <FieldBlock label="Пространство" hint="Where the docs land. Pick an existing space or type a name to create one on the next run.">
+            <FieldBlock label="Пространство" hint="Куда попадают документы. Выберите существующее пространство или введите название для создания при следующем запуске.">
               <SpacePicker
                 spaces={(spacesQ.data ?? []).map((s) => ({ id: s.id, name: s.name }))}
                 value={output}
@@ -134,10 +134,10 @@ export function AtlasProjectSettings() {
               />
             </FieldBlock>
             {output.space_id != null && (
-              <Field label="Top-dir" hint="Optional folder inside the space; each source publishes under its own folder beneath it.">
+              <Field label="Корневая папка" hint="Необязательная папка внутри пространства; каждый источник публикуется в своей подпапке.">
                 <Select value={parentId != null ? String(parentId) : ''} onChange={(e) => { setParentId(e.target.value ? Number(e.target.value) : undefined); setOutDirty(true) }}>
-                  <option value="">Space root</option>
-                  {dirPages.map((p) => <option key={p.id} value={p.id}><option value={p.id}>Внутри "{p.title}"</option></option>)}
+                  <option value="">Корень пространства</option>
+                  {dirPages.map((p) => <option key={p.id} value={p.id}>Внутри "{p.title}"</option>)}
                 </Select>
               </Field>
             )}

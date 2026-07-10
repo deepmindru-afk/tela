@@ -212,14 +212,14 @@ function CreateApiKeyForm({ onCreated }: CreateApiKeyFormProps) {
         <Field label="Пространство" htmlFor="apikey-space">
           {spaces.isLoading ? (
             <p className="m-0 text-[length:var(--text-sm)] text-[var(--text-muted)]">
-              Loading spaces…
+              Загрузка пространств…
             </p>
           ) : spaces.isError || !spaces.data ? (
             <p
               role="alert"
               className="m-0 text-[length:var(--text-sm)] text-[var(--danger)]"
             >
-              Couldn't load spaces.
+              Не удалось загрузить пространства.
             </p>
           ) : (
             <Select
@@ -282,7 +282,7 @@ function ApiKeysList({ keys, loading, isError }: ApiKeysListProps) {
   if (loading) {
     return (
       <p className="m-0 text-[length:var(--text-sm)] text-[var(--text-muted)]">
-        Loading API keys…
+        Загрузка API-ключей…
       </p>
     )
   }
@@ -292,7 +292,7 @@ function ApiKeysList({ keys, loading, isError }: ApiKeysListProps) {
         role="alert"
         className="m-0 text-[length:var(--text-sm)] text-[var(--danger)]"
       >
-        Couldn't load API keys.
+        Не удалось загрузить API-ключи.
       </p>
     )
   }

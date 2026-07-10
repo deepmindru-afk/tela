@@ -46,7 +46,7 @@ function ShareLoading() {
         role="status"
         className="m-0 text-[length:var(--text-sm)] text-[var(--text-muted)]"
       >
-        Loading…
+        Загрузка…
       </p>
     </ShareShell>
   )
@@ -200,7 +200,7 @@ export function ShareDescendantRoute() {
             role="status"
             className="m-0 text-[length:var(--text-sm)] text-[var(--text-muted)]"
           >
-            Loading…
+            Загрузка…
           </p>
         </div>
       </ShareLayout>
@@ -231,9 +231,9 @@ export function ShareDescendantRoute() {
         <div className="flex-1 flex items-center justify-center p-[var(--space-7)]">
           <Card className="w-full max-w-[28rem] text-center">
             <CardHeader className="items-center">
-              <CardTitle>Couldn't load page</CardTitle>
+              <CardTitle>Не удалось загрузить страницу</CardTitle>
               <CardDescription>
-                Please reload and try again.
+                Пожалуйста, перезагрузите и попробуйте снова.
               </CardDescription>
             </CardHeader>
           </Card>

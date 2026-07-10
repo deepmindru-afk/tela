@@ -27,7 +27,7 @@ export function SettingsFeedbackTab() {
         <p className="m-0 text-[length:var(--text-sm)] text-[var(--text-muted)]">Loading feedback…</p>
       ) : fb.isError ? (
         <p role="alert" className="m-0 text-[length:var(--text-sm)] text-[var(--danger)]">
-          Couldn't load feedback.
+          Не удалось загрузить обратную связь.
         </p>
       ) : fb.data && fb.data.length > 0 ? (
         <ul className="m-0 p-0 list-none flex flex-col gap-[var(--space-2)]">

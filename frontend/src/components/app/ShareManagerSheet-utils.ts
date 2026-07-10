@@ -8,23 +8,23 @@ export function shareErrorMessage(err: unknown): string {
   if (err instanceof ApiError) {
     switch (err.code) {
       case 'viewer_no_write':
-        return 'Editor permission required.'
+        return 'Требуется разрешение редактора.'
       case 'not_found':
-        return 'Page or share no longer exists.'
+        return 'Страница или ссылка больше не существует.'
       case 'unauthorized':
-        return 'Your session expired — please sign in.'
+        return 'Сессия истекла — войдите снова.'
       case 'conflict':
-        return 'This share was revoked. Refresh and try again.'
+        return 'Эта ссылка отозвана. Обновите и попробуйте снова.'
       case 'bad_request': {
-        if (/expires_at/i.test(err.message)) return 'Expiry must be in the future.'
-        return "That doesn't look right."
+        if (/expires_at/i.test(err.message)) return 'Срок действия должен быть в будущем.'
+        return 'Выглядит неверно.'
       }
       default:
-        return err.message || 'Something went wrong.'
+        return err.message || 'Что-то пошло не так.'
     }
   }
   if (err instanceof Error) return err.message
-  return 'Something went wrong.'
+  return 'Что-то пошло не так.'
 }
 
 // Convert a datetime-local input value ("2026-05-21T14:30") to the SQLite wire
@@ -67,5 +67,5 @@ export function formatExpiry(
   if (days >= 1) unit = `${days}d`
   else if (hours >= 1) unit = `${hours}h`
   else unit = `${Math.max(1, minutes)}m`
-  return expired ? `Expired ${unit} ago` : `Expires in ${unit}`
+  return expired ? `Истек ${unit} назад` : `Действует ${unit}`
 }

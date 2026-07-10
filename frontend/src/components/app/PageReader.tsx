@@ -170,12 +170,12 @@ function ReaderMessage({
         </h2>
         <p className="m-0 text-[length:var(--text-sm)] text-[var(--text-muted)]">
           {notFound
-            ? 'The page may have been deleted or moved to another space.'
-            : 'Something went wrong loading this page for reading.'}
+            ? 'Страница могла быть удалена или перемещена в другое пространство.'
+            : 'Что-то пошло не так при загрузке страницы.'}
         </p>
         <Button asChild variant="secondary">
           <Link to="/spaces/$spaceId" params={{ spaceId }}>
-            Back to space
+            Назад к пространству
           </Link>
         </Button>
       </div>

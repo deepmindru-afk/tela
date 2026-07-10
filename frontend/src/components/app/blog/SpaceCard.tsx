@@ -30,7 +30,7 @@ export function SpaceCard({
   /** The card's stretched title link; caller supplies the route-typed Link. */
   renderTitleLink: (props: { className: string; children: ReactNode }) => ReactNode
 }) {
-  const safeName = name || 'Untitled space'
+  const safeName = name || 'Пространство без названия'
   return (
     <div
       className={[
@@ -75,12 +75,12 @@ export function SpaceCard({
         ) : null}
         <span className="inline-flex items-center gap-[var(--space-1)]">
           <FileText size="0.9em" aria-hidden />
-          {pageCount} {pageCount === 1 ? 'page' : 'pages'}
+          {pageCount} {pageCount === 1 ? 'страница' : 'страниц'}
         </span>
         {updatedAt ? (
           <>
             <MetaDot />
-            <span>Updated {relativeTimeFromSqlite(updatedAt)}</span>
+            <span>Обновлено {relativeTimeFromSqlite(updatedAt)}</span>
           </>
         ) : null}
       </div>

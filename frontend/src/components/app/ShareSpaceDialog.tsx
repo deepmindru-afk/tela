@@ -86,14 +86,14 @@ export function ShareSpaceDialog({
             </span>
           {members.isLoading ? (
             <p className="m-0 text-[length:var(--text-sm)] text-[var(--text-muted)]">
-              Loading members…
+              Загрузка участников…
             </p>
           ) : members.isError ? (
             <p
               role="alert"
               className="m-0 text-[length:var(--text-sm)] text-[var(--danger)]"
             >
-              Couldn't load members.
+              Не удалось загрузить участников.
             </p>
           ) : members.data && members.data.length > 0 ? (
             <ul className="m-0 p-0 list-none flex flex-col gap-[var(--space-1)]">
@@ -550,7 +550,7 @@ function SpaceOrgGrants({
 
       {grants.isError ? (
         <p role="alert" className="m-0 text-[length:var(--text-sm)] text-[var(--danger)]">
-          Couldn't load shared access.
+          Не удалось загрузить общий доступ.
         </p>
       ) : grants.data && grants.data.length > 0 ? (
         <ul className="m-0 p-0 list-none flex flex-col gap-[var(--space-1)]">

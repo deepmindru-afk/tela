@@ -163,7 +163,7 @@ export function GraphRoute() {
       {/* Canvas + overlays */}
       <div className="relative min-h-0 flex-1">
         {graph.isLoading ? (
-          <CenterNote>Loading graph…</CenterNote>
+          <CenterNote>Загрузка графа…</CenterNote>
         ) : nodes.length === 0 ? (
           <CenterNote>
             {orphansOnly

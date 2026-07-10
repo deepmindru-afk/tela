@@ -27,12 +27,12 @@ export function SettingsUsageTab() {
   const q = useAdminUsage()
 
   if (q.isLoading) {
-    return <p className="m-0 text-[length:var(--text-sm)] text-[var(--text-muted)]">Loading usage…</p>
+    return <p className="m-0 text-[length:var(--text-sm)] text-[var(--text-muted)]">Загрузка использования…</p>
   }
   if (q.isError || !q.data) {
     return (
       <p role="alert" className="m-0 text-[length:var(--text-sm)] text-[var(--danger)]">
-        Couldn't load usage.
+        Не удалось загрузить использование.
       </p>
     )
   }

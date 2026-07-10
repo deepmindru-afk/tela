@@ -71,7 +71,7 @@ export function SettingsOrgsTab({
           </p>
         ) : orgs.isError ? (
           <p role="alert" className="m-0 text-[length:var(--text-sm)] text-[var(--danger)]">
-            Couldn't load organizations.
+            Не удалось загрузить организации.
           </p>
         ) : visibleOrgs.length > 0 ? (
           <ul className="m-0 p-0 list-none flex flex-col gap-[var(--space-1)]">

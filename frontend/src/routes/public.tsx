@@ -105,7 +105,7 @@ export function PublicHandleRoute() {
     return (
       <PublicShell>
         <p role="status" className="m-0 text-[length:var(--text-sm)] text-[var(--text-muted)]">
-          Loading…
+          Загрузка…
         </p>
       </PublicShell>
     )
@@ -129,7 +129,7 @@ export function PublicHandleSpaceRoute() {
     return (
       <PublicShell>
         <p role="status" className="m-0 text-[length:var(--text-sm)] text-[var(--text-muted)]">
-          Loading…
+          Загрузка…
         </p>
       </PublicShell>
     )
@@ -155,7 +155,7 @@ export function PublicSpaceIndexRoute() {
     return (
       <PublicShell>
         <p role="status" className="m-0 text-[length:var(--text-sm)] text-[var(--text-muted)]">
-          Loading…
+          Загрузка…
         </p>
       </PublicShell>
     )
@@ -199,7 +199,7 @@ export function PublicReaderRoute() {
     return (
       <PublicShell>
         <p role="status" className="m-0 text-[length:var(--text-sm)] text-[var(--text-muted)]">
-          Loading…
+          Загрузка…
         </p>
       </PublicShell>
     )

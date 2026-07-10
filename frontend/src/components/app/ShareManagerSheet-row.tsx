@@ -189,7 +189,7 @@ export function ShareRow({ share, onUpdate, onRevoke }: ShareRowProps) {
                 setMode('confirm-revoke')
               }}
             >
-              Revoke
+              Отозвать
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
@@ -351,7 +351,7 @@ function PasswordInlineForm({
           onClick={() => void onSave(trimmed)}
           disabled={busy || trimmed.length === 0}
         >
-          {busy ? 'Saving…' : 'Set password'}
+          {busy ? 'Сохранение…' : 'Установить пароль'}
         </Button>
       </div>
     </div>
@@ -424,7 +424,7 @@ function ExpiryInlineForm({
           onClick={() => void onSave(wire)}
           disabled={busy || wire.length === 0}
         >
-          {busy ? 'Saving…' : 'Set expiry'}
+          {busy ? 'Сохранение…' : 'Установить срок'}
         </Button>
       </div>
     </div>

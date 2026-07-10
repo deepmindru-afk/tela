@@ -17,15 +17,15 @@ const url = `https://telawiki.com/compare/${c.slug}/`;
 // drives both an on-page FAQ section and FAQPage JSON-LD for rich results.
 const faqs = [
   {
-    q: `Is tela a good ${c.name} alternative?`,
-    a: `Yes. ${c.whySwitch[0]} tela is open-source (AGPL-3.0), self-hostable, and markdown-native, with a built-in MCP server so AI agents read and write your docs.`,
+    q: `Является ли tela хорошей альтернативой ${c.name}?`,
+    a: `Да. ${c.whySwitch[0]} tela — это open-source (AGPL-3.0), работает на вашем сервере, работает с Markdown «из коробки», и имеет встроенный MCP-сервер, позволяющий AI-агентам читать и писать вашу документацию.`,
   },
   {
-    q: `Can I self-host tela and connect AI agents to it?`,
-    a: `Yes. Self-host tela for free (AGPL-3.0) or start on the free cloud tier. Its built-in MCP server exposes 39 scoped tools, so agents like Claude read and write your wiki directly.`,
+    q: `Могу ли я запустить tela на своём сервере и подключить AI-агентов?`,
+    a: `Да. Запустите tela на своём сервере бесплатно (AGPL-3.0) или начните с бесплатного облачного тарифа. Встроенный MCP-сервер предоставляет 39 инструментов, так что агенты вроде Claude читают и пишут вашу вики напрямую.`,
   },
   {
-    q: `When is ${c.name} the better choice?`,
+    q: `Когда ${c.name} является лучшим выбором?`,
     a: c.whenBetter,
   },
 ];
@@ -34,9 +34,9 @@ const faqs = [
 <Prose
   title={c.seoTitle}
   description={c.metaDescription}
-  kicker="Compare"
+  kicker="Сравнение"
   heading={c.heading}
-  updated="June 30, 2026"
+  updated="30 июня 2026"
 >
   <script type="application/ld+json" is:inline slot="head" set:html={JSON.stringify({
     '@context': 'https://schema.org',
@@ -47,7 +47,7 @@ const faqs = [
         headline: c.heading,
         description: c.metaDescription,
         url,
-        inLanguage: 'en',
+        inLanguage: 'ru',
         dateModified: '2026-06-30',
         author: { '@id': 'https://telawiki.com/#org' },
         publisher: { '@id': 'https://telawiki.com/#org' },
@@ -57,8 +57,8 @@ const faqs = [
       {
         '@type': 'BreadcrumbList',
         itemListElement: [
-          { '@type': 'ListItem', position: 1, name: 'Home', item: 'https://telawiki.com/' },
-          { '@type': 'ListItem', position: 2, name: 'Compare', item: 'https://telawiki.com/compare/' },
+          { '@type': 'ListItem', position: 1, name: 'Главная', item: 'https://telawiki.com/' },
+          { '@type': 'ListItem', position: 2, name: 'Сравнение', item: 'https://telawiki.com/compare/' },
           { '@type': 'ListItem', position: 3, name: `tela vs ${c.name}`, item: url },
         ],
       },
@@ -76,13 +76,13 @@ const faqs = [
 
   <p class="lead">{c.lead}</p>
 
-  <h2>tela vs {c.name}, at a glance</h2>
+  <h2>tela и {c.name} — краткий обзор</h2>
   <div class="cmp-scroll">
     <table class="cmp">
-      <caption class="sr-only">A feature comparison of tela and {c.name}.</caption>
+      <caption class="sr-only">Сравнение функций tela и {c.name}.</caption>
       <thead>
         <tr>
-          <th scope="col">Feature</th>
+          <th scope="col">Функция</th>
           <th scope="col" class="is-tela">tela</th>
           <th scope="col">{c.name}</th>
         </tr>
@@ -99,15 +99,15 @@ const faqs = [
     </table>
   </div>
 
-  <h2>Why teams switch to tela</h2>
+  <h2>Почему команды переходят на tela</h2>
   <ul>
     {c.whySwitch.map((w) => <li>{w}</li>)}
   </ul>
 
-  <h2>When {c.name} is the better choice</h2>
+  <h2>Когда {c.name} — лучший выбор</h2>
   <p>{c.whenBetter}</p>
 
-  <h2>Frequently asked questions</h2>
+  <h2>Часто задаваемые вопросы</h2>
   {faqs.map((f) => (
     <Fragment>
       <h3>{f.q}</h3>
@@ -115,15 +115,15 @@ const faqs = [
     </Fragment>
   ))}
 
-  <h2>Try tela</h2>
+  <h2>Попробуйте tela</h2>
   <p>
-    tela is an open-source (AGPL), self-hostable team wiki. Self-host it, or start
-    on the free cloud tier at <a href="/">telawiki.com</a>. See the
-    <a href="/mcp/">MCP server docs</a> for connecting your agents, or
-    <a href="/compare/">compare tela with other tools</a>.
+    tela — это open-source (AGPL) командная вики, работающая на вашем сервере. Запустите её сами или начните
+    с бесплатного облачного тарифа на <a href="/">telawiki.com</a>. Ознакомьтесь с
+    <a href="/mcp/">документацией MCP-сервера</a> для подключения агентов или
+    <a href="/compare/">сравните tela с другими инструментами</a>.
   </p>
 
-  <p class="source">{c.source} tela facts current as of June 2026.</p>
+  <p class="source">{c.source} Информация о tela актуальна на июнь 2026 г.</p>
 </Prose>
 
 <style>

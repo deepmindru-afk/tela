@@ -31,7 +31,7 @@ export default function LocalGraph({ pageId, depth = 1 }: LocalGraphProps) {
   }, [graph.data, pageId, depth])
 
   if (graph.isLoading) {
-    return <Note>Loading…</Note>
+    return <Note>Загрузка…</Note>
   }
   if (total <= 1) {
     return <Note>No links to or from this page yet.</Note>

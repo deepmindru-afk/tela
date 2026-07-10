@@ -582,7 +582,7 @@ export const CommandInlinePicker = forwardRef<
   {
     items,
     placeholder = 'Search…',
-    emptyMessage = 'No matches.',
+    emptyMessage = 'Нет совпадений.',
     label = 'Picker',
     className,
     autoFocus = true,

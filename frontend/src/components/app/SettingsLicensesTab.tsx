@@ -91,7 +91,7 @@ export function SettingsLicensesTab() {
 
       {/* Owned keys */}
       {info.isPending ? (
-        <p className="m-0 text-[length:var(--text-sm)] text-[var(--text-muted)]">Loading…</p>
+        <p className="m-0 text-[length:var(--text-sm)] text-[var(--text-muted)]">Загрузка…</p>
       ) : licenses.length === 0 ? (
         <p className="m-0 flex items-center gap-[var(--space-2)] text-[length:var(--text-sm)] text-[var(--text-muted)]">
           <KeyRound width={15} height={15} aria-hidden />

@@ -109,7 +109,7 @@ function PageHistoryAuthed({
 }: PageHistoryAuthedProps) {
   const initial = useRevisions({ pageId })
   const qc = useQueryClient()
-  // Accumulated revisions appended by successive 'Load more' clicks. Each
+  // Accumulated revisions appended by successive 'Загрузить ещё' clicks. Each
   // click imperatively fetches the next page via queryClient.fetchQuery
   // (cached under its own cursor-scoped key) and pushes the result onto
   // `extraPages` without going through a useQuery hook — keeps the
@@ -123,7 +123,7 @@ function PageHistoryAuthed({
     return [...base, ...extraPages.flat()]
   }, [initial.data, extraPages])
 
-  // The last fetched page determines whether 'Load more' is shown — if
+  // The last fetched page determines whether 'Загрузить ещё' is shown — if
   // fewer rows came back than the limit, there's nothing left to fetch.
   const lastFetchedLength =
     extraPages.length > 0
@@ -218,7 +218,7 @@ function PageHistoryAuthed({
                 onClick={() => void handleLoadMore()}
                 disabled={loadingMore}
               >
-                {loadingMore ? 'Loading…' : 'Load more'}
+                {loadingMore ? 'Загрузка…' : 'Загрузить ещё'}
               </Button>
             </div>
           ) : null}
@@ -372,7 +372,7 @@ function RevisionPaneSelected({
       <CardBody>
         {anyError ? (
           <p className="m-0 text-[length:var(--text-sm)] text-[var(--danger)]">
-            Couldn't load this revision.
+            Не удалось загрузить эту ревизию.
           </p>
         ) : !bothSettled ? (
           <DiffPaneSkeleton />
@@ -547,7 +547,7 @@ function HistoryError({ onRetry }: { onRetry: () => void }) {
     <div className="flex-1 flex items-center justify-center p-[var(--space-7)]">
       <div className="flex flex-col items-center gap-[var(--space-3)] text-center">
         <p className="m-0 text-[length:var(--text-base)] text-[var(--danger)]">
-          Couldn't load this page's history.
+          Не удалось загрузить историю этой страницы.
         </p>
         <Button variant="secondary" onClick={onRetry}>
           Retry
@@ -589,7 +589,7 @@ function RevisionListError({ onRetry }: { onRetry: () => void }) {
   return (
     <div className="flex flex-col items-start gap-[var(--space-2)] py-[var(--space-2)]">
       <p className="m-0 text-[length:var(--text-sm)] text-[var(--danger)]">
-        Couldn't load revisions.
+        Не удалось загрузить ревизии.
       </p>
       <Button variant="secondary" size="sm" onClick={onRetry}>
         Retry

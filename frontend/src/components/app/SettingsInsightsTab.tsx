@@ -56,7 +56,7 @@ export function SettingsInsightsTab() {
           <InsightsSkeleton />
         ) : q.isError || !q.data ? (
           <p role="alert" className="m-0 text-[length:var(--text-sm)] text-[var(--danger)]">
-            Couldn't load insights.
+            Не удалось загрузить инсайты.
           </p>
         ) : (
           <InsightsBody s={q.data} />

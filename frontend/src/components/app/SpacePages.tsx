@@ -168,7 +168,7 @@ function PagesSkeleton() {
 function PagesError({ onRetry }: { onRetry: () => void }) {
   return (
     <div className="flex items-center justify-between gap-[var(--space-2)] ml-[var(--space-4)] px-[var(--space-2)] py-[var(--space-2)] rounded-[var(--radius-sm)] bg-[var(--surface-2)] text-[length:var(--text-sm)] text-[var(--danger)]">
-      <span>Couldn't load pages.</span>
+      <span>Не удалось загрузить страницы.</span>
       <Button variant="ghost" size="sm" onClick={onRetry} aria-label="Повторить">
         <RotateCw width={14} height={14} />
       </Button>

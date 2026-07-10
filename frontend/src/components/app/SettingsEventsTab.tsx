@@ -154,7 +154,7 @@ export function SettingsEventsTab() {
         </p>
       ) : isError ? (
         <p role="alert" className="m-0 text-[length:var(--text-sm)] text-[var(--danger)]">
-          Couldn't load events.
+          Не удалось загрузить события.
         </p>
       ) : events.length > 0 ? (
         <>
@@ -175,7 +175,7 @@ export function SettingsEventsTab() {
               !isFetchingNextPage && 'invisible',
             )}
           >
-            Loading more…
+            Загрузка ещё…
           </p>
         </>
       ) : (

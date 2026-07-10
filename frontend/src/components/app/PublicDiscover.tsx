@@ -58,7 +58,7 @@ export function PublicDiscover({
                 role="status"
                 className="text-[length:var(--text-sm)] text-[var(--text-muted)]"
               >
-                Loading…
+                Загрузка…
               </p>
             ) : query.error ? (
               <EmptyState

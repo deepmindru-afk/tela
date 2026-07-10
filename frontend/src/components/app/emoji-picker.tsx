@@ -140,7 +140,7 @@ export function EmojiPicker({ anchor, onSelect, onClose }: EmojiPickerProps) {
       </div>
       <div className="tela-emoji-picker-body">
         {!ready ? (
-          <p className="tela-emoji-picker-empty">Loading…</p>
+          <p className="tela-emoji-picker-empty">Загрузка…</p>
         ) : hits ? (
           hits.length === 0 ? (
             <p className="tela-emoji-picker-empty">No emoji found.</p>

@@ -252,12 +252,12 @@ export function MovePageDialog({
             items={pickerItems}
             placeholder={
               loadingTargets
-                ? 'Loading pages…'
+                ? 'Загрузка страниц…'
                 : crossSpace
                   ? 'Search pages in the destination space…'
                   : 'Search pages in this space…'
             }
-            emptyMessage={loadingTargets ? 'Loading…' : 'No matches.'}
+            emptyMessage={loadingTargets ? 'Загрузка…' : 'Нет совпадений.'}
             label="Родительская страница"
             value={pickerValue}
             onValueChange={setPickerValue}

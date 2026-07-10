@@ -251,7 +251,7 @@ export function PollWidget({ poll, onVote, className }: PollWidgetProps) {
             {mode === 'choose'
               ? 'Choose one'
               : `${total} vote${total === 1 ? '' : 's'}`}
-            {poll.secret && ' · anonymous'}
+            {poll.secret && ' · аноним'}
           </p>
         </div>
         <Badge variant={poll.closed ? 'muted' : 'accent'}>

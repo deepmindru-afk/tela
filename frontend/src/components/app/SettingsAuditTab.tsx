@@ -43,7 +43,7 @@ export function SettingsAuditTab() {
         </p>
       ) : audit.isError ? (
         <p role="alert" className="m-0 text-[length:var(--text-sm)] text-[var(--danger)]">
-          Couldn't load the audit log.
+          Не удалось загрузить журнал аудита.
         </p>
       ) : audit.data && audit.data.length > 0 ? (
         <ul className="m-0 p-0 list-none flex flex-col gap-[var(--space-1)]">

@@ -6,11 +6,11 @@ import { competitors } from '../../data/compare';
 ---
 
 <Prose
-  title="Compare tela — open-source, self-hosted, AI-native team wiki"
-  description="How tela compares to Notion, Confluence, Outline, GitBook, Docmost, BookStack, Wiki.js and more — honestly, including what each still does better."
-  kicker="Compare"
-  heading="Compare tela with the alternatives"
-  updated="June 30, 2026"
+  title="Сравнение tela — open-source, работает на вашем сервере, командная вики для ИИ"
+  description="Сравнение tela с Notion, Confluence, Outline, GitBook, Docmost, BookStack, Wiki.js и другими — честно, с указанием, в чём каждый из них всё ещё лучше."
+  kicker="Сравнение"
+  heading="Сравнение tela с альтернативами"
+  updated="30 июня 2026"
 >
   <script type="application/ld+json" is:inline slot="head" set:html={JSON.stringify({
     '@context': 'https://schema.org',
@@ -18,28 +18,28 @@ import { competitors } from '../../data/compare';
       {
         '@type': 'CollectionPage',
         '@id': 'https://telawiki.com/compare/#page',
-        name: 'Compare tela with the alternatives',
+        name: 'Сравнение tela с альтернативами',
         url: 'https://telawiki.com/compare/',
-        inLanguage: 'en',
+        inLanguage: 'ru',
         isPartOf: { '@id': 'https://telawiki.com/#website' },
         about: { '@id': 'https://telawiki.com/#software' },
       },
       {
         '@type': 'BreadcrumbList',
         itemListElement: [
-          { '@type': 'ListItem', position: 1, name: 'Home', item: 'https://telawiki.com/' },
-          { '@type': 'ListItem', position: 2, name: 'Compare', item: 'https://telawiki.com/compare/' },
+          { '@type': 'ListItem', position: 1, name: 'Главная', item: 'https://telawiki.com/' },
+          { '@type': 'ListItem', position: 2, name: 'Сравнение', item: 'https://telawiki.com/compare/' },
         ],
       },
     ],
   })} />
 
   <p class="lead">
-    tela is an open-source (AGPL), self-hostable, markdown-native team wiki: your
-    docs stay as canonical markdown you own, agents read and write them through a
-    built-in MCP server, and Atlas generates a cited, coverage-checked wiki from
-    your git repos and Jira. Here is how it stacks up against the tools you would
-    otherwise reach for — including what each of them still does better.
+    tela — это open-source (AGPL), работает на вашем сервере, командная вики, работающая с Markdown «из коробки»:\n
+    ваша документация остаётся в виде канонического Markdown, к которому вы владеете правами, агенты читают и пишут её через
+    встроенный MCP-сервер, а Atlas генерирует документацию с цитатами и проверкой покрытия из
+    ваших репозиториев git и Jira. Вот как она соотносится с инструментами, которыми вы бы
+    пользовались иначе — включая то, в чём каждый из них всё ещё лучше.
   </p>
 
   <ul class="tool-grid">
@@ -51,17 +51,15 @@ import { competitors } from '../../data/compare';
     ))}
   </ul>
 
-  <h2>The short version</h2>
+  <h2>Краткая версия</h2>
   <p>
-    Most of these are good tools. tela's distinct angle is two things: it is
-    fully open-source and self-hostable with canonical markdown you own, and
-    <strong>Atlas</strong> generates documentation from your code and keeps it
-    honest about drift — which most wikis leave entirely to human discipline. A
-    built-in MCP server is a strength tela shares with several of them, not a
-    monopoly.
+    Большинство из них — хорошие инструменты. Уникальность tela — в двух вещах: это полностью open-source и работает на вашем сервере с каноническим Markdown,
+    которым вы владеете, и <strong>Atlas</strong> генерирует документацию из вашего кода и отслеживает,
+    чтобы она не расходилась — что большинство вики оставляет на усмотрение человеческой дисциплины. Встроенный MCP-сервер — это сила,
+    которой tela делится с несколькими из них, а не монополия.
   </p>
   <p>
-    Try it: self-host under AGPL, or start on the free cloud tier at
+    Попробуйте: запустите сами под лицензией AGPL или начните с бесплатного облачного тарифа на
     <a href="/">telawiki.com</a>.
   </p>
 </Prose>

@@ -175,14 +175,14 @@ export function CommentsPanel({
 
           {commentsQuery.isLoading ? (
             <p className="m-0 text-[length:var(--text-sm)] text-[var(--text-muted)] font-[family-name:var(--font-sans)]">
-              Loading…
+              Загрузка…
             </p>
           ) : commentsQuery.isError ? (
             <p
               role="alert"
               className="m-0 text-[length:var(--text-sm)] text-[var(--danger)]"
             >
-              Couldn't load comments.
+              Не удалось загрузить комментарии.
             </p>
           ) : displayThreads.length === 0 ? (
             <p className="m-0 text-[length:var(--text-sm)] text-[var(--text-muted)] font-[family-name:var(--font-sans)]">

@@ -149,7 +149,7 @@ export function SettingsUsersTab() {
         </p>
       ) : users.isError ? (
         <p className="m-0 text-[length:var(--text-sm)] text-[var(--danger)]">
-          Couldn't load users.
+          Не удалось загрузить пользователей.
         </p>
       ) : filtered.length > 0 ? (
         <>
@@ -390,11 +390,11 @@ function UserActivitySheet({
           </p>
           {activity.isLoading ? (
             <p className="m-0 text-[length:var(--text-sm)] text-[var(--text-muted)]">
-              Loading…
+              Загрузка…
             </p>
           ) : activity.isError ? (
             <p className="m-0 text-[length:var(--text-sm)] text-[var(--danger)]">
-              Couldn't load activity.
+              Не удалось загрузить активность.
             </p>
           ) : activity.data && activity.data.length > 0 ? (
             <ul className="m-0 p-0 list-none flex flex-col gap-[var(--space-1)]">

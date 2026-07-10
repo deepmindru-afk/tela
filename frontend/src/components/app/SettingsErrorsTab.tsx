@@ -27,10 +27,10 @@ export function SettingsErrorsTab() {
       </div>
 
       {groups.isLoading ? (
-        <p className="m-0 text-[length:var(--text-sm)] text-[var(--text-muted)]">Loading errors…</p>
+        <p className="m-0 text-[length:var(--text-sm)] text-[var(--text-muted)]">Загрузка ошибок…</p>
       ) : groups.isError ? (
         <p role="alert" className="m-0 text-[length:var(--text-sm)] text-[var(--danger)]">
-          Couldn't load errors.
+          Не удалось загрузить ошибки.
         </p>
       ) : groups.data && groups.data.length > 0 ? (
         <ul className="m-0 p-0 list-none flex flex-col gap-[var(--space-2)]">
@@ -40,7 +40,7 @@ export function SettingsErrorsTab() {
         </ul>
       ) : (
         <p className="m-0 text-[length:var(--text-sm)] text-[var(--text-muted)]">
-          No client errors reported. 🎉
+          Ошибки клиента не обнаружены. 🎉
         </p>
       )}
     </section>
@@ -92,7 +92,7 @@ function ErrorGroupRow({
               Recent occurrences
             </span>
             {occ.isLoading ? (
-              <span className="text-[length:var(--text-xs)] text-[var(--text-muted)]">Loading…</span>
+              <span className="text-[length:var(--text-xs)] text-[var(--text-muted)]">Загрузка…</span>
             ) : occ.data && occ.data.length > 0 ? (
               <ul className="m-0 p-0 list-none flex flex-col gap-[1px]">
                 {occ.data.map((o) => (
@@ -101,7 +101,7 @@ function ErrorGroupRow({
                     className="flex items-baseline gap-[var(--space-2)] text-[length:var(--text-xs)] text-[var(--text-muted)]"
                   >
                     <span className="font-medium text-[var(--text-primary)]">
-                      {o.actor_label || 'anonymous'}
+                      {o.actor_label || 'аноним'}
                     </span>
                     <span>{relativeTimeFromSqlite(o.created_at)}</span>
                     {o.ip ? <span>· {o.ip}</span> : null}
@@ -109,7 +109,7 @@ function ErrorGroupRow({
                 ))}
               </ul>
             ) : (
-              <span className="text-[length:var(--text-xs)] text-[var(--text-muted)]">None.</span>
+              <span className="text-[length:var(--text-xs)] text-[var(--text-muted)]">Нет.</span>
             )}
           </div>
         </div>

@@ -224,14 +224,14 @@ export function ImportSection() {
         <Field label="Target space" htmlFor="import-space">
           {spaces.isLoading ? (
             <p className="m-0 text-[length:var(--text-sm)] text-[var(--text-muted)]">
-              Loading spaces…
+              Загрузка пространств…
             </p>
           ) : spaces.isError || !spaces.data ? (
             <p
               role="alert"
               className="m-0 text-[length:var(--text-sm)] text-[var(--danger)]"
             >
-              Couldn't load spaces.
+              Не удалось загрузить пространства.
             </p>
           ) : (
             <Select

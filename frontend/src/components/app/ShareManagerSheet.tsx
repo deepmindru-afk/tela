@@ -62,8 +62,7 @@ export function ShareManagerSheet({
         <SheetHeader>
           <SheetTitle>Поделиться этой страницей</SheetTitle>
           <SheetDescription>
-            Anyone with the link can read this page. Optional password and
-            subtree options below.
+            Любой с этой ссылкой может читать страницу. Ниже — опциональные пароль и опции поддерева.
           </SheetDescription>
         </SheetHeader>
 
@@ -80,7 +79,7 @@ export function ShareManagerSheet({
             </h3>
             {sharesQuery.isLoading ? (
               <p className="m-0 text-[length:var(--text-sm)] text-[var(--text-muted)] font-[family-name:var(--font-sans)]">
-                Loading…
+                Загрузка…
               </p>
             ) : sharesQuery.isError ? (
               <p

@@ -100,7 +100,7 @@ export function OrgManageView({ orgId }: { orgId: number }) {
   if (orgs.isLoading || me.isLoading) {
     return (
       <div className="flex-1 overflow-y-auto p-[var(--space-7)]">
-        <p className="m-0 text-[length:var(--text-sm)] text-[var(--text-muted)]">Loading organization…</p>
+        <p className="m-0 text-[length:var(--text-sm)] text-[var(--text-muted)]">Загрузка организации…</p>
       </div>
     )
   }
@@ -241,7 +241,7 @@ function OrgOverviewPanel({ org, isInstance }: { org: Org; isInstance: boolean }
       </div>
 
       {usage.isLoading ? (
-        <p className="m-0 text-[length:var(--text-sm)] text-[var(--text-muted)]">Loading usage…</p>
+        <p className="m-0 text-[length:var(--text-sm)] text-[var(--text-muted)]">Загрузка использования…</p>
       ) : u ? (
         <div className="flex flex-col gap-[var(--space-4)]">
           <Metric icon={<Users width={15} height={15} />} label="Участники" used={u.usage.members ?? org.member_count} max={u.plan.max_members} />
@@ -250,7 +250,7 @@ function OrgOverviewPanel({ org, isInstance }: { org: Org; isInstance: boolean }
           <Metric icon={<Boxes width={15} height={15} />} label="Пространства" used={u.usage.spaces} max={u.plan.max_spaces} />
         </div>
       ) : (
-        <p role="alert" className="m-0 text-[length:var(--text-sm)] text-[var(--danger)]">Couldn't load usage.</p>
+        <p role="alert" className="m-0 text-[length:var(--text-sm)] text-[var(--danger)]">Не удалось загрузить использование.</p>
       )}
     </div>
   )
@@ -266,11 +266,11 @@ function MembersPanel({ org }: { org: Org }) {
       </p>
       {members.isLoading ? (
         <p className="m-0 text-[length:var(--text-sm)] text-[var(--text-muted)]">
-          Loading members…
+          Загрузка участников…
         </p>
       ) : members.isError ? (
         <p role="alert" className="m-0 text-[length:var(--text-sm)] text-[var(--danger)]">
-          Couldn't load members.
+          Не удалось загрузить участников.
         </p>
       ) : members.data && members.data.length > 0 ? (
         <ul className="m-0 p-0 list-none flex flex-col gap-[var(--space-1)]">
@@ -699,7 +699,7 @@ function GroupMembersDialog({
         <div className="flex flex-col gap-[var(--space-3)]">
           {members.isLoading ? (
             <p className="m-0 text-[length:var(--text-sm)] text-[var(--text-muted)]">
-              Loading members…
+              Загрузка участников…
             </p>
           ) : members.data && members.data.length > 0 ? (
             <ul className="m-0 p-0 list-none flex flex-col gap-[var(--space-1)]">
@@ -981,11 +981,11 @@ function CustomDomainsPanel({ org }: { org: Org }) {
 
         {hostnames.isLoading ? (
           <p className="m-0 text-[length:var(--text-sm)] text-[var(--text-muted)]">
-            Loading domains…
+            Загрузка доменов…
           </p>
         ) : hostnames.isError ? (
           <p role="alert" className="m-0 text-[length:var(--text-sm)] text-[var(--danger)]">
-            Couldn't load custom domains.
+            Не удалось загрузить пользовательские домены.
           </p>
         ) : hostnames.data && hostnames.data.length > 0 ? (
           <ul className="m-0 p-0 list-none flex flex-col gap-[var(--space-3)]">
@@ -1568,7 +1568,7 @@ function LoginMethodsSection({ orgId }: { orgId: number }) {
           Login methods
         </h2>
         <p className="m-0 text-[length:var(--text-sm)] text-[var(--text-muted)]">
-          {settings.isError ? "Couldn't load login methods." : 'Loading login methods…'}
+          {settings.isError ? "Не удалось загрузить методы входа." : 'Загрузка методов входа…'}
         </p>
       </section>
     )
@@ -1645,7 +1645,7 @@ function OrgActivityPanel({ orgId }: { orgId: number }) {
     <div className="flex flex-col gap-[var(--space-3)]">
       {audit.isLoading ? (
         <p className="m-0 text-[length:var(--text-sm)] text-[var(--text-muted)]">
-          Loading activity…
+          Загрузка активности…
         </p>
       ) : needsUpgrade ? (
         <p className="m-0 text-[length:var(--text-sm)] text-[var(--text-muted)]">
@@ -1654,7 +1654,7 @@ function OrgActivityPanel({ orgId }: { orgId: number }) {
         </p>
       ) : audit.isError ? (
         <p role="alert" className="m-0 text-[length:var(--text-sm)] text-[var(--danger)]">
-          Couldn't load activity.
+          Не удалось загрузить активность.
         </p>
       ) : audit.data && audit.data.length > 0 ? (
         <ul className="m-0 p-0 list-none flex flex-col gap-[var(--space-1)]">

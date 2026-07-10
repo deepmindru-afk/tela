@@ -49,7 +49,7 @@ export function SharedRoute() {
 
         {shares.isError ? (
           <div className="flex items-center justify-between gap-[var(--space-2)] px-[var(--space-3)] py-[var(--space-3)] rounded-[var(--radius-md)] bg-[var(--surface-2)] text-[length:var(--text-sm)] text-[var(--danger)]">
-            <span>Couldn't load shares.</span>
+            <span>Не удалось загрузить общие ресурсы.</span>
             <Button
               variant="ghost"
               size="sm"

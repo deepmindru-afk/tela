@@ -326,7 +326,7 @@ function SpacesSkeleton() {
 function SpacesError({ onRetry }: { onRetry: () => void }) {
   return (
     <div className="flex items-center justify-between gap-[var(--space-2)] px-[var(--space-2)] py-[var(--space-2)] rounded-[var(--radius-sm)] bg-[var(--surface-2)] text-[length:var(--text-sm)] text-[var(--danger)]">
-      <span>Couldn't load spaces.</span>
+      <span>Не удалось загрузить пространства.</span>
       <Button variant="ghost" size="sm" onClick={onRetry} aria-label="Повторить">
         <RotateCw width={14} height={14} />
       </Button>
@@ -591,7 +591,7 @@ function SpaceAccessPeek({ space }: { space: Space }) {
           {access.data ? `People (${access.data.length})` : 'People'}
         </span>
         {access.isLoading ? (
-          <span className="text-[var(--text-muted)]">Loading…</span>
+          <span className="text-[var(--text-muted)]">Загрузка…</span>
         ) : (
           (access.data ?? []).slice(0, 8).map((p) => (
             <div key={p.user_id} className="flex items-center justify-between gap-[var(--space-3)]">

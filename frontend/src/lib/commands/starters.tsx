@@ -46,7 +46,7 @@ registerCommand({
     ctx.openSubPicker({
       label: 'Go to space',
       placeholder: 'Search spaces…',
-      emptyMessage: ctx.spaces.length === 0 ? 'No spaces yet.' : 'No matches.',
+      emptyMessage: ctx.spaces.length === 0 ? 'No spaces yet.' : 'Нет совпадений.',
       items: ctx.spaces.map((space) => ({
         id: `space:${space.id}`,
         title: space.name || 'Untitled space',

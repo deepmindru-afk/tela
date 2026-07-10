@@ -444,7 +444,7 @@ function SessionsSection() {
           </p>
         ) : isError ? (
           <p className="m-0 text-[length:var(--text-sm)] text-[var(--danger)]">
-            Couldn't load sessions.
+            Не удалось загрузить сессии.
           </p>
         ) : sessions.length === 0 ? (
           <p className="m-0 text-[length:var(--text-sm)] text-[var(--text-muted)]">

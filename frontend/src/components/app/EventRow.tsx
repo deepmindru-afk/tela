@@ -116,7 +116,7 @@ export function EventRow({
   oldestAt?: string
 }) {
   const d = describe(event.type)
-  const actor = event.actor_label || 'anonymous'
+  const actor = event.actor_label || 'аноним'
   const collapsed = count > 1
   // page.* events carry a title in target_label; render it set off from the verb.
   const showTarget = event.target_label !== ''

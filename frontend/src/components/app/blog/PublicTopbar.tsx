@@ -20,7 +20,7 @@ export function PublicTopbar() {
       <div className="flex items-center gap-[var(--space-2)]">
         <ThemeSwitcher />
         <Button asChild variant="ghost" size="sm">
-          <a href="/login">Sign in</a>
+          <a href="/login">Войти</a>
         </Button>
       </div>
     </header>

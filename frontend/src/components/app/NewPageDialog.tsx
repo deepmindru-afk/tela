@@ -388,7 +388,7 @@ export function NewPageDialog({
                 items={pickerItems}
                 placeholder="Поиск страниц в пространстве…"
                 emptyMessage={
-                  pagesQuery.isLoading ? 'Loading pages…' : 'No matches.'
+                  pagesQuery.isLoading ? 'Загрузка страниц…' : 'Нет совпадений.'
                 }
                 label="Родительская страница"
                 autoFocus={false}

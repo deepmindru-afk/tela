@@ -294,10 +294,10 @@ function UsageCard({
       </div>
 
       {isPending ? (
-        <p className="m-0 text-[length:var(--text-sm)] text-[var(--text-muted)]">Loading usage…</p>
+        <p className="m-0 text-[length:var(--text-sm)] text-[var(--text-muted)]">Загрузка использования…</p>
       ) : isError || !usage ? (
         <p className="m-0 text-[length:var(--text-sm)] text-[var(--danger)]">
-          Couldn't load usage.
+          Не удалось загрузить использование.
         </p>
       ) : (
         <div className="flex flex-col gap-[var(--space-4)]">
