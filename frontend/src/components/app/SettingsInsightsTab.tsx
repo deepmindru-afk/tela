@@ -126,7 +126,7 @@ function InsightsBody({ s }: { s: AdminStats }) {
                 </span>
               </div>
             </div>
-            <Panel title="Недавние регистрации" empty="Регистраций пока нет.>
+            <Panel title="Недавние регистрации" empty="Регистраций пока нет.">
               {s.recent_signups.map((u) => (
                 <SignupRow key={u.user_id} u={u} />
               ))}
@@ -135,7 +135,7 @@ function InsightsBody({ s }: { s: AdminStats }) {
         </Section>
 
         {/* Activity */}
-        <Section title="Activity" desc="Ежедневный объём за 30 дней с изменением за неделю.>
+        <Section title="Activity" desc="Ежедневный объём за 30 дней с изменением за неделю.">
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-[var(--space-3)]">
             <Trend label="Page views" series={s.views} />
             <Trend label="Edits" series={s.edits} />
@@ -153,7 +153,7 @@ function InsightsBody({ s }: { s: AdminStats }) {
                 <PageRow key={p.page_id} p={p} rank={i + 1} />
               ))}
             </Panel>
-            <Panel title="Лучшие авторы" empty="Правок пока нет.>
+            <Panel title="Лучшие авторы" empty="Правок пока нет.">
               {s.top_contributors.map((c, i) => (
                 <ContributorRow key={c.label} c={c} rank={i + 1} />
               ))}
