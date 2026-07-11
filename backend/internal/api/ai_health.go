@@ -14,11 +14,19 @@ import (
 // unavailable" header flips automatically when either is down and clears on its
 // own when it returns — no admin kill-switch toggle needed.
 //
-// Why a cached background probe and not a per-request or /health-time ping: the
-// probes hit cheap metadata endpoints (model lists), never inference, so a cold
-// local model is never woken; running them on a timer (not in a hot path) keeps
-// the cost to one tiny request per service per interval regardless of traffic.
-// This is the proactive complement to the per-request degrade in the ask UI.
+// Why a cached background probe and not a per-request or /health-time ping:
+// running it on a timer (not a hot path) keeps the cost to one probe per service
+// per interval regardless of traffic. This is the proactive complement to the
+// per-request degrade in the ask UI.
+//
+// The embed probe does a REAL minimal end-to-end embed (rag.ProbeEmbed), not a
+// liveness ping: a liveness check only proves the proxy/host answers, so a
+// reachable-but-unusable embedder — e.g. a congested/lossy link that times out on
+// an actual embed while the proxy stays up — reads as healthy and the outage goes
+// silent (exactly what bit us). Exercising the true path is the only signal that
+// tracks what ask/search actually hit; the side effect is it keeps the embed
+// model warm, which a responsive RAG path wants anyway. The chat probe stays a
+// cheap liveness ping (a real completion each interval is too costly).
 //
 // The per-service detail (latency, last-ok, time-in-state) feeds two surfaces:
 // the Prometheus gauges aiUp / aiProbeLatency (scraped → Grafana + alerts) and
@@ -135,7 +143,7 @@ func (s *Server) probeAI(ctx context.Context) {
 		return
 	}
 
-	embed := s.probeOne(ctx, "embed", true, s.rag.Ping)
+	embed := s.probeOne(ctx, "embed", true, s.rag.ProbeEmbed)
 
 	chatEnabled := s.llm.Enabled()
 	var chat aiServiceHealth
