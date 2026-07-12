@@ -45,7 +45,7 @@ export function BrandLogo({
   return (
     <span className={wordmark}>
       <BrandMark size={size} />
-      tela
+      Portal
     </span>
   )
 }
