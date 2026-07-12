@@ -209,6 +209,30 @@ func (s *Service) Ping(ctx context.Context) error {
 	return nil
 }
 
+// probeEmbedInput is the tiny fixed text ProbeEmbed embeds. Short so the probe is
+// cheap and the warm model answers instantly on a healthy link.
+const probeEmbedInput = "healthcheck"
+
+// ProbeEmbed embeds probeEmbedInput end-to-end for the AI-health prober. Unlike
+// Ping — a cheap liveness check that only proves the proxy/host ANSWERS — this
+// exercises the REAL path (proxy → remote model), the same one ask/search hit. A
+// reachable-but-unusable embedder (e.g. a lossy/bufferbloated link that times out
+// on an actual embed while the proxy's liveness endpoint stays up) is caught here
+// but invisible to Ping — which is exactly how a degraded link went undetected.
+// It unwraps the usage-metering decorator so probe traffic is never counted as
+// user usage. The caller scopes the timeout (see aiProbeTimeout).
+func (s *Service) ProbeEmbed(ctx context.Context) error {
+	if !s.Enabled() {
+		return errEmbedderDisabled
+	}
+	emb := s.emb
+	if rec, ok := emb.(recordingEmbedder); ok {
+		emb = rec.inner
+	}
+	_, err := emb.Embed(ctx, probeEmbedInput)
+	return err
+}
+
 func getenv(k, def string) string {
 	if v := os.Getenv(k); v != "" {
 		return v
