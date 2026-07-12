@@ -226,7 +226,7 @@ export function AskRoute() {
           </h1>
         </div>
         <p className="m-0 text-[length:var(--text-sm)] leading-[var(--leading-normal)] text-[var(--text-muted)] font-[family-name:var(--font-sans)]">
-          Answers grounded in your pages, with the exact sources they came from.
+          Ответы основаны на Ваших документах.
         </p>
       </header>
 
@@ -240,7 +240,7 @@ export function AskRoute() {
             value={question}
             onChange={(e) => setQuestion(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder={aiPaused ? 'Ask is temporarily unavailable…' : 'Ask anything about your pages…'}
+            placeholder={aiPaused ? 'Ask is temporarily unavailable…' : 'Спросите что-то о Ваших документах…'}
             aria-label="Вопрос"
             rows={2}
             autoFocus
@@ -315,7 +315,7 @@ export function AskRoute() {
                 className="animate-spin text-[var(--text-muted)]"
               />
               <span className="text-[length:var(--text-sm)] text-[var(--text-muted)] font-[family-name:var(--font-sans)]">
-                Reading your pages…
+                Читаем Ваши документы…
               </span>
             </CardBody>
           </Card>
@@ -355,7 +355,7 @@ export function AskRoute() {
                   ) : (
                     <span className="inline-flex items-center gap-[var(--space-2)] text-[length:var(--text-sm)] text-[var(--text-muted)] font-[family-name:var(--font-sans)]">
                       <Loader2 width={14} height={14} className="animate-spin" />
-                      Writing…
+                      Пишем…
                     </span>
                   )
                 ) : null}
@@ -364,7 +364,7 @@ export function AskRoute() {
             {sources.length > 0 ? (
               <div className="flex flex-col gap-[var(--space-1)]">
                 <h2 className="m-0 px-[var(--space-4)] text-[length:var(--text-xs)] uppercase tracking-[0.04em] text-[var(--text-muted)] font-[family-name:var(--font-sans)]">
-                  Sources
+                  Источники
                 </h2>
                 {sources.map((h) => (
                   <SearchResult
@@ -391,7 +391,7 @@ export function AskRoute() {
         ) : (
           <div className="flex flex-col gap-[var(--space-3)]">
             <span className="text-[length:var(--text-xs)] uppercase tracking-[0.06em] text-[var(--text-muted)] font-medium font-[family-name:var(--font-sans)]">
-              Try asking
+              Попробовать спросить
             </span>
             <div className="flex flex-col gap-[var(--space-1)]">
               {SUGGESTIONS.map((s) => (
