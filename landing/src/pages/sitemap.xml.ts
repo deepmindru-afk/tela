@@ -6,7 +6,7 @@ import { competitorSlugs } from '../data/compare';
 // build-date <lastmod> — so it never drifts from a hand-maintained file.
 // Dynamic routes (e.g. compare/[slug]) are expanded from their data source.
 // Served at /sitemap.xml (referenced by robots.txt).
-const SITE = 'https://telawiki.com';
+const SITE = 'https://tla.portalos.ru';
 
 // Per-route crawl hints, keyed by canonical path. Unlisted pages fall back.
 const HINTS: Record<string, { changefreq: string; priority: string }> = {
