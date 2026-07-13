@@ -116,7 +116,7 @@ export function SettingsLicenseTab() {
 
         {active && info.data?.refreshable ? (
           <p className="m-0 text-[length:var(--text-xs)] text-[var(--text-muted)]">
-            Auto-renews from telawiki.com when your subscription renews — no manual re-install needed
+            Auto-renews from tla.portalos.ru when your subscription renews — no manual re-install needed
             (as long as this instance can reach it).
           </p>
         ) : active ? null : (

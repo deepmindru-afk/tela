@@ -1,8 +1,8 @@
 // Canonical documentation links. They point at the public docs on
-// telawiki.com (the "tela Docs" space) so they work the same for self-hosted
+// tla.portalos.ru (the "tela Docs" space) so they work the same for self-hosted
 // instances — a self-hoster's own server doesn't carry the docs space, but the
 // public docs are the one canonical source. One place to maintain these.
-const DOCS_BASE = 'https://telawiki.com'
+const DOCS_BASE = 'https://tla.portalos.ru'
 
 export const DOCS = {
   home: `${DOCS_BASE}/tela/docs`,

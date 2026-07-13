@@ -33,7 +33,7 @@ const SAMPLE = `# Markdown view
 
 A read-only render straight from markdown — **no editor, no collab**. It reuses
 the editor's parse transforms and \`tela-*\` classes, with _emphasis_, ~~strike~~,
-\`inline code\`, and a [link](https://telawiki.com).
+\`inline code\`, and a [link](https://tla.portalos.ru).
 
 ## Lists
 

@@ -107,7 +107,7 @@ export const LinkMode: Story = {
         placeholder="Paste or type a link, then Enter"
         aria-label="Link URL"
         className="tela-bubble-link-input"
-        defaultValue="https://telawiki.com"
+        defaultValue="https://tla.portalos.ru"
       />
     </Toolbar>
   ),

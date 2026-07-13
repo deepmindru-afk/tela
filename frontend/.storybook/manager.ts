@@ -11,7 +11,7 @@ addons.setConfig({
   theme: create({
     base: 'dark',
     brandTitle: 'tela — components',
-    brandUrl: 'https://telawiki.com',
+    brandUrl: 'https://tla.portalos.ru',
     brandImage,
     brandTarget: '_self',
   }),

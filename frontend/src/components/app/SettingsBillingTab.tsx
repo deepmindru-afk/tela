@@ -553,7 +553,7 @@ export function SettingsBillingTab() {
               }
             />
             <a
-              href="mailto:tela@telawiki.com?subject=tela%20Team%20plan"
+              href="mailto:tela@tla.portalos.ru?subject=tela%20Team%20plan"
               className="text-[length:var(--text-sm)] text-[var(--text-muted)] no-underline hover:underline"
             >
               or contact us

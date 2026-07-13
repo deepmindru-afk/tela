@@ -127,7 +127,7 @@ export const RichBody: Story = {
           <p>
             Body content is normal markdown — <strong>bold</strong>,{' '}
             <em>italic</em>, <code>inline code</code>, and{' '}
-            <a href="https://telawiki.com">links</a> all flow through.
+            <a href="https://tla.portalos.ru">links</a> all flow through.
           </p>
           <ul>
             <li>Lists work too</li>

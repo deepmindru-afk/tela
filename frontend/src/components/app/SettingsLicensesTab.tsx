@@ -82,7 +82,7 @@ export function SettingsLicensesTab() {
       ) : (
         <p className="m-0 text-[length:var(--text-sm)] text-[var(--text-muted)]">
           Self-host Enterprise licenses are purchased on{' '}
-          <a href="https://telawiki.com/pricing#self-host" className="text-[var(--accent)] underline">
+          <a href="https://tla.portalos.ru/pricing#self-host" className="text-[var(--accent)] underline">
             tela&apos;s cloud
           </a>
           . Any keys you already own are listed below.
