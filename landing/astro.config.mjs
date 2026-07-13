@@ -13,7 +13,7 @@ import tailwindcss from '@tailwindcss/vite';
 // keeps CLS ~0. cssVariables feed tokens.css (@theme --font-* → var(--af-*)).
 export default defineConfig({
   output: 'static',
-  site: 'https://telawiki.com',
+  site: 'https://tla.portalos.ru',
 
   // Inline all CSS into the HTML so first paint has no render-blocking
   // stylesheet round-trip (Lighthouse "render-blocking resources"). Styles are
