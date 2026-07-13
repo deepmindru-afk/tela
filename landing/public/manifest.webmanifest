@@ -1,6 +1,6 @@
 {
-  "name": "tela — the team wiki your agents can write to",
-  "short_name": "tela",
+  "name": "the team wiki your agents can write to",
+  "short_name": "portal",
   "description": "A self-hostable, markdown-native team wiki with a built-in MCP server.",
   "start_url": "/",
   "display": "standalone",
