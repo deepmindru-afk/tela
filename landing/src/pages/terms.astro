@@ -3,178 +3,185 @@ import Prose from '../layouts/Prose.astro';
 ---
 
 <Prose
-  title="Terms of Service — tela"
-  description="Terms governing use of the hosted tela service at telawiki.com — accounts, acceptable use, billing, AI-generated content, and self-hosting."
-  kicker="Legal"
-  heading="Terms of Service"
+  title="Условия использования — tela"
+  description="Условия использования размещённого сервиса tela на telawiki.com — аккаунты, допустимое использование, биллинг, контент, сгенерированный ИИ, и самостоятельный хостинг."
+  kicker="Юридическое"
+  heading="Условия использования"
   updated="29 июня 2026"
 >
   <p class="lead">
-    These terms govern your use of the hosted tela service at
-    <code>telawiki.com</code> ("the Service"). By creating an account or using
-    the Service, you agree to these terms.
+    Настоящие условия регулируют использование вами размещённого сервиса tela на
+    <code>telawiki.com</code> («Сервис»). Создавая аккаунт или используя Сервис,
+    вы соглашаетесь с этими условиями.
   </p>
 
   <div class="note">
     <p>
-      <strong>Self-hosted deployments.</strong> tela is open-source software you
-      can run yourself. If you operate your own instance, these terms cover only
-      the operator-run service at <code>telawiki.com</code>; your own deployment
-      is governed by you and the
-      <a href="https://github.com/zcag/tela/blob/main/LICENSE">open-source license</a>.
+      <strong>Самостоятельный хостинг.</strong> tela — это программное обеспечение
+      с открытым исходным кодом, которое вы можете запустить самостоятельно. Если вы
+      управляете собственным экземпляром, эти условия распространяются только на
+      сервис, управляемый оператором, на <code>telawiki.com</code>; ваше собственное
+      развёртывание регулируется вами и
+      <a href="https://github.com/zcag/tela/blob/main/LICENSE">лицензией с открытым исходным кодом</a>.
     </p>
   </div>
 
-  <h2>What the Service is</h2>
+  <h2>Что такое Сервис</h2>
   <p>
-    tela is a markdown-native team wiki. The hosted service at
-    <code>telawiki.com</code> includes a wiki editor with real-time collaboration,
-    an MCP server so AI agents can read and write your wiki, semantic search and
-    Ask (Q&A over your pages), Atlas (AI knowledge generation from connected
-    sources), spreadsheets, deck presentations, WebDAV sync, and space sharing. We may add,
-    change, or remove features at any time.
+    tela — это вики-платформа для команд, основанная на Markdown. Размещённый сервис на
+    <code>telawiki.com</code> включает редактор вики с совместной работой в реальном времени,
+    MCP-сервер для чтения и записи вашей вики ИИ-агентами, семантический поиск и
+    «Спросить» (Q&A по вашим страницам), Atlas (генерация базы знаний ИИ из подключённых
+    источников), электронные таблицы, презентации-колоды, синхронизацию WebDAV и
+    совместное использование пространств. Мы можем добавлять, изменять или удалять
+    функции в любое время.
   </p>
 
-  <h2>Accounts and eligibility</h2>
+  <h2>Аккаунты и допустимость</h2>
   <ul>
-    <li>You must be able to form a binding agreement to use the Service. If you are under 18, you need a parent or guardian's consent.</li>
-    <li>Provide accurate registration information and a valid email address you control. Confirm your email to activate your account.</li>
-    <li>You are responsible for all activity under your account and for keeping your credentials and access tokens secure.</li>
-    <li>We may suspend or terminate accounts that violate these terms, threaten the Service or its users, or remain inactive for an extended period.</li>
+    <li>Вы должны быть способны заключить юридически обязывающее соглашение для использования Сервиса. Если вам меньше 18 лет, необходимо согласие родителя или законного представителя.</li>
+    <li>Предоставьте точные регистрационные данные и действующий адрес электронной почты, которым вы владеете. Подтвердите электронную почту для активации аккаунта.</li>
+    <li>Вы несёте ответственность за всю активность в своём аккаунте и за сохранность своих учётных данных и маркеров доступа.</li>
+    <li>Мы можем приостановить или удалить аккаунты, нарушающие эти условия, угрожающие Сервису или его пользователям, или остающиеся неактивными в течение длительного времени.</li>
   </ul>
 
-  <h2>Acceptable use</h2>
-  <p>You agree not to:</p>
+  <h2>Допустимое использование</h2>
+  <p>Вы соглашаетесь не:</p>
   <ul>
-    <li>Break the law, infringe others' intellectual property or privacy rights, or store content you have no right to store.</li>
-    <li>Upload malware, attempt unauthorized access, probe vulnerabilities, or disrupt the Service or its infrastructure.</li>
-    <li>Abuse, overload, or circumvent rate limits, quotas, or access controls.</li>
-    <li>Use the Service to store payment-card data, health records, government-ID numbers, or third-party secrets (see the <a href="/privacy/">privacy policy</a>).</li>
-    <li>Misrepresent your identity or an agent's authority to act on your behalf.</li>
-    <li>Use the Atlas AI feature to generate content that is deceptive, harmful, or illegal.</li>
+    <li>Нарушать законодательство, посягать на интеллектуальную собственность или права на конфиденциальность других лиц или хранить контент, на хранение которого вы не имеете права.</li>
+    <li>Загружать вредоносное программное обеспечение, предпринимать попытки несанкционированного доступа, исследовать уязвимости или нарушать работу Сервиса или его инфраструктуры.</li>
+    <li>Злоупотреблять, перегружать или обходить лимиты скорости, квоты или средства контроля доступа.</li>
+    <li>Использовать Сервис для хранения данных банковских карт, медицинских записей, номеров государственных документов или секретов третьих лиц (см. <a href="/privacy/">политику конфиденциальности</a>).</li>
+    <li>Представляться под ложной личностью или ложно заявлять о полномочиях агента действовать от вашего имени.</li>
+    <li>Использовать функцию Atlas для генерации вводящего в заблуждение, вредоносного или незаконного контента.</li>
   </ul>
 
-  <h2>Your content</h2>
+  <h2>Ваш контент</h2>
   <p>
-    You retain ownership of the content you create. You grant us a limited,
-    non-exclusive right to store, process, search, and display it solely to
-    operate the Service for you — including indexing it for full-text and semantic
-    search, embedding it for retrieval, and serving it to your team and to AI
-    agents you authorize. You are responsible for your content and for having the
-    rights to post it. You can export your content as plain markdown or delete it
-    at any time.
+    Вы сохраняете права собственности на контент, который вы создаёте. Вы предоставляете нам
+    ограниченное, неисключительное право хранить, обрабатывать, искать и отображать его
+    исключительно для предоставления вам Сервиса — включая индексацию для полнотекстового и
+    семантического поиска, встраивание для извлечения и предоставление его вашей команде и
+    ИИ-агентам, которых вы уполномочили. Вы несёте ответственность за свой контент и за
+    наличие прав на его публикацию. Вы можете экспортировать свой контент в виде чистого
+    Markdown или удалить его в любое время.
   </p>
 
-  <h2>AI-generated content (Atlas)</h2>
+  <h2>Контент, сгенерированный ИИ (Atlas)</h2>
   <p>
-    Atlas is tela's knowledge-generation feature: you connect a git repository
-    or Jira project, and Atlas runs an automated pipeline to draft documentation
-    pages in your wiki. A few things to know:
+    Atlas — это функция генерации базы знаний в tela: вы подключаете репозиторий git
+    или проект Jira, и Atlas запускает автоматизированный конвейер для создания черновиков
+    документации в вашей вики. Вот что нужно знать:
   </p>
   <ul>
-    <li>Atlas-generated pages are labeled with <code>generator=atlas</code> metadata so you can identify them.</li>
-    <li>AI-generated content can be incomplete, inaccurate, or outdated. You are responsible for reviewing it before relying on it or sharing it.</li>
-    <li>The source content you connect (git commits, Jira issues) is processed by a self-hosted language model on our servers — it is not sent to any third-party AI provider. See the <a href="/privacy/">privacy policy</a> for details.</li>
-    <li>We grant no warranty on the accuracy or fitness of Atlas-generated content.</li>
-    <li>tela does not maintain a cloud AI fallback. When the AI service is unavailable (e.g., due to maintenance or outage), Ask and Atlas features return a service-unavailable error. This is by design — your content never leaves your tela instance.</li>
+    <li>Страницы, созданные Atlas, помечены метаданными <code>generator=atlas</code>, чтобы вы могли их идентифицировать.</li>
+    <li>Контент, сгенерированный ИИ, может быть неполным, неточным или устаревшим. Вы несёте ответственность за его проверку перед тем, как полагаться на него или делиться им.</li>
+    <li>Исходный контент, который вы подключаете (коммиты git, задачи Jira),     обрабатывается собственной языковой моделью на наших серверах — он не передаётся сторонним ИИ-провайдерам. Подробности см. в <a href="/privacy/">политике конфиденциальности</a>.</li>
+    <li>Мы не предоставляем гарантий точности или пригодности контента, сгенерированного Atlas.</li>
+    <li>tela не поддерживает облачную резервную систему ИИ. Когда ИИ-сервис недоступен (например, из-за технического обслуживания или сбоя), функции «Спросить» и Atlas возвращают ошибку о недоступности сервиса. Это сделано намеренно — ваш контент никогда не покидает ваш экземпляр tela.</li>
   </ul>
 
-  <h2>AI agents and the MCP server</h2>
+  <h2>ИИ-агенты и MCP-сервер</h2>
   <p>
-    When you connect an AI host (such as Claude or ChatGPT) via OAuth or a
-    Personal Access Token, it acts on your behalf with your account's
-    permissions. You are responsible for the actions you authorize an agent to
-    take, including content it creates, edits, or deletes. Connected AI hosts are
-    third parties governed by their own terms and privacy policies.
+    Когда вы подключаете ИИ-хост (такой как Claude или ChatGPT) через OAuth или
+    маркер личного доступа (Personal Access Token), он действует от вашего имени
+    с правами вашего аккаунта. Вы несёте ответственность за действия, которые вы
+    разрешаете агенту выполнять, включая создание, редактирование или удаление
+    контента. Подключённые ИИ-хосты являются третьими лицами и регулируются
+    своими собственными условиями и политиками конфиденциальности.
   </p>
 
-  <h2>Plans, billing, and trials</h2>
+  <h2>Тарифы, биллинг и пробные периоды</h2>
   <p>
-    tela offers a free plan and paid plans (Personal and Team) with higher
-    limits. New accounts start on a 30-day Personal trial — no card required.
-    After the trial ends your account moves to the free plan unless you subscribe.
+    tela предлагает бесплатный тариф и платные тарифы (Personal и Team) с повышенными
+    лимитами. Новые аккаунты начинают с 30-дневного пробного периода Personal —
+    банковская карта не требуется. По окончании пробного периода ваш аккаунт
+    переходит на бесплатный тариф, если вы не оформите подписку.
   </p>
   <ul>
-    <li>Paid subscriptions are billed through <a href="https://polar.sh" target="_blank" rel="noopener">Polar</a>, our merchant of record. Polar's terms and privacy policy apply to payment processing.</li>
-    <li>Subscription fees are charged in advance on a monthly or annual basis as you select at checkout.</li>
-    <li>You can cancel at any time. Access to paid features continues until the end of the current billing period.</li>
-    <li>We may change plan pricing with reasonable notice. Continued use after a price change means you accept the new price.</li>
+    <li>Платные подписки выставляются через <a href="https://polar.sh" target="_blank" rel="noopener">Polar</a>, нашего торгового агента. Условия и политика конфиденциальности Polar применяются к обработке платежей.</li>
+    <li>Абонентская плата взимается авансом на ежемесячной или годовой основе в соответствии с вашим выбором при оформлении.</li>
+    <li>Вы можете отменить подписку в любое время. Доступ к платным функциям сохраняется до конца текущего расчётного периода.</li>
+    <li>Мы можем изменить стоимость тарифов с разумным уведомлением. Продолжение использования после изменения цены означает ваше согласие с новой ценой.</li>
   </ul>
   <p>
-    <strong>Refunds.</strong> No partial refunds are issued for the remaining
-    days of a monthly billing period after cancellation. For annual
-    subscriptions, a pro-rata refund for unused whole months may be issued if
-    you cancel within 30 days of the annual billing date — email
-    <a href="mailto:tela@telawiki.com">tela@telawiki.com</a> for billing
-    disputes. Polar, as merchant of record, ultimately processes and approves
-    refunds in accordance with their own policies.
+    <strong>Возврат средств.</strong> Частичный возврат за оставшиеся дни
+    месячного расчётного периода после отмены не производится. Для годовых
+    подписок пропорциональный возврат за неиспользованные целые месяцы может быть
+    оформлен при отмене в течение 30 дней с даты годового платежа — направьте
+    письмо по адресу <a href="mailto:tela@telawiki.com">tela@telawiki.com</a> для
+    разрешения споров по биллингу. Polar, как торговый агент, окончательно
+    обрабатывает и утверждает возвраты в соответствии со своими собственными
+    политиками.
   </p>
 
-  <h2>Self-hosting the binary</h2>
+  <h2>Самостоятельный хостинг бинарного файла</h2>
   <p>
-    The tela binary is open-source and free to run on your own infrastructure.
-    When you self-host:
+    Бинарный файл tela распространяется по лицензии с открытым исходным кодом и бесплатен для запуска на вашей
+    собственной инфраструктуре. При самостоятельном хостинге:
   </p>
   <ul>
-    <li>The software is provided as-is, without warranty of any kind.</li>
-    <li>You are responsible for your instance, its configuration, security, data, and compliance.</li>
-    <li>You are the data controller for any personal data your instance processes.</li>
-    <li>These service terms do not apply to your self-hosted instance — the open-source license does.</li>
+    <li>Программное обеспечение предоставляется «как есть», без каких-либо гарантий.</li>
+    <li>Вы несёте ответственность за свой экземпляр, его конфигурацию, безопасность, данные и соответствие требованиям.</li>
+    <li>Вы являетесь оператором обработки персональных данных, обрабатываемых вашим экземпляром.</li>
+    <li>Эти условия сервиса не применяются к вашему самостоятельному экземпляру — применяется лицензия с открытым исходным кодом.</li>
   </ul>
 
-  <h2>Availability</h2>
+  <h2>Доступность</h2>
   <p>
-    We aim to keep the hosted service available and reliable, but we do not offer
-    a formal uptime guarantee. We may perform maintenance, push updates, or
-    temporarily restrict access. Keep your own backups of anything important —
-    your content exports as plain markdown at any time.
+    Мы стремимся обеспечить доступность и надёжность размещённого сервиса, но не
+    предоставляем формальной гарантии времени безотказной работы. Мы можем проводить
+    техническое обслуживание, выпускать обновления или временно ограничивать доступ.
+    Создавайте собственные резервные копии всего важного — вы можете экспортировать
+    свой контент в виде чистого Markdown в любое время.
   </p>
 
-  <h2>Disclaimer of warranties</h2>
+  <h2>Отказ от гарантий</h2>
   <p>
-    The Service is provided "as is" and "as available," without warranties of any
-    kind, express or implied, including merchantability, fitness for a particular
-    purpose, and non-infringement. We do not warrant that the Service will be
-    uninterrupted, secure, or error-free, or that AI-generated content will be
-    accurate or complete.
+    Сервис предоставляется «как есть» и «по мере доступности», без каких-либо гарантий,
+    явных или подразумеваемых, включая товарность, пригодность для определённых целей и
+    отсутствие нарушений прав. Мы не гарантируем, что Сервис будет бесперебойным,
+    безопасным или безошибочным, или что контент, сгенерированный ИИ, будет точным
+    или полным.
   </p>
 
-  <h2>Limitation of liability</h2>
+  <h2>Ограничение ответственности</h2>
   <p>
-    To the maximum extent permitted by law, we will not be liable for any
-    indirect, incidental, special, consequential, or punitive damages, or for any
-    loss of data, profits, or goodwill, arising from your use of the Service. Our
-    total liability for any claim arising from these terms or the Service is
-    limited to the amount you paid us in the twelve months before the claim arose.
+    В максимальной степени, разрешённой законодательством, мы не несём ответственности
+    за непрямые, случайные, особые, косвенные или штрафные убытки или за любую
+    потерю данных, прибыли или деловой репутации, возникающие в результате вашего
+    использования Сервиса. Наша общая ответственность по любому требованию,
+    вытекающему из этих условий или Сервиса, ограничена суммой, которую вы заплатили
+    нам в течение двенадцати месяцев до возникновения требования.
   </p>
 
-  <h2>Indemnification</h2>
+  <h2>Возмещение убытков</h2>
   <p>
-    You agree to indemnify and hold us harmless from any claims, damages, or
-    expenses arising from your content, your use of the Service, or your
-    violation of these terms or the rights of others.
+    Вы соглашаетесь возмещать нам убытки и защищать нас от любых претензий,
+    убытков или расходов, возникающих в результате вашего контента, вашего
+    использования Сервиса или нарушения вами этих условий или прав других лиц.
   </p>
 
-  <h2>Governing law</h2>
+  <h2>Применимое право</h2>
   <p>
-    These terms are governed by the laws of <strong>Finland</strong>,
+    Эти условия регулируются законодательством <strong>Финляндии</strong>,
     {/* TODO: confirm jurisdiction with legal counsel */}
-    without regard to conflict-of-law principles.
+    независимо от коллизионных норм.
   </p>
 
-  <h2>Changes</h2>
+  <h2>Изменения</h2>
   <p>
-    We may update these terms as the Service evolves. Material changes will be
-    reflected by the "last updated" date above; continued use of the Service
-    after a change means you accept the updated terms.
+    Мы можем обновлять эти условия по мере развития Сервиса. Существенные изменения
+    будут отражены в дате «последнее обновление» выше; продолжение использования
+    Сервиса после изменения означает ваше принятие обновлённых условий.
   </p>
 
-  <h2>Contact</h2>
+  <h2>Контакты</h2>
   <p>
-    Questions about these terms? Email
-    <a href="mailto:tela@telawiki.com">tela@telawiki.com</a>. Security issues:
-    email <a href="mailto:tela@telawiki.com">tela@telawiki.com</a> privately
-    (see also the <a href="/privacy/">privacy policy</a>). Source code:
-    <a href="https://github.com/zcag/tela">github.com/zcag/tela</a>.
+    Есть вопросы об этих условиях? Напишите нам по адресу
+    <a href="mailto:tela@telawiki.com">tela@telawiki.com</a>. Проблемы безопасности:
+    отправьте письмо на <a href="mailto:tela@telawiki.com">tela@telawiki.com</a>
+    приватно (см. также <a href="/privacy/">политику конфиденциальности</a>).
+    Исходный код: <a href="https://github.com/zcag/tela">github.com/zcag/tela</a>.
   </p>
 </Prose>

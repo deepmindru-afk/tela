@@ -125,7 +125,7 @@ const slides = [
         const label = thumb.dataset.label ?? '';
         if (!src || main.src.endsWith(src)) return;
         main.src = src;
-        main.alt = `A tela presentation slide: ${label}. Made with the built-in deck theme.`;
+        main.alt = `Слайд презентации tela: ${label}. Создан с помощью встроенной темы оформления.`;
         for (const t of thumbs) {
           const on = t === thumb;
           t.classList.toggle('is-current', on);

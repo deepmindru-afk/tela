@@ -3,248 +3,246 @@ import Prose from '../layouts/Prose.astro';
 ---
 
 <Prose
-  title="Privacy Policy — tela"
-  description="How telawiki.com collects, uses, and protects your data — including how Atlas processes connected sources using a self-hosted AI model."
-  kicker="Legal"
-  heading="Privacy Policy"
+  title="Политика конфиденциальности — tela"
+  description="Как telawiki.com собирает, использует и защищает ваши данные — включая то, как Atlas обрабатывает подключённые источники с помощью 자체ной языковой модели."
+  kicker="Юридическое"
+  heading="Политика конфиденциальности"
   updated="29 июня 2026"
 >
   <p class="lead">
-    This policy covers the hosted tela service at <code>telawiki.com</code>. tela
-    is a markdown-native team wiki with AI-powered features, an MCP server for
-    agents, and a billing service for paid plans.
+    Настоящая политика распространяется на размещённый сервис tela по адресу <code>telawiki.com</code>. tela
+    — это вики-платформа с нативной поддержкой markdown, функциями на основе ИИ, MCP-сервером для
+    агентов и платёжной службой для платных планов.
   </p>
 
   <div class="note">
     <p>
-      <strong>Self-hosted deployments.</strong> tela is open-source and
-      self-hostable. If you run your own instance, <strong>you</strong> are the
-      data controller — this policy covers only the operator-run service at
-      <code>telawiki.com</code>.
+      <strong>Собственные развертывания.</strong> tela — это проект с открытым исходным кодом,
+      который можно развернуть самостоятельно. Если вы запускаете собственную инстанцию, <strong>вы</strong> являетесь
+      оператором персональных данных — настоящая политика распространяется только на сервис,
+      управляемый оператором, по адресу <code>telawiki.com</code>.
     </p>
   </div>
 
-  <h2>What we collect</h2>
+  <h2>Что мы собираем</h2>
   <dl>
-    <dt>Account data</dt>
+    <dt>Данные учётной записи</dt>
     <dd>
-      Email address, username, and a hashed (never plaintext) password. Used to
-      authenticate you and to send account emails (verification, password reset).
+      Адрес электронной почты, имя пользователя и хешированный (никогда не в открытом виде) пароль. Используются для
+      вашей аутентификации и отправки служебных писем (подтверждение, сброс пароля).
     </dd>
-    <dt>Content you create</dt>
+    <dt>Контент, который вы создаёте</dt>
     <dd>
-      Spaces, pages (markdown bodies), comments, attached files, and feedback you
-      submit. This is your wiki content — stored so you and your team can read
-      and edit it.
+      Пространства, страницы (тела в формате markdown), комментарии, прикреплённые файлы и отзывы, которые вы
+      отправляете. Это содержимое вашей вики — оно хранится, чтобы вы и ваша команда могли его читать
+      и редактировать.
     </dd>
-    <dt>Atlas source data</dt>
+    <dt>Данные источников Atlas</dt>
     <dd>
-      When you connect a git repository or Jira project to an Atlas project,
-      tela reads that source to generate documentation. This content is processed
-      entirely by our self-hosted language model — it is not sent to any
-      third-party AI provider. See <a href="#atlas">the Atlas section below</a>.
+      Когда вы подключаете git-репозиторий или проект Jira к проекту Atlas,
+      tela читает этот источник для генерации документации. Этот контент обрабатывается
+      исключительно нашей собственной языковой моделью — он не отправляется никаким
+      сторонним ИИ-провайдерам. См. <a href="#atlas">раздел об Atlas ниже</a>.
     </dd>
-    <dt>API keys</dt>
+    <dt>API-ключи</dt>
     <dd>
-      Personal Access Tokens you create are stored hashed. The raw token is shown
-      once on creation and never stored in readable form.
+      Персональные токены доступа, которые вы создаёте, хранятся в хешированном виде. Исходный токен отображается
+      один раз при создании и никогда не сохраняется в читаемом виде.
     </dd>
-    <dt>MCP / agent activity</dt>
+    <dt>Деятельность MCP / агентов</dt>
     <dd>
-      When you connect an AI host (e.g. Claude or ChatGPT) via OAuth or a
-      Personal Access Token, it calls tela's tools on your behalf to read,
-      search, create, update, or delete content your account can access. Tool
-      calls run with your account's permissions.
+      Когда вы подключаете ИИ-хост (например, Claude или ChatGPT) через OAuth или
+      персональный токен доступа, он вызывает инструменты tela от вашего имени для чтения,
+      поиска, создания, обновления или удаления контента, к которому имеет доступ ваша учётная запись. Вызовы инструментов
+      выполняются с правами вашей учётной записи.
     </dd>
-    <dt>Operational data</dt>
+    <dt>Эксплуатационные данные</dt>
     <dd>
-      Standard request metadata (IP address, timestamps, user agent) used for
-      rate-limiting, security, and debugging.
+      Стандартные метаданные запросов (IP-адрес, временные метки, пользовательский агент), используемые для
+      ограничения частоты запросов, обеспечения безопасности и отладки.
     </dd>
-    <dt>Analytics</dt>
+    <dt>Аналитика</dt>
     <dd>
-      Page-view and interaction data collected by our self-hosted Umami instance.
-      Umami uses no cookies and anonymizes IP addresses before storing them. No
-      data is sent to third-party analytics services.
+      Данные о просмотрах страниц и взаимодействиях, собираемые нашей собственной инстанцией Umami.
+      Umami не использует cookies и анонимизирует IP-адреса перед сохранением. Никакие
+      данные не отправляются сторонним аналитическим сервисам.
     </dd>
   </dl>
 
   <div class="note">
     <p>
-      <strong>We do not collect</strong> payment-card data, health records, or
-      government-ID numbers. Do not store such data in tela.
+      <strong>Мы не собираем</strong> данные платёжных карт, медицинские записи или
+      номера государственных документов. Не храните такие данные в tela.
     </p>
   </div>
 
-  <h2>How we use it</h2>
+  <h2>Как мы используем данные</h2>
   <ul>
-    <li>To operate the wiki — store, render, search, and sync your content.</li>
-    <li>To authenticate you and authorize MCP tool calls on your behalf.</li>
-    <li>To power semantic search and Ask — page text is sent to a self-hosted embedding model on our infrastructure to build search vectors.</li>
-    <li>To run Atlas — git and Jira source content is processed by a self-hosted language model on our infrastructure to generate documentation pages.</li>
-    <li>To send transactional email (verification, password reset, account notices).</li>
-    <li>To process subscription payments through our billing provider.</li>
-    <li>To protect the service — rate-limiting, abuse prevention, and debugging.</li>
-    <li>To understand aggregate usage patterns via our self-hosted, cookie-free analytics.</li>
+    <li>Для работы вики — хранение, отображение, поиск и синхронизация вашего контента.</li>
+    <li>Для вашей аутентификации и авторизации вызовов MCP-инструментов от вашего имени.</li>
+    <li>Для обеспечения семантического поиска и Ask — текст страницы отправляется на нашу собственную инстанцию модели эмбеддингов для построения поисковых векторов.</li>
+    <li>Для работы Atlas — контент из git и Jira обрабатывается нашей собственной языковой моделью для генерации страниц документации.</li>
+    <li>Для отправки транзакционных писем (подтверждение, сброс пароля, уведомления об аккаунте).</li>
+    <li>Для обработки платежей по подписке через нашего платёжного провайдера.</li>
+    <li>Для защиты сервиса — ограничение частоты запросов, предотвращение злоупотреблений и отладка.</li>
+    <li>Для понимания обобщённых паттернов использования с помощью нашей собственной аналитики без cookies.</li>
   </ul>
   <p>
-    We do <strong>not</strong> sell your data, serve ads, or use your content to
-    train any AI model — including our own.
+    Мы <strong>не</strong> продаём ваши данные, не размещаем рекламу и не используем ваш контент для
+    обучения каких-либо ИИ-моделей — включая наши собственные.
   </p>
 
-  <h2 id="atlas">How Atlas processes your sources</h2>
+  <h2 id="atlas">Как Atlas обрабатывает ваши источники</h2>
   <p>
-    Atlas is tela's AI knowledge-generation feature. You connect a source (a git
-    repository or a Jira project), and Atlas runs an 8-stage pipeline to produce
-    structured documentation pages in your wiki.
+    Atlas — это функция генерации знаний на основе ИИ в tela. Вы подключаете источник (git-
+    репозиторий или проект Jira), и Atlas запускает 8-этапный конвейер для создания
+    структурированных страниц документации в вашей вики.
   </p>
   <p>
-    <strong>Your source content never leaves our servers.</strong> The language
-    model that powers Atlas is self-hosted on operator-controlled infrastructure.
-    We do not send your repository content, Jira issues, or any Atlas-processed
-    data to OpenAI, Anthropic, or any other third-party AI service.
+    <strong>Ваш контент из источников никогда не покидает наши серверы.</strong> Языковая
+    модель, на которой работает Atlas, размещена на инфраструктуре, контролируемой оператором.
+    Мы не отправляем содержимое вашего репозитория, задачи из Jira или какие-либо данные, обработанные Atlas,
+    в OpenAI, Anthropic или какие-либо другие сторонние ИИ-сервисы.
   </p>
   <p>
-    Atlas-generated pages are labeled with <code>generator=atlas</code> in their
-    metadata so you can always identify AI-generated content. You are responsible
-    for reviewing it before relying on it.
+    Страницы, сгенерированные Atlas, помечены <code>generator=atlas</code> в метаданных,
+    чтобы вы всегда могли определить контент, созданный ИИ. Вы несёте ответственность
+    за его проверку перед использованием.
   </p>
 
-  <h2>Who we share data with</h2>
-  <p>tela relies on a small set of processors to operate:</p>
+  <h2>С кем мы делимся данными</h2>
+  <p>tela использует небольшой набор обработчиков для работы:</p>
   <dl>
-    <dt>Polar (billing)</dt>
+    <dt>Polar (платежи)</dt>
     <dd>
-      Paid subscriptions are handled by <a href="https://polar.sh" target="_blank" rel="noopener">Polar</a>,
-      which acts as our merchant of record. Polar processes payment information
-      and issues invoices. We do not receive or store your card details. Polar's
-      own privacy policy governs how they handle billing data.
+      Платные подписки обрабатываются через <a href="https://polar.sh" target="_blank" rel="noopener">Polar</a>,
+      который выступает в роли нашего торгового агента. Polar обрабатывает платёжную
+      информацию и выставляет счета. Мы не получаем и не храним данные ваших карт. Собственная политика конфиденциальности Polar регулирует обработку платёжных данных.
     </dd>
-    <dt>SMTP2GO (transactional email)</dt>
+    <dt>SMTP2GO (транзакционные письма)</dt>
     <dd>
-      Verification emails, password-reset emails, and account notices are
-      delivered via SMTP2GO. Your email address passes through SMTP2GO for
-      delivery. SMTP2GO does not receive your wiki content.
+      Письма с подтверждением, сбросом пароля и уведомлениями об аккаунте
+      доставляются через SMTP2GO. Ваш адрес электронной почты передаётся через SMTP2GO для
+      доставки. SMTP2GO не получает содержимое вашей вики.
     </dd>
     <dt>WorkOS (MCP OAuth)</dt>
     <dd>
-      The OAuth 2.1 authorization flow for MCP connections (connecting Claude,
-      ChatGPT, or another AI host) is handled by WorkOS AuthKit. Your email
-      address and authentication events pass through WorkOS to issue access
-      tokens for MCP clients.
+      Процесс авторизации OAuth 2.1 для подключений MCP (подключение Claude,
+      ChatGPT или другого ИИ-хоста) обрабатывается WorkOS AuthKit. Ваш адрес
+      электронной почты и события аутентификации проходят через WorkOS для выдачи токенов
+      доступа MCP-клиентам.
     </dd>
-    <dt>The AI host you connect</dt>
+    <dt>ИИ-хост, который вы подключаете</dt>
     <dd>
-      When you connect Claude, ChatGPT, or another MCP client, the content
-      returned by tool calls is sent to that host so the agent can read and use
-      it. Their handling of that content is governed by their own privacy
-      policies.
+      Когда вы подключаете Claude, ChatGPT или другой MCP-клиент, контент,
+      возвращённый вызовами инструментов, отправляется этому хосту, чтобы агент мог его прочитать и использовать.
+      Обработка этого контента регулируется соответствующими политиками конфиденциальности.
     </dd>
   </dl>
   <p>
-    We may also disclose data where required by law, or to protect the rights,
-    safety, and security of the service and its users.
+    Мы также можем раскрывать данные, когда это требуется по закону, или для защиты прав,
+    безопасности и защищённости сервиса и его пользователей.
   </p>
 
-  <h2>Data location</h2>
+  <h2>Расположение данных</h2>
   <p>
-    The hosted service runs on Hetzner Cloud servers in Helsinki, Finland (EU).
-    Customer data — including the Postgres database, uploaded attachments, and
-    encrypted backups — is stored in the EU and is subject to EU data protection
-    law, including the GDPR. Hetzner Cloud acts as a data processor under the
-    GDPR and operates under EU data protection law.
+    Размещённый сервис работает на серверах Hetzner Cloud в Хельсинки, Финляндия (ЕС).
+    Данные клиентов — включая базу данных Postgres, загруженные вложения и
+    зашифрованные резервные копии — хранятся в ЕС и подчиняются законодательству ЕС о защите данных,
+    включая GDPR. Hetzner Cloud выступает обработчиком данных в соответствии с
+    GDPR и действует в рамках законодательства ЕС о защите данных.
   </p>
 
   <div class="note">
     <p>
-      <strong>Self-hosted installations.</strong> If you run your own tela
-      instance, you control where your data is stored. We never see or access
-      data from self-hosted deployments.
+      <strong>Собственные установки.</strong> Если вы запускаете собственную инстанцию tela,
+      вы контролируете место хранения своих данных. Мы никогда не видим и не обращаемся к
+      данным из собственных развёртываний.
     </p>
   </div>
 
-  <h2>Retention</h2>
+  <h2>Сроки хранения</h2>
   <ul>
-    <li>Account and content data is retained while your account is active.</li>
-    <li>Deleting a page or space removes it from the live service. Deleting your account removes your account data and content.</li>
-    <li>Personal Access Tokens and share links can be revoked at any time and expire when the server's secrets rotate.</li>
-    <li>Billing records are retained as required by Polar and applicable financial regulations.</li>
-    <li>Operational logs are kept only as long as needed for security and debugging.</li>
-    <li>Analytics data (self-hosted Umami, no cookies) is retained on our infrastructure for as long as we operate the service.</li>
+    <li>Данные учётной записи и контент хранятся, пока ваша учётная запись активна.</li>
+    <li>Удаление страницы или пространства удаляет их из работающего сервиса. Удаление учётной записи удаляет данные учётной записи и контент.</li>
+    <li>Персональные токены доступа и ссылки для общего доступа могут быть отозваны в любое время и истекают при ротации ключей сервера.</li>
+    <li>Платёжные записи хранятся в соответствии с требованиями Polar и применимого финансового законодательства.</li>
+    <li>Эксплуатационные журналы хранятся только до тех пор, пока это необходимо для обеспечения безопасности и отладки.</li>
+    <li>Данные аналитики (собственная инстанция Umami, без cookies) хранятся на нашей инфраструктуре в течение всего времени работы сервиса.</li>
   </ul>
-  <!-- TODO: Add specific retention periods if/when defined (e.g. "operational logs kept for 30 days"). -->
+  <!-- TODO: Добавить конкретные сроки хранения, если/когда они будут определены (например, "эксплуатационные журналы хранятся 30 дней"). -->
 
-  <h2>Your rights (GDPR and similar)</h2>
+  <h2>Ваши права (GDPR и аналогичные)</h2>
   <p>
-    If you are in the EU, UK, or another jurisdiction with data-subject rights
-    legislation, you have the right to:
+    Если вы находитесь в ЕС, Великобритании или другой юрисдикции, где действуют нормы
+    о правах субъектов данных, вы имеете право:
   </p>
   <ul>
-    <li><strong>Access</strong> — request a copy of the personal data we hold about you.</li>
-    <li><strong>Rectification</strong> — correct inaccurate account information (email, username) in the app at any time.</li>
-    <li><strong>Erasure</strong> — request deletion of your account. Deleting your account removes your profile and content from the live service. Residual copies in backups are overwritten as backups cycle.</li>
-    <li><strong>Portability</strong> — export your wiki content at any time as a zip archive of plain markdown files. Note: attachments are not currently included in the zip export. To request an export that includes attachments, email us.</li>
-    <li><strong>Object</strong> — object to processing where we rely on legitimate interests as a legal basis.</li>
+    <li><strong>Доступ</strong> — запросить копию персональных данных, которые мы храним о вас.</li>
+    <li><strong>Исправление</strong> — исправить неточные данные учётной записи (электронная почта, имя пользователя) в приложении в любое время.</li>
+    <li><strong>Удаление</strong> — запросить удаление вашей учётной записи. Удаление учётной записи удаляет ваш профиль и контент из работающего сервиса. Остаточные копии в резервных копиях перезаписываются при обновлении резервных копий.</li>
+    <li><strong>Переносимость</strong> — экспортируйте содержимое вашей вики в любое время в виде zip-архива с файлами markdown. Примечание: вложения в настоящее время не включаются в zip-экспорт. Чтобы запросить экспорт с вложениями, напишите нам по электронной почте.</li>
+    <li><strong>Возражение</strong> — возразить против обработки, когда мы опираемся на законные интересы в качестве правового основания.</li>
   </ul>
   <p>
-    To exercise any of these rights, email
+    Для реализации любого из этих прав напишите по адресу
     <a href="mailto:tela@telawiki.com">tela@telawiki.com</a>.
   </p>
 
-  <h2>Your choices</h2>
+  <h2>Ваши возможности</h2>
   <ul>
-    <li><strong>Content</strong> — your content is yours; read, edit, export, or delete it in the app at any time.</li>
-    <li><strong>Disconnect agents</strong> — revoke an MCP connection from the connected host, or rotate your Personal Access Token, to cut off agent access.</li>
-    <li><strong>Delete your account</strong> — contact us at <a href="mailto:tela@telawiki.com">tela@telawiki.com</a> to delete your account and associated data.</li>
-    <li><strong>Analytics</strong> — our self-hosted Umami analytics use no cookies and do not track you across sites. You can block the analytics script in your browser without affecting any functionality.</li>
-    <li><strong>Self-host</strong> — run your own instance to keep all data on infrastructure you control.</li>
+    <li><strong>Контент</strong> — ваш контент принадлежит вам; читайте, редактируйте, экспортируйте или удаляйте его в приложении в любое время.</li>
+    <li><strong>Отключение агентов</strong> — отзовите MCP-подключение на подключённом хосте или обновите персональный токен доступа, чтобы прекратить доступ агентов.</li>
+    <li><strong>Удаление учётной записи</strong> — свяжитесь с нами по адресу <a href="mailto:tela@telawiki.com">tela@telawiki.com</a> для удаления учётной записи и связанных данных.</li>
+    <li><strong>Аналитика</strong> — наша собственная аналитика Umami не использует cookies и не отслеживает вас на других сайтах. Вы можете заблокировать аналитический скрипт в браузере без влияния на функциональность.</li>
+    <li><strong>Собственное развертывание</strong> — запустите собственную инстанцию, чтобы хранить все данные на инфраструктуре под вашим контролем.</li>
   </ul>
 
-  <h2>Security</h2>
+  <h2>Безопасность</h2>
   <p>
-    Traffic is served over HTTPS. Passwords are hashed; authentication tokens and
-    share secrets are stored hashed (the raw value lives only in the link or
-    token shown at creation). API keys are hashed. The MCP endpoint authenticates
-    every request. No system is perfectly secure, but we take reasonable measures
-    to protect your data.
+    Трафик передаётся по HTTPS. Пароли хешируются; токены аутентификации и
+    ключи общего доступа хранятся в хешированном виде (исходное значение существует только в ссылке или
+    токене, отображаемом при создании). API-ключи хешируются. MCP-эндпоинт аутентифицирует
+    каждый запрос. Ни одна система не является абсолютно защищённой, но мы принимаем разумные меры
+    для защиты ваших данных.
   </p>
 
-  <h2>Report abuse or DMCA</h2>
+  <h2>Сообщить о злоупотреблении или DMCA</h2>
   <p>
-    To report abuse (spam, harassment, illegal content, or misuse of the
-    Service), email <a href="mailto:tela@telawiki.com">tela@telawiki.com</a>
-    with the subject line <strong>"Abuse Report"</strong>. Include the relevant
-    URL and a description of the issue.
+    Чтобы сообщить о злоупотреблении (спам, домогательства, незаконный контент или неправомерное использование
+    сервиса), напишите на <a href="mailto:tela@telawiki.com">tela@telawiki.com</a>
+    с темой <strong>«Abuse Report»</strong>. Укажите соответствующий
+    URL и описание проблемы.
   </p>
   <p>
-    To submit a DMCA takedown notice, email
-    <a href="mailto:tela@telawiki.com">tela@telawiki.com</a> with the subject
-    line <strong>"DMCA Takedown"</strong>. Your notice must include your contact
-    information, a description of the copyrighted work you claim was infringed,
-    the URL of the allegedly infringing content, a good-faith belief statement
-    that the use is not authorized, and a declaration under penalty of perjury
-    that the information is accurate and that you are the copyright owner or
-    authorized to act on their behalf.
+    Чтобы подать уведомление DMCA о снятии контента, напишите
+    на <a href="mailto:tela@telawiki.com">tela@telawiki.com</a> с темой
+    <strong>«DMCA Takedown»</strong>. Ваше уведомление должно содержать ваши контактные
+    данные, описание защищённого авторским правом произведения, на которое, по вашему мнению, было совершено посягательство,
+    URL предположительно нарушающего контента, заявление о добросовестном убеждении
+    в том, что использование не авторизовано, и декларацию под страхом наказания за
+    ложные показания о том, что информация является точной и что вы являетесь владельцем авторских прав или
+    уполномочены действовать от его имени.
   </p>
   <p>
-    We aim to respond to valid abuse reports and DMCA notices within 7 business
-    days.
+    Мы стремимся отвечать на обоснованные отчёты о злоупотреблениях и уведомления DMCA в течение 7 рабочих
+    дней.
   </p>
 
-  <h2>Contact</h2>
+  <h2>Контакты</h2>
   <p>
-    Questions about this policy or your data? Email
-    <a href="mailto:tela@telawiki.com">tela@telawiki.com</a>. To report a
-    security vulnerability, email
-    <a href="mailto:tela@telawiki.com">tela@telawiki.com</a> privately rather
-    than opening a public issue — we investigate reports in good faith. The
-    source for tela is public at
+    Вопросы по этой политике или вашим данным? Напишите на
+    <a href="mailto:tela@telawiki.com">tela@telawiki.com</a>. Чтобы сообщить об
+    уязвимости безопасности, напишите на
+    <a href="mailto:tela@telawiki.com">tela@telawiki.com</a> приватно, а не
+    создавайте публичный запрос — мы рассматриваем сообщения добросовестно. Исходный
+    код tela является открытым по адресу
     <a href="https://github.com/zcag/tela">github.com/zcag/tela</a>.
   </p>
 
-  <h2>Changes</h2>
+  <h2>Изменения</h2>
   <p>
-    We may update this policy as the service evolves. Material changes will be
-    reflected by the "last updated" date above.
+    Мы можем обновлять эту политику по мере развития сервиса. Существенные изменения будут
+    отражены в дате «последнего обновления» выше.
   </p>
 </Prose>

@@ -13,13 +13,13 @@
 const { selfHostLink = '/pricing#self-host' } = Astro.props;
 
 const includes = [
-  'Atlas — generate & refresh a cited, coverage-checked wiki from a git repo or Jira project',
-  'Semantic search + ask your docs, with citations',
-  'Bring your own agent (Claude, ChatGPT) over MCP — ask unlimited, on your model',
-  'Local folder sync over WebDAV',
-  'Real-time multiplayer editing',
-  'Organizations & per-space roles',
-  'Plain markdown you own — export anytime',
+  'Atlas — создавайте и обновляйте цитируемую вики с проверкой покрытия из git-репозитория или Jira-проекта',
+  'Семантический поиск + «Спросите документы» с цитированием',
+  'Подключите своего агента (Claude, ChatGPT) через MCP — безлимитные вопросы на вашей модели',
+  'Синхронизация локальной папки через WebDAV',
+  'Совместное редактирование в реальном времени',
+  'Организации и роли по пространствам',
+  'Обычный markdown, который вам принадлежит — экспорт в любой момент',
 ];
 
 // action drives the CTA wiring (self-serve billing is live via Polar):
@@ -39,13 +39,13 @@ const cloud = [
   {
     name: 'Free',
     price: '$0',
-    period: 'free forever',
+    period: 'бесплатно навсегда',
     priceYearMo: null,
     periodYear: null,
     saveYear: null,
-    blurb: 'Personal notes and trying tela.',
-    specs: ['Unlimited with your own agent (MCP)', '50 built-in AI answers / mo', '1 Atlas source · manual refresh', 'Unlimited pages & spaces'],
-    cta: 'Get started',
+    blurb: 'Личные заметки и пробный запуск tela.',
+    specs: ['Безлимитно с вашим агентом (MCP)', '50 встроенных ответов ИИ / мес', '1 источник Atlas · ручное обновление', 'Безлимитные страницы и пространства'],
+    cta: 'Начать',
     href: REGISTER_URL,
     action: 'app',
     featured: false,
@@ -53,13 +53,13 @@ const cloud = [
   {
     name: 'Personal',
     price: '$8',
-    period: 'per month',
+    period: 'в месяц',
     priceYearMo: '$6',
-    periodYear: '/mo',
-    saveYear: 'Billed annually — $72/yr, save $24',
-    blurb: 'For power users who live in their wiki.',
-    specs: ['5 Atlas sources · auto-refreshed', '1,000 built-in AI answers / mo', 'Custom domain & public spaces', 'Everything in Free'],
-    cta: 'Get Personal',
+    periodYear: '/мес',
+    saveYear: 'Оплата ежегодно — $72/год, экономия $24',
+    blurb: 'Для продвинутых пользователей, которые живут в вики.',
+    specs: ['5 источников Atlas · авто-обновление', '1 000 встроенных ответов ИИ / мес', 'Свой домен и публичные пространства', 'Всё, что есть в Free'],
+    cta: 'Получить Personal',
     href: UPGRADE_URL,
     action: 'buy',
     featured: false,
@@ -67,27 +67,27 @@ const cloud = [
   {
     name: 'Team',
     price: '$10',
-    period: 'per seat / month',
+    period: 'за место / месяц',
     priceYearMo: '$8',
-    periodYear: 'per seat / mo',
-    saveYear: 'Billed annually — $96/seat/yr, save $24',
-    blurb: 'A team that runs on its docs.',
-    specs: ['20 Atlas sources · auto-refreshed', '2,000 built-in answers / mo, pooled', 'Roles & member management', 'Everything in Personal'],
-    cta: 'Get Team',
+    periodYear: 'за место / мес',
+    saveYear: 'Оплата ежегодно — $96/место/год, экономия $24',
+    blurb: 'Команда, которая работает на своей документации.',
+    specs: ['20 источников Atlas · авто-обновление', '2 000 встроенных ответов / мес, пул', 'Роли и управление участниками', 'Всё, что есть в Personal'],
+    cta: 'Получить Team',
     href: UPGRADE_URL,
     action: 'buy',
     featured: true,
   },
   {
     name: 'Enterprise',
-    price: 'Custom',
-    period: "let's talk",
+    price: 'По запросу',
+    period: 'давайте поговорим',
     priceYearMo: null,
     periodYear: null,
     saveYear: null,
-    blurb: 'SSO, audit, and scale for a big team.',
-    specs: ['Unlimited Atlas & AI', 'SSO, SCIM & audit log', 'Advanced roles & governance', 'Priority support + SLA', 'Everything in Team'],
-    cta: 'Get in touch',
+    blurb: 'SSO, аудит и масштаб для большой команды.',
+    specs: ['Безлимитный Atlas и ИИ', 'SSO, SCIM и журнал аудита', 'Продвинутые роли и управление', 'Приоритетная поддержка + SLA', 'Всё, что есть в Team'],
+    cta: 'Связаться',
     href: `mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent('tela Enterprise')}`,
     action: 'contact',
     featured: false,
@@ -96,21 +96,21 @@ const cloud = [
 ---
 <section id="pricing" class="section">
   <div class="section-head reveal-up">
-    <p class="kicker"><span class="kicker-dot"></span>Pricing</p>
-    <h2 class="h2">Simple plans. Your markdown either way.</h2>
+    <p class="kicker"><span class="kicker-dot"></span>Цены</p>
+    <h2 class="h2">Простые тарифы. Ваш markdown в любом случае.</h2>
     <p class="lede">
-      One ladder, the whole product on every tier — <strong>Atlas, semantic search, ask-your-docs, and the agent connector</strong>.
-      Paid tiers raise your AI — how many sources Atlas keeps fresh and how many answers a month — and add team controls.
-      Managed AI is included on every cloud plan.
+      Одна лестница, весь продукт на каждом тарифе — <strong>Atlas, семантический поиск, «Спросите документы» и коннектор для агентов</strong>.
+      Платные тарифы увеличивают ваш ИИ — сколько источников Atlas поддерживает и сколько ответов в месяц — и добавляют управление командой.
+      Управляемый ИИ включён в каждый облачный план.
     </p>
   </div>
 
   <div class="atlas-band reveal-up">
-    <p class="kicker"><span class="kicker-dot"></span>Flagship</p>
+    <p class="kicker"><span class="kicker-dot"></span>Флагман</p>
     <p class="atlas-band-text">
-      <strong>Atlas is on every plan</strong> — point it at a git repo or Jira project and it
-      writes a cited, coverage-checked wiki and keeps it fresh. Paid tiers raise how much you
-      can generate.
+      <strong>Atlas есть на каждом тарифе</strong> — укажите git-репозиторий или Jira-проект, и он
+      создаст цитируемую вики с проверкой покрытия и будет поддерживать её актуальность. Платные тарифы увеличивают
+      объём генерации.
     </p>
   </div>
 
@@ -124,7 +124,7 @@ const cloud = [
       <button type="button" class="billing-opt" data-period="month" role="tab" aria-selected="false">Ежемесячно</button>
       <button type="button" class="billing-opt is-active" data-period="year" role="tab" aria-selected="true">Ежегодно</button>
     </div>
-    <span class="billing-save">Save up to 25%</span>
+    <span class="billing-save">Экономия до 25%</span>
   </div>
 
   <div class="tiers reveal-up">
@@ -133,7 +133,7 @@ const cloud = [
         <article class={`price-card${p.featured ? ' price-card--featured' : ''}`}>
           <header class="price-head">
             <h3 class="price-name">{p.name}</h3>
-            {p.featured ? <span class="price-tag">Recommended</span> : null}
+            {p.featured ? <span class="price-tag">Рекомендуем</span> : null}
           </header>
           <p class="price-amount">
             <span class="price-amt" data-amt-month={p.price} data-amt-year={p.priceYearMo ?? p.price}>{p.priceYearMo ?? p.price}</span>
@@ -162,17 +162,17 @@ const cloud = [
   </div>
 
   <p class="byo-foot reveal-up">
-    <strong>Bring your own agent — ask unlimited.</strong> The monthly answer counts meter
-    <em>tela's built-in</em> AI. Connect Claude, ChatGPT, or any MCP agent and it runs on your model,
-    on your tokens — no limit, same wiki. Semantic search stays fair-use on every plan.
+    <strong>Подключите своего агента — безлимитные вопросы.</strong> Месячные лимиты ответов — это
+    <em>встроенный ИИ tela</em>. Подключите Claude, ChatGPT или любого MCP-агента — он работает на вашей модели,
+    на ваших токенах — без ограничений, та же вики. Семантический поиск доступен на справедливых условиях на каждом тарифе.
   </p>
 
   <p class="trial-foot reveal-up">
-    No card to start — every new account gets a 30-day Personal trial, then settles onto your plan.
+    Без карты для начала — каждая новая учётная запись получает 30-дневный пробный период Personal, затем переходит на ваш тариф.
   </p>
 
   <div class="includes reveal-up">
-    <p class="includes-label">Every plan includes</p>
+    <p class="includes-label">Каждый план включает</p>
     <ul class="includes-grid">
       {includes.map((f) => (
         <li>
@@ -185,7 +185,7 @@ const cloud = [
 
   <div class="selfhost reveal-up">
     <div class="selfhost-copy">
-      <p class="selfhost-label">Or run it yourself — free</p>
+      <p class="selfhost-label">Или запустите сами — бесплатно</p>
       <p class="selfhost-text">
         tela — это open source (AGPL). Запустите на своём сервере весь продукт — Atlas, поиск, агентов, синхронизацию —
         и используйте свой собственный ИИ. Community — бесплатно навсегда; Enterprise добавляет SSO, аудит и управление.

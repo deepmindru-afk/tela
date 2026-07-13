@@ -16,17 +16,17 @@ const mailto = (subject) => `mailto:${CONTACT_EMAIL}?subject=${encodeURIComponen
 const editions = [
   {
     name: 'Community',
-    price: 'Free',
-    period: 'AGPL-3.0, forever',
-    blurb: 'The whole product, on your infrastructure.',
+    price: 'Бесплатно',
+    period: 'AGPL-3.0, навсегда',
+    blurb: 'Весь продукт, на вашей инфраструктуре.',
     specs: [
-      'Full wiki, Atlas, search, agents, sheets, decks & sync',
-      'Unlimited users, spaces & pages',
-      'Bring your own AI — any OpenAI-compatible LLM + embedder',
-      'Organizations & per-space roles',
-      'Self-supported, community help',
+      'Полная вики, Atlas, поиск, агенты, таблицы, презентации и синхронизация',
+      'Безлимитные пользователи, пространства и страницы',
+      'Свой ИИ — любой совместимый с OpenAI LLM + эмбеддер',
+      'Организации и роли по пространствам',
+      'Самостоятельная поддержка, помощь сообщества',
     ],
-    cta: 'Get the code',
+    cta: 'Получить код',
     href: GITHUB_URL,
     action: 'github',
     featured: false,
@@ -34,16 +34,16 @@ const editions = [
   {
     name: 'Enterprise',
     price: '$8',
-    period: 'per seat / mo, billed annually',
-    blurb: 'The identity, governance and support a company needs — the price of a Team seat, on your own servers, unlocked by a license key.',
+    period: 'за место / мес, оплата ежегодно',
+    blurb: 'Идентичность, управление и поддержка, которые нужны компании — цена места Team, на ваших серверах, с разблокировкой по лицензионному ключу.',
     specs: [
-      'Everything in Community',
-      'SSO / SAML / OIDC, SCIM provisioning',
-      'Audit log, advanced RBAC, retention',
-      'Premium Atlas connectors (Slack, Drive, GitHub…)',
-      'Priority support + SLA',
+      'Всё, что есть в Community',
+      'SSO / SAML / OIDC, SCIM-провижининг',
+      'Журнал аудита, продвинутый RBAC, ретеншн',
+      'Премиум-коннекторы Atlas (Slack, Drive, GitHub…)',
+      'Приоритетная поддержка + SLA',
     ],
-    cta: 'Get a license',
+    cta: 'Получить лицензию',
     href: 'https://telawiki.com/settings?tab=licenses',
     action: 'app',
     featured: true,
@@ -55,68 +55,68 @@ const editions = [
 // layer whether we host it or you do, and that everything below it is free to
 // self-host. Cloud costs more because it bundles managed AI + ops.
 const matrix = {
-  cols: ['tela Cloud — we host it · AI included', 'Self-host — you host it · BYO AI'],
+  cols: ['tela Cloud — мы хостим · ИИ включён', 'Самостоятельно — вы хостите · свой ИИ'],
   rows: [
     {
-      label: 'Core',
-      sub: 'the whole wiki + Atlas + AI',
+      label: 'Ядро',
+      sub: 'вся вики + Atlas + ИИ',
       cloud: 'Free · Personal · Team',
-      self: 'Community — free',
+      self: 'Community — бесплатно',
     },
     {
       label: 'Enterprise',
-      sub: 'SSO · SCIM · audit · governance',
-      cloud: 'Cloud Enterprise — let’s talk',
-      self: '$8 / seat · license key',
+      sub: 'SSO · SCIM · аудит · управление',
+      cloud: 'Cloud Enterprise — давайте поговорим',
+      self: '$8 / место · лицензионный ключ',
     },
   ],
 };
 
 // Core vs Enterprise — what's free vs key-gated. ✓ / — rendered as marks.
 const featureRows = [
-  { f: 'Wiki, editor, history, page properties', core: true, ent: true },
-  { f: 'Live collaboration, sheets, decks, WebDAV sync, MCP', core: true, ent: true },
-  { f: 'Atlas, ask-your-docs, semantic search', core: true, ent: true },
-  { f: 'Public spaces, custom domains', core: true, ent: true },
-  { f: 'Organizations & per-space roles', core: true, ent: true },
+  { f: 'Вики, редактор, история, свойства страниц', core: true, ent: true },
+  { f: 'Совместное редактирование, таблицы, презентации, синхронизация WebDAV, MCP', core: true, ent: true },
+  { f: 'Atlas, «Спросите документы», семантический поиск', core: true, ent: true },
+  { f: 'Публичные пространства, кастомные домены', core: true, ent: true },
+  { f: 'Организации и роли по пространствам', core: true, ent: true },
   { f: 'SSO / SAML / OIDC', core: false, ent: true },
-  { f: 'SCIM provisioning', core: false, ent: true },
-  { f: 'Audit log', core: false, ent: true },
-  { f: 'Advanced RBAC / custom roles / retention', core: false, ent: true },
-  { f: 'Premium Atlas connectors (Slack, Drive, GitHub, Confluence)', core: false, ent: true },
-  { f: 'HA / clustering, white-label', core: false, ent: true },
-  { f: 'Priority support + SLA', core: false, ent: true },
+  { f: 'SCIM-провижининг', core: false, ent: true },
+  { f: 'Журнал аудита', core: false, ent: true },
+  { f: 'Продвинутый RBAC / кастомные роли / ретеншн', core: false, ent: true },
+  { f: 'Премиум-коннекторы Atlas (Slack, Drive, GitHub, Confluence)', core: false, ent: true },
+  { f: 'HA / кластеризация, white-label', core: false, ent: true },
+  { f: 'Приоритетная поддержка + SLA', core: false, ent: true },
 ];
 
 const faqs = [
   {
-    q: 'Do I need to pay for AI on self-host?',
-    a: 'No — self-host is bring-your-own-AI on every edition, Community and Enterprise. Point tela at any OpenAI-compatible LLM and an Ollama-compatible embedder; the inference is yours. Managed, included AI is what the cloud plans are for.',
+    q: 'Нужно ли платить за ИИ при самостоятельном хостинге?',
+    a: 'Нет — самостоятельный хостинг подразумевает собственный ИИ на любом выпуске, Community и Enterprise. Укажите tela любой совместимый с OpenAI LLM и совместимый с Ollama эмбеддер; инференс — ваш. Управляемый включённый ИИ — это то, за что вы платите в облачных планах.',
   },
   {
-    q: 'What’s the difference between Cloud Enterprise and self-host Enterprise?',
-    a: 'Same feature layer — SSO, SCIM, audit, advanced roles, governance, support. On cloud it’s bundled into your subscription and we run it (with managed AI). On self-host it’s a license key on your own infrastructure, and you bring your own AI.',
+    q: 'В чём разница между Cloud Enterprise и самостоятельным Enterprise?',
+    a: 'Тот же функциональный слой — SSO, SCIM, аудит, продвинутые роли, управление, поддержка. В облаке он включён в подписку, и мы его эксплуатируем (с управляемым ИИ). При самостоятельном хостинге это лицензионный ключ на вашей инфраструктуре, и вы используете свой ИИ.',
   },
   {
-    q: 'It’s AGPL — can’t I just remove the Enterprise features myself?',
-    a: 'Enterprise lives in a separate, proprietary module that ships inert without a license key — it isn’t part of the open core. The open core (everything in Community) is genuinely yours under the AGPL; Enterprise is the part you license.',
+    q: 'Это AGPL — разве я не могу просто удалить функции Enterprise сам?',
+    a: 'Enterprise живёт в отдельном проприетарном модуле, который работает только с лицензионным ключом — он не является частью открытого ядра. Открытое ядро (всё, что есть в Community) по-настоящему ваше по лицензии AGPL; Enterprise — это часть, которую вы лицензируете.',
   },
   {
-    q: 'Why would I pay if Community is the whole product?',
-    a: 'You don’t pay for the software — you pay for managed AI + zero-ops (cloud), or for SSO, governance and a support contract (Enterprise), or for relief from AGPL copyleft (commercial license). The wiki and the AI capability are never the paywall.',
+    q: 'Зачем мне платить, если Community — это весь продукт?',
+    a: 'Вы не платите за программное обеспечение — вы платите за управляемый ИИ + нулевую эксплуатацию (облако), или за SSO, управление и контракт поддержки (Enterprise), или за освобождение от copyleft AGPL (коммерческая лицензия). Вики и возможности ИИ никогда не являются платной стеной.',
   },
 ];
 ---
 <section id="self-host" class="section sh">
   <div class="section-head reveal-up">
-    <p class="kicker"><span class="kicker-dot"></span>Self-host</p>
-    <h2 class="h2">Run it yourself — free.</h2>
+    <p class="kicker"><span class="kicker-dot"></span>Самостоятельный хостинг</p>
+    <h2 class="h2">Запустите сами — бесплатно.</h2>
     <p class="lede">
-      tela is open source, and the whole product is <strong>free to self-host</strong> —
-      unlimited people, on your own infrastructure, bringing your own AI. You only ever pay
-      for the <strong>Enterprise layer</strong>: the identity, governance and support a
-      company needs, unlocked by a license key. <strong>Everything below Enterprise is free
-      to self-host, forever.</strong>
+      tela — open source, и весь продукт <strong>бесплатен для самостоятельного хостинга</strong> —
+      безлимитные люди, на вашей инфраструктуре, с вашим ИИ. Вы платите только
+      за <strong>уровень Enterprise</strong>: идентичность, управление и поддержка, которые
+      нужны компании, с разблокировкой по лицензионному ключу. <strong>Всё ниже Enterprise бесплатно
+      для самостоятельного хостинга, навсегда.</strong>
     </p>
   </div>
 
@@ -125,7 +125,7 @@ const faqs = [
       <article class={`sh-card${e.featured ? ' sh-card--featured' : ''}`}>
         <header class="sh-head">
           <h3 class="sh-name">{e.name}</h3>
-          {e.featured ? <span class="sh-tag">Most popular</span> : null}
+          {e.featured ? <span class="sh-tag">Самый популярный</span> : null}
         </header>
         <p class="sh-amount">
           <span class="sh-amt">{e.price}</span>
@@ -146,15 +146,15 @@ const faqs = [
   </div>
 
   <p class="sh-commercial reveal-up">
-    <span class="sh-commercial-label">Commercial license</span>
-    Can’t ship AGPL? A flat annual commercial license gives you the full open core under
-    commercial terms — no copyleft obligation, no feature gating — for legal or compliance
-    constraints, even if you never touch Enterprise.
-    <a href={mailto('tela commercial license')} class="sh-commercial-link">Contact us&nbsp;→</a>
+    <span class="sh-commercial-label">Коммерческая лицензия</span>
+    Не можете использовать AGPL? Фиксированная годовая коммерческая лицензия даёт вам полное открытое ядро на
+    коммерческих условиях — без copyleft-обязательств, без ограничений функций — для юридических или комплаенс-ограничений,
+    даже если вы никогда не используете Enterprise.
+    <a href={mailto('tela commercial license')} class="sh-commercial-link">Свяжитесь с нами&nbsp;→</a>
   </p>
 
   <div class="sh-matrix reveal-up">
-    <p class="sh-block-label">One product · two tiers · two ways to run it</p>
+    <p class="sh-block-label">Один продукт · два тарифа · два способа запуска</p>
     <div class="sh-table-wrap">
       <table class="sh-table sh-table--map">
         <thead>
@@ -174,18 +174,18 @@ const faqs = [
         </tbody>
       </table>
     </div>
-    <p class="sh-note">Cloud is priced on managed AI + seats; self-host is free because you bring your own AI and infra. <strong>Enterprise is the same feature layer either way</strong> — you just pick who runs it.</p>
+    <p class="sh-note">Цена облака основана на управляемом ИИ + местах; самостоятельный хостинг бесплатен, потому что вы используете свой ИИ и инфраструктуру. <strong>Enterprise — тот же функциональный слой в обоих случаях</strong> — вы просто выбираете, кто его эксплуатирует.</p>
   </div>
 
   <div class="sh-features reveal-up">
-    <p class="sh-block-label">What’s in the open core vs Enterprise</p>
+    <p class="sh-block-label">Что в открытом ядре и что в Enterprise</p>
     <div class="sh-table-wrap">
       <table class="sh-table sh-table--features">
         <thead>
           <tr>
-            <th scope="col" class="sh-feat-col">Capability</th>
-            <th scope="col">Core <span class="sh-col-sub">free</span></th>
-            <th scope="col">Enterprise <span class="sh-col-sub">licensed</span></th>
+            <th scope="col" class="sh-feat-col">Возможность</th>
+            <th scope="col">Ядро <span class="sh-col-sub">бесплатно</span></th>
+            <th scope="col">Enterprise <span class="sh-col-sub">лицензия</span></th>
           </tr>
         </thead>
         <tbody>
@@ -193,11 +193,11 @@ const faqs = [
             <tr>
               <th scope="row">{row.f}</th>
               <td class={row.core ? 'is-yes' : 'is-no'}>
-                <span class="sr-only">{row.core ? 'Included' : 'Not included'}</span>
+                <span class="sr-only">{row.core ? 'Включено' : 'Не включено'}</span>
                 <span aria-hidden="true">{row.core ? '✓' : '—'}</span>
               </td>
               <td class={row.ent ? 'is-yes' : 'is-no'}>
-                <span class="sr-only">{row.ent ? 'Included' : 'Not included'}</span>
+                <span class="sr-only">{row.ent ? 'Включено' : 'Не включено'}</span>
                 <span aria-hidden="true">{row.ent ? '✓' : '—'}</span>
               </td>
             </tr>
@@ -208,7 +208,7 @@ const faqs = [
   </div>
 
   <div class="sh-faq reveal-up">
-    <p class="sh-block-label">Self-host questions</p>
+    <p class="sh-block-label">Вопросы о самостоятельном хостинге</p>
     <div class="sh-faq-grid">
       {faqs.map((item) => (
         <div class="sh-faq-item">
