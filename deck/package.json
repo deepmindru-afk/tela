@@ -3,7 +3,7 @@
   "version": "0.0.1",
   "private": true,
   "type": "module",
-  "description": "Slidev render-only sidecar for portal — deck markdown in, per-slide PNGs + PDF/PPTX out.",
+  "description": "Slidev render-only sidecar for tela — deck markdown in, per-slide PNGs + PDF/PPTX out.",
   "scripts": {
     "start": "node server.mjs"
   },

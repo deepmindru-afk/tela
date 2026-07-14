@@ -1,4 +1,4 @@
-# portal — Claude connector directory submission
+# tela — Claude connector directory submission
 
 Ready-to-paste payload for `https://clau.de/mcp-directory-submission`.
 Values verified live 2026-06-05; tool table updated 2026-06-29 to reflect 39-tool surface. `‹TODO›` marks anything Cagdas still has to fill or confirm.

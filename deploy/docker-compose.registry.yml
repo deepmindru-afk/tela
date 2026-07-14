@@ -1,4 +1,4 @@
-# portal — on-box image registry (split-topology deploy).
+# tela — on-box image registry (split-topology deploy).
 #
 # A tiny `registry:2` that lives on the deploy host so `make deploy` can push
 # only the CHANGED image layers over the (often slow) uplink instead of streaming

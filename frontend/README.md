@@ -1,4 +1,4 @@
-# portal — frontend
+# tela — frontend
 
 React 19 + TypeScript + Vite SPA for [tela](../README.md). Tailwind v4 + Radix + Milkdown editor + TanStack Query/Router + Orama + cmdk + Lucide + Storybook.
 

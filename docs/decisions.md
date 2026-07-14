@@ -1,4 +1,4 @@
-# portal — Decisions (ADR-lite)
+# tela — Decisions (ADR-lite)
 
 Each entry: context → decision → consequence.
 

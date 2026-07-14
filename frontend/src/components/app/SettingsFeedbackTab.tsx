@@ -19,7 +19,7 @@ export function SettingsFeedbackTab() {
   return (
     <section aria-labelledby="settings-feedback" className="flex flex-col gap-[var(--space-4)]">
       <p className="m-0 text-[length:var(--text-sm)] text-[var(--text-muted)] leading-[var(--leading-relaxed)]">
-        Feedback your users sent about portal — from the in-app widget, an agent's
+        Feedback your users sent about tela — from the in-app widget, an agent's
         submit_feedback tool, or the API. Most recent first.
       </p>
 

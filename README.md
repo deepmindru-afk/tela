@@ -311,14 +311,14 @@ A machine-discovery manifest is published at [`/.well-known/mcp.json`](https://t
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/submission-assets/tela-page-dark.png">
-  <img alt="portal — page view (light)" src="docs/submission-assets/tela-page-light.png" width="820">
+  <img alt="tela — page view (light)" src="docs/submission-assets/tela-page-light.png" width="820">
 </picture>
 
 <!-- TODO: refresh page-view screenshots when the editor chrome changes. -->
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/submission-assets/tela-search-dark.png">
-  <img alt="portal — search (light)" src="docs/submission-assets/tela-search-light.png" width="820">
+  <img alt="tela — search (light)" src="docs/submission-assets/tela-search-light.png" width="820">
 </picture>
 
 <!-- TODO: refresh search screenshots when the search/ask panel changes. -->
