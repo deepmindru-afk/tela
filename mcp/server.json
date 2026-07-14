@@ -8,7 +8,7 @@
     "subfolder": "mcp"
   },
   "version": "0.7.4",
-  "websiteUrl": "https://telawiki.com",
+  "websiteUrl": "https://tla.portalos.ru",
   "packages": [
     {
       "registryType": "npm",
@@ -22,7 +22,7 @@
       "environmentVariables": [
         {
           "name": "TELA_BASE_URL",
-          "description": "Origin of the Tela instance the proxy connects to, e.g. https://telawiki.com",
+          "description": "Origin of the Tela instance the proxy connects to, e.g. https://tla.portalos.ru",
           "isRequired": true,
           "format": "string"
         },
@@ -39,7 +39,7 @@
   "remotes": [
     {
       "type": "streamable-http",
-      "url": "https://telawiki.com/api/mcp"
+      "url": "https://tla.portalos.ru/api/mcp"
     }
   ]
 }

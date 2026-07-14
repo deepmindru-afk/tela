@@ -13,7 +13,7 @@
     "type": "git",
     "url": "https://github.com/zcag/tela"
   },
-  "homepage": "https://telawiki.com",
+  "homepage": "https://tla.portalos.ru",
   "documentation": "https://github.com/zcag/tela/blob/main/mcp/README.md",
   "server": {
     "type": "node",
@@ -31,9 +31,9 @@
     "base_url": {
       "type": "string",
       "title": "tela base URL",
-      "description": "Origin of your tela instance, e.g. https://telawiki.com or your self-hosted host.",
+      "description": "Origin of your tela instance, e.g. https://tla.portalos.ru or your self-hosted host.",
       "required": true,
-      "default": "https://telawiki.com"
+      "default": "https://tla.portalos.ru"
     },
     "api_key": {
       "type": "string",

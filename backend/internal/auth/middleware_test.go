@@ -56,8 +56,8 @@ func TestCookieSecure_RespectsPublicBaseURLScheme(t *testing.T) {
 		{"", false},
 		{"http://localhost:8780", false},
 		{"http://telawiki.com", false},
-		{"https://telawiki.com", true},
-		{"HTTPS://telawiki.com", true},
+		{"https://tla.portalos.ru", true},
+		{"https://tla.portalos.ru", true},
 	}
 	for _, tc := range cases {
 		t.Setenv("TELA_PUBLIC_BASE_URL", tc.env)

@@ -52,7 +52,7 @@ TEST_DATABASE_URL := postgres://tela:tela@localhost:55433/postgres?sslmode=disab
 # (`make deploy REMOTE=<host>`), or in untracked deploy/deploy.env.
 DEPLOY_HOST ?=
 DEPLOY_DIR  ?= ~/proj/tela
-PUBLIC_URL  ?= https://telawiki.com
+PUBLIC_URL  ?= https://tla.portalos.ru
 
 # REMOTE — ssh host. REMOTE_DIR — repo path on it. REMOTE_WEB — dir the external
 # shared edge serves static from (landing + sites.caddy ride it). EDGE_CONTAINER,

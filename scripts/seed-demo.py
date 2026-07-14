@@ -4,7 +4,7 @@ reviewers (Claude / ChatGPT MCP-app submissions need a populated, no-MFA test
 account — empty accounts are a rejection cause).
 
 Usage:
-    TELA_BASE_URL=https://telawiki.com \
+    TELA_BASE_URL=https://tla.portalos.ru \
     TELA_DEMO_PAT=tela_pat_xxx \
     python3 scripts/seed-demo.py
 
@@ -17,7 +17,7 @@ import os
 import sys
 import urllib.request
 
-BASE = os.environ.get("TELA_BASE_URL", "https://telawiki.com").rstrip("/")
+BASE = os.environ.get("TELA_BASE_URL", "https://tla.portalos.ru").rstrip("/")
 PAT = os.environ.get("TELA_DEMO_PAT")
 if not PAT:
     sys.exit("set TELA_DEMO_PAT (a write-scoped PAT for the demo account)")

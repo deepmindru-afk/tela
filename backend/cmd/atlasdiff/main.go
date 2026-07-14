@@ -612,7 +612,7 @@ func toSet(s []string) map[string]struct{} {
 
 func main() {
 	var (
-		refURL    = flag.String("ref-url", "", "reference instance base URL (e.g. https://telawiki.com)")
+		refURL    = flag.String("ref-url", "", "reference instance base URL (e.g. https://tla.portalos.ru)")
 		refToken  = flag.String("ref-token", "", "reference instance PAT (bearer)")
 		refSpace  = flag.Int("ref-space", 0, "reference space id")
 		newURL    = flag.String("new-url", "", "new instance base URL")

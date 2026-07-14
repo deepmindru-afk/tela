@@ -131,7 +131,7 @@ func (s *Server) Unfurl(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "bad_request", "could not build request")
 		return
 	}
-	req.Header.Set("User-Agent", "tela-unfurl/1.0 (+https://telawiki.com)")
+	req.Header.Set("User-Agent", "tela-unfurl/1.0 (+https://tla.portalos.ru)")
 	req.Header.Set("Accept", "text/html,application/xhtml+xml")
 
 	resp, err := newUnfurlClient().Do(req)

@@ -40,12 +40,12 @@ Concrete agent workflows, each grounded in the actual tools:
 
 | Field | Value |
 |---|---|
-| **Endpoint URL** | `https://telawiki.com/api/mcp` |
+| **Endpoint URL** | `https://tla.portalos.ru/api/mcp` |
 | **Transport** | Streamable HTTP (current MCP transport; SSE not used) |
 | **Auth type** | OAuth 2.1 — WorkOS AuthKit, issuer `https://decisive-relation-32-staging.authkit.app`; PKCE S256 + Dynamic Client Registration. Personal Access Token bearer also accepted. |
 | **Read capabilities** | List/read spaces and pages, list backlinks and shares, read page chunks, full-text and semantic search, Atlas project listing and run status, deck guide/lint/preview, file listings, knowledge hygiene (related, overlaps, gaps), document fetch (Deep Research). |
 | **Write capabilities** | Create/update/patch/delete pages and spaces, move pages, add comments, share/revoke links, upload/delete files, trigger Atlas runs, author deck images, submit feedback. All write tools require editor+ scope on the target space; token permissions gate every call. |
-| **Allowed Link URIs** | `https://telawiki.com/*` (the app surfaces page/space deep links under this origin). `‹TODO: confirm whether the form wants this populated; otherwise leave blank›` |
+| **Allowed Link URIs** | `https://tla.portalos.ru/*` (the app surfaces page/space deep links under this origin). `‹TODO: confirm whether the form wants this populated; otherwise leave blank›` |
 
 ---
 
@@ -136,8 +136,8 @@ Concrete agent workflows, each grounded in the actual tools:
 
 | Field | Value |
 |---|---|
-| **Documentation** | `https://telawiki.com/mcp` |
-| **Privacy policy** | `https://telawiki.com/privacy` |
+| **Documentation** | `https://tla.portalos.ru/mcp` |
+| **Privacy policy** | `https://tla.portalos.ru/privacy` |
 | **Support channel** | `tela@telawiki.com` |
 | **Source** | `https://github.com/zcag/tela` |
 | **npm proxy** | `tela-mcp` (`https://www.npmjs.com/package/tela-mcp`) |
@@ -155,7 +155,7 @@ A reviewer connects via OAuth and exercises a read→write round-trip in a demo 
 
 **Steps:**
 
-1. **Connect.** Add tela as a custom connector pointing at `https://telawiki.com/api/mcp`. Claude runs the OAuth flow.
+1. **Connect.** Add tela as a custom connector pointing at `https://tla.portalos.ru/api/mcp`. Claude runs the OAuth flow.
 2. **Sign in.** The flow opens the tela login screen. Sign in with the demo credentials above (no MFA, no email step). Consent on the WorkOS consent screen.
 3. **Tools appear.** After consent the 39 tools become available in chat.
 4. **Try, in order:**
@@ -173,8 +173,8 @@ Everything runs with the demo account's permissions; an agent can only touch wha
 ## 8. Branding
 
 - **Connector icon:** served by the backend as a full-bleed square SVG **data URI** in the MCP `Implementation.Icons` (`backend/internal/api/mcp.go`), MIME `image/svg+xml`, sizes `any`. Full-bleed by design (no baked-in rounded corners) so the host's rounding mask renders clean — no white corners.
-- **Favicon:** `https://telawiki.com/favicon.svg` (source: `landing/public/favicon.svg`).
-- **Server branding:** the MCP `Implementation` advertises title **"Tela"** and `WebsiteURL` `https://telawiki.com` for the connector card.
+- **Favicon:** `https://tla.portalos.ru/favicon.svg` (source: `landing/public/favicon.svg`).
+- **Server branding:** the MCP `Implementation` advertises title **"Tela"** and `WebsiteURL` `https://tla.portalos.ru` for the connector card.
 - **Logo asset (standalone, if the form wants a separate upload):** `‹TODO: provide a standalone logo SVG/PNG URL if the data-URI icon isn't accepted as-is›`
 - **Widget screenshots (MCP Apps category):** `‹TODO: capture page-reader + search-results carousel screenshots if opting the widgets into the MCP Apps category›`
 

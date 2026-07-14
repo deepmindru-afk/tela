@@ -10,9 +10,9 @@ For deployment mechanics see [`deploy.md`](deploy.md).
 
 | URL | Purpose |
 |---|---|
-| `https://telawiki.com/api/health` | Liveness — 200 OK or 503 degraded |
-| `https://telawiki.com/api/version` | `{version, commit, built_at}` — verify what's live |
-| `https://telawiki.com/metrics` | Prometheus scrape (admin PAT required as `Authorization: Bearer tela_pat_…`) |
+| `https://tla.portalos.ru/api/health` | Liveness — 200 OK or 503 degraded |
+| `https://tla.portalos.ru/api/version` | `{version, commit, built_at}` — verify what's live |
+| `https://tla.portalos.ru/metrics` | Prometheus scrape (admin PAT required as `Authorization: Bearer tela_pat_…`) |
 
 ---
 
@@ -40,7 +40,7 @@ No tela-owned proxy container — the **shared external Caddy** on the host owns
 
 ```
 alert fires
-    └─ curl -s https://telawiki.com/api/health | jq
+    └─ curl -s https://tla.portalos.ru/api/health | jq
           ├─ {"status":"ok","db":"ok","rag":"enabled|disabled"}
           │    └─ backend + DB healthy; check app-level errors (5xx rate, client errors)
           └─ {"status":"degraded","db":"error: …"}    HTTP 503
@@ -50,7 +50,7 @@ alert fires
 
 Check what commit is live:
 ```bash
-curl -s https://telawiki.com/api/version | jq
+curl -s https://tla.portalos.ru/api/version | jq
 ```
 
 ---
@@ -91,7 +91,7 @@ The `db` field in the response body will have the Postgres error. Likely causes:
 2. **Backend lost the DB connection transiently** — usually self-heals on the next request. If persistent, restart the backend:
    ```bash
    docker compose -f deploy/docker-compose.split.yml restart backend
-   curl -s https://telawiki.com/api/health | jq
+   curl -s https://tla.portalos.ru/api/health | jq
    ```
 
 ---
@@ -216,8 +216,8 @@ docker compose -f deploy/docker-compose.split.yml restart frontend
 docker compose -f deploy/docker-compose.split.yml restart deck
 
 # Verify health after restart
-curl -s https://telawiki.com/api/health | jq
-curl -s https://telawiki.com/api/version | jq
+curl -s https://tla.portalos.ru/api/health | jq
+curl -s https://tla.portalos.ru/api/version | jq
 ```
 
 ---

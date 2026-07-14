@@ -3,7 +3,7 @@
 `github.com/zcag/defter/go` is a native, **dependency-free (stdlib only)** Go port
 of Defter's Tier-1 pure-text layer, built for byte-for-byte parity with the
 TypeScript reference in [`packages/core`](../packages/core). It exists so a Go
-host — the [tela](https://telawiki.com) wiki embeds Defter as a spreadsheet
+host — the [tela](https://tla.portalos.ru) wiki embeds Defter as a spreadsheet
 doc-type — can, server-side and in-process:
 
 - **normalize** an agent/synced body to canonical form before storing it, and

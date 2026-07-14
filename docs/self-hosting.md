@@ -105,7 +105,7 @@ search):
 
 ```bash
 # in deploy/.env
-TELA_RAG_EMBED_URL=https://telawiki.com/api/cloud/ollama
+TELA_RAG_EMBED_URL=https://tla.portalos.ru/api/cloud/ollama
 TELA_RAG_EMBED_TOKEN=tela_pat_xxxxxxxx
 TELA_RAG_EMBED_MODEL=qwen3-embedding:0.6b   # match the cloud's model/dim
 ```

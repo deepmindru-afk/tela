@@ -10,7 +10,7 @@ tela-own engine with push + in-app conflict UX comes later.
 > shows the exact `rclone config create` + sync commands to paste (token included,
 > `--ignore-size` baked in). The rest of this doc is the manual reference.
 
-- **Endpoint:** `https://telawiki.com/dav/`
+- **Endpoint:** `https://tla.portalos.ru/dav/`
 - **Auth:** a **Personal Access Token (PAT)** as the password (any username).
   Mint one in **Settings → Sync** (or under API keys). Use a **write**-scope key
   to sync up, **read** to sync down only. A **space-pinned** key exposes just
@@ -122,7 +122,7 @@ modtime support (rclone ≥ 1.66) matters here. Pure sync-*down* doesn't need it
 # ~/.config/rclone/rclone.conf
 [tela]
 type = webdav
-url = https://telawiki.com/dav/
+url = https://tla.portalos.ru/dav/
 vendor = other
 user = you@example.com
 pass = <obscured PAT>     # set via: rclone obscure 'tela_pat_xxx'

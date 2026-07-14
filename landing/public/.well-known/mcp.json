@@ -2,13 +2,13 @@
   "name": "io.github.zcag/tela",
   "title": "tela",
   "description": "Self-hostable markdown team wiki: agents search, read, and write your wiki pages over MCP.",
-  "websiteUrl": "https://telawiki.com",
-  "documentationUrl": "https://telawiki.com/mcp/",
+  "websiteUrl": "https://tla.portalos.ru",
+  "documentationUrl": "https://tla.portalos.ru/mcp/",
   "repository": {
     "url": "https://github.com/zcag/tela",
     "source": "github"
   },
-  "endpoint": "https://telawiki.com/api/mcp",
+  "endpoint": "https://tla.portalos.ru/api/mcp",
   "transport": "streamable-http",
   "auth": {
     "types": ["oauth", "pat"],
@@ -24,7 +24,7 @@
   "remotes": [
     {
       "type": "streamable-http",
-      "url": "https://telawiki.com/api/mcp"
+      "url": "https://tla.portalos.ru/api/mcp"
     }
   ],
   "packages": [
@@ -34,7 +34,7 @@
       "transport": { "type": "stdio" },
       "description": "Thin stdio<->HTTP proxy for stdio-only hosts. Set TELA_BASE_URL and TELA_API_KEY.",
       "environmentVariables": [
-        { "name": "TELA_BASE_URL", "description": "Origin of the tela instance, e.g. https://telawiki.com", "isRequired": true },
+        { "name": "TELA_BASE_URL", "description": "Origin of the tela instance, e.g. https://tla.portalos.ru", "isRequired": true },
         { "name": "TELA_API_KEY", "description": "Personal access token (tela_pat_...).", "isRequired": true, "isSecret": true }
       ]
     }

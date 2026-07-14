@@ -66,7 +66,7 @@ title: One URL. OAuth or a scoped token.
 {
   "mcpServers": {
     "tela": {
-      "url": "https://telawiki.com/api/mcp",
+      "url": "https://tla.portalos.ru/api/mcp",
       "headers": { "Authorization": "Bearer tela_pat_..." }
     }
   }

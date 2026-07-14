@@ -1,6 +1,6 @@
 # Getting tela listed in the Claude & ChatGPT directories
 
-Standalone working doc for submitting the tela MCP server (`https://telawiki.com/api/mcp`)
+Standalone working doc for submitting the tela MCP server (`https://tla.portalos.ru/api/mcp`)
 to the **Claude connector directory** and the **ChatGPT apps directory** so users
 discover it inside the host UI (not just manual custom-connector add). Researched
 from primary sources (mid-2026). Action items are checkboxes; flagged items need
@@ -18,11 +18,11 @@ pair; full-bleed connector icon + server branding.
 
 ## Status (2026-06-05, PM — WorkOS recreated, OAuth back UP)
 - ✅ **OAuth Connect chain LIVE & verified end-to-end.** WorkOS team was recreated → new issuer **`https://decisive-relation-32-staging.authkit.app`** (old `pleasing-puzzle-31` is dead — that's all last session's "down" was). Verified live: PRM → AS discovery 200 · DCR `POST /oauth2/register` → **201 + client_id, accepts `https://claude.ai/api/mcp/auth_callback`** · PKCE **S256** · grants `authorization_code`+`refresh_token` (no `client_credentials`) · `/api/mcp` 401 → correct `WWW-Authenticate` → path-suffixed PRM 200 (CORS `*`) · authorize 302 → tela Standalone bridge `/oauth/workos/login`. **The exact DCR step that failed last session now works.**
-- ✅ **Privacy policy + public MCP docs pages LIVE** at https://telawiki.com/privacy/ and /mcp/ (deployed 86ee942).
+- ✅ **Privacy policy + public MCP docs pages LIVE** at https://tla.portalos.ru/privacy/ and /mcp/ (deployed 86ee942).
 - ✅ **Code fixes shipped (prod @ 86ee942):** all 20 tools now carry explicit `openWorldHint`/`destructiveHint` (the SDK omitempty-default had them advertising as open-world/destructive — a directory-reject trigger); `get_page`/`fetch` bodies capped at 80k chars (~20k tokens) so a huge page can't blow the ~25k-token result budget; `mcp_test` guards the openWorldHint roster.
 - ✅ **MCP Inspector pass (live, 86ee942):** `tools/list` shows the correct hint matrix over the wire (reads=readOnly+closed, import_mira the only open-world, deletes destructive, updates/move idempotent); `tools/call list_spaces` OK; both resource templates + all 4 widget resources advertised. Write tools proven by Go `TestMCP_WriteTools` over the real transport.
-- ✅ **Privacy + docs LIVE:** https://telawiki.com/privacy/ and /mcp/ both 200 with real content.
-- ✅ **Branding asset:** `https://telawiki.com/icon-512.png` (512²) + `/favicon.svg` already served — covers the logo upload.
+- ✅ **Privacy + docs LIVE:** https://tla.portalos.ru/privacy/ and /mcp/ both 200 with real content.
+- ✅ **Branding asset:** `https://tla.portalos.ru/icon-512.png` (512²) + `/favicon.svg` already served — covers the logo upload.
 - ✅ **Submission payloads drafted:** `docs/mcp-submission-claude.md`, `docs/mcp-submission-chatgpt.md`.
 - ✅ **Demo account CREATED + populated:** `mcp-demo` / `mcp-demo@cagdas.io` (email-verified directly in the prod DB, no MFA, not admin); space "Demo" (id 4) seeded with 5 pages. Reusable seed: `scripts/seed-demo.py`. Password held outside the repo (paste into the submission form).
 - ✅ **Cloudflare allowlist APPLIED & live** — ruleset `0b545114` (skip WAF/rate-limit/bot for `160.79.104.0/21` on `telawiki.com`); terraform in zcag/dotty, state drift-free.
@@ -53,7 +53,7 @@ docs page, populated demo account, finalize branding) → submit **Claude first*
 
 **Submission:** `https://clau.de/mcp-directory-submission` (remote-MCP form, covers MCP Apps). Escalation/firewall/status: `mcp-review@anthropic.com`. The form is always open; a native Claude.ai submission surface + status dashboard are rolling out.
 
-**Submission-form payload to prepare:** server name, URL (`https://telawiki.com/api/mcp`), tagline, description, use cases; auth type + transport + read/write caps; optional Allowed Link URIs; data/compliance (third-party connections, health-data, category); full tool/resource list with human-readable names + confirmation of annotations; docs + privacy-policy + support-channel links; **test account with step-by-step setup**; GA date + tested surfaces; branding (logo URL/SVG, favicon verification; MCP-App screenshots if listing the widgets).
+**Submission-form payload to prepare:** server name, URL (`https://tla.portalos.ru/api/mcp`), tagline, description, use cases; auth type + transport + read/write caps; optional Allowed Link URIs; data/compliance (third-party connections, health-data, category); full tool/resource list with human-readable names + confirmation of annotations; docs + privacy-policy + support-channel links; **test account with step-by-step setup**; GA date + tested surfaces; branding (logo URL/SVG, favicon verification; MCP-App screenshots if listing the widgets).
 
 ### Hard requirements + tela status
 - [x] **Transport** Streamable HTTP (SSE deprecated) — *met*.
@@ -63,10 +63,10 @@ docs page, populated demo account, finalize branding) → submit **Claude first*
 - [x] **First-party API, server domain matches service** — *met* (telawiki.com).
 - [x] **Actionable errors, sized responses (≤25k tokens tool result)** — error payloads carry `{error,code,status}`; `get_page`/`fetch` now cap bodies at 80k chars (~20k tokens) with a `truncated` flag + pointer to `read_chunk`/`research` (shipped 86ee942).
 - [x] **Reachable from Anthropic egress `160.79.104.0/21`** — Cloudflare skip-rule APPLIED & live (ruleset `0b545114`, terraform in zcag/dotty).
-- [x] **Privacy policy at a public HTTPS URL** — LIVE at https://telawiki.com/privacy/.
-- [x] **Public documentation page** — LIVE at https://telawiki.com/mcp/.
+- [x] **Privacy policy at a public HTTPS URL** — LIVE at https://tla.portalos.ru/privacy/.
+- [x] **Public documentation page** — LIVE at https://tla.portalos.ru/mcp/.
 - [x] **Test account with sample data + setup steps** — `mcp-demo` / `mcp-demo@cagdas.io`, email-verified, no MFA; space "Demo" with 5 pages (see `mcp-submission-claude.md` §7). Password out-of-repo.
-- [x] **Branding: logo SVG/URL + favicon verification** — connector icon (data-URI) + `https://telawiki.com/icon-512.png` (512²) + `/favicon.svg` all served.
+- [x] **Branding: logo SVG/URL + favicon verification** — connector icon (data-URI) + `https://tla.portalos.ru/icon-512.png` (512²) + `/favicon.svg` all served.
 - [x] **MCP Inspector pass** — done live (86ee942): `tools/list` hint matrix correct over the wire, `tools/call list_spaces` OK, resource templates + 4 widget resources advertised; write tools proven by Go `TestMCP_WriteTools`. (Re-run as a custom connector once a demo login exists.)
 
 **Review:** reviewers functionally test every tool + run a policy scan; timeline varies (no SLA). Top rejections: missing/mismatched annotations, read+write in one tool, vague/behavioral descriptions, **WAF blocking egress during OAuth**, JSON-only `/token`, generic errors, **empty test accounts**.

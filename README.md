@@ -7,13 +7,13 @@
 
 ### The wiki that writes itself — from the code you already ship.
 
-[![Sign up free](https://img.shields.io/badge/▶%20Try%20tela%20free-telawiki.com-7C3AED?style=for-the-badge&labelColor=1a1a1a)](https://telawiki.com/register)
+[![Sign up free](https://img.shields.io/badge/▶%20Try%20tela%20free-telawiki.com-7C3AED?style=for-the-badge&labelColor=1a1a1a)](https://tla.portalos.ru/register)
 &nbsp;
-[![Tour the site](https://img.shields.io/badge/🌐%20Tour%20the%20site-telawiki.com-0b7285?style=for-the-badge&labelColor=1a1a1a)](https://telawiki.com)
+[![Tour the site](https://img.shields.io/badge/🌐%20Tour%20the%20site-telawiki.com-0b7285?style=for-the-badge&labelColor=1a1a1a)](https://tla.portalos.ru)
 &nbsp;
 [![Self-host it](https://img.shields.io/badge/⚙%20Self--host%20in%20one%20command-make%20up-2496ED?style=for-the-badge&labelColor=1a1a1a)](#quickstart)
 
-**[Home](https://telawiki.com) · [Pricing](https://telawiki.com/pricing/) · [Compare](https://telawiki.com/compare/) · [MCP for agents](https://telawiki.com/mcp/) · [Docs](https://telawiki.com/tela/docs)**
+**[Home](https://tla.portalos.ru) · [Pricing](https://tla.portalos.ru/pricing/) · [Compare](https://tla.portalos.ru/compare/) · [MCP for agents](https://tla.portalos.ru/mcp/) · [Docs](https://tla.portalos.ru/tela/docs)**
 
 [![License: AGPL-3.0](https://img.shields.io/badge/license-AGPL--3.0-blue.svg)](LICENSE)
 [![GitHub stars](https://img.shields.io/github/stars/zcag/tela?style=flat)](https://github.com/zcag/tela/stargazers)
@@ -25,7 +25,7 @@
 
 tela is a self-hostable, markdown-native team wiki built for a world where agents are first-class authors and readers. It pairs a Go + PostgreSQL backend with a React 19 / Milkdown editor, live Yjs collaboration, ranked full-text and semantic search, and a built-in Model Context Protocol (MCP) server — so the same knowledge base your team edits in the browser is one your agents can search, read, and write directly. Atlas, its documentation engine, turns the artifacts you already produce into maintained wiki pages. Your content stays canonical markdown forever — `pages.body` is markdown, there is no proprietary block store.
 
-> **[👉 Start at telawiki.com](https://telawiki.com)** — the marketing site walks through what tela does (with [pricing](https://telawiki.com/pricing/), a [comparison](https://telawiki.com/compare/), and the [agent/MCP story](https://telawiki.com/mcp/)), and the hosted instance has a free tier: no install, no card.
+> **[👉 Start at telawiki.com](https://tla.portalos.ru)** — the marketing site walks through what tela does (with [pricing](https://tla.portalos.ru/pricing/), a [comparison](https://tla.portalos.ru/compare/), and the [agent/MCP story](https://tla.portalos.ru/mcp/)), and the hosted instance has a free tier: no install, no card.
 
 ![Atlas turns a repo into a cited wiki and audits its own coverage: 6/6 must-cover documented, 42 citations, and the exact undocumented file:line gaps](docs/demo-atlas-audit.png)
 
@@ -65,7 +65,7 @@ Prefer managed hosting over running Compose? Deploy the published multi-arch ima
 
 [![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/zcag/tela) &nbsp; [![Deploy to DigitalOcean](https://www.deploytodo.com/do-btn-blue.svg)](https://cloud.digitalocean.com/apps/new?repo=https://github.com/zcag/tela/tree/main)
 
-> After the first deploy, enable pgvector on the managed database once — `CREATE EXTENSION IF NOT EXISTS vector;` — then point the backend's `TELA_PUBLIC_BASE_URL` at your app's public URL. Or skip ops entirely with the [free cloud tier](https://telawiki.com).
+> After the first deploy, enable pgvector on the managed database once — `CREATE EXTENSION IF NOT EXISTS vector;` — then point the backend's `TELA_PUBLIC_BASE_URL` at your app's public URL. Or skip ops entirely with the [free cloud tier](https://tla.portalos.ru).
 
 Common targets:
 
@@ -222,7 +222,7 @@ These features ship **dark** — unset means the relevant endpoints return `503`
 tela's MCP server is built into the backend at **`/api/mcp`** — it self-authenticates with a personal access token (PAT) as a bearer header. Modern hosts speak HTTP transport directly:
 
 ```
-https://telawiki.com/api/mcp            # tela cloud
+https://tla.portalos.ru/api/mcp            # tela cloud
 https://your-host.example.com/api/mcp   # your self-hosted origin
 ```
 
@@ -235,7 +235,7 @@ For hosts that can't speak HTTP transport (or want a stdio bridge), the [`tela-m
       "command": "npx",
       "args": ["-y", "tela-mcp"],
       "env": {
-        "TELA_BASE_URL": "https://telawiki.com",
+        "TELA_BASE_URL": "https://tla.portalos.ru",
         "TELA_API_KEY": "tela_pat_xxxxxxxx"
       }
     }
@@ -259,25 +259,25 @@ HTTP-transport hosts connect to the endpoint directly and sign in via OAuth. std
 **Claude Code** (CLI, HTTP):
 
 ```bash
-claude mcp add --transport http tela https://telawiki.com/api/mcp
+claude mcp add --transport http tela https://tla.portalos.ru/api/mcp
 ```
 
 **Cursor** (HTTP) — use the button above, or add to `~/.cursor/mcp.json`:
 
 ```jsonc
-{ "mcpServers": { "tela": { "url": "https://telawiki.com/api/mcp" } } }
+{ "mcpServers": { "tela": { "url": "https://tla.portalos.ru/api/mcp" } } }
 ```
 
 **VS Code** (HTTP) — use the button above, or:
 
 ```bash
-code --add-mcp '{"name":"tela","type":"http","url":"https://telawiki.com/api/mcp"}'
+code --add-mcp '{"name":"tela","type":"http","url":"https://tla.portalos.ru/api/mcp"}'
 ```
 
 **ChatGPT / Claude.ai** (OAuth connector) — add a custom connector and paste the URL; complete the sign-in:
 
 ```
-https://telawiki.com/api/mcp
+https://tla.portalos.ru/api/mcp
 ```
 
 **Claude Desktop** (stdio proxy) — `claude_desktop_config.json`:
@@ -288,7 +288,7 @@ https://telawiki.com/api/mcp
     "tela": {
       "command": "npx",
       "args": ["-y", "tela-mcp"],
-      "env": { "TELA_BASE_URL": "https://telawiki.com", "TELA_API_KEY": "tela_pat_xxxxxxxx" }
+      "env": { "TELA_BASE_URL": "https://tla.portalos.ru", "TELA_API_KEY": "tela_pat_xxxxxxxx" }
     }
   }
 }
@@ -302,10 +302,10 @@ https://telawiki.com/api/mcp
 [mcp_servers.tela]
 command = "npx"
 args = ["-y", "tela-mcp"]
-env = { TELA_BASE_URL = "https://telawiki.com", TELA_API_KEY = "tela_pat_xxxxxxxx" }
+env = { TELA_BASE_URL = "https://tla.portalos.ru", TELA_API_KEY = "tela_pat_xxxxxxxx" }
 ```
 
-A machine-discovery manifest is published at [`/.well-known/mcp.json`](https://telawiki.com/.well-known/mcp.json).
+A machine-discovery manifest is published at [`/.well-known/mcp.json`](https://tla.portalos.ru/.well-known/mcp.json).
 
 ## Screenshots
 
@@ -339,7 +339,7 @@ Deeper internals, ops, and gotchas live in [`docs/`](docs/) — start with [`doc
 ## Self-host vs cloud
 
 - **Self-host** — run the whole stack with `make up` (or `docker compose`). You own the data, the markdown, and the Postgres volume; AI features are bring-your-own-endpoint (or the bundled Ollama profile). The split/registry deploy topology for shared-edge boxes is in `docs/deploy.md`.
-- **Cloud** — a managed instance is hosted at **[telawiki.com](https://telawiki.com)** with a free tier, plus optional managed semantic search and ask-your-docs so you don't have to run an embedder or LLM yourself.
+- **Cloud** — a managed instance is hosted at **[telawiki.com](https://tla.portalos.ru)** with a free tier, plus optional managed semantic search and ask-your-docs so you don't have to run an embedder or LLM yourself.
 
 Both run the same code from this repository.
 

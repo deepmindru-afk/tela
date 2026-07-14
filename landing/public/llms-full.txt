@@ -19,16 +19,16 @@ tela is an open-source **agent-native** team wiki built around one loop: your so
 - Backend: Go + PostgreSQL (`pgx/v5`). Search: ranked Postgres full-text (`tsvector` / `ts_rank_cd`) fused with pgvector semantic retrieval; Atlas and ask-your-docs add an LLM endpoint and an embedder (both on for the hosted instance; bring your own to self-host).
 - Frontend: React + TypeScript + Vite + Tailwind + the Milkdown editor; Yjs for live collaboration.
 - MCP: a built-in remote server at `/api/mcp` (Streamable HTTP + OAuth). `tela-mcp` on npm is a thin stdio proxy for hosts that don't speak the HTTP transport directly.
-- Deploy: Docker Compose + a Caddy reverse proxy. Hosted instance: https://telawiki.com
+- Deploy: Docker Compose + a Caddy reverse proxy. Hosted instance: https://tla.portalos.ru
 
 ## How does an agent use tela?
-The endpoint is `https://telawiki.com/api/mcp`. In Claude or ChatGPT, add it as a connector and complete the OAuth sign-in — nothing to paste. For code agents, point any MCP client at the same URL with a scoped personal access token:
+The endpoint is `https://tla.portalos.ru/api/mcp`. In Claude or ChatGPT, add it as a connector and complete the OAuth sign-in — nothing to paste. For code agents, point any MCP client at the same URL with a scoped personal access token:
 
 ```json
 {
   "mcpServers": {
     "tela": {
-      "url": "https://telawiki.com/api/mcp",
+      "url": "https://tla.portalos.ru/api/mcp",
       "headers": { "Authorization": "Bearer tela_pat_..." }
     }
   }
@@ -56,8 +56,8 @@ None of them combine all of it: a wiki that documents itself from your sources a
 - **Is it multiplayer?** Yes — live collaborative editing over Yjs, with comments that survive edits.
 
 ## Links
-- Home: https://telawiki.com/
-- Live instance: https://telawiki.com/login
-- MCP server docs: https://telawiki.com/mcp
+- Home: https://tla.portalos.ru/
+- Live instance: https://tla.portalos.ru/login
+- MCP server docs: https://tla.portalos.ru/mcp
 - GitHub: https://github.com/zcag/tela
 - MCP proxy (npm): https://www.npmjs.com/package/tela-mcp

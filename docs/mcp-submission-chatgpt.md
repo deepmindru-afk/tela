@@ -1,19 +1,19 @@
 # Listing tela as a ChatGPT app (OpenAI Apps SDK / app directory)
 
 Submission payload, asset plan, and resolved research questions for publishing the
-tela MCP server (`https://telawiki.com/api/mcp`) in the ChatGPT app directory via
+tela MCP server (`https://tla.portalos.ru/api/mcp`) in the ChatGPT app directory via
 the Apps SDK. Companion to `docs/mcp-directory-submission.md` (which covers both
 Claude and ChatGPT at a higher level); this doc is the ChatGPT-specific, ready-to-fill
 package plus the answers to the items that file flagged for live verification.
 
-**Hard facts (verified 2026-06-05).** Endpoint `https://telawiki.com/api/mcp` ·
+**Hard facts (verified 2026-06-05).** Endpoint `https://tla.portalos.ru/api/mcp` ·
 transport Streamable HTTP · auth OAuth 2.1 via WorkOS AuthKit (issuer
 `https://decisive-relation-32-staging.authkit.app`, PKCE S256, DCR) **or** a Personal
 Access Token bearer header · **39 tools** (20 read / 19 write — updated 2026-06-29), all with title + hints +
 `outputSchema` · 2 resource templates (`tela://page/{id}`, `tela://space/{id}`) · 2
 interactive widgets (page-reader, search-results cards) · `search` + `fetch` Deep
-Research pair present · docs `https://telawiki.com/mcp` · privacy
-`https://telawiki.com/privacy` · first-party · collects no PHI/PCI/gov-ID/secrets ·
+Research pair present · docs `https://tla.portalos.ru/mcp` · privacy
+`https://tla.portalos.ru/privacy` · first-party · collects no PHI/PCI/gov-ID/secrets ·
 no ads or in-app subscriptions · open-source `github.com/zcag/tela`.
 
 > Note on sources: `developers.openai.com/apps-sdk/*` was TLS-unreachable from this
@@ -209,13 +209,13 @@ Sources: [Define tools](https://developers.openai.com/apps-sdk/plan/tools) ·
 > (`github.com/zcag/tela`); the server is your own deployment at your own domain.
 
 ### Connection facts (for the Dashboard form)
-- **MCP endpoint:** `https://telawiki.com/api/mcp`
+- **MCP endpoint:** `https://tla.portalos.ru/api/mcp`
 - **Transport:** Streamable HTTP
 - **Auth:** OAuth 2.1 (WorkOS AuthKit, issuer `https://decisive-relation-32-staging.authkit.app`,
   PKCE S256, Dynamic Client Registration). PAT bearer also supported but the directory flow
   uses OAuth.
-- **Company / docs URL:** `https://telawiki.com/mcp`
-- **Privacy policy URL:** `https://telawiki.com/privacy`
+- **Company / docs URL:** `https://tla.portalos.ru/mcp`
+- **Privacy policy URL:** `https://tla.portalos.ru/privacy`
 - **Support:** `tela@telawiki.com`
 - **Source:** `https://github.com/zcag/tela`
 
@@ -268,7 +268,7 @@ demo account** so these resolve to real content.
   No advertising. No in-app digital subscriptions.
 - **Permissions model:** all calls run with the authenticated user's account permissions;
   write tools are scope-gated; read-only tokens cannot mutate.
-- These answers mirror `https://telawiki.com/privacy`; keep the two in sync.
+- These answers mirror `https://tla.portalos.ru/privacy`; keep the two in sync.
 
 ### Tool list with annotations + justifications
 
@@ -328,7 +328,7 @@ explicitly in code per section 5.
     don't actually return).
 - [ ] **App name + descriptions** — from section 2.
 - [ ] **5 positive + 3 negative test prompts** with expected responses — from section 2.
-- [ ] **Docs URL** `https://telawiki.com/mcp` and **privacy URL** `https://telawiki.com/privacy`
+- [ ] **Docs URL** `https://tla.portalos.ru/mcp` and **privacy URL** `https://tla.portalos.ru/privacy`
       live (both ship on `make deploy-landing` — verify they're deployed before submitting).
 - [ ] **Populated no-MFA demo account** with sample spaces/pages so every positive prompt
       resolves to real content and the negative prompts fail cleanly.

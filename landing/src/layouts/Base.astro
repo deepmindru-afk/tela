@@ -19,7 +19,7 @@ const {
   ogImagePath = '/og-image.png',
 } = Astro.props;
 
-// Absolute OG image URL (Astro.site = https://telawiki.com).
+// Absolute OG image URL (Astro.site = https://tla.portalos.ru).
 const ogImage = new URL(ogImagePath, Astro.site).href;
 ---
 
@@ -78,17 +78,17 @@ const ogImage = new URL(ogImagePath, Astro.site).href;
       '@graph': [
         {
           '@type': 'SoftwareApplication',
-          '@id': 'https://telawiki.com/#software',
+          '@id': 'https://tla.portalos.ru/#software',
           name: 'tela',
           description: 'Markdown-вики для команды с семантическим поиском и встроенным MCP-сервером — AI-агенты ищут документы по смыслу, читают, пишут и цитируют их прямо в Claude и ChatGPT. Совместное редактирование в реальном времени, SSO, разграниченный доступ. Ваш markdown — в облаке или на вашем сервере.',
           applicationCategory: 'DeveloperApplication',
           operatingSystem: 'Linux, macOS, Docker',
-          url: 'https://telawiki.com',
-          image: 'https://telawiki.com/og-image.png',
+          url: 'https://tla.portalos.ru',
+          image: 'https://tla.portalos.ru/og-image.png',
           isAccessibleForFree: true,
           license: 'https://github.com/zcag/tela/blob/main/LICENSE',
           offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' },
-          publisher: { '@id': 'https://telawiki.com/#org' },
+          publisher: { '@id': 'https://tla.portalos.ru/#org' },
         },
         {
           '@type': 'SoftwareSourceCode',
@@ -98,13 +98,13 @@ const ogImage = new URL(ogImagePath, Astro.site).href;
           runtimePlatform: 'Docker',
           url: 'https://github.com/zcag/tela',
         },
-        { '@type': 'WebSite', '@id': 'https://telawiki.com/#website', name: 'tela', url: 'https://telawiki.com', inLanguage: 'ru', publisher: { '@id': 'https://telawiki.com/#org' } },
+        { '@type': 'WebSite', '@id': 'https://tla.portalos.ru/#website', name: 'tela', url: 'https://tla.portalos.ru', inLanguage: 'ru', publisher: { '@id': 'https://tla.portalos.ru/#org' } },
         {
           '@type': 'Organization',
-          '@id': 'https://telawiki.com/#org',
+          '@id': 'https://tla.portalos.ru/#org',
           name: 'tela',
-          url: 'https://telawiki.com',
-          logo: 'https://telawiki.com/icon-512.png',
+          url: 'https://tla.portalos.ru',
+          logo: 'https://tla.portalos.ru/icon-512.png',
           sameAs: [
             'https://github.com/zcag/tela',
             'https://www.npmjs.com/package/tela-mcp',
@@ -128,9 +128,9 @@ const ogImage = new URL(ogImagePath, Astro.site).href;
          /analytics/api/send so it is proxied correctly by Caddy. -->
     <script
       defer
-      src="https://telawiki.com/analytics/script.js"
+      src="https://tla.portalos.ru/analytics/script.js"
       data-website-id="25ecebda-1f0f-4339-9465-b368e2d7c9a7"
-      data-host-url="https://telawiki.com/analytics"
+      data-host-url="https://tla.portalos.ru/analytics"
       is:inline
     ></script>
     <!-- Scroll-depth tracking — fires once per threshold (25/50/75/100%). -->

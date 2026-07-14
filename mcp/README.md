@@ -1,6 +1,6 @@
 # tela-mcp
 
-A **thin stdio↔HTTP proxy** to a [Tela](https://telawiki.com) instance's
+A **thin stdio↔HTTP proxy** to a [Tela](https://tla.portalos.ru) instance's
 built-in MCP server.
 
 As of v0.7, the MCP server lives **inside the Tela backend** at
@@ -18,7 +18,7 @@ endpoint and skip the proxy entirely:
 
 ```sh
 # Claude Code
-claude mcp add --transport http tela https://telawiki.com/api/mcp \
+claude mcp add --transport http tela https://tla.portalos.ru/api/mcp \
   --header "Authorization: Bearer tela_pat_..."
 ```
 
@@ -37,7 +37,7 @@ Add to your `.mcp.json`:
       "command": "npx",
       "args": ["-y", "tela-mcp@latest"],
       "env": {
-        "TELA_BASE_URL": "https://telawiki.com",
+        "TELA_BASE_URL": "https://tla.portalos.ru",
         "TELA_API_KEY": "tela_pat_..."
       }
     }
@@ -47,7 +47,7 @@ Add to your `.mcp.json`:
 
 | Var | Purpose |
 |-----|---------|
-| `TELA_BASE_URL` | Origin of the Tela instance (e.g. `https://telawiki.com` or `http://localhost:8780`). The proxy connects to `{TELA_BASE_URL}/api/mcp`. |
+| `TELA_BASE_URL` | Origin of the Tela instance (e.g. `https://tla.portalos.ru` or `http://localhost:8780`). The proxy connects to `{TELA_BASE_URL}/api/mcp`. |
 | `TELA_API_KEY` | Personal access token (`tela_pat_…`), forwarded as `Authorization: Bearer`. Create one in **Settings → API Keys**. |
 
 Both must be set at spawn time, or the process exits non-zero before the MCP
@@ -61,7 +61,7 @@ The tools (`list_spaces`, `get_page`, `search`, `semantic_search`,
 defined and documented **in the backend**, not here. Scope and per-space
 restrictions are enforced server-side; failures arrive as the usual
 `{error, code, status}` envelope in the tool result. See the project Showcase:
-<https://telawiki.com/spaces/1/pages/19>.
+<https://tla.portalos.ru/spaces/1/pages/19>.
 
 ## Auth
 

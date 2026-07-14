@@ -32,7 +32,7 @@ Ranked by impact × ease. Duplicate findings (e.g. SQLite drift, missing sitemap
 
 | # | Issue | Severity | Surface | Fix | Effort |
 |---|---|---|---|---|---|
-| 1 | **GitHub repo has no description, no topics, no homepage URL** — zero on-GitHub discoverability, no link equity to site, generic social card | Critical | Off-page | `gh repo edit zcag/tela --description '…' --homepage https://telawiki.com --add-topic wiki --add-topic mcp …` | XS (one command) |
+| 1 | **GitHub repo has no description, no topics, no homepage URL** — zero on-GitHub discoverability, no link equity to site, generic social card | Critical | Off-page | `gh repo edit zcag/tela --description '…' --homepage https://tla.portalos.ru --add-topic wiki --add-topic mcp …` | XS (one command) |
 | 2 | **`llms.txt` / `llms-full.txt` assert SQLite/FTS5, "one binary", "no Postgres", 17 tools, `import_markdown`** — verbatim LLM-ingested misinformation, also tells self-hosters they don't need Postgres (breaks deploy) | Critical | GEO/LLM | Rewrite to Postgres + ranked FTS + semantic; drop single-binary; 17→20; remove `import_markdown` | S |
 | 3 | **`LICENSE` file missing** but linked from footer, terms, and JSON-LD (3+ live 404s); README says "TBD" | High | Off-page | Commit root MIT `LICENSE`; update README:95; verify the 3 links + JSON-LD resolve 200 | XS |
 | 4 | **npm `package.json` missing `keywords`/`repository`/`homepage`/`bugs`** — package page unrankable, leaks no authority back to site/repo | High | Off-page | Add the four fields; publish 0.7.1 | XS |
@@ -185,7 +185,7 @@ Every factually wrong/stale **public** claim, with exact location and corrected 
 ## 5. Quick Wins vs. Projects
 
 ### Quick wins (minutes to ~1 hour; outsized impact)
-- **GitHub About:** one `gh repo edit zcag/tela --description '…' --homepage https://telawiki.com --add-topic wiki --add-topic mcp --add-topic self-hosted …` — #1 highest-leverage fix.
+- **GitHub About:** one `gh repo edit zcag/tela --description '…' --homepage https://tla.portalos.ru --add-topic wiki --add-topic mcp --add-topic self-hosted …` — #1 highest-leverage fix.
 - **Commit a root MIT `LICENSE`** → kills 3 live 404s + JSON-LD broken link, unlocks GitHub license badge.
 - **Add 4 npm fields** (`keywords`/`repository`/`homepage`/`bugs`) + rewrite description → publish 0.7.1.
 - **Rewrite `llms.txt`/`llms-full.txt`** to current architecture (SQLite→Postgres, drop single-binary, 17→20, fix `import_markdown`) — pure content edits.

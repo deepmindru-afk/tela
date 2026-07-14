@@ -370,7 +370,7 @@ func licenseRefreshURL() string {
 	if v, ok := os.LookupEnv("TELA_LICENSE_REFRESH_URL"); ok {
 		return strings.TrimRight(strings.TrimSpace(v), "/")
 	}
-	return "https://telawiki.com"
+	return "https://tla.portalos.ru"
 }
 
 // licenseRefreshLoop pulls the current key for this instance's installed license
