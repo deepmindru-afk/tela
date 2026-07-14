@@ -3,7 +3,7 @@
 A tela **deck** is a normal **page** whose body is **[Slidev](https://sli.dev)
 markdown** — a page is *either* a doc or a deck (set by the `deck` page property),
 never slides embedded mid-document. The visual design lives entirely in
-**[`slidev-theme-tahta`](https://github.com/zcag/tahta)** (an npm dependency); tela
+**[`slidev-theme-tahta`](https://portalos.rutahta)** (an npm dependency); tela
 owns no layouts/styles and injects only a per-deck visual config.
 
 Rendering runs in a **sidecar** (`deck/`, a tiny Node service on `:3344`, the

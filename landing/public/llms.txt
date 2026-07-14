@@ -10,7 +10,7 @@ tela is an open-source, **agent-native** team wiki. Its headline feature, **Atla
 - [MCP server docs](https://tla.portalos.ru/mcp): the endpoint, OAuth sign-in, and the full 39-tool catalog.
 
 ## Code & packages
-- [GitHub repository](https://github.com/zcag/tela): open source — Go backend (PostgreSQL), React/Milkdown frontend, and the MCP server.
+- [GitHub repository](https://portalos.rutela): open source — Go backend (PostgreSQL), React/Milkdown frontend, and the MCP server.
 - [tela-mcp on npm](https://www.npmjs.com/package/tela-mcp): a thin stdio proxy for hosts that don't speak Streamable HTTP directly.
 
 ## For agents

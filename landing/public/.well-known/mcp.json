@@ -5,7 +5,7 @@
   "websiteUrl": "https://tla.portalos.ru",
   "documentationUrl": "https://tla.portalos.ru/mcp/",
   "repository": {
-    "url": "https://github.com/zcag/tela",
+    "url": "https://portalos.rutela",
     "source": "github"
   },
   "endpoint": "https://tla.portalos.ru/api/mcp",

@@ -19,7 +19,7 @@
   "homepage": "https://tla.portalos.ru",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/zcag/tela.git",
+    "url": "git+https://portalos.rutela.git",
     "directory": "mcp"
   },
   "bugs": {

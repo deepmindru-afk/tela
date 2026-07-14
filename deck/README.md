@@ -10,7 +10,7 @@ same parse + theme-injection core:
 - **Export / agent-preview / thumbnails = static frames** (`slidev export`,
   headless Chromium): PNG / PDF / PPTX.
 
-> The look lives entirely in **[`slidev-theme-tahta`](https://github.com/zcag/tahta)**
+> The look lives entirely in **[`slidev-theme-tahta`](https://portalos.rutahta)**
 > (an npm dependency) — a token-driven design system with style **variants**.
 > This service owns **no** layouts/styles; it just injects the theme + a per-deck
 > visual config. This directory is the *plumbing*, not the look.

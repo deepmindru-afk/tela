@@ -4,7 +4,7 @@
 
 The REST API (`/api/*`) is **internal** — it powers the React frontend and the `tela-mcp` stdio proxy. It carries no version prefix and may change between releases without prior notice. Do not build external integrations against it directly.
 
-**The stable integration surface is the MCP server** (`POST /api/mcp`, streamable HTTP or via the `tela-mcp` npm proxy). The MCP tool/resource schema is versioned (`protocolVersion: 2024-11-05`) and is the intended external API for agents, scripts, and third-party tools. Breaking changes to MCP tools will be documented in the [GitHub changelog](https://github.com/zcag/tela).
+**The stable integration surface is the MCP server** (`POST /api/mcp`, streamable HTTP or via the `tela-mcp` npm proxy). The MCP tool/resource schema is versioned (`protocolVersion: 2024-11-05`) and is the intended external API for agents, scripts, and third-party tools. Breaking changes to MCP tools will be documented in the [GitHub changelog](https://portalos.rutela).
 
 Exception: `/api/health`, `/api/version`, and `/metrics` are stable and safe to poll.
 

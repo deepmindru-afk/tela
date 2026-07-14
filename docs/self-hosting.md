@@ -11,7 +11,7 @@ inside the proxy image, so no Node toolchain is required).
 ## Quick start
 
 ```bash
-git clone https://github.com/zcag/tela && cd tela
+git clone https://portalos.rutela && cd tela
 make setup            # writes deploy/.env from the example, with generated secrets
 $EDITOR deploy/.env   # set TELA_PUBLIC_BASE_URL, TELA_ADMIN_*, and (for multi-user) TELA_SMTP_*
 make up               # build + start the stack

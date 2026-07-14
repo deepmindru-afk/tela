@@ -7,14 +7,14 @@
   "long_description": "Connects Claude Desktop to a tela instance — a self-hostable, markdown-native team wiki — via its built-in MCP server. Lets Claude search, read, and author wiki pages with scoped, per-tool write permissions. Wraps the tela-mcp stdio↔HTTP proxy; point it at your own origin to use a self-hosted instance.",
   "author": {
     "name": "zcag",
-    "url": "https://github.com/zcag/tela"
+    "url": "https://portalos.rutela"
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/zcag/tela"
+    "url": "https://portalos.rutela"
   },
   "homepage": "https://tla.portalos.ru",
-  "documentation": "https://github.com/zcag/tela/blob/main/mcp/README.md",
+  "documentation": "https://portalos.rutela/blob/main/mcp/README.md",
   "server": {
     "type": "node",
     "entry_point": "server/index.js",

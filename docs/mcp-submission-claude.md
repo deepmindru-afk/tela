@@ -139,7 +139,7 @@ Concrete agent workflows, each grounded in the actual tools:
 | **Documentation** | `https://tla.portalos.ru/mcp` |
 | **Privacy policy** | `https://tla.portalos.ru/privacy` |
 | **Support channel** | `tela@telawiki.com` |
-| **Source** | `https://github.com/zcag/tela` |
+| **Source** | `https://portalos.rutela` |
 | **npm proxy** | `tela-mcp` (`https://www.npmjs.com/package/tela-mcp`) |
 | **Review escalation (Anthropic)** | `mcp-review@anthropic.com` |
 

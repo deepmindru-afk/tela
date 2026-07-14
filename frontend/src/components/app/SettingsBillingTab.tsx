@@ -594,7 +594,7 @@ export function SettingsBillingTab() {
         <p className="m-0 text-[length:var(--text-sm)] text-[var(--text-muted)]">
           Prefer to run it yourself? tela is open source and self-hostable —{' '}
           <a
-            href="https://github.com/zcag/tela"
+            href="https://portalos.rutela"
             target="_blank"
             rel="noopener noreferrer"
             className="text-[var(--accent)] no-underline hover:underline"

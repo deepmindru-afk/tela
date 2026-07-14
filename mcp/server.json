@@ -3,7 +3,7 @@
   "name": "io.github.zcag/tela",
   "description": "Self-hostable team wiki; agents read & write it via MCP; Atlas turns your repo into a cited wiki.",
   "repository": {
-    "url": "https://github.com/zcag/tela",
+    "url": "https://portalos.rutela",
     "source": "github",
     "subfolder": "mcp"
   },

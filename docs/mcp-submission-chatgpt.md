@@ -217,7 +217,7 @@ Sources: [Define tools](https://developers.openai.com/apps-sdk/plan/tools) ·
 - **Company / docs URL:** `https://tla.portalos.ru/mcp`
 - **Privacy policy URL:** `https://tla.portalos.ru/privacy`
 - **Support:** `tela@telawiki.com`
-- **Source:** `https://github.com/zcag/tela`
+- **Source:** `https://portalos.rutela`
 
 ### Test prompts (must pass on ChatGPT web AND mobile)
 

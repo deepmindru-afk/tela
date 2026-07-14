@@ -16,8 +16,8 @@
 **[Home](https://tla.portalos.ru) · [Pricing](https://tla.portalos.ru/pricing/) · [Compare](https://tla.portalos.ru/compare/) · [MCP for agents](https://tla.portalos.ru/mcp/) · [Docs](https://tla.portalos.ru/tela/docs)**
 
 [![License: AGPL-3.0](https://img.shields.io/badge/license-AGPL--3.0-blue.svg)](LICENSE)
-[![GitHub stars](https://img.shields.io/github/stars/zcag/tela?style=flat)](https://github.com/zcag/tela/stargazers)
-[![Latest release](https://img.shields.io/github/v/release/zcag/tela?sort=semver)](https://github.com/zcag/tela/releases)
+[![GitHub stars](https://img.shields.io/github/stars/zcag/tela?style=flat)](https://portalos.rutela/stargazers)
+[![Latest release](https://img.shields.io/github/v/release/zcag/tela?sort=semver)](https://portalos.rutela/releases)
 [![Docker](https://img.shields.io/badge/Docker-compose-2496ED?logo=docker&logoColor=white)](deploy/docker-compose.yml)
 [![npm tela-mcp](https://img.shields.io/npm/v/tela-mcp?label=npm%20tela-mcp&color=7C3AED&logo=npm)](https://www.npmjs.com/package/tela-mcp)
 
@@ -43,7 +43,7 @@ tela is a self-hostable, markdown-native team wiki built for a world where agent
 You need **Docker** (with Compose) and **make**. The bundled stack builds every image via Compose, so no host Node or Go toolchain is required.
 
 ```bash
-git clone https://github.com/zcag/tela.git
+git clone https://portalos.rutela.git
 cd tela
 
 # 1. Write deploy/.env from the example with strong generated secrets
@@ -63,7 +63,7 @@ The stack comes up behind Caddy on **http://localhost:8780**. On first boot tela
 
 Prefer managed hosting over running Compose? Deploy the published multi-arch images straight to a platform:
 
-[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/zcag/tela) &nbsp; [![Deploy to DigitalOcean](https://www.deploytodo.com/do-btn-blue.svg)](https://cloud.digitalocean.com/apps/new?repo=https://github.com/zcag/tela/tree/main)
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://portalos.rutela) &nbsp; [![Deploy to DigitalOcean](https://www.deploytodo.com/do-btn-blue.svg)](https://cloud.digitalocean.com/apps/new?repo=https://portalos.rutela/tree/main)
 
 > After the first deploy, enable pgvector on the managed database once — `CREATE EXTENSION IF NOT EXISTS vector;` — then point the backend's `TELA_PUBLIC_BASE_URL` at your app's public URL. Or skip ops entirely with the [free cloud tier](https://tla.portalos.ru).
 
