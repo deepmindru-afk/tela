@@ -59,7 +59,7 @@ const ogImage = new URL(ogImagePath, Astro.site).href;
     <meta name="theme-color" content="#fbfbfe" media="(prefers-color-scheme: light)" />
 
     <meta property="og:type" content="website" />
-    <meta property="og:site_name" content="tela" />
+    <meta property="og:site_name" content="portal" />
     <meta property="og:locale" content="ru_RU" />
     <meta property="og:title" content={title} />
     <meta property="og:description" content={ogDescription} />
@@ -67,7 +67,7 @@ const ogImage = new URL(ogImagePath, Astro.site).href;
     <meta property="og:image" content={ogImage} />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
-    <meta property="og:image:alt" content="tela — вики, которую понимают ваши агенты" />
+    <meta property="og:image:alt" content="portal — вики, которую понимают ваши агенты" />
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content={title} />
     <meta name="twitter:description" content={ogDescription} />
@@ -79,35 +79,35 @@ const ogImage = new URL(ogImagePath, Astro.site).href;
         {
           '@type': 'SoftwareApplication',
           '@id': 'https://tla.portalos.ru/#software',
-          name: 'tela',
+          name: 'portal',
           description: 'Markdown-вики для команды с семантическим поиском и встроенным MCP-сервером — AI-агенты ищут документы по смыслу, читают, пишут и цитируют их прямо в Claude и ChatGPT. Совместное редактирование в реальном времени, SSO, разграниченный доступ. Ваш markdown — в облаке или на вашем сервере.',
           applicationCategory: 'DeveloperApplication',
           operatingSystem: 'Linux, macOS, Docker',
           url: 'https://tla.portalos.ru',
           image: 'https://tla.portalos.ru/og-image.png',
           isAccessibleForFree: true,
-          license: 'https://github.com/zcag/tela/blob/main/LICENSE',
+          license: 'https://portalos.ru',
           offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' },
           publisher: { '@id': 'https://tla.portalos.ru/#org' },
         },
         {
           '@type': 'SoftwareSourceCode',
-          name: 'tela',
-          codeRepository: 'https://github.com/zcag/tela',
+          name: '[portal]',
+          codeRepository: 'https://tla.portalos.ru',
           programmingLanguage: ['Go', 'TypeScript'],
           runtimePlatform: 'Docker',
-          url: 'https://github.com/zcag/tela',
+          url: 'https://portalos.ru',
         },
-        { '@type': 'WebSite', '@id': 'https://tla.portalos.ru/#website', name: 'tela', url: 'https://tla.portalos.ru', inLanguage: 'ru', publisher: { '@id': 'https://tla.portalos.ru/#org' } },
+        { '@type': 'WebSite', '@id': 'https://tla.portalos.ru/#website', name: 'portal', url: 'https://tla.portalos.ru', inLanguage: 'ru', publisher: { '@id': 'https://tla.portalos.ru/#org' } },
         {
           '@type': 'Organization',
           '@id': 'https://tla.portalos.ru/#org',
-          name: 'tela',
+          name: 'portal',
           url: 'https://tla.portalos.ru',
           logo: 'https://tla.portalos.ru/icon-512.png',
           sameAs: [
-            'https://github.com/zcag/tela',
-            'https://www.npmjs.com/package/tela-mcp',
+            'https://tla.portalos.ru',
+            'https://tla.portalos.ru',
           ],
         },
       ],
