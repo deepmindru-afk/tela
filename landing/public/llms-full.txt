@@ -1,4 +1,4 @@
-# tela — the team wiki that documents itself
+# portal — the team wiki that documents itself
 
 > Point Atlas at your sources — a git repo, a Jira project — and tela writes a cited, coverage-checked wiki and keeps it fresh. Your agents search it by meaning and read, write, and cite it from inside Claude and ChatGPT. Real-time multiplayer for the humans; SSO, scoped access, and an audit trail for the team. Markdown you own — hosted, or self-hosted.
 

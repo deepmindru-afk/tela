@@ -100,7 +100,7 @@ setup:
 	@echo "Next: edit deploy/.env (TELA_ADMIN_*, TELA_PUBLIC_BASE_URL, TELA_SMTP_*), then 'make up'."
 
 help:
-	@echo "tela — common targets"
+	@echo "portal — common targets"
 	@echo "  make setup      # first run: write deploy/.env from the example with generated secrets"
 	@echo "  make up         # build and start the stack (auto-stamps git version/commit) on http://localhost:8780"
 	@echo "  make down       # stop the stack"

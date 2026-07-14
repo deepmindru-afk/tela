@@ -48,7 +48,7 @@ export function PublicDiscover({
       <PublicMasthead
         title="Discover"
         avatarSeed="discover"
-        standfirst="Public spaces published on tela — browse the network."
+        standfirst="Public spaces published on portal — browse the network."
         meta={<SortToggle sort={sort} onSort={onSort} disabled={query.isLoading} />}
       />
 

@@ -233,7 +233,7 @@ Read it as: **Atlas + Ask = tela's first-party intelligence** (both grounded-and
 - **Answer-first block:** `A step past search: ask in plain language and tela pulls the relevant sections, then writes a direct answer with citations — grounded only in pages you're allowed to read. When your docs don't cover it, it says so instead of guessing.`
 - **Show it (visual for the build):** an "ask" card — the question at top, a written answer with inline `[n]` citation markers, then the cited **source pages** listed below (page title ▸ heading · space). Real-feeling content (the rollback/incident theme, consistent with §3), never lorem. No JSON, no scores.
 - **Two front doors (both framing — the user's call):**
-  - **For your team:** `Ask inside tela — a question box over every space you can read; you get a written answer and links to the exact pages it came from.`
+  - **For your team:** `Ask inside portal — a question box over every space you can read; you get a written answer and links to the exact pages it came from.`
   - **For your agent:** `Claude and ChatGPT ground their answers the same way through the connector — pulling the relevant sections and citing the source page, scoped to your access.`
 - **Honesty note (build + copy):** managed AI is included on the hosted instance, **metered by the plan's monthly answer allowance** (see §8b); self-hosting, bring your own — point tela at any OpenAI-compatible LLM. The model answers strictly from retrieved excerpts and abstains when they don't cover the question. Never imply ask-your-docs runs with zero setup on a fresh self-host (it needs an embedder *and* an LLM).
 - No CTA (momentum carries to the agent layer, then the pivot).
@@ -395,16 +395,16 @@ Read it as: **Atlas + Ask = tela's first-party intelligence** (both grounded-and
 - **Friction microcopy:** `Free to start · markdown you own · self-host whenever you want.`
 
 ### 12. Footer  — Tier 4  (junk drawer)
-- Wordmark + one-line descriptor: `tela — the team wiki that documents itself and your AI reasons over.`
+- Wordmark + one-line descriptor: `portal — the team wiki that documents itself and your AI reasons over.`
 - Links: GitHub · MCP / connector · Docs · Live instance (telawiki.com) · Privacy · License.
-- Optional, sparing: `tela — Latin for the woven cloth. A grid you build on.` (use once or not at all.)
+- Optional, sparing: `portal — Latin for the woven cloth. A grid you build on.` (use once or not at all.)
 
 - **Primary CTA (one, repeated):** `Get started` → https://tla.portalos.ru · friction: `Free to start · markdown you own · self-host whenever you want.`
 - **Secondary CTA (repeated):** `Add to Claude or ChatGPT` → `#agents` / `/mcp`.
 
 ## SEO & accessibility
 
-- **`<title>`:** `tela — the team wiki that documents itself and your AI reasons over`
+- **`<title>`:** `portal — the team wiki that documents itself and your AI reasons over`
 - **Meta description:** `A markdown team wiki that documents itself: point Atlas at a git repo or Jira project and it writes a cited, coverage-checked wiki and keeps it fresh. Your AI agents search it by meaning and read, write, and cite it inside Claude and ChatGPT. Real-time multiplayer, SSO, scoped access. Hosted or self-hosted.`
 - **5-second clarity test (visitor must grasp):** *tela is a markdown team wiki, and its standout is one loop — it documents itself from your sources (Atlas, coverage-checked) and your AI reasons over it (semantic retrieval + a real MCP connector inside Claude and ChatGPT).*
 - **Headings:** one H1 (the hero promise); section H2s phrased as real queries where natural ("What can an agent actually do with tela?", "How does search work?"). Descriptive anchor text (never "click here"). Meaningful alt on the editor visual and the hero signature moment. Plain-language reading level (~8th grade) despite the technical audience.

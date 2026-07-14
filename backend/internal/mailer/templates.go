@@ -36,7 +36,7 @@ const (
 )
 
 // emailTagline rides the footer of every email — a one-line product signature.
-const emailTagline = "tela — your team's markdown-native, AI-ready knowledge base."
+const emailTagline = "portal — your team's markdown-native, AI-ready knowledge base."
 
 // monogramColors is a small fixed accent palette for actor monogram chips —
 // deterministic per name (no avatar storage; renders without an image fetch, so

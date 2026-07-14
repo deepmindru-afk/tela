@@ -1,4 +1,4 @@
-# tela — Visibility & Sharing model (design note)
+# portal — Visibility & Sharing model (design note)
 
 > Status: **shipped** (2026-06-03) — exposure model, indicators, audit view,
 > and personal-space provisioning are all in. Remaining items are the explicit

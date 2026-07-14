@@ -192,7 +192,7 @@ Sources: [Define tools](https://developers.openai.com/apps-sdk/plan/tools) ·
 ## 2. SUBMISSION PAYLOAD
 
 ### App name
-**tela** (display name: **tela — markdown team wiki**)
+**tela** (display name: **portal — markdown team wiki**)
 
 ### Short description (≤ ~80 chars)
 > A markdown team wiki your agents can search, read, and write — over MCP.

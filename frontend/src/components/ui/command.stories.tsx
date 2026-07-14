@@ -48,7 +48,7 @@ const SAMPLE_PAGES: Omit<CommandItem, 'onSelect'>[] = [
   {
     id: 'p1',
     title: 'Onboarding',
-    subtitle: 'Welcome to tela — start here.',
+    subtitle: 'Welcome to portal — start here.',
     breadcrumb: 'Engineering',
     // (space root — breadcrumb is the bare space name)
     icon: <FileText width={14} height={14} />,

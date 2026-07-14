@@ -1,6 +1,6 @@
 # tela landing
 
-The standalone **marketing landing page** for tela — a separate Astro static site,
+The standalone **marketing landing page** for portal — a separate Astro static site,
 in the same repo as the app but built and deployed independently. `backend/` and
 `frontend/` are untouched by this.
 

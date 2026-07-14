@@ -75,7 +75,7 @@ export function Sidebar({
       <div className="px-[var(--space-3)] pt-[var(--space-4)] flex flex-col gap-[var(--space-1)]">
         <Link
           to="/"
-          aria-label="tela — домой"
+          aria-label="portal — домой"
           className="mb-[var(--space-2)] inline-flex items-center px-[var(--space-1)] no-underline transition-opacity duration-[var(--duration-fast)] hover:opacity-80"
         >
           <BrandLogo

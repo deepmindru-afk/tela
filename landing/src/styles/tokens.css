@@ -1,5 +1,5 @@
 /* ============================================================================
-   tela — design tokens · "Loom in the dark" (refined developer-tool, dark-first)
+   portal — design tokens · "Loom in the dark" (refined developer-tool, dark-first)
    Single source of truth. OKLCH only. One knob: --brand-hue.
    Three tiers:  primitive (raw) -> semantic (purpose) -> component (overrides).
    Components reference SEMANTIC tokens (var(--color-*) / Tailwind token utils),

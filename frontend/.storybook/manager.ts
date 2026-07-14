@@ -10,7 +10,7 @@ const brandImage =
 addons.setConfig({
   theme: create({
     base: 'dark',
-    brandTitle: 'tela — components',
+    brandTitle: 'portal — components',
     brandUrl: 'https://tla.portalos.ru',
     brandImage,
     brandTarget: '_self',

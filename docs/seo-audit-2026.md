@@ -1,7 +1,7 @@
 <!-- Generated 2026-06-06 by a multi-agent SEO/GEO audit (7 parallel surface auditors + research + synthesis). Uncommitted working artifact. -->
 
 
-# tela — SEO + GEO Audit Report (2026)
+# portal — SEO + GEO Audit Report (2026)
 
 ## 1. Executive Summary
 
@@ -174,7 +174,7 @@ Every factually wrong/stale **public** claim, with exact location and corrected 
 | `landing/public/llms-full.txt:51` | "Do I need Postgres? No."; "inside the single Go binary" | "Do I need Postgres? Yes — tela runs on PostgreSQL (via docker compose). Full-text search is built in (Postgres tsvector); semantic search additionally needs an embedding model. No Elasticsearch." |
 | `README.md:8` | "full-text search" | "semantic + keyword search" (or "search") |
 | `README.md:95` | "License: TBD" | definitive license (MIT) + badge, after committing root `LICENSE` |
-| `mcp/package.json:4` | "Thin stdio↔HTTP proxy to a Tela instance's…" | "MCP server for Tela — a self-hostable markdown team wiki. Lets Claude, Cursor and other agents search, read and write your wiki pages. Stdio↔HTTP proxy to {TELA_BASE_URL}/api/mcp for hosts that can't speak HTTP directly." |
+| `mcp/package.json:4` | "Thin stdio↔HTTP proxy to a Tela instance's…" | "MCP server for portal — a self-hostable markdown team wiki. Lets Claude, Cursor and other agents search, read and write your wiki pages. Stdio↔HTTP proxy to {TELA_BASE_URL}/api/mcp for hosts that can't speak HTTP directly." |
 | `landing/src/pages/mcp.astro:159` | "open an issue on GitHub" | "Email tela@telawiki.com — the source is on GitHub." (no issue-filing CTA) |
 | `Base.astro:81` / `SiteFooter.astro:27` / `terms.astro:25` | LICENSE URL → 404 | resolves 200 after committing root `LICENSE` |
 

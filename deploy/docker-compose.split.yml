@@ -1,4 +1,4 @@
-# tela — SPLIT topology, for hosts that already run a shared reverse proxy.
+# portal — SPLIT topology, for hosts that already run a shared reverse proxy.
 #
 # Unlike docker-compose.yml (all-in-one: backend+frontend+postgres+gotenberg+
 # proxy, the proxy being tela's own :443 edge), this stack has NO proxy service:

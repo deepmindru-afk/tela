@@ -1,7 +1,7 @@
 # Org custom domains
 
 A subdomain an org controls (e.g. `tela.ngss.io`) becomes that org's **white-label
-front door**: for its users, that hostname *is* tela — login, private spaces,
+front door**: for its users, that hostname *is* portal — login, private spaces,
 editing, sharing, all served by the existing app under their brand. tela's own
 marketing/docs/MCP/sync stay on the canonical host. Fully dynamic and multi-org:
 orgs self-register hostnames at runtime and Caddy on-demand-issues each cert — no

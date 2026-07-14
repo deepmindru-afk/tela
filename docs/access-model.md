@@ -1,4 +1,4 @@
-# tela — Access model (canonical)
+# portal — Access model (canonical)
 
 > Status: **authoritative.** This is the single source of truth for *who can do
 > what* in tela. Pairs with [`visibility-model.md`](visibility-model.md) (public
