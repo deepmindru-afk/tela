@@ -577,7 +577,10 @@ function PageViewer({
       <div
         ref={contentRef}
         onClick={onContentClick}
-        className="flex-1 overflow-y-auto min-h-0"
+        /* overflow-x-clip keeps this a vertical-only scroller on desktop.
+           pointer-coarse:overflow-visible releases it to document scroll on
+           touch so a pinch-zoomed page pans; see the app shell in router.tsx. */
+        className="flex-1 overflow-y-auto overflow-x-clip min-h-0 pointer-coarse:overflow-visible"
       >
         <div className="flex flex-col gap-[var(--space-4)] p-[var(--space-7)] max-w-[56rem] w-full mx-auto">
         <WikilinkHoverPreview containerRef={contentRef} />
@@ -1478,7 +1481,10 @@ function PageEditor({ page, spaceId, draftRevId, onDeleted, isDeck, isSheet, scr
       <div
         ref={contentRef}
         data-page-scroll
-        className="flex-1 overflow-y-auto min-h-0"
+        /* overflow-x-clip: vertical-only scroller on desktop.
+           pointer-coarse:overflow-visible releases it to document scroll on
+           touch so a pinch-zoomed page pans. See the app shell in router.tsx. */
+        className="flex-1 overflow-y-auto overflow-x-clip min-h-0 pointer-coarse:overflow-visible"
       >
         <div className="flex flex-col gap-[var(--space-4)] p-[var(--space-7)] max-w-[56rem] w-full mx-auto min-h-full">
         <WikilinkHoverPreview containerRef={contentRef} />
