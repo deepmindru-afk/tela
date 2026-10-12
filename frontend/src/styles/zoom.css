@@ -1,0 +1,223 @@
+@layer components {
+  /* Full-screen pan/zoom viewer (components/ui/zoom-viewer.tsx). A near-full-
+     viewport card over the dialog overlay: header, a dotted stage the content
+     pans/zooms on, a floating zoom pill and a minimap. Sizing of the stage
+     itself is inline (react-zoom-pan-pinch injects unlayered CSS that would
+     beat anything in this layer). */
+  .tela-zoom-viewer {
+    position: fixed;
+    inset: var(--space-4);
+    z-index: 50;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    background: var(--surface-1);
+    color: var(--text-primary);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-lg);
+    box-shadow: 0 24px 60px -12px
+      color-mix(in srgb, var(--text-primary) 30%, transparent);
+    outline: none;
+  }
+  .tela-zoom-viewer[data-state='open'] {
+    animation: tela-zoom-in var(--duration-base) var(--ease-out);
+  }
+  .tela-zoom-viewer[data-state='closed'] {
+    animation: tela-fade-out var(--duration-fast) var(--ease-out);
+  }
+  @keyframes tela-zoom-in {
+    from {
+      opacity: 0;
+      transform: scale(0.97);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+  @media (max-width: 640px) {
+    .tela-zoom-viewer {
+      inset: 0;
+      border: 0;
+      border-radius: 0;
+    }
+  }
+
+  .tela-zoom-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-3);
+    padding: var(--space-2) var(--space-2) var(--space-2) var(--space-4);
+    border-bottom: 1px solid var(--border-subtle);
+  }
+  .tela-zoom-title {
+    margin: 0;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: var(--text-sm);
+    font-weight: 500;
+  }
+  .tela-zoom-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-1);
+  }
+
+  .tela-zoom-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-1);
+    min-width: var(--space-7);
+    height: var(--space-7);
+    padding: 0 var(--space-2);
+    border: 0;
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: var(--text-muted);
+    font-size: var(--text-sm);
+    cursor: pointer;
+    transition:
+      background-color var(--duration-fast) var(--ease-out),
+      color var(--duration-fast) var(--ease-out);
+  }
+  .tela-zoom-btn:hover {
+    background: var(--surface-2);
+    color: var(--text-primary);
+  }
+  .tela-zoom-btn:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: -2px;
+  }
+
+  /* Everything under the header: the stage plus its floating controls. */
+  .tela-zoom-area {
+    position: relative;
+    flex: 1;
+    min-height: 0;
+  }
+  /* The content is laid out at the fitted size and fills it (see zoom-viewer). */
+  .tela-zoom-frame > * {
+    display: block;
+    width: 100%;
+    height: 100%;
+  }
+
+  /* The stage: a quiet dot grid so the canvas reads as a surface you can move
+     around on, and a hand cursor that says so. */
+  .tela-zoom-stage {
+    background-color: var(--surface-1);
+    background-image: radial-gradient(
+      color-mix(in srgb, var(--text-muted) 22%, transparent) 1px,
+      transparent 1px
+    );
+    background-size: var(--space-5) var(--space-5);
+    cursor: grab;
+    touch-action: none;
+  }
+  .tela-zoom-stage:active {
+    cursor: grabbing;
+  }
+  .tela-zoom-toolbar {
+    position: absolute;
+    left: 50%;
+    bottom: var(--space-4);
+    transform: translateX(-50%);
+    display: flex;
+    align-items: center;
+    gap: 1px;
+    padding: var(--space-1);
+    background: var(--surface-1);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-md);
+    box-shadow: 0 10px 30px -8px
+      color-mix(in srgb, var(--text-primary) 25%, transparent);
+  }
+  .tela-zoom-pct {
+    min-width: calc(var(--space-8) + var(--space-3));
+    font-variant-numeric: tabular-nums;
+    font-size: var(--text-xs);
+    color: var(--text-primary);
+  }
+  .tela-zoom-sep {
+    width: 1px;
+    align-self: stretch;
+    margin: var(--space-1) var(--space-1);
+    background: var(--border-subtle);
+  }
+
+  /* overflow: hidden is load-bearing: the library dims everything outside the
+     viewport rectangle with a 10,000,000px box-shadow, which otherwise greys
+     out the whole viewer. */
+  .tela-zoom-minimap {
+    position: absolute;
+    right: var(--space-4);
+    bottom: var(--space-4);
+    overflow: hidden;
+    padding: var(--space-1);
+    background: var(--surface-1);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-md);
+    box-shadow: 0 10px 30px -8px
+      color-mix(in srgb, var(--text-primary) 25%, transparent);
+    opacity: 0;
+    transform: translateY(var(--space-2));
+    pointer-events: none;
+    transition:
+      opacity var(--duration-base) var(--ease-out),
+      transform var(--duration-base) var(--ease-out);
+  }
+  .tela-zoom-minimap[data-show='true'] {
+    opacity: 1;
+    transform: none;
+    pointer-events: auto;
+  }
+  .tela-zoom-minimap .rzpp-minimap-preview {
+    border-radius: var(--radius-xs);
+    background: color-mix(in srgb, var(--accent) 12%, transparent);
+  }
+  @media (max-width: 640px) {
+    .tela-zoom-minimap {
+      display: none;
+    }
+  }
+
+  /* One-time gesture hint: fades in just above the zoom pill, then away. */
+  .tela-zoom-hint {
+    position: absolute;
+    bottom: calc(var(--space-4) + var(--space-8) + var(--space-3));
+    left: 50%;
+    transform: translateX(-50%);
+    margin: 0;
+    padding: var(--space-1) var(--space-3);
+    border-radius: var(--radius-full);
+    background: color-mix(in srgb, var(--text-primary) 80%, transparent);
+    color: var(--text-inverse);
+    font-size: var(--text-xs);
+    white-space: nowrap;
+    pointer-events: none;
+    opacity: 0;
+    animation: tela-zoom-hint 3.2s var(--ease-out) 0.3s forwards;
+  }
+  @keyframes tela-zoom-hint {
+    0% {
+      opacity: 0;
+    }
+    12%,
+    75% {
+      opacity: 1;
+    }
+    100% {
+      opacity: 0;
+    }
+  }
+
+  /* Mermaid labels: let the diagram colour its own <p>s (see .tela-mermaid
+     span p in editor.css for why). */
+  .tela-mermaid-full span p {
+    color: inherit;
+  }
+}

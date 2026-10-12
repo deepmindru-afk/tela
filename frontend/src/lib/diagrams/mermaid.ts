@@ -227,32 +227,74 @@ function wireThemeOnce() {
   })
 }
 
+// The rendered SVG for `code` on the active theme. Content-keyed via the cache,
+// so the inline diagram and the full-screen viewer share one render.
+export async function mermaidSvg(code: string): Promise<string> {
+  const key = getTheme() + '\n' + code
+  const cached = svgCache.get(key)
+  if (cached) return cached
+  const svg = await renderMermaid(code, readTheme())
+  svgCache.set(key, svg)
+  return svg
+}
+
+// Lucide `maximize-2`, inline: this element is vanilla DOM (it's also an editor
+// widget), so it can't render a React icon.
+const EXPAND_ICON =
+  '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 3h6v6"/><path d="m21 3-7 7"/><path d="m3 21 7-7"/><path d="M9 21H3v-6"/></svg>'
+
+// Full-screen pan/zoom viewer. Lazy: React + the pan/zoom engine load on the
+// first open, never with the page.
+function openViewer(code: string) {
+  void import('../../components/app/MermaidViewer').then((m) => m.openMermaidViewer(code))
+}
+
 export function buildMermaidElement(code: string): HTMLElement {
   wireThemeOnce()
   const dom = document.createElement('div')
   dom.className = 'tela-mermaid'
   dom.setAttribute('contenteditable', 'false')
+  // The SVG lives in its own box so a re-render (innerHTML) never wipes the
+  // expand button, and the horizontal overflow scroll doesn't carry it away.
+  const canvas = document.createElement('div')
+  canvas.className = 'tela-mermaid-canvas'
+  const expand = document.createElement('button')
+  expand.type = 'button'
+  expand.className = 'tela-mermaid-expand'
+  expand.setAttribute('aria-label', 'Open diagram full screen')
+  expand.title = 'Full screen'
+  expand.innerHTML = EXPAND_ICON
+  expand.addEventListener('click', (e) => {
+    e.preventDefault()
+    e.stopPropagation()
+    openViewer(code)
+  })
+  // Clicking the diagram itself opens it too, unless the click ended a text
+  // selection of its labels.
+  canvas.addEventListener('click', () => {
+    if (dom.dataset.state !== 'ready') return
+    if (String(window.getSelection() ?? '').trim()) return
+    openViewer(code)
+  })
+  dom.append(canvas, expand)
 
+  const show = (svg: string) => {
+    dom.classList.remove('tela-mermaid-error')
+    dom.dataset.state = 'ready'
+    canvas.innerHTML = svg
+  }
   const render = () => {
-    const key = getTheme() + '\n' + code
-    const cached = svgCache.get(key)
-    if (cached) {
-      dom.classList.remove('tela-mermaid-error')
-      dom.innerHTML = cached
-      return
-    }
+    const cached = svgCache.get(getTheme() + '\n' + code)
+    if (cached) return show(cached)
     // Keep any already-rendered diagram visible while the re-theme renders;
     // only show the placeholder on a truly empty (first) mount.
-    if (!dom.innerHTML) dom.textContent = 'Rendering diagram…'
-    void renderMermaid(code, readTheme())
-      .then((svg) => {
-        svgCache.set(key, svg)
-        dom.classList.remove('tela-mermaid-error')
-        dom.innerHTML = svg
-      })
+    if (!canvas.innerHTML) canvas.textContent = 'Rendering diagram…'
+    void mermaidSvg(code)
+      .then(show)
       .catch((err: unknown) => {
         dom.classList.add('tela-mermaid-error')
-        dom.textContent =
+        dom.dataset.state = 'error'
+        canvas.textContent =
           err instanceof Error ? err.message : 'Could not render diagram'
       })
   }

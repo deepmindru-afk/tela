@@ -1762,10 +1762,70 @@
      the doc; the subgraph clusters (their own --surface-2 fill) carry any
      grouping. mermaid paints no bg of its own, so transparent = page bg. */
   .tela-milkdown .tela-mermaid {
+    position: relative;
+    margin: var(--space-3) 0 var(--space-4);
+  }
+  .tela-milkdown .tela-mermaid-canvas {
     display: flex;
     justify-content: center;
-    margin: var(--space-3) 0 var(--space-4);
     overflow-x: auto;
+  }
+  /* Full-screen button: revealed on hover/focus on a mouse, always faintly
+     visible on touch (no hover there). Hidden until the diagram has rendered,
+     and never printed (the PDF export prints the reader). */
+  .tela-milkdown .tela-mermaid-expand {
+    position: absolute;
+    top: var(--space-1);
+    right: var(--space-1);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: var(--space-7);
+    height: var(--space-7);
+    padding: 0;
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-sm);
+    background: color-mix(in srgb, var(--surface-1) 85%, transparent);
+    backdrop-filter: blur(4px);
+    color: var(--text-muted);
+    cursor: pointer;
+    opacity: 0;
+    transform: scale(0.92);
+    transition:
+      opacity var(--duration-fast) var(--ease-out),
+      transform var(--duration-fast) var(--ease-out),
+      color var(--duration-fast) var(--ease-out),
+      background-color var(--duration-fast) var(--ease-out);
+  }
+  .tela-milkdown .tela-mermaid[data-state='ready']:hover .tela-mermaid-expand,
+  .tela-milkdown .tela-mermaid-expand:focus-visible {
+    opacity: 1;
+    transform: scale(1);
+  }
+  .tela-milkdown .tela-mermaid-expand:hover {
+    color: var(--text-primary);
+    background: var(--surface-2);
+  }
+  .tela-milkdown .tela-mermaid-expand:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 1px;
+  }
+  .tela-milkdown .tela-mermaid:not([data-state='ready']) .tela-mermaid-expand {
+    display: none;
+  }
+  @media (pointer: coarse) {
+    .tela-milkdown .tela-mermaid[data-state='ready'] .tela-mermaid-expand {
+      opacity: 0.85;
+      transform: scale(1);
+    }
+  }
+  @media print {
+    .tela-milkdown .tela-mermaid-expand {
+      display: none;
+    }
+  }
+  .tela-milkdown .tela-mermaid[data-state='ready'] .tela-mermaid-canvas {
+    cursor: zoom-in;
   }
   .tela-milkdown .tela-mermaid svg {
     max-width: 100%;
@@ -1783,7 +1843,7 @@
   .tela-milkdown .tela-mermaid span p {
     color: inherit;
   }
-  .tela-milkdown .tela-mermaid-error {
+  .tela-milkdown .tela-mermaid-error .tela-mermaid-canvas {
     justify-content: flex-start;
     color: var(--danger);
     font-family: var(--font-mono);

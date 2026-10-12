@@ -33,6 +33,9 @@ function buildDecorations(doc: ProseNode): DecorationSet {
         Decoration.widget(pos + node.nodeSize, () => buildMermaidElement(code), {
           side: 1,
           key: `mermaid:${code}`,
+          // The rendered diagram is output, not text: its clicks (open full
+          // screen) are the widget's own.
+          stopEvent: () => true,
         }),
       )
     }
