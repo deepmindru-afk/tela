@@ -83,7 +83,7 @@ DEPLOY_IMAGE_ENV   = TELA_BACKEND_IMAGE=$(TELA_REGISTRY)/tela-backend:$(TELA_COM
         skills-gen skills-gate \
         landing-dev landing-build landing-gate landing-clean \
         deploy deploy-backend deploy-frontend deploy-landing deploy-offline registry-up _push \
-        release-mcp reset-prod-db health-gate plugin-validate plugin-publish
+        release release-mcp reset-prod-db health-gate plugin-validate plugin-publish
 
 # setup: first-run convenience. Copies deploy/.env.example → deploy/.env and
 # fills the three load-bearing secrets with `openssl rand -hex 32` so a
@@ -130,6 +130,7 @@ help:
 	@echo "  make deploy-offline   # fallback: no registry, full-image 'docker save | ssh load'"
 	@echo "  make registry-up      # ensure the on-box image registry is running (deploy does this)"
 	@echo "  make reset-prod-db    # DESTROY + recreate the prod Postgres volume (requires FORCE=1)"
+	@echo "  make release VERSION=v0.11.0  # bump one-click template pins, tag, push (GHCR images build on the tag)"
 	@echo "  make release-mcp      # publish tela-mcp to npm (BUMP=patch|minor|major, default patch)"
 	@echo "  make plugin-validate  # validate the Claude Code plugin manifests in plugin/"
 	@echo "  make plugin-publish   # mirror plugin/ to the public tela-claude-plugin repo"
@@ -501,6 +502,28 @@ else
 	@echo "Re-run with FORCE=1 to confirm:   make reset-prod-db FORCE=1"
 	@exit 1
 endif
+
+# ── App release (GHCR images) ───────────────────────────────────────────────
+# Pushing a v* tag makes .github/workflows/release.yml build and publish the
+# multi-arch ghcr.io/zcag/tela-* images. The one-click templates (render.yaml,
+# .do/deploy.template.yaml) pin an exact image tag, so the release bumps them in
+# the same commit the tag points at; tagging by hand left them on 0.7.0 for
+# three releases. Then: wait for the workflow, write the GitHub Release notes
+# (gh release create VERSION --latest), including upgrade notes for self-hosters.
+RELEASE_PINNED := render.yaml .do/deploy.template.yaml
+release:
+	@set -eu; \
+	case "$(VERSION)" in v[0-9]*.[0-9]*.[0-9]*) ;; *) echo "usage: make release VERSION=v0.11.0" >&2; exit 1;; esac; \
+	v="$(VERSION)"; n="$${v#v}"; \
+	test -z "$$(git status --porcelain)" || { echo "x working tree not clean" >&2; exit 1; }; \
+	test "$$(git rev-parse --abbrev-ref HEAD)" = main || { echo "x not on main" >&2; exit 1; }; \
+	! git rev-parse -q --verify "refs/tags/$$v" >/dev/null || { echo "x tag $$v exists" >&2; exit 1; }; \
+	sed -i -E "s#(ghcr\.io/zcag/tela-[a-z]+:)[0-9]+\.[0-9]+\.[0-9]+#\1$$n#; s#(tag: \")[0-9]+\.[0-9]+\.[0-9]+(\")#\1$$n\2#" $(RELEASE_PINNED); \
+	git add $(RELEASE_PINNED); \
+	git diff --cached --quiet || git commit -qm "chore(release): $$v"; \
+	git tag -a "$$v" -m "$$v"; \
+	git push -q origin main "$$v"; \
+	echo "tagged $$v; images build in about 9 min: gh run list --workflow release.yml"
 
 # ── MCP npm release (ships to npm, NOT to the deploy host) ──────────────────
 # Publishes the tela-mcp package. BUMP selects the semver bump (default patch):
