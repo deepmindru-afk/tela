@@ -181,6 +181,9 @@ type Server struct {
 	// appending to a replayable event log, the SSE handler tails it, and a
 	// reconnect re-attaches by id. Never nil — built in New(). See ask_job.go.
 	askJobs *askStore
+
+	// updates holds the last self-host update check (update_check.go).
+	updates updateChecker
 }
 
 func New(db *sql.DB) *Server {
@@ -257,7 +260,13 @@ func New(db *sql.DB) *Server {
 	s.warnSelfHostSeats(ctx)
 	// Self-host only: auto-pull a renewed Enterprise key from the cloud so it
 	// doesn't lapse without a manual re-paste. No-op on cloud / without a key.
-	go s.licenseRefreshLoop(context.Background())
+	if !s.managedCloud {
+		go s.licenseRefreshLoop(context.Background())
+	}
+	// Self-host only: daily check for a newer tela release (sends only the version).
+	if s.updateCheckApplies() {
+		go s.updateCheckLoop(context.Background())
+	}
 	// Managed-cloud issuer config: the private signing key + the self-host license
 	// Polar product. Set only on the cloud; nil/"" elsewhere (self-serve issuance
 	// then no-ops). See selfhost_license.go.

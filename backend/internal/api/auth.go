@@ -28,10 +28,11 @@ type authUserDTO struct {
 	EmailVerified   bool      `json:"email_verified"`
 	IsInstanceAdmin bool      `json:"is_instance_admin"`
 	Bio             string    `json:"bio"`
-	Trial           *trialDTO `json:"trial,omitempty"`           // active trial in its notify window, else nil
-	FeedbackUnseen  *int      `json:"feedback_unseen,omitempty"` // unread feedback count (instance admins only)
-	MCPConnected    bool      `json:"mcp_connected"`             // has ever made an authenticated MCP request
-	ShowBackfillDot bool      `json:"show_backfill_dot"`         // sidebar staleness dot opt-out (default true)
+	Trial           *trialDTO `json:"trial,omitempty"`            // active trial in its notify window, else nil
+	FeedbackUnseen  *int      `json:"feedback_unseen,omitempty"`  // unread feedback count (instance admins only)
+	UpdateAvailable string    `json:"update_available,omitempty"` // newer tela release (self-host instance admins only)
+	MCPConnected    bool      `json:"mcp_connected"`              // has ever made an authenticated MCP request
+	ShowBackfillDot bool      `json:"show_backfill_dot"`          // sidebar staleness dot opt-out (default true)
 }
 
 // trialDTO drives the in-app trial banner. Ended distinguishes "ends soon" from
@@ -242,6 +243,7 @@ func (s *Server) Me(w http.ResponseWriter, r *http.Request) {
 			 WHERE f.created_at > COALESCE(
 			        (SELECT feedback_seen_at FROM users WHERE id = $1), '')`, u.ID).Scan(&n)
 		dto.FeedbackUnseen = &n
+		dto.UpdateAvailable = s.availableUpdate()
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"user": dto})
 }

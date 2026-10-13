@@ -155,6 +155,17 @@ Migrations are **forward-only** and run in-transaction on every boot; a failed
 migration aborts startup (your data is untouched). There are no down-migrations,
 so **`make backup` before upgrading.**
 
+**Knowing when to upgrade.** Once a day the backend asks
+`https://updates.telawiki.com/v1/latest?version=<your version>` for the latest
+release, and instance admins see "Update available" in the account menu plus the
+details in Settings > Instance. That version is the only thing sent: no instance
+id, hostname, users or content. telawiki.com uses the checks to count how many
+instances run tela, and which versions, without keeping IP addresses (each check
+is counted under a hash of the address with a salt that is replaced every month).
+Turn it off in Settings > Instance, or with `TELA_UPDATE_CHECK=0` (which also
+locks the toggle). It never runs on a dev build. Code:
+`backend/internal/api/update_check.go`.
+
 ## Operations
 
 Day-2 operations — admin tasks, health checks, recovering admin access, resetting

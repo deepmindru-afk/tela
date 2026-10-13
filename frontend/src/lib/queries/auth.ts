@@ -22,6 +22,9 @@ export interface AuthUser {
   trial?: TrialStatus
   // Unread feedback count for the admin inbox badge (instance admins only).
   feedback_unseen?: number
+  // A newer tela release to tell an instance admin about (self-host update
+  // check), e.g. "0.11.0". Absent when there is none or the check is off.
+  update_available?: string
   // Whether the user has ever made an authenticated MCP request (any credential).
   // Drives the "connect an agent" nudge.
   mcp_connected?: boolean

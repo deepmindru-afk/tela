@@ -377,10 +377,11 @@ func licenseRefreshURL() string {
 // from the cloud and installs it when it's newer — so a renewal lands without a
 // manual re-paste. Self-host only (managed cloud grants via plan flags); no-op
 // without an installed non-env key or a reachable URL. A network failure is a
-// silent no-op, so it never disrupts an air-gapped instance.
+// silent no-op, so it never disrupts an air-gapped instance. New starts it only
+// off the managed cloud (deciding there keeps managedCloud out of the goroutine).
 func (s *Server) licenseRefreshLoop(ctx context.Context) {
 	base := licenseRefreshURL()
-	if base == "" || s.managedCloud {
+	if base == "" {
 		return
 	}
 	s.refreshLicenseOnce(ctx, base)
