@@ -410,7 +410,8 @@ func TestPublicShare_UnitHelpers(t *testing.T) {
 			{"TelegramBot (like TwitterBot)", true},
 			{"LinkedInBot/1.0", true},
 			{"WhatsApp/2.0", true},
-			{"Mozilla/5.0 (Windows NT 10.0; Win64; x64) … SkypeUriPreview Preview/0.5 skype-url-preview@microsoft.com", true}, // MS Teams
+			{"Mozilla/5.0 (Windows NT 10.0; Win64; x64) … SkypeUriPreview Preview/0.5 skype-url-preview@microsoft.com", true},   // MS Teams
+			{"Mozilla/5.0 AppleWebKit/537.36 (KHTML, like Gecko); compatible; ChatGPT-User/1.0; +https://openai.com/bot", true}, // seen in our access log
 			{"MyCustomCrawlerBot/1.0", true}, // matches "bot/"
 			{"BotName Bot 5.0", true},        // matches "bot "
 			{"NotABotEater", false},          // no "bot/" or "bot " or named bot

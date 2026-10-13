@@ -37,6 +37,7 @@ var botUASubstrings = []string{
 	"skypeuripreview", // Microsoft Teams / Skype link preview (…SkypeUriPreview Preview/0.5)
 	"embedly",         // Embedly fetcher — powers cards in Notion, Medium, Ghost, …
 	"iframely",        // Iframely fetcher — powers cards in Confluence, many editors
+	"chatgpt-user",    // ChatGPT fetching a link a user pasted; its UA ends in "openai.com/bot", which bot/ and "bot " both miss
 	"bot/",
 	"bot ",
 }
