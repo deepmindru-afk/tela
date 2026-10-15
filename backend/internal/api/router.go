@@ -32,7 +32,7 @@ func HandlerWithServer(d *sql.DB) (http.Handler, *Server) {
 	srv := New(d)
 	mux := http.NewServeMux()
 	registerRoutes(srv, mux)
-	return requestLogger(mux, srv.hostOrgMiddleware(auth.Middleware(d, srv.auditWriter)(mux))), srv
+	return requestLogger(mux, srv.hostOrgMiddleware(auth.Middleware(d, srv.auditWriter, srv.allowAPIKey)(mux))), srv
 }
 
 func registerRoutes(srv *Server, mux *http.ServeMux) {

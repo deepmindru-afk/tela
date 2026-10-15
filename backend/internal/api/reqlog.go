@@ -22,6 +22,11 @@ import (
 // for a low-cardinality metric label — per-id paths collapse to one series
 // (see routePattern). The statusRecorder delegates Hijack/Flush so it doesn't
 // break the Yjs websocket upgrade or any streaming response that passes through.
+// statusClientClosedRequest is nginx's 499: the client went away before the
+// response, so whatever 5xx the handler wrote off its cancelled context is not a
+// server fault and must not count toward the 5xx alert.
+const statusClientClosedRequest = 499
+
 func requestLogger(mux *http.ServeMux, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/api/health" {
@@ -34,6 +39,9 @@ func requestLogger(mux *http.ServeMux, next http.Handler) http.Handler {
 		status := rec.status
 		if status == 0 {
 			status = http.StatusOK
+		}
+		if status >= 500 && r.Context().Err() != nil {
+			status = statusClientClosedRequest
 		}
 		dur := time.Since(start)
 		route := routePattern(mux, r)

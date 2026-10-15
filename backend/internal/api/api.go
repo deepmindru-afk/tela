@@ -65,6 +65,8 @@ type Server struct {
 	// scarcest resource on a single-box instance and these paths are otherwise
 	// ungated; a separate budget from cloudLimiter so the two don't collide.
 	embedLimiter *authRateLimiter
+	// apiKeyLimiter bounds every bearer request per PAT (auth.Middleware).
+	apiKeyLimiter *authRateLimiter
 
 	// clientErrorLimiter throttles the browser error-report beacon
 	// (/api/client-errors) per user so a tab stuck in an error loop can't flood
@@ -226,6 +228,7 @@ func New(db *sql.DB) *Server {
 		unfurlLimiter:      newAuthRateLimiter(unfurlRateWindow, unfurlRateLimit),
 		cloudLimiter:       newAuthRateLimiter(cloudRateWindow, cloudRateLimit),
 		embedLimiter:       newAuthRateLimiter(embedRateWindow, resolveEmbedRateLimit()),
+		apiKeyLimiter:      newAuthRateLimiter(apiKeyRateWindow, resolveRateLimit("TELA_API_KEY_RATE_LIMIT", apiKeyRateLimitDefault)),
 		clientErrorLimiter: newAuthRateLimiter(clientErrorRateWindow, clientErrorRateLimit),
 		davDeletes:         newDavDeleteGuard(),
 		rag:                rag.NewService(db, rag.ConfigFromEnv()),
@@ -295,6 +298,7 @@ func New(db *sql.DB) *Server {
 	go s.unfurlLimiter.sweepLoop(context.Background())
 	go s.cloudLimiter.sweepLoop(context.Background())
 	go s.embedLimiter.sweepLoop(context.Background())
+	go s.apiKeyLimiter.sweepLoop(context.Background())
 	go s.clientErrorLimiter.sweepLoop(context.Background())
 	go s.davDeletes.sweepLoop(context.Background())
 	// Weekly digest sender — daily tick, per-user 7-day cadence. No-op until a

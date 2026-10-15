@@ -9,6 +9,7 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -434,7 +435,10 @@ func isSpaceOGPath(p string) bool {
 // downstream-handler 4xx/5xx, and 200 success — submits a single
 // fire-and-forget event after the response is written. Invalid bearer tokens
 // (no resolved api_key_id) emit nothing: there's no FK target.
-func Middleware(d *sql.DB, aw *AuditWriter) func(http.Handler) http.Handler {
+//
+// allowKey rate-limits bearer requests per API key (nil = unlimited); over
+// budget answers 429 before any further DB work or audit write.
+func Middleware(d *sql.DB, aw *AuditWriter, allowKey func(keyID int64) (bool, time.Duration)) func(http.Handler) http.Handler {
 	secret := LoadAPIKeySecret()
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -450,9 +454,15 @@ func Middleware(d *sql.DB, aw *AuditWriter) func(http.Handler) http.Handler {
 					return
 				}
 				if err != nil {
-					slog.Error("auth: api key lookup failed", "err", err)
+					logLookupErr(r, "auth: api key lookup failed", err)
 					writeInternal(w)
 					return
+				}
+				if allowKey != nil {
+					if ok, retry := allowKey(k.ID); !ok {
+						writeRateLimited(w, retry)
+						return
+					}
 				}
 				// Wrap the writer so we can capture the final status code
 				// the downstream handler (or this middleware) sends, then
@@ -477,7 +487,7 @@ func Middleware(d *sql.DB, aw *AuditWriter) func(http.Handler) http.Handler {
 					return
 				}
 				if err != nil {
-					slog.Error("auth: api key user lookup failed", "err", err)
+					logLookupErr(r, "auth: api key user lookup failed", err)
 					writeInternal(sw)
 					return
 				}
@@ -497,7 +507,7 @@ func Middleware(d *sql.DB, aw *AuditWriter) func(http.Handler) http.Handler {
 				return
 			}
 			if err != nil {
-				slog.Error("auth: session lookup failed", "err", err)
+				logLookupErr(r, "auth: session lookup failed", err)
 				writeInternal(w)
 				return
 			}
@@ -521,6 +531,21 @@ func writeForbidden(w http.ResponseWriter, code, message string) {
 	// Escape the message minimally — no untrusted input flows here, callers
 	// pass static strings.
 	_, _ = w.Write([]byte(`{"error":"` + message + `","code":"` + code + `"}`))
+}
+
+// logLookupErr stays quiet when the client hung up mid-lookup: that is the
+// client's cancel surfacing through the DB driver, not a server fault.
+func logLookupErr(r *http.Request, msg string, err error) {
+	if r.Context().Err() == nil {
+		slog.Error(msg, "err", err)
+	}
+}
+
+func writeRateLimited(w http.ResponseWriter, retry time.Duration) {
+	w.Header().Set("Retry-After", strconv.Itoa(int(retry.Seconds())+1))
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusTooManyRequests)
+	_, _ = w.Write([]byte(`{"error":"api key rate limit exceeded; slow down","code":"rate_limited"}`))
 }
 
 func writeInternal(w http.ResponseWriter) {

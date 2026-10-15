@@ -44,19 +44,29 @@ const (
 	// Tunable via TELA_EMBED_RATE_LIMIT (per-minute; <=0 disables the throttle).
 	embedRateWindow       = 1 * time.Minute
 	embedRateLimitDefault = 30
+
+	// Every bearer (PAT) request, per key. Legit peak was ~55/min; a client
+	// stuck in a loop sent ~10k/min and pinned Postgres. Tunable via
+	// TELA_API_KEY_RATE_LIMIT (per-minute; <=0 disables).
+	apiKeyRateWindow       = 1 * time.Minute
+	apiKeyRateLimitDefault = 300
 )
 
 // resolveEmbedRateLimit is the per-account embed budget, overridable via
 // TELA_EMBED_RATE_LIMIT (per minute). A value <= 0 disables the throttle (a huge
 // cap) for operators whose embedder has the headroom.
 func resolveEmbedRateLimit() int {
-	v := strings.TrimSpace(os.Getenv("TELA_EMBED_RATE_LIMIT"))
+	return resolveRateLimit("TELA_EMBED_RATE_LIMIT", embedRateLimitDefault)
+}
+
+func resolveRateLimit(env string, def int) int {
+	v := strings.TrimSpace(os.Getenv(env))
 	if v == "" {
-		return embedRateLimitDefault
+		return def
 	}
 	n, err := strconv.Atoi(v)
 	if err != nil {
-		return embedRateLimitDefault
+		return def
 	}
 	if n <= 0 {
 		return 1 << 30
@@ -139,4 +149,8 @@ func (rl *authRateLimiter) allow(purpose, key string) (bool, time.Duration) {
 	pruned = append(pruned, now)
 	rl.buckets[bk] = pruned
 	return true, 0
+}
+
+func (s *Server) allowAPIKey(keyID int64) (bool, time.Duration) {
+	return s.apiKeyLimiter.allow("api_key", strconv.FormatInt(keyID, 10))
 }

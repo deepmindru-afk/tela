@@ -241,7 +241,7 @@ func TestMiddleware_BearerHappyPathAttachesContext(t *testing.T) {
 		gotScope  string
 		gotIsKey  bool
 	)
-	h := Middleware(d, nil)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	h := Middleware(d, nil, nil)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if u, ok := UserFromContext(r.Context()); ok {
 			gotUserID = u.ID
 		}
@@ -274,7 +274,7 @@ func TestMiddleware_BearerScopeReadOnlyBlocksMutation(t *testing.T) {
 	raw, _ := seedAPIKeyDB(t, d, uid, ScopeRead, nil, nil, "ro")
 
 	reached := false
-	h := Middleware(d, nil)(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+	h := Middleware(d, nil, nil)(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		reached = true
 		w.WriteHeader(http.StatusOK)
 	}))
@@ -314,7 +314,7 @@ func TestMiddleware_BearerInvalidDoesNotFallBackToCookie(t *testing.T) {
 		t.Fatalf("CreateSession: %v", err)
 	}
 
-	h := Middleware(d, nil)(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+	h := Middleware(d, nil, nil)(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		t.Fatal("inner handler should not run when bearer is invalid")
 	}))
 	rec := httptest.NewRecorder()
@@ -339,7 +339,7 @@ func TestMiddleware_CookieStillWorksWithoutBearer(t *testing.T) {
 	}
 
 	reached := false
-	h := Middleware(d, nil)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	h := Middleware(d, nil, nil)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		reached = true
 		if _, ok := APIKeyFromContext(r.Context()); ok {
 			t.Fatal("cookie session leaked into APIKey context")
@@ -380,5 +380,37 @@ func TestLookupAPIKey_Concurrent(t *testing.T) {
 	close(errs)
 	for err := range errs {
 		t.Errorf("concurrent LookupAPIKey: %v", err)
+	}
+}
+
+func TestMiddleware_BearerRateLimitedPerKey(t *testing.T) {
+	t.Setenv("TELA_API_KEY_SECRET", "secrettestbytes")
+	ResetAPIKeySecretCache()
+	d := newOnDiskAuthDB(t)
+	uid := seedUserDirect(t, d, "alice", false)
+	raw, _ := seedAPIKeyDB(t, d, uid, ScopeWrite, nil, nil, "loop")
+
+	budget := 2
+	allow := func(int64) (bool, time.Duration) {
+		budget--
+		return budget >= 0, 30 * time.Second
+	}
+	h := Middleware(d, nil, allow)(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	codes := []int{}
+	var last *httptest.ResponseRecorder
+	for range 3 {
+		last = httptest.NewRecorder()
+		req := httptest.NewRequest(http.MethodGet, "/api/search?q=c", nil)
+		req.Header.Set("Authorization", "Bearer "+raw)
+		h.ServeHTTP(last, req)
+		codes = append(codes, last.Code)
+	}
+	if codes[0] != 200 || codes[1] != 200 || codes[2] != http.StatusTooManyRequests {
+		t.Fatalf("codes=%v want [200 200 429]", codes)
+	}
+	if last.Header().Get("Retry-After") != "31" {
+		t.Fatalf("Retry-After=%q want 31", last.Header().Get("Retry-After"))
 	}
 }
