@@ -127,7 +127,7 @@ export function SpacePages({ spaceId, activePageId }: SpacePagesProps) {
   if (tree.data && nodes.length === 0) {
     return (
       <p className="m-0 py-[var(--space-1)] pl-[var(--space-6)] text-[length:var(--text-xs)] text-[var(--text-muted)]">
-        No pages yet
+        Пока нет страниц
       </p>
     )
   }
@@ -173,8 +173,8 @@ function PagesSkeleton() {
 function PagesError({ onRetry }: { onRetry: () => void }) {
   return (
     <div className="flex items-center justify-between gap-[var(--space-2)] ml-[var(--space-4)] px-[var(--space-2)] py-[var(--space-2)] rounded-[var(--radius-sm)] bg-[var(--surface-2)] text-[length:var(--text-sm)] text-[var(--danger)]">
-      <span>Couldn't load pages.</span>
-      <Button variant="ghost" size="sm" onClick={onRetry} aria-label="Retry">
+      <span>Не удалось загрузить страницы.</span>
+      <Button variant="ghost" size="sm" onClick={onRetry} aria-label="Повторить">
         <RotateCw width={14} height={14} />
       </Button>
     </div>
@@ -261,7 +261,7 @@ function PageNode({
         {hasChildren ? (
           <button
             type="button"
-            aria-label={isOpen ? 'Collapse' : 'Expand'}
+            aria-label={isOpen ? 'Свернуть' : 'Развернуть'}
             aria-expanded={isOpen}
             onClick={() => onToggle(node.id)}
             className="inline-flex items-center justify-center h-[var(--space-6)] w-[var(--space-4)] shrink-0 rounded-[var(--radius-xs)] bg-transparent border-0 cursor-pointer text-[var(--text-muted)] hover:text-[var(--text-primary)] outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
@@ -317,8 +317,8 @@ function PageNode({
         {node.status === 'draft' ? (
           <span
             className="shrink-0 inline-flex items-center text-[var(--text-muted)] group-hover:hidden"
-            title="Draft"
-            aria-label="Draft"
+            title="Черновик"
+            aria-label="Черновик"
           >
             <FilePen width={12} height={12} />
           </span>
@@ -341,7 +341,7 @@ function PageNode({
             <Button
               variant="ghost"
               size="sm"
-              aria-label={`Actions for ${node.title || UNTITLED_TITLE}`}
+              aria-label={`Действия для ${node.title || UNTITLED_TITLE}`}
               className={cn(
               'shrink-0 h-[var(--space-6)] w-[var(--space-6)] p-0 hidden group-hover:inline-flex data-[state=open]:inline-flex focus-visible:inline-flex',
               // No-hover devices (touch/iPad) can't reveal-on-hover, so surface
@@ -354,17 +354,17 @@ function PageNode({
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             <DropdownMenuItem onSelect={() => setRenameOpen(true)}>
-              Rename
+              Переименовать
             </DropdownMenuItem>
             <DropdownMenuItem onSelect={() => void handleNewChild()}>
-              New child page
+              Новая вложенная страница
             </DropdownMenuItem>
             <DropdownMenuItem onSelect={() => setMoveOpen(true)}>
-              Move…
+              Переместить…
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem destructive onSelect={() => setDeleteOpen(true)}>
-              Delete
+              Удалить
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
@@ -435,7 +435,7 @@ function RenamePageDialog({ node, open, onOpenChange }: RenamePageDialogProps) {
     e.preventDefault()
     const trimmed = title.trim()
     if (!trimmed) {
-      setError('Title is required.')
+      setError('Обязательно укажите заголовок.')
       return
     }
     if (trimmed === node.title) {
@@ -447,7 +447,7 @@ function RenamePageDialog({ node, open, onOpenChange }: RenamePageDialogProps) {
       await updatePage.mutateAsync({ id: node.id, title: trimmed })
       handleClose(false)
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Failed to rename page.')
+      setError(err instanceof ApiError ? err.message : 'Не удалось переименовать страницу.')
     }
   }
 
@@ -455,7 +455,7 @@ function RenamePageDialog({ node, open, onOpenChange }: RenamePageDialogProps) {
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Rename page</DialogTitle>
+          <DialogTitle>Переименовать страницу</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="flex flex-col gap-[var(--space-3)]">
           <div className="flex flex-col gap-[var(--space-2)]">
@@ -463,7 +463,7 @@ function RenamePageDialog({ node, open, onOpenChange }: RenamePageDialogProps) {
               htmlFor={`rename-page-${node.id}`}
               className="text-[length:var(--text-sm)] text-[var(--text-muted)]"
             >
-              Title
+              Заголовок
             </label>
             <Input
               id={`rename-page-${node.id}`}
@@ -481,11 +481,11 @@ function RenamePageDialog({ node, open, onOpenChange }: RenamePageDialogProps) {
           <DialogFooter>
             <DialogClose asChild>
               <Button type="button" variant="ghost">
-                Cancel
+                Отмена
               </Button>
             </DialogClose>
             <Button type="submit" disabled={updatePage.isPending}>
-              {updatePage.isPending ? 'Saving…' : 'Save'}
+              {updatePage.isPending ? 'Сохранение…' : 'Сохранить'}
             </Button>
           </DialogFooter>
         </form>
@@ -527,7 +527,7 @@ function DeletePageDialog({
         void navigate({ to: '/spaces/$spaceId', params: { spaceId } })
       }
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Failed to delete page.')
+      setError(err instanceof ApiError ? err.message : 'Не удалось удалить страницу.')
     }
   }
 
@@ -537,16 +537,16 @@ function DeletePageDialog({
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Delete this page?</DialogTitle>
+          <DialogTitle>Удалить эту страницу?</DialogTitle>
           <DialogDescription>
-            "{node.title || UNTITLED_TITLE}"
+            «{node.title || UNTITLED_TITLE}
             {childCount > 0
-              ? ` and its ${childCount} ${
-                  childCount === 1 ? 'child page' : 'child pages'
+              ? ` и ${childCount} ${
+                  childCount === 1 ? 'дочерняя страница' : 'дочерних страниц'
                 }`
               : ''}{' '}
-            move to this space&apos;s Trash. You can put them back from there — the
-            space&apos;s Trash tab.
+            переместятся в корзину этого пространства. Их можно вернуть оттуда —
+            на вкладке «Корзина» пространства.
           </DialogDescription>
         </DialogHeader>
         {error ? (
@@ -557,7 +557,7 @@ function DeletePageDialog({
         <DialogFooter>
           <DialogClose asChild>
             <Button type="button" variant="ghost">
-              Cancel
+              Отмена
             </Button>
           </DialogClose>
           <Button
@@ -566,7 +566,7 @@ function DeletePageDialog({
             onClick={handleDelete}
             disabled={deletePage.isPending}
           >
-            {deletePage.isPending ? 'Deleting…' : 'Delete'}
+            {deletePage.isPending ? 'Удаление…' : 'Удалить'}
           </Button>
         </DialogFooter>
       </DialogContent>

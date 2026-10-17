@@ -14,42 +14,42 @@ import { cn } from '../../lib/utils'
 // it. Both in-app and email are delivered. `adminOnly` rows show only to instance
 // admins (the recipient set the backend emits them to).
 const EVENTS: { type: string; label: string; desc: string; adminOnly?: boolean }[] = [
-  { type: 'mention', label: 'Mentions', desc: 'When someone @-mentions you on a page.' },
+  { type: 'mention', label: 'Упоминания', desc: 'Когда вас @упоминают на странице.' },
   {
     type: 'page_updated',
-    label: 'Page updates',
-    desc: 'When a page or space you follow changes.',
+    label: 'Обновления страниц',
+    desc: 'Когда меняется страница или пространство, на которое вы подписаны.',
   },
   {
     type: 'page_created',
-    label: 'New pages',
-    desc: 'When a new page is added to a space you follow.',
+    label: 'Новые страницы',
+    desc: 'Когда в отслеживаемое вами пространство добавляется новая страница.',
   },
   {
     type: 'comment_reply',
-    label: 'Comment replies',
-    desc: 'When someone replies to your comment.',
+    label: 'Ответы на комментарии',
+    desc: 'Когда кто-то отвечает на ваш комментарий.',
   },
   {
     type: 'space_added',
-    label: 'Added to a space',
-    desc: 'When someone gives you access to a space.',
+    label: 'Добавление в пространство',
+    desc: 'Когда кто-то предоставляет вам доступ к пространству.',
   },
   {
     type: 'atlas_run',
-    label: 'Atlas runs',
-    desc: 'When an Atlas generation run you manage finishes or fails.',
+    label: 'Запуски Атласа',
+    desc: 'Когда управляемый вами прогон генерации Атласа завершается или завершается с ошибкой.',
   },
   {
     type: 'user_registered',
-    label: 'New signups',
-    desc: 'When a new account confirms its email on this instance.',
+    label: 'Новые регистрации',
+    desc: 'Когда новый аккаунт подтверждает свою почту на этом инстансе.',
     adminOnly: true,
   },
 ]
 const CHANNELS: { channel: string; label: string }[] = [
-  { channel: 'inapp', label: 'In-app' },
-  { channel: 'email', label: 'Email' },
+  { channel: 'inapp', label: 'В приложении' },
+  { channel: 'email', label: 'Электронная почта' },
 ]
 
 export function SettingsNotificationsTab() {
@@ -72,25 +72,25 @@ export function SettingsNotificationsTab() {
   return (
     <section aria-labelledby="settings-notifications" className="flex flex-col gap-[var(--space-4)]">
       <p className="m-0 text-[length:var(--text-sm)] text-[var(--text-muted)] leading-[var(--leading-relaxed)]">
-        Choose what you’re notified about. Follow a page or space (the bell icon in
-        its header) to get its updates.
+        Выберите, о чём вас уведомлять. Подпишитесь на страницу или пространство
+        (значок колокольчика в его заголовке), чтобы получать обновления.
       </p>
 
       <label className="flex items-start gap-[var(--space-3)] rounded-[var(--radius-md)] border border-[var(--border-subtle)] px-[var(--space-4)] py-[var(--space-3)]">
         <Checkbox
           checked={digest.data?.frequency === 'weekly'}
           disabled={digest.isLoading || setDigest.isPending}
-          aria-label="Weekly digest email"
+          aria-label="Еженедельная сводка на почту"
           onCheckedChange={(v) => setDigest.mutate(v === true ? 'weekly' : 'off')}
           className="mt-[2px]"
         />
         <span className="flex flex-col gap-[1px]">
           <span className="text-[length:var(--text-sm)] text-[var(--text-primary)] font-medium">
-            Weekly digest email
+            Еженедельная сводка на почту
           </span>
           <span className="text-[length:var(--text-xs)] text-[var(--text-muted)]">
-            A Monday-morning recap of what changed across your spaces — and anything
-            that needs you. Quiet weeks send nothing.
+            Итоги понедельника по всем изменениям в ваших пространствах и по тому, что
+            требует вашего внимания. Если ничего не изменилось, письмо не отправляется.
           </span>
         </span>
       </label>
@@ -99,33 +99,34 @@ export function SettingsNotificationsTab() {
         <Checkbox
           checked={autowatch.data ?? true}
           disabled={autowatch.isLoading || setAutowatch.isPending}
-          aria-label="Automatically follow pages I create, edit, or comment on"
+          aria-label="Автоматически подписываться на страницы, которые я создаю, редактирую или комментирую"
           onCheckedChange={(v) => setAutowatch.mutate(v === true)}
           className="mt-[2px]"
         />
         <span className="flex flex-col gap-[1px]">
           <span className="text-[length:var(--text-sm)] text-[var(--text-primary)] font-medium">
-            Automatically follow pages I act on
+            Автоматически подписываться на страницы, с которыми я работаю
           </span>
           <span className="text-[length:var(--text-xs)] text-[var(--text-muted)]">
-            Follow a page when you create, edit, or comment on it, so you hear about
-            later changes. Turn off to follow only manually.
+            Подписывайтесь на страницу, когда вы её создаёте, редактируете или
+            комментируете, чтобы узнавать о дальнейших изменениях. Отключите, чтобы
+            подписываться только вручную.
           </span>
         </span>
       </label>
 
       {prefs.isLoading ? (
-        <p className="m-0 text-[length:var(--text-sm)] text-[var(--text-muted)]">Loading…</p>
+        <p className="m-0 text-[length:var(--text-sm)] text-[var(--text-muted)]">Загрузка…</p>
       ) : prefs.isError ? (
         <p role="alert" className="m-0 text-[length:var(--text-sm)] text-[var(--danger)]">
-          Couldn’t load your preferences.
+          Не удалось загрузить ваши настройки.
         </p>
       ) : (
         <div className="flex flex-col rounded-[var(--radius-md)] border border-[var(--border-subtle)] overflow-hidden">
           {/* Header row */}
           <div className="grid grid-cols-[1fr_5rem_5rem] items-center gap-[var(--space-3)] px-[var(--space-4)] py-[var(--space-2)] bg-[var(--surface-2)] border-b border-[var(--border-subtle)]">
             <span className="text-[length:var(--text-xs)] uppercase tracking-wider text-[var(--text-muted)] font-[family-name:var(--font-sans)]">
-              Event
+              Событие
             </span>
             {CHANNELS.map((c) => (
               <span

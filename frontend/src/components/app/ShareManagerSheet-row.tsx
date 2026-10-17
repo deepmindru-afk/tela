@@ -64,7 +64,7 @@ export function ShareRow({ share, onUpdate, onRevoke }: ShareRowProps) {
       // navigator.clipboard. Fall back to a plain message so dev-mode
       // (localhost over HTTP) doesn't crash.
       if (!navigator.clipboard?.writeText) {
-        throw new Error('Clipboard not available — select and copy manually.')
+        throw new Error('Буфер обмена недоступен — скопируйте ссылку вручную.')
       }
       await navigator.clipboard.writeText(share.url)
       setCopied(true)
@@ -74,7 +74,7 @@ export function ShareRow({ share, onUpdate, onRevoke }: ShareRowProps) {
         setCopied(false)
       }, COPIED_FLASH_MS)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Copy failed.')
+      setError(err instanceof Error ? err.message : 'Не удалось скопировать.')
     }
   }
 
@@ -141,10 +141,10 @@ export function ShareRow({ share, onUpdate, onRevoke }: ShareRowProps) {
           size="sm"
           onClick={() => void handleCopy()}
           className="h-[var(--space-7)] px-[var(--space-2)] shrink-0"
-          aria-label={copied ? 'Copied' : 'Copy share URL'}
+          aria-label={copied ? 'Скопировано' : 'Копировать ссылку'}
         >
           <Copy width={12} height={12} />
-          <span>{copied ? 'Copied!' : 'Copy'}</span>
+          <span>{copied ? 'Скопировано!' : 'Копировать'}</span>
         </Button>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -152,7 +152,7 @@ export function ShareRow({ share, onUpdate, onRevoke }: ShareRowProps) {
               type="button"
               variant="ghost"
               size="sm"
-              aria-label="Share actions"
+              aria-label="Действия со ссылкой"
               className="h-[var(--space-7)] w-[var(--space-7)] p-0 shrink-0"
               disabled={busy}
             >
@@ -166,7 +166,7 @@ export function ShareRow({ share, onUpdate, onRevoke }: ShareRowProps) {
                 setMode('edit-password')
               }}
             >
-              {share.has_password ? 'Edit password' : 'Set password'}
+              {share.has_password ? 'Изменить пароль' : 'Установить пароль'}
             </DropdownMenuItem>
             <DropdownMenuItem
               onSelect={() => {
@@ -174,12 +174,12 @@ export function ShareRow({ share, onUpdate, onRevoke }: ShareRowProps) {
                 setMode('edit-expiry')
               }}
             >
-              {share.expires_at ? 'Edit expiry' : 'Set expiry'}
+              {share.expires_at ? 'Изменить срок действия' : 'Установить срок действия'}
             </DropdownMenuItem>
             <DropdownMenuItem onSelect={() => void handleToggleDescendants()}>
               {share.include_descendants
-                ? 'Limit to this page only'
-                : 'Include child pages'}
+                ? 'Только эта страница'
+                : 'Включить дочерние страницы'}
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem
@@ -189,7 +189,7 @@ export function ShareRow({ share, onUpdate, onRevoke }: ShareRowProps) {
                 setMode('confirm-revoke')
               }}
             >
-              Revoke
+              Отозвать
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
@@ -200,9 +200,9 @@ export function ShareRow({ share, onUpdate, onRevoke }: ShareRowProps) {
         expiryLabel != null) && (
         <div className="flex flex-wrap items-center gap-[var(--space-1)] pl-[calc(14px+var(--space-2))]">
           {share.include_descendants ? (
-            <Badge variant="muted">Includes child pages</Badge>
+            <Badge variant="muted">Включает дочерние страницы</Badge>
           ) : null}
-          {share.has_password ? <Badge variant="muted">Password</Badge> : null}
+          {share.has_password ? <Badge variant="muted">Пароль</Badge> : null}
           {expiryLabel ? (
             <Badge variant={expired ? 'accent' : 'muted'}>{expiryLabel}</Badge>
           ) : null}
@@ -250,7 +250,7 @@ export function ShareRow({ share, onUpdate, onRevoke }: ShareRowProps) {
           )}
         >
           <span className="text-[length:var(--text-xs)] text-[var(--text-muted)] font-[family-name:var(--font-sans)]">
-            Revoke this share? People with this link will see Not Available.
+            Отозвать ссылку? Те, у кого есть эта ссылка, увидят «Недоступно».
           </span>
           <div className="flex items-center gap-[var(--space-1)] shrink-0">
             <Button
@@ -260,7 +260,7 @@ export function ShareRow({ share, onUpdate, onRevoke }: ShareRowProps) {
               onClick={() => setMode('idle')}
               disabled={busy}
             >
-              Cancel
+              Отмена
             </Button>
             <Button
               type="button"
@@ -269,7 +269,7 @@ export function ShareRow({ share, onUpdate, onRevoke }: ShareRowProps) {
               onClick={() => void handleRevokeConfirmed()}
               disabled={busy}
             >
-              {busy ? 'Revoking…' : 'Revoke'}
+              {busy ? 'Отзыв…' : 'Отозвать'}
             </Button>
           </div>
         </div>
@@ -314,7 +314,7 @@ function PasswordInlineForm({
     >
       <label className="flex flex-col gap-[var(--space-1)]">
         <span className="text-[length:var(--text-xs)] text-[var(--text-muted)] font-[family-name:var(--font-sans)]">
-          {hasPassword ? 'New password' : 'Password'}
+          {hasPassword ? 'Новый пароль' : 'Пароль'}
         </span>
         <Input
           size="sm"
@@ -322,8 +322,8 @@ function PasswordInlineForm({
           autoFocus
           value={value}
           onChange={(e) => setValue(e.target.value)}
-          placeholder={hasPassword ? 'Enter a new password' : 'Set a password'}
-          aria-label="Share password"
+          placeholder={hasPassword ? 'Введите новый пароль' : 'Установите пароль'}
+          aria-label="Пароль ссылки"
           disabled={busy}
         />
       </label>
@@ -335,7 +335,7 @@ function PasswordInlineForm({
           onClick={onCancel}
           disabled={busy}
         >
-          Cancel
+          Отмена
         </Button>
         {hasPassword ? (
           <Button
@@ -345,7 +345,7 @@ function PasswordInlineForm({
             onClick={() => void onClear()}
             disabled={busy}
           >
-            Clear password
+            Очистить пароль
           </Button>
         ) : null}
         <Button
@@ -355,7 +355,7 @@ function PasswordInlineForm({
           onClick={() => void onSave(trimmed)}
           disabled={busy || trimmed.length === 0}
         >
-          {busy ? 'Saving…' : 'Set password'}
+          {busy ? 'Сохранение…' : 'Установить пароль'}
         </Button>
       </div>
     </div>
@@ -389,7 +389,7 @@ function ExpiryInlineForm({
     >
       <label className="flex flex-col gap-[var(--space-1)]">
         <span className="text-[length:var(--text-xs)] text-[var(--text-muted)] font-[family-name:var(--font-sans)]">
-          Expires at (UTC)
+          Действует до (UTC)
         </span>
         <Input
           size="sm"
@@ -398,7 +398,7 @@ function ExpiryInlineForm({
           value={value}
           onChange={(e) => setValue(e.target.value)}
           placeholder="YYYY-MM-DD HH:MM:SS"
-          aria-label="Share expiry"
+          aria-label="Срок действия ссылки"
           disabled={busy}
         />
       </label>
@@ -410,7 +410,7 @@ function ExpiryInlineForm({
           onClick={onCancel}
           disabled={busy}
         >
-          Cancel
+          Отмена
         </Button>
         {currentExpiresAt ? (
           <Button
@@ -420,7 +420,7 @@ function ExpiryInlineForm({
             onClick={() => void onClear()}
             disabled={busy}
           >
-            Clear expiry
+            Очистить срок действия
           </Button>
         ) : null}
         <Button
@@ -430,7 +430,7 @@ function ExpiryInlineForm({
           onClick={() => void onSave(wire)}
           disabled={busy || wire.length === 0}
         >
-          {busy ? 'Saving…' : 'Set expiry'}
+          {busy ? 'Сохранение…' : 'Установить срок действия'}
         </Button>
       </div>
     </div>

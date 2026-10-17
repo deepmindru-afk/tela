@@ -18,7 +18,7 @@ export function ReplyComposer({ onSubmit, onCancel, autoFocus }: ReplyComposerPr
   async function handleSubmit() {
     const trimmed = body.trim()
     if (!trimmed) {
-      setError('Body is required.')
+      setError('Необходимо указать текст.')
       return
     }
     setBusy(true)
@@ -27,7 +27,7 @@ export function ReplyComposer({ onSubmit, onCancel, autoFocus }: ReplyComposerPr
       await onSubmit(trimmed)
       setBody('')
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Failed to post reply.')
+      setError(err instanceof ApiError ? err.message : 'Не удалось отправить ответ.')
       setBusy(false)
     }
   }
@@ -39,10 +39,10 @@ export function ReplyComposer({ onSubmit, onCancel, autoFocus }: ReplyComposerPr
         size="sm"
         value={body}
         onChange={(e) => setBody(e.target.value)}
-        placeholder="Write a reply…"
+        placeholder="Напишите ответ…"
         disabled={busy}
         autoFocus={autoFocus}
-        aria-label="Reply body"
+        aria-label="Текст ответа"
       />
       {error ? (
         <p
@@ -60,7 +60,7 @@ export function ReplyComposer({ onSubmit, onCancel, autoFocus }: ReplyComposerPr
           onClick={onCancel}
           disabled={busy}
         >
-          Cancel
+          Отмена
         </Button>
         <Button
           type="button"
@@ -69,7 +69,7 @@ export function ReplyComposer({ onSubmit, onCancel, autoFocus }: ReplyComposerPr
           onClick={() => void handleSubmit()}
           disabled={busy || body.trim().length === 0}
         >
-          {busy ? 'Posting…' : 'Reply'}
+          {busy ? 'Отправка…' : 'Ответить'}
         </Button>
       </div>
     </div>

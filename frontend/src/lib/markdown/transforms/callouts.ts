@@ -19,11 +19,11 @@ export const CALLOUT_TYPE_SET = new Set<string>(CALLOUT_TYPES)
 // Visible label rendered in the callout header. GitHub's published spec
 // uppercases the keyword in rendered output ("NOTE", "TIP", …).
 export const CALLOUT_LABELS: Record<CalloutType, string> = {
-  note: 'Note',
-  tip: 'Tip',
-  important: 'Important',
-  warning: 'Warning',
-  caution: 'Caution',
+  note: 'Заметка',
+  tip: 'Подсказка',
+  important: 'Важно',
+  warning: 'Предупреждение',
+  caution: 'Внимание',
 }
 
 // First-line marker. Anchored to `^` and the line break (or end-of-string for

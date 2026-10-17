@@ -261,8 +261,8 @@ export function buildMermaidElement(code: string): HTMLElement {
   const expand = document.createElement('button')
   expand.type = 'button'
   expand.className = 'tela-mermaid-expand'
-  expand.setAttribute('aria-label', 'Open diagram full screen')
-  expand.title = 'Full screen'
+  expand.setAttribute('aria-label', 'Открыть диаграмму на весь экран')
+  expand.title = 'На весь экран'
   expand.innerHTML = EXPAND_ICON
   expand.addEventListener('click', (e) => {
     e.preventDefault()
@@ -288,14 +288,14 @@ export function buildMermaidElement(code: string): HTMLElement {
     if (cached) return show(cached)
     // Keep any already-rendered diagram visible while the re-theme renders;
     // only show the placeholder on a truly empty (first) mount.
-    if (!canvas.innerHTML) canvas.textContent = 'Rendering diagram…'
+    if (!canvas.innerHTML) canvas.textContent = 'Отрисовка диаграммы…'
     void mermaidSvg(code)
       .then(show)
       .catch((err: unknown) => {
         dom.classList.add('tela-mermaid-error')
         dom.dataset.state = 'error'
         canvas.textContent =
-          err instanceof Error ? err.message : 'Could not render diagram'
+          err instanceof Error ? err.message : 'Не удалось отрисовать диаграмму'
       })
   }
   renderers.set(dom, render)

@@ -33,9 +33,9 @@ const ALL_SPACES_VALUE = '__all__'
 const COPIED_FLASH_MS = 1200
 
 const SCOPE_DESCRIPTIONS: Record<ApiKeyScope, string> = {
-  read: 'Read-only — GETs on pages, spaces, search, comments.',
-  write: 'Read + write — create/edit pages and comments, run imports.',
-  admin: 'Full instance admin — manage users, spaces, and other API keys.',
+  read: 'Только чтение — GET для страниц, пространств, поиска и комментариев.',
+  write: 'Чтение и запись — создание и редактирование страниц и комментариев, выполнение импортов.',
+  admin: 'Полный администратор инстанса — управление пользователями, пространствами и другими API-ключами.',
 }
 
 export function SettingsApiKeysTab() {
@@ -49,12 +49,12 @@ export function SettingsApiKeysTab() {
     >
       <header className="flex flex-col gap-[var(--space-1)]" id="settings-api-keys">
         <p className="m-0 text-[length:var(--text-sm)] text-[var(--text-muted)] leading-[var(--leading-relaxed)]">
-          Personal access tokens for headless agents and scripts. Bearer-auth
-          via{' '}
+          Персональные токены доступа для headless-агентов и скриптов.
+          Аутентификация через Bearer:{' '}
           <code className="font-[family-name:var(--font-mono)]">
             Authorization: Bearer tela_pat_…
           </code>
-          . Tokens are shown once on creation — store them somewhere safe.
+          . Токены показываются один раз при создании — сохраните их в надёжном месте.
         </p>
         <p className="m-0 text-[length:var(--text-xs)] text-[var(--text-muted)]">
           <a
@@ -63,7 +63,7 @@ export function SettingsApiKeysTab() {
             rel="noreferrer"
             className="text-[var(--accent)] underline underline-offset-2"
           >
-            Connect an agent — MCP setup guide →
+            Подключить агента — руководство по настройке MCP →
           </a>
         </p>
       </header>
@@ -114,18 +114,18 @@ function CreateApiKeyForm({ onCreated }: CreateApiKeyFormProps) {
     e.preventDefault()
     const trimmedName = name.trim()
     if (!trimmedName) {
-      setError('Name is required.')
+      setError('Название обязательно.')
       setFieldError('name')
       return
     }
     if (trimmedName.length > NAME_MAX_LEN) {
-      setError(`Name must be at most ${NAME_MAX_LEN} characters.`)
+      setError(`Название — не более ${NAME_MAX_LEN} символов.`)
       setFieldError('name')
       return
     }
     const expiresWire = normaliseExpiryInput(expiresRaw)
     if (expiresRaw.trim().length > 0 && !expiresWire) {
-      setError('Expiry must be a YYYY-MM-DD HH:MM:SS timestamp.')
+      setError('Срок действия должен быть задан в формате YYYY-MM-DD HH:MM:SS.')
       setFieldError('expires')
       return
     }
@@ -146,23 +146,23 @@ function CreateApiKeyForm({ onCreated }: CreateApiKeyFormProps) {
       if (err instanceof ApiError) {
         if (err.code === 'bad_request' && /expires_at/i.test(err.message)) {
           setFieldError('expires')
-          setError('Expiry must be in the future.')
+          setError('Срок действия должен быть в будущем.')
           return
         }
         if (err.code === 'space_not_found') {
-          setError('Selected space no longer exists. Reload the page.')
+          setError('Выбранное пространство больше не существует. Обновите страницу.')
           return
         }
         setError(err.message)
         return
       }
-      setError('Failed to create the API key. Try again.')
+      setError('Не удалось создать API-ключ. Попробуйте ещё раз.')
     }
   }
 
   return (
     <section
-      aria-label="Create API key"
+      aria-label="Создание API-ключа"
       className={cn(
         'rounded-[var(--radius-md)] border border-[var(--border-subtle)]',
         'bg-[var(--surface-1)]',
@@ -170,22 +170,22 @@ function CreateApiKeyForm({ onCreated }: CreateApiKeyFormProps) {
       )}
     >
       <h2 className="m-0 mb-[var(--space-3)] font-[family-name:var(--font-sans)] text-[length:var(--text-base)] leading-[var(--leading-tight)] text-[var(--text-primary)]">
-        Create a new key
+        Создать новый ключ
       </h2>
       <form onSubmit={handleSubmit} className="flex flex-col gap-[var(--space-4)]" noValidate>
-        <Field label="Name" htmlFor="apikey-name">
+        <Field label="Название" htmlFor="apikey-name">
           <Input
             id="apikey-name"
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder="e.g. claude-code laptop"
+            placeholder="например, claude-code на ноутбуке"
             maxLength={NAME_MAX_LEN}
             autoComplete="off"
             aria-invalid={fieldError === 'name' ? true : undefined}
           />
         </Field>
 
-        <Field label="Scope">
+        <Field label="Область действия">
           <ToggleGroup
             type="single"
             value={scope}
@@ -194,14 +194,14 @@ function CreateApiKeyForm({ onCreated }: CreateApiKeyFormProps) {
                 setScope(next)
               }
             }}
-            aria-label="API key scope"
+            aria-label="Область действия API-ключа"
           >
-            <ToggleGroupItem value="read">Read</ToggleGroupItem>
-            <ToggleGroupItem value="write">Write</ToggleGroupItem>
+            <ToggleGroupItem value="read">Чтение</ToggleGroupItem>
+            <ToggleGroupItem value="write">Запись</ToggleGroupItem>
             {/* Admin scope = full instance-admin powers; only offered to instance
                 admins (the backend rejects it for anyone else). */}
             {me.data?.is_instance_admin ? (
-              <ToggleGroupItem value="admin">Admin</ToggleGroupItem>
+              <ToggleGroupItem value="admin">Администратор</ToggleGroupItem>
             ) : null}
           </ToggleGroup>
           <p className="m-0 text-[length:var(--text-xs)] text-[var(--text-muted)] font-[family-name:var(--font-sans)]">
@@ -209,17 +209,17 @@ function CreateApiKeyForm({ onCreated }: CreateApiKeyFormProps) {
           </p>
         </Field>
 
-        <Field label="Space" htmlFor="apikey-space">
+        <Field label="Пространство" htmlFor="apikey-space">
           {spaces.isLoading ? (
             <p className="m-0 text-[length:var(--text-sm)] text-[var(--text-muted)]">
-              Loading spaces…
+              Загрузка пространств…
             </p>
           ) : spaces.isError || !spaces.data ? (
             <p
               role="alert"
               className="m-0 text-[length:var(--text-sm)] text-[var(--danger)]"
             >
-              Couldn't load spaces.
+              Не удалось загрузить пространства.
             </p>
           ) : (
             <Select
@@ -227,7 +227,7 @@ function CreateApiKeyForm({ onCreated }: CreateApiKeyFormProps) {
               value={spaceValue}
               onChange={(e) => setSpaceValue(e.target.value)}
             >
-              <option value={ALL_SPACES_VALUE}>All spaces</option>
+              <option value={ALL_SPACES_VALUE}>Все пространства</option>
               {spaces.data.map((s) => (
                 <option key={s.id} value={s.id}>
                   {s.name}
@@ -237,7 +237,7 @@ function CreateApiKeyForm({ onCreated }: CreateApiKeyFormProps) {
           )}
         </Field>
 
-        <Field label="Expires (optional)" htmlFor="apikey-expires">
+        <Field label="Срок действия (необязательно)" htmlFor="apikey-expires">
           <Input
             id="apikey-expires"
             type="text"
@@ -248,7 +248,7 @@ function CreateApiKeyForm({ onCreated }: CreateApiKeyFormProps) {
             aria-invalid={fieldError === 'expires' ? true : undefined}
           />
           <p className="m-0 text-[length:var(--text-xs)] text-[var(--text-muted)] font-[family-name:var(--font-sans)]">
-            Leave blank for a key that never expires.
+            Оставьте пустым, если ключ не должен истекать.
           </p>
         </Field>
 
@@ -264,7 +264,7 @@ function CreateApiKeyForm({ onCreated }: CreateApiKeyFormProps) {
         <div className="flex">
           <Button type="submit" variant="primary" disabled={create.isPending}>
             <KeyRound width={14} height={14} />
-            <span>{create.isPending ? 'Creating…' : 'Create key'}</span>
+            <span>{create.isPending ? 'Создание…' : 'Создать ключ'}</span>
           </Button>
         </div>
       </form>
@@ -282,7 +282,7 @@ function ApiKeysList({ keys, loading, isError }: ApiKeysListProps) {
   if (loading) {
     return (
       <p className="m-0 text-[length:var(--text-sm)] text-[var(--text-muted)]">
-        Loading API keys…
+        Загрузка API-ключей…
       </p>
     )
   }
@@ -292,7 +292,7 @@ function ApiKeysList({ keys, loading, isError }: ApiKeysListProps) {
         role="alert"
         className="m-0 text-[length:var(--text-sm)] text-[var(--danger)]"
       >
-        Couldn't load API keys.
+        Не удалось загрузить API-ключи.
       </p>
     )
   }
@@ -307,7 +307,7 @@ function ApiKeysList({ keys, loading, isError }: ApiKeysListProps) {
           'text-center',
         )}
       >
-        No API keys yet. Create one above.
+        Пока нет API-ключей. Создайте его выше.
       </p>
     )
   }
@@ -330,14 +330,14 @@ function ApiKeyRowItem({ row }: { row: ApiKeyRow }) {
 
   const spaceLabel =
     row.space_id == null
-      ? 'All spaces'
+      ? 'Все пространства'
       : (spaces.data?.find((s) => s.id === row.space_id)?.name ??
-        `Space #${row.space_id}`)
+        `Пространство #${row.space_id}`)
 
   const lastUsedLabel =
-    row.last_used_at != null ? relativeTimeFromSqlite(row.last_used_at) : 'never'
+    row.last_used_at != null ? relativeTimeFromSqlite(row.last_used_at) : 'никогда'
   const expiresLabel =
-    row.expires_at != null ? localDateFromSqlite(row.expires_at) : 'never'
+    row.expires_at != null ? localDateFromSqlite(row.expires_at) : 'никогда'
 
   async function handleRevoke() {
     setError(null)
@@ -348,7 +348,7 @@ function ApiKeyRowItem({ row }: { row: ApiKeyRow }) {
       if (err instanceof ApiError) {
         setError(err.message)
       } else {
-        setError('Failed to revoke. Try again.')
+        setError('Не удалось отозвать ключ. Попробуйте ещё раз.')
       }
       setMode('idle')
     }
@@ -375,12 +375,12 @@ function ApiKeyRowItem({ row }: { row: ApiKeyRow }) {
           </div>
           <span
             className="text-[length:var(--text-xs)] text-[var(--text-muted)] font-[family-name:var(--font-mono)]"
-            title="Key prefix (first 8 chars of the random body)"
+            title="Префикс ключа (первые 8 символов случайной части)"
           >
             tela_pat_{row.key_prefix}…
           </span>
           <span className="text-[length:var(--text-xs)] text-[var(--text-muted)] font-[family-name:var(--font-sans)]">
-            Last used {lastUsedLabel} · Expires {expiresLabel} · Created{' '}
+            Последнее использование: {lastUsedLabel} · Истекает: {expiresLabel} · Создан{' '}
             {localDateFromSqlite(row.created_at)}
           </span>
         </div>
@@ -393,10 +393,10 @@ function ApiKeyRowItem({ row }: { row: ApiKeyRow }) {
               setError(null)
               setMode('confirm-revoke')
             }}
-            aria-label={`Revoke ${row.name}`}
+            aria-label={`Отозвать ${row.name}`}
             disabled={revoke.isPending}
           >
-            Revoke
+            Отозвать
           </Button>
         ) : null}
       </div>
@@ -410,8 +410,8 @@ function ApiKeyRowItem({ row }: { row: ApiKeyRow }) {
           )}
         >
           <span className="text-[length:var(--text-xs)] text-[var(--text-muted)] font-[family-name:var(--font-sans)]">
-            Revoke <strong>{row.name}</strong>? This invalidates the key
-            immediately and cannot be undone.
+            Отозвать <strong>{row.name}</strong>? Ключ станет недействительным
+            немедленно, и это действие нельзя отменить.
           </span>
           <div className="flex items-center gap-[var(--space-1)] shrink-0">
             <Button
@@ -421,7 +421,7 @@ function ApiKeyRowItem({ row }: { row: ApiKeyRow }) {
               onClick={() => setMode('idle')}
               disabled={revoke.isPending}
             >
-              Cancel
+              Отмена
             </Button>
             <Button
               type="button"
@@ -430,7 +430,7 @@ function ApiKeyRowItem({ row }: { row: ApiKeyRow }) {
               onClick={() => void handleRevoke()}
               disabled={revoke.isPending}
             >
-              {revoke.isPending ? 'Revoking…' : 'Revoke'}
+              {revoke.isPending ? 'Отзыв…' : 'Отозвать'}
             </Button>
           </div>
         </div>
@@ -489,10 +489,10 @@ function ShowOnceDialog({ keyRow, onOpenChange }: ShowOnceDialogProps) {
     >
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>API key created</DialogTitle>
+          <DialogTitle>API-ключ создан</DialogTitle>
           <DialogDescription>
-            This is the only time the full key will be shown. Store it
-            somewhere safe — once you close this dialog, it cannot be recovered.
+            Полный ключ показывается только один раз. Сохраните его
+            в надёжном месте — после закрытия этого окна восстановить его будет невозможно.
           </DialogDescription>
         </DialogHeader>
         {keyRow ? (
@@ -512,8 +512,8 @@ function ShowOnceDialog({ keyRow, onOpenChange }: ShowOnceDialogProps) {
                 className="mt-[2px] shrink-0 text-[var(--accent)]"
               />
               <span className="text-[length:var(--text-xs)] text-[var(--text-primary)] font-[family-name:var(--font-sans)] leading-[var(--leading-relaxed)]">
-                Treat this like a password. Anyone with the key can act as
-                your account at the chosen scope.
+                Относитесь к нему как к паролю. Любой, у кого есть этот
+                ключ, сможет действовать от вашего имени с выбранными правами.
               </span>
             </div>
             <div className="flex flex-col gap-[var(--space-1)]">
@@ -521,7 +521,7 @@ function ShowOnceDialog({ keyRow, onOpenChange }: ShowOnceDialogProps) {
                 htmlFor="apikey-show-once"
                 className="text-[length:var(--text-xs)] text-[var(--text-muted)] font-[family-name:var(--font-sans)]"
               >
-                Full key
+                Полный ключ
               </label>
               <Input
                 id="apikey-show-once"
@@ -538,14 +538,14 @@ function ShowOnceDialog({ keyRow, onOpenChange }: ShowOnceDialogProps) {
                 onClick={() => void handleCopy()}
               >
                 <Copy width={14} height={14} />
-                <span>{copied ? 'Copied!' : 'Copy'}</span>
+                <span>{copied ? 'Скопировано!' : 'Копировать'}</span>
               </Button>
               <Button
                 type="button"
                 variant="primary"
                 onClick={() => onOpenChange(false)}
               >
-                I've saved it
+                Ключ сохранён
               </Button>
             </DialogFooter>
           </div>

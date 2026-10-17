@@ -27,12 +27,12 @@ export function SettingsUsageTab() {
   const q = useAdminUsage()
 
   if (q.isLoading) {
-    return <p className="m-0 text-[length:var(--text-sm)] text-[var(--text-muted)]">Loading usage…</p>
+    return <p className="m-0 text-[length:var(--text-sm)] text-[var(--text-muted)]">Загрузка использования…</p>
   }
   if (q.isError || !q.data) {
     return (
       <p role="alert" className="m-0 text-[length:var(--text-sm)] text-[var(--danger)]">
-        Couldn't load usage.
+        Не удалось загрузить данные об использовании.
       </p>
     )
   }
@@ -42,24 +42,24 @@ export function SettingsUsageTab() {
   return (
     <section aria-labelledby="settings-usage" className="flex flex-col gap-[var(--space-5)]">
       <p className="m-0 text-[length:var(--text-sm)] text-[var(--text-muted)] leading-[var(--leading-relaxed)]">
-        Instance-wide usage. Monthly figures are for{' '}
+        Использование по всему инстансу. Месячные показатели приведены за{' '}
         <span className="text-[var(--text-primary)]">{d.period}</span> (UTC).
       </p>
 
       <div className="grid grid-cols-2 gap-[var(--space-3)] sm:grid-cols-4">
-        <Stat label="Users" value={d.totals.users} />
-        <Stat label="Orgs" value={d.totals.orgs} />
-        <Stat label="Spaces" value={d.totals.spaces} />
-        <Stat label="Pages" value={d.totals.pages} />
-        <Stat label="Attachments" value={formatBytes(d.totals.storage_bytes)} />
-        <Stat label="AI calls / mo" value={d.totals.llm_calls} />
-        <Stat label="Asks / mo" value={d.totals.asks} />
-        <Stat label="Answer rate" value={answerRate == null ? '—' : `${answerRate}%`} />
+        <Stat label="Пользователи" value={d.totals.users} />
+        <Stat label="Организации" value={d.totals.orgs} />
+        <Stat label="Пространства" value={d.totals.spaces} />
+        <Stat label="Страницы" value={d.totals.pages} />
+        <Stat label="Вложения" value={formatBytes(d.totals.storage_bytes)} />
+        <Stat label="Вызовы ИИ / мес" value={d.totals.llm_calls} />
+        <Stat label="Вопросы / мес" value={d.totals.asks} />
+        <Stat label="Доля ответов" value={answerRate == null ? '—' : `${answerRate}%`} />
       </div>
 
       <div className="flex flex-col gap-[var(--space-3)]">
         <h3 className="m-0 text-[length:var(--text-sm)] font-semibold text-[var(--text-primary)]">
-          Top AI consumers this month
+          Кто больше всех использует ИИ в этом месяце
         </h3>
         {d.top.length > 0 ? (
           <ul className="m-0 p-0 list-none flex flex-col gap-[var(--space-1)]">
@@ -68,13 +68,13 @@ export function SettingsUsageTab() {
             ))}
           </ul>
         ) : (
-          <p className="m-0 text-[length:var(--text-sm)] text-[var(--text-muted)]">No AI usage this month.</p>
+          <p className="m-0 text-[length:var(--text-sm)] text-[var(--text-muted)]">В этом месяце ИИ не использовался.</p>
         )}
       </div>
 
       <div className="flex flex-col gap-[var(--space-3)]">
         <h3 className="m-0 text-[length:var(--text-sm)] font-semibold text-[var(--text-primary)]">
-          Top unanswered questions (30d)
+          Популярные вопросы без ответа (30 дн.)
         </h3>
         {d.gaps.length > 0 ? (
           <ul className="m-0 p-0 list-none flex flex-col gap-[var(--space-1)]">
@@ -84,7 +84,7 @@ export function SettingsUsageTab() {
           </ul>
         ) : (
           <p className="m-0 text-[length:var(--text-sm)] text-[var(--text-muted)]">
-            Nothing logged — Ask analytics need the embedder + some questions.
+            Данных пока нет — для аналитики по вопросам нужен эмбеддер и сами вопросы.
           </p>
         )}
       </div>
@@ -145,10 +145,10 @@ function GapRow({ g }: { g: KnowledgeGap }) {
       <span className="shrink-0 text-[length:var(--text-xs)] text-[var(--text-muted)] tabular-nums">
         {/* `grounded`, not `answered` — retrieval nearly always returns SOMETHING,
             so "3/3 answered" on a question in this list reads as a contradiction. */}
-        asked {g.asks}× · {g.grounded > 0 ? `${g.grounded}/${g.asks} answered well` : 'never answered well'}
+        спрошено {g.asks}× · {g.grounded > 0 ? `${g.grounded}/${g.asks} с ответом` : 'ни разу с ответом'}
       </span>
       <Button variant="ghost" size="sm" className="shrink-0" onClick={() => setOpen(true)}>
-        Draft page
+        Создать черновик страницы
       </Button>
       <DraftGapDialog question={g.question} open={open} onOpenChange={setOpen} />
     </li>
@@ -181,7 +181,7 @@ function DraftGapDialog({
   async function handleCreate() {
     const sid = Number(effective)
     if (!sid) {
-      setError('Pick a space.')
+      setError('Выберите пространство.')
       return
     }
     setError(null)
@@ -190,7 +190,7 @@ function DraftGapDialog({
       onOpenChange(false)
       navigateToPage(sid, page.id)
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : 'Failed to create page.')
+      setError(e instanceof ApiError ? e.message : 'Не удалось создать страницу.')
     }
   }
 
@@ -198,19 +198,20 @@ function DraftGapDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Draft a page</DialogTitle>
+          <DialogTitle>Черновик страницы</DialogTitle>
           <DialogDescription>
-            Create a page to answer this question — it opens in the editor so you can write the answer.
+            Создайте страницу с ответом на этот вопрос — она откроется в редакторе,
+            где можно будет написать ответ.
           </DialogDescription>
         </DialogHeader>
         <div className="flex flex-col gap-[var(--space-3)]">
           <div className="flex flex-col gap-[var(--space-1)]">
-            <label className="text-[length:var(--text-xs)] uppercase tracking-wider text-[var(--text-muted)]">Title</label>
-            <Input value={title} onChange={(e) => setTitle(e.target.value)} aria-label="Page title" />
+            <label className="text-[length:var(--text-xs)] uppercase tracking-wider text-[var(--text-muted)]">Заголовок</label>
+            <Input value={title} onChange={(e) => setTitle(e.target.value)} aria-label="Заголовок страницы" />
           </div>
           <div className="flex flex-col gap-[var(--space-1)]">
-            <label className="text-[length:var(--text-xs)] uppercase tracking-wider text-[var(--text-muted)]">Space</label>
-            <Select value={effective} onChange={(e) => setSpaceId(e.target.value)} aria-label="Space">
+            <label className="text-[length:var(--text-xs)] uppercase tracking-wider text-[var(--text-muted)]">Пространство</label>
+            <Select value={effective} onChange={(e) => setSpaceId(e.target.value)} aria-label="Пространство">
               {opts.map((s) => (
                 <option key={s.id} value={s.id}>
                   {s.name}
@@ -227,11 +228,11 @@ function DraftGapDialog({
         <DialogFooter>
           <DialogClose asChild>
             <Button type="button" variant="ghost">
-              Cancel
+              Отмена
             </Button>
           </DialogClose>
           <Button type="button" onClick={() => void handleCreate()} disabled={create.isPending || opts.length === 0}>
-            {create.isPending ? 'Creating…' : 'Create page'}
+            {create.isPending ? 'Создание…' : 'Создать страницу'}
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -1,5 +1,6 @@
 import { AlertTriangle } from 'lucide-react'
 import { useMyUsage } from '../../../lib/queries/billing'
+import { ruPlural } from '../../../lib/ru-plural'
 
 // Atlas quota meters for the caller's personal account.
 //
@@ -55,7 +56,7 @@ export function AtlasQuotaBar() {
   const meters: Meter[] = []
   if (plan.max_atlas_runs_per_month != null) {
     meters.push({
-      label: 'Runs this month',
+      label: 'Запусков за месяц',
       used: usage.atlas_runs,
       limit: plan.max_atlas_runs_per_month,
       render: String,
@@ -63,7 +64,7 @@ export function AtlasQuotaBar() {
   }
   if (plan.max_embed_tokens_per_month != null) {
     meters.push({
-      label: 'Embedding tokens this month',
+      label: 'Токенов эмбеддинга за месяц',
       used: usage.embed_tokens,
       limit: plan.max_embed_tokens_per_month,
       render: fmtTokens,
@@ -86,9 +87,9 @@ export function AtlasQuotaBar() {
         <p className="mb-[var(--space-3)] flex items-start gap-[var(--space-2)] text-[length:var(--text-sm)] text-[var(--text-primary)]">
           <AlertTriangle className="mt-[0.15em] size-[var(--space-4)] shrink-0" style={{ color: 'var(--danger)' }} />
           <span>
-            <strong>Over the {plan.name} plan limit.</strong> New Atlas runs are paused until the
-            budget resets on the 1st. Existing docs stay published and searchable — nothing is
-            removed.
+            <strong>Превышен лимит тарифа {plan.name}.</strong> Новые запуски Атласа приостановлены
+            до 1-го числа, когда обновится бюджет. Уже опубликованная документация остаётся
+            доступной для поиска — ничего не удаляется.
           </span>
         </p>
       )}
@@ -99,10 +100,11 @@ export function AtlasQuotaBar() {
       </div>
       {plan.max_atlas_files_per_run != null && (
         <p className="mt-[var(--space-3)] text-[length:var(--text-xs)] text-[var(--text-muted)]">
-          The {plan.name} plan indexes up to{' '}
-          <span className="tabular-nums">{plan.max_atlas_files_per_run.toLocaleString()}</span> files
-          per run. A larger source is refused before anything is generated — narrow it with the
-          source&rsquo;s subpath or include/exclude filters, or upgrade.
+          Тариф {plan.name} индексирует за один запуск до{' '}
+          <span className="tabular-nums">{plan.max_atlas_files_per_run.toLocaleString()}</span>{' '}
+          {ruPlural(plan.max_atlas_files_per_run, 'файл', 'файла', 'файлов')}. Более крупный
+          источник отклоняется до начала генерации — сузьте его подпутём источника или фильтрами
+          включения и исключения либо смените тариф.
         </p>
       )}
     </div>

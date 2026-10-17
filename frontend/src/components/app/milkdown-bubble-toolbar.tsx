@@ -278,7 +278,7 @@ export function BubbleToolbarView() {
     <div
       ref={ref}
       role="toolbar"
-      aria-label="Format selection"
+      aria-label="Форматирование выделения"
       className="tela-bubble-toolbar"
     >
       {linkMode ? (
@@ -286,8 +286,8 @@ export function BubbleToolbarView() {
           ref={inputRef}
           size="sm"
           type="url"
-          placeholder="Paste or type a link, then Enter"
-          aria-label="Link URL"
+          placeholder="Вставьте или введите ссылку, затем нажмите Enter"
+          aria-label="URL ссылки"
           className="tela-bubble-link-input"
           value={linkValue}
           onChange={(e) => setLinkValue(e.target.value)}
@@ -306,18 +306,18 @@ export function BubbleToolbarView() {
         <>
           <div className="tela-bubble-menu-anchor">
             <BubbleButton
-              label="Turn into"
+              label="Превратить в"
               wide
               expanded={menuOpen}
               onClick={() => setMenuOpen((open) => !open)}
             >
               <BlockIcon size="1em" strokeWidth={2.5} aria-hidden />
-              <span className="tela-bubble-label">{blockType?.label ?? 'Turn into'}</span>
+              <span className="tela-bubble-label">{blockType?.label ?? 'Превратить в'}</span>
               <ChevronDown className="tela-bubble-chevron" size="1em" aria-hidden />
             </BubbleButton>
             {menuOpen ? (
               <div className="tela-block-menu tela-bubble-menu" role="menu">
-                <div className="tela-block-menu-label">Turn into</div>
+                <div className="tela-block-menu-label">Превратить в</div>
                 {TURN_INTO.map((option) => {
                   const Icon = option.icon
                   const current = option === blockType
@@ -344,7 +344,7 @@ export function BubbleToolbarView() {
           </div>
           <span className="tela-bubble-sep" aria-hidden />
           <BubbleButton
-            label="Bold"
+            label="Полужирный"
             shortcut={keyOf(strongKeymap.key)}
             active={active.strong}
             onClick={() => toggleMark(toggleStrongCommand.key)}
@@ -352,7 +352,7 @@ export function BubbleToolbarView() {
             <Bold size="1em" strokeWidth={2.5} aria-hidden />
           </BubbleButton>
           <BubbleButton
-            label="Italic"
+            label="Курсив"
             shortcut={keyOf(emphasisKeymap.key)}
             active={active.emphasis}
             onClick={() => toggleMark(toggleEmphasisCommand.key)}
@@ -360,7 +360,7 @@ export function BubbleToolbarView() {
             <Italic size="1em" strokeWidth={2.5} aria-hidden />
           </BubbleButton>
           <BubbleButton
-            label="Strikethrough"
+            label="Зачёркнутый"
             shortcut={keyOf(strikethroughKeymap.key)}
             active={active.strike}
             onClick={() => toggleMark(toggleStrikethroughCommand.key)}
@@ -368,7 +368,7 @@ export function BubbleToolbarView() {
             <Strikethrough size="1em" strokeWidth={2.5} aria-hidden />
           </BubbleButton>
           <BubbleButton
-            label="Inline code"
+            label="Строчный код"
             shortcut={keyOf(inlineCodeKeymap.key)}
             active={active.inlineCode}
             onClick={() => toggleMark(toggleInlineCodeCommand.key)}
@@ -376,14 +376,14 @@ export function BubbleToolbarView() {
             <Code size="1em" strokeWidth={2.5} aria-hidden />
           </BubbleButton>
           <BubbleButton
-            label="Highlight"
+            label="Выделение"
             active={active.highlight}
             onClick={() => toggleMark(toggleHighlightCommand.key)}
           >
             <Highlighter size="1em" strokeWidth={2.5} aria-hidden />
           </BubbleButton>
           <span className="tela-bubble-sep" aria-hidden />
-          <BubbleButton label="Link" active={active.link} onClick={openLinkMode}>
+          <BubbleButton label="Ссылка" active={active.link} onClick={openLinkMode}>
             <LinkIcon size="1em" strokeWidth={2.5} aria-hidden />
           </BubbleButton>
           {onComment ? (

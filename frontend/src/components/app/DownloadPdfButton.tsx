@@ -25,7 +25,7 @@ interface DownloadPdfButtonProps {
 // are included for the session-authed page endpoint; harmless on public shares.
 export function DownloadPdfButton({
   url,
-  label = 'Download PDF',
+  label = 'Скачать PDF',
   fallbackName = 'page.pdf',
   className,
   themed = false,
@@ -53,7 +53,7 @@ export function DownloadPdfButton({
         <FileDown width={16} height={16} />
       )}
       <span className={compact ? 'max-sm:hidden' : undefined}>
-        {busy ? 'Generating…' : failed ? 'Retry PDF' : label}
+        {busy ? 'Формирование…' : failed ? 'Повторить создание PDF' : label}
       </span>
     </Button>
   )

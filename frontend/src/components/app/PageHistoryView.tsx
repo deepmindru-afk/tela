@@ -178,18 +178,18 @@ function PageHistoryAuthed({
             to="/spaces/$spaceId/pages/$pageId/{-$slug}"
             params={{ spaceId, pageId, slug: undefined }}
           >
-            Back to page
+            Вернуться к странице
           </Link>
         </Button>
       </header>
 
       <div className="flex-1 grid grid-cols-1 lg:grid-cols-[20rem_1fr] gap-[var(--space-6)] p-[var(--space-7)] max-w-[72rem] w-full self-center min-h-0">
         <section
-          aria-label="Revisions"
+          aria-label="Версии"
           className="flex flex-col gap-[var(--space-3)] min-h-0"
         >
           <h2 className="m-0 text-[length:var(--text-xs)] uppercase tracking-wider text-[var(--text-muted)] font-[family-name:var(--font-sans)]">
-            Revisions
+            Версии
           </h2>
           {initial.isLoading ? (
             <RevisionListSkeleton />
@@ -218,7 +218,7 @@ function PageHistoryAuthed({
                 onClick={() => void handleLoadMore()}
                 disabled={loadingMore}
               >
-                {loadingMore ? 'Loading…' : 'Load more'}
+                {loadingMore ? 'Загрузка…' : 'Показать ещё'}
               </Button>
             </div>
           ) : null}
@@ -248,7 +248,7 @@ function RevisionRow({ revision, selected, onSelect }: RevisionRowProps) {
     [created_at],
   )
   const rel = relativeTimeFromSqlite(created_at)
-  const author = author_username ?? 'Unknown'
+  const author = author_username ?? 'Неизвестно'
   const sizeLabel = formatBytes(byte_size)
 
   return (
@@ -305,14 +305,14 @@ function RevisionPane({
     return (
       <Card className="self-start">
         <CardHeader>
-          <CardTitle>Pick a revision</CardTitle>
+          <CardTitle>Выберите версию</CardTitle>
           <CardDescription>
-            Select a revision on the left to see what changed.
+            Выберите версию слева, чтобы увидеть изменения.
           </CardDescription>
         </CardHeader>
         <CardBody>
           <p className="m-0 text-[length:var(--text-sm)] text-[var(--text-muted)]">
-            The diff will appear here.
+            Здесь появится сравнение.
           </p>
         </CardBody>
       </Card>
@@ -364,15 +364,15 @@ function RevisionPaneSelected({
   return (
     <Card className="self-start">
       <CardHeader>
-        <CardTitle>Revision #{revision.id}</CardTitle>
+        <CardTitle>Версия #{revision.id}</CardTitle>
         <CardDescription>
-          {revision.author_username ?? 'Unknown'} · {ts}
+          {revision.author_username ?? 'Неизвестно'} · {ts}
         </CardDescription>
       </CardHeader>
       <CardBody>
         {anyError ? (
           <p className="m-0 text-[length:var(--text-sm)] text-[var(--danger)]">
-            Couldn't load this revision.
+            Не удалось загрузить эту версию.
           </p>
         ) : !bothSettled ? (
           <DiffPaneSkeleton />
@@ -380,8 +380,8 @@ function RevisionPaneSelected({
           <DiffViewer
             oldBody={fullRevision.data.body}
             newBody={page.data.body}
-            oldLabel={`Revision #${revision.id}`}
-            newLabel="Current"
+            oldLabel={`Версия #${revision.id}`}
+            newLabel="Текущая"
           />
         )}
         {isOwner ? (
@@ -392,24 +392,25 @@ function RevisionPaneSelected({
               size="sm"
               onClick={() => setConfirmOpen(true)}
             >
-              <History width={14} height={14} /> Open as draft
+              <History width={14} height={14} /> Открыть как черновик
             </Button>
             <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
               <DialogContent>
                 <DialogHeader>
                   <DialogTitle>
-                    Open Revision #{revision.id} as draft?
+                    Открыть версию #{revision.id} как черновик?
                   </DialogTitle>
                   <DialogDescription>
-                    This will load Revision #{revision.id}'s body into your
-                    editor. You can review and edit, then press Save to commit
-                    (which creates a new revision) or Cancel to abandon.
+                    Содержимое версии #{revision.id} будет загружено в редактор.
+                    Проверьте и отредактируйте его, затем нажмите «Сохранить»,
+                    чтобы зафиксировать изменения (будет создана новая версия),
+                    или «Отмена», чтобы отказаться.
                   </DialogDescription>
                 </DialogHeader>
                 <DialogFooter>
                   <DialogClose asChild>
                     <Button type="button" variant="ghost">
-                      Cancel
+                      Отмена
                     </Button>
                   </DialogClose>
                   <Button
@@ -417,7 +418,7 @@ function RevisionPaneSelected({
                     variant="primary"
                     onClick={handleOpenAsDraft}
                   >
-                    Open draft
+                    Открыть черновик
                   </Button>
                 </DialogFooter>
               </DialogContent>
@@ -462,7 +463,7 @@ function HistoryBreadcrumb({
   const space = useSpace(spaceId)
   return (
     <nav
-      aria-label="Breadcrumb"
+      aria-label="Хлебные крошки"
       className="flex items-center min-w-0 text-[length:var(--text-sm)] text-[var(--text-muted)] font-[family-name:var(--font-sans)]"
     >
       <Link
@@ -470,7 +471,7 @@ function HistoryBreadcrumb({
         params={{ spaceId }}
         className="truncate hover:text-[var(--text-primary)] hover:underline underline-offset-2"
       >
-        {space.data?.name ?? 'Space'}
+        {space.data?.name ?? 'Пространство'}
       </Link>
       <ChevronRight
         aria-hidden
@@ -483,7 +484,7 @@ function HistoryBreadcrumb({
         params={{ spaceId, pageId, slug: undefined }}
         className="truncate hover:text-[var(--text-primary)] hover:underline underline-offset-2"
       >
-        {pageTitle || 'Untitled'}
+        {pageTitle || 'Без названия'}
       </Link>
       <ChevronRight
         aria-hidden
@@ -492,7 +493,7 @@ function HistoryBreadcrumb({
         className="mx-[var(--space-1)] shrink-0"
       />
       <span className="truncate text-[var(--text-primary)]" aria-current="page">
-        History
+        История
       </span>
     </nav>
   )
@@ -509,10 +510,11 @@ function HistoryViewerEmpty({
     <div className="flex-1 flex items-center justify-center p-[var(--space-7)]">
       <Card className="w-full max-w-[28rem] text-center">
         <CardHeader className="items-center">
-          <CardTitle>History is editor-only</CardTitle>
+          <CardTitle>История доступна только редакторам</CardTitle>
           <CardDescription>
-            Revisions and comments are visible to editors and owners of this
-            space. Ask an owner to upgrade your role if you need access.
+            Версии и комментарии видны редакторам и владельцам этого
+            пространства. Попросите владельца повысить вашу роль, если вам
+            нужен доступ.
           </CardDescription>
         </CardHeader>
         <CardBody className="items-center">
@@ -521,7 +523,7 @@ function HistoryViewerEmpty({
               to="/spaces/$spaceId/pages/$pageId/{-$slug}"
               params={{ spaceId, pageId, slug: undefined }}
             >
-              Back to page
+              Вернуться к странице
             </Link>
           </Button>
         </CardBody>
@@ -551,10 +553,10 @@ function HistoryError({ onRetry }: { onRetry: () => void }) {
     <div className="flex-1 flex items-center justify-center p-[var(--space-7)]">
       <div className="flex flex-col items-center gap-[var(--space-3)] text-center">
         <p className="m-0 text-[length:var(--text-base)] text-[var(--danger)]">
-          Couldn't load this page's history.
+          Не удалось загрузить историю этой страницы.
         </p>
         <Button variant="secondary" onClick={onRetry}>
-          Retry
+          Повторить
         </Button>
       </div>
     </div>
@@ -566,14 +568,14 @@ function HistoryNotFound({ spaceId }: { spaceId: number }) {
     <div className="flex-1 flex items-center justify-center p-[var(--space-7)]">
       <div className="flex flex-col items-center gap-[var(--space-3)] text-center max-w-[28rem]">
         <h2 className="m-0 text-[length:var(--text-xl)] leading-[var(--leading-tight)] font-[family-name:var(--font-sans)] text-[var(--text-primary)]">
-          Page not found
+          Страница не найдена
         </h2>
         <p className="m-0 text-[length:var(--text-sm)] text-[var(--text-muted)]">
-          The page may have been deleted or moved to another space.
+          Возможно, страница была удалена или перемещена в другое пространство.
         </p>
         <Button asChild variant="secondary">
           <Link to="/spaces/$spaceId" params={{ spaceId }}>
-            Back to space
+            Вернуться к пространству
           </Link>
         </Button>
       </div>
@@ -595,10 +597,10 @@ function RevisionListError({ onRetry }: { onRetry: () => void }) {
   return (
     <div className="flex flex-col items-start gap-[var(--space-2)] py-[var(--space-2)]">
       <p className="m-0 text-[length:var(--text-sm)] text-[var(--danger)]">
-        Couldn't load revisions.
+        Не удалось загрузить версии.
       </p>
       <Button variant="secondary" size="sm" onClick={onRetry}>
-        Retry
+        Повторить
       </Button>
     </div>
   )
@@ -607,7 +609,7 @@ function RevisionListError({ onRetry }: { onRetry: () => void }) {
 function RevisionListEmpty() {
   return (
     <p className="m-0 py-[var(--space-3)] text-[length:var(--text-sm)] text-[var(--text-muted)]">
-      No revisions yet. Save this page once to capture its first revision.
+      Версий пока нет. Сохраните страницу, чтобы создать первую версию.
     </p>
   )
 }

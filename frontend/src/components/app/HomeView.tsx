@@ -39,10 +39,10 @@ import { ConnectAgentNudge } from './ConnectAgentNudge'
 const DASH_LIMIT = 5
 
 function greetingFor(hour: number): string {
-  if (hour < 5) return 'Good evening'
-  if (hour < 12) return 'Good morning'
-  if (hour < 18) return 'Good afternoon'
-  return 'Good evening'
+  if (hour < 5) return 'Добрый вечер'
+  if (hour < 12) return 'Доброе утро'
+  if (hour < 18) return 'Добрый день'
+  return 'Добрый вечер'
 }
 
 export function HomeRoute() {
@@ -78,9 +78,9 @@ export function HomeRoute() {
             {displayName ? `${greeting}, ${displayName}` : greeting}
           </h1>
           <div className="flex items-center gap-[var(--space-2)] text-[length:var(--text-sm)] text-[var(--text-muted)]">
-            <Stat value={spaceCount} label={spaceCount === 1 ? 'space' : 'spaces'} />
+            <Stat value={spaceCount} label={spaceCount === 1 ? 'пространство' : 'пространства'} />
             <Dot />
-            <Stat value={favCount} label={favCount === 1 ? 'favorite' : 'favorites'} />
+            <Stat value={favCount} label={favCount === 1 ? 'избранное' : 'избранные'} />
           </div>
         </header>
 
@@ -88,28 +88,28 @@ export function HomeRoute() {
         <div className="flex flex-wrap gap-[var(--space-2)]">
           <Button variant="primary" size="sm" onClick={() => emitOpenNewPage()}>
             <FilePlus width={14} height={14} />
-            <span>New page</span>
+            <span>Новая страница</span>
           </Button>
           <Button asChild variant="secondary" size="sm">
             <Link to="/n">
               <PencilLine width={14} height={14} />
-              <span>Quick note</span>
+              <span>Быстрая заметка</span>
             </Link>
           </Button>
           <Button variant="secondary" size="sm" onClick={() => emitOpenPalette('pages')}>
             <Search width={14} height={14} />
-            <span>Search</span>
+            <span>Поиск</span>
           </Button>
           <Button asChild variant="secondary" size="sm">
             <Link to="/graph">
               <Network width={14} height={14} />
-              <span>Graph</span>
+              <span>Граф</span>
             </Link>
           </Button>
           <Button asChild variant="secondary" size="sm">
             <a href={DOCS.tour} target="_blank" rel="noreferrer">
               <Compass width={14} height={14} />
-              <span>Take the tour</span>
+              <span>Пройти обзор</span>
             </a>
           </Button>
         </div>
@@ -126,12 +126,12 @@ export function HomeRoute() {
               <Widget
                 className="lg:col-span-2"
                 icon={FileClock}
-                title="Recent changes"
+                title="Недавние изменения"
                 count={recent.data?.length}
                 loading={recent.isLoading}
                 error={recent.isError}
                 empty={!recent.data || recent.data.length === 0}
-                emptyText="No edits yet. Create or edit a page and it shows up here."
+                emptyText="Пока нет изменений. Создайте или отредактируйте страницу — и она появится здесь."
               >
                 {recent.data?.map((c) => (
                   <PageRow
@@ -149,12 +149,12 @@ export function HomeRoute() {
               <div className="flex flex-col gap-[var(--space-4)]">
                 <Widget
                   icon={Star}
-                  title="Favorites"
+                  title="Избранное"
                   count={favItems.length}
                   loading={favorites.isLoading}
                   error={favorites.isError}
                   empty={favItems.length === 0}
-                  emptyText="Star a page to pin it here."
+                  emptyText="Отметьте страницу звездой, чтобы закрепить её здесь."
                 >
                   {favItems.map((f) => (
                     <PageRow
@@ -169,10 +169,10 @@ export function HomeRoute() {
 
                 <Widget
                   icon={Clock}
-                  title="Recently visited"
+                  title="Недавно посещённые"
                   count={visitedItems.length}
                   empty={visitedItems.length === 0}
-                  emptyText="Pages you open will appear here."
+                  emptyText="Открытые вами страницы будут появляться здесь."
                 >
                   {visitedItems.map((v) => (
                     <PageRow
@@ -191,12 +191,12 @@ export function HomeRoute() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-[var(--space-4)]">
               <Widget
                 icon={PencilLine}
-                title="My recent edits"
+                title="Мои недавние правки"
                 count={myEdits.data?.length}
                 loading={myEdits.isLoading}
                 error={myEdits.isError}
                 empty={!myEdits.data || myEdits.data.length === 0}
-                emptyText="Pages you edit by hand will appear here."
+                emptyText="Страницы, которые вы редактируете вручную, будут появляться здесь."
               >
                 {myEdits.data?.map((c) => (
                   <PageRow
@@ -211,12 +211,12 @@ export function HomeRoute() {
 
               <Widget
                 icon={Bot}
-                title="Changes by your AI"
+                title="Изменения от вашего ИИ"
                 count={agentChanges.data?.length}
                 loading={agentChanges.isLoading}
                 error={agentChanges.isError}
                 empty={!agentChanges.data || agentChanges.data.length === 0}
-                emptyText="Pages your agents edit (via MCP) will appear here."
+                emptyText="Страницы, которые редактируют ваши агенты (через MCP), будут появляться здесь."
               >
                 {agentChanges.data?.map((c) => (
                   <PageRow
@@ -258,10 +258,10 @@ function SpacesGrid() {
     <section className="flex flex-col gap-[var(--space-3)]">
       <div className="flex items-center justify-between gap-[var(--space-2)]">
         <h2 className="m-0 flex items-center gap-[var(--space-2)] text-[length:var(--text-xs)] uppercase tracking-wider text-[var(--text-muted)] font-[family-name:var(--font-sans)]">
-          Your spaces
+          Ваши пространства
         </h2>
         <Button variant="ghost" size="sm" onClick={() => emitOpenNewSpace()}>
-          <FolderPlus width={14} height={14} /> New space
+          <FolderPlus width={14} height={14} /> Новое пространство
         </Button>
       </div>
       <ul className="m-0 p-0 list-none grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-[var(--space-2)]">
@@ -284,8 +284,8 @@ function SpacesGrid() {
                 </span>
                 <span className="truncate text-[length:var(--text-xs)] text-[var(--text-muted)]">
                   {s.is_personal
-                    ? 'Personal'
-                    : `${s.member_count ?? 0} ${(s.member_count ?? 0) === 1 ? 'member' : 'members'}`}
+                    ? 'Личное'
+                    : `${s.member_count ?? 0} ${(s.member_count ?? 0) === 1 ? 'участник' : 'участников'}`}
                 </span>
               </span>
             </Link>
@@ -322,21 +322,22 @@ function FirstRunEmptyState() {
       )}
     >
       <h2 className="m-0 text-[length:var(--text-lg)] font-semibold text-[var(--text-primary)]">
-        Make your first space
+        Создайте первое пространство
       </h2>
       <p className="m-0 max-w-[40rem] text-[length:var(--text-sm)] text-[var(--text-muted)] leading-[var(--leading-relaxed)]">
-        A space is a tree of markdown pages your team writes together. Create one,
-        and we’ll drop in a short Welcome page to get you going.
+        Пространство — это дерево markdown-страниц, которые ваша команда пишет
+        вместе. Создайте пространство, и мы добавим короткую страницу Welcome,
+        чтобы вы могли начать.
       </p>
       <div className="flex flex-wrap gap-[var(--space-2)]">
         <Button variant="primary" size="sm" onClick={() => void navigate({ to: '/n' })}>
           <PencilLine width={14} height={14} />
-          <span>Start a quick note</span>
+          <span>Начать быструю заметку</span>
         </Button>
         <Button asChild variant="secondary" size="sm">
           <a href={DOCS.tour} target="_blank" rel="noreferrer">
             <Compass width={14} height={14} />
-            <span>Take the tour</span>
+            <span>Пройти обзор</span>
           </a>
         </Button>
       </div>
@@ -390,7 +391,7 @@ function Widget({
         <WidgetSkeleton />
       ) : error ? (
         <p role="alert" className="m-0 text-[length:var(--text-sm)] text-[var(--danger)]">
-          Couldn’t load.
+          Не удалось загрузить.
         </p>
       ) : empty ? (
         <div className="flex flex-col items-center gap-[var(--space-2)] py-[var(--space-4)] text-center">
@@ -450,7 +451,7 @@ function PageRow({
         />
         <span className="flex flex-col min-w-0 flex-1">
           <span className="truncate text-[length:var(--text-sm)] text-[var(--text-primary)]">
-            {title || 'Untitled'}
+            {title || 'Без названия'}
           </span>
           {meta ? (
             <span className="truncate text-[length:var(--text-xs)] text-[var(--text-muted)]">

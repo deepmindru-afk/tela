@@ -6,6 +6,7 @@ import {
 import type { AdminUserWindow } from '../../lib/types'
 import { DataTable, type DataTableColumn } from '../ui/data-table'
 import { relativeTimeFromSqlite } from '../../lib/relativeTime'
+import { ruPlural } from '../../lib/ru-plural'
 
 // The People table keyed by content (spaces) or by team (orgs). Same window,
 // same primitive, same reading — "what here is actually alive".
@@ -22,13 +23,13 @@ export function ActivityGroupsTable({
   const columns: DataTableColumn<ActivityGroup>[] = [
     {
       key: 'name',
-      header: by === 'org' ? 'Team' : 'Space',
+      header: by === 'org' ? 'Команда' : 'Пространство',
       sticky: 'left',
-      group: 'Who',
+      group: 'Кто',
       sortValue: (g) => g.name.toLowerCase(),
       cell: (g) => (
         <div className="flex flex-col gap-[2px] min-w-[10rem]">
-          <span className="font-medium">{g.name || 'Untitled'}</span>
+          <span className="font-medium">{g.name || 'Без названия'}</span>
           {g.detail ? (
             <span className="text-[length:var(--text-xs)] text-[var(--text-muted)]">
               {by === 'org' ? g.detail : `@${g.detail}`}
@@ -39,12 +40,12 @@ export function ActivityGroupsTable({
     },
     {
       key: 'people',
-      header: by === 'org' ? 'Active members' : 'Contributors',
-      group: 'Who',
+      header: by === 'org' ? 'Активные участники' : 'Авторы правок',
+      group: 'Кто',
       title:
         by === 'org'
-          ? 'Members with any activity in the window, out of the team’s size.'
-          : 'Distinct people who wrote in this space during the window.',
+          ? 'Участники с любой активностью за период — от общего числа участников команды.'
+          : 'Разные люди, писавшие в этом пространстве за период.',
       numeric: true,
       sortValue: (g) => g.active_people,
       cell: (g) =>
@@ -58,10 +59,10 @@ export function ActivityGroupsTable({
     },
     {
       key: 'edits',
-      header: 'Edits',
-      group: 'Wrote',
+      header: 'Правки',
+      group: 'Записи',
       scale: (g: ActivityGroup) => g.edits,
-      title: 'Revisions written in the window. Agent and sync shares are called out — a synced vault can post thousands nobody typed.',
+      title: 'Версии, созданные за период. Доли агентов и синхронизаций показаны отдельно: синхронизированный репозиторий может добавить тысячи правок, которые никто не печатал вручную.',
       numeric: true,
       sortValue: (g) => g.edits,
       cell: (g) => (
@@ -70,8 +71,12 @@ export function ActivityGroupsTable({
           {g.agent_edits > 0 || g.sync_edits > 0 ? (
             <span className="text-[length:var(--text-xs)] text-[var(--text-muted)] whitespace-nowrap">
               {[
-                g.agent_edits > 0 ? `${g.agent_edits} agent` : '',
-                g.sync_edits > 0 ? `${g.sync_edits} sync` : '',
+                g.agent_edits > 0
+                  ? `${g.agent_edits} ${ruPlural(g.agent_edits, 'агент', 'агента', 'агентов')}`
+                  : '',
+                g.sync_edits > 0
+                  ? `${g.sync_edits} ${ruPlural(g.sync_edits, 'синхронизация', 'синхронизации', 'синхронизаций')}`
+                  : '',
               ]
                 .filter(Boolean)
                 .join(' · ')}
@@ -82,8 +87,8 @@ export function ActivityGroupsTable({
     },
     {
       key: 'views',
-      header: 'Views',
-      group: 'Read',
+      header: 'Просмотры',
+      group: 'Чтение',
       numeric: true,
       scale: (g: ActivityGroup) => g.views,
       sortValue: (g) => g.views,
@@ -91,8 +96,8 @@ export function ActivityGroupsTable({
     },
     {
       key: 'asks',
-      header: 'Asks',
-      group: 'Read',
+      header: 'Запросы',
+      group: 'Чтение',
       numeric: true,
       scale: (g: ActivityGroup) => g.asks,
       sortValue: (g) => g.asks,
@@ -103,7 +108,7 @@ export function ActivityGroupsTable({
           {
             key: 'ai',
             header: 'AI',
-            group: 'Read',
+            group: 'Чтение',
             numeric: true,
             sortValue: (g: ActivityGroup) => g.llm_calls,
             cell: (g: ActivityGroup) => <Num n={g.llm_calls} />,
@@ -112,23 +117,23 @@ export function ActivityGroupsTable({
       : [
           {
             key: 'pages',
-            header: 'Pages',
-            group: 'Holds',
-            title: 'Live pages in the space right now — not window-scoped.',
+            header: 'Страницы',
+            group: 'Содержит',
+            title: 'Актуальные страницы в пространстве прямо сейчас — без привязки к периоду.',
             numeric: true,
             sortValue: (g: ActivityGroup) => g.pages,
             cell: (g: ActivityGroup) => <Num n={g.pages} />,
           },
           {
             key: 'last',
-            header: 'Last edited',
-            group: 'Holds',
+            header: 'Последняя правка',
+            group: 'Содержит',
             sortValue: (g: ActivityGroup) => g.last_active,
             cell: (g: ActivityGroup) =>
               g.last_active ? (
                 <span className="whitespace-nowrap">{relativeTimeFromSqlite(g.last_active)}</span>
               ) : (
-                <span className="text-[var(--text-muted)]">Never</span>
+                <span className="text-[var(--text-muted)]">Никогда</span>
               ),
           },
         ]),
@@ -138,7 +143,7 @@ export function ActivityGroupsTable({
     return (
       <div
         aria-busy="true"
-        aria-label="Loading activity"
+        aria-label="Загрузка активности"
         className="flex flex-col gap-[1px] overflow-hidden rounded-[var(--radius-md)] border border-[var(--border-subtle)]"
       >
         {Array.from({ length: 4 }, (_, i) => (
@@ -150,7 +155,7 @@ export function ActivityGroupsTable({
   if (groups.isError) {
     return (
       <p className="m-0 text-[length:var(--text-sm)] text-[var(--danger)]">
-        Couldn't load activity.
+        Не удалось загрузить активность.
       </p>
     )
   }
@@ -163,13 +168,13 @@ export function ActivityGroupsTable({
         rowKey={(g) => g.id}
         defaultSort={{ key: 'edits', dir: 'desc' }}
         stale={groups.isFetching}
-        caption={by === 'org' ? 'Activity by team' : 'Activity by space'}
-        empty={by === 'org' ? 'No teams yet.' : 'No spaces yet.'}
+        caption={by === 'org' ? 'Активность по командам' : 'Активность по пространствам'}
+        empty={by === 'org' ? 'Команд пока нет.' : 'Пространств пока нет.'}
       />
       <p className="m-0 text-[length:var(--text-xs)] text-[var(--text-muted)]">
         {by === 'org'
-          ? 'A team’s activity is its members’ activity, wherever they did it — so somebody in two teams counts toward both.'
-          : 'A space’s activity is what happened to its pages, whoever did it. Personal spaces are included.'}
+          ? 'Активность команды — это активность её участников, где бы они ни работали, поэтому человек в двух командах учитывается в обеих.'
+          : 'Активность пространства — это то, что происходило с его страницами, кто бы ни это делал. Личные пространства учитываются.'}
       </p>
     </>
   )

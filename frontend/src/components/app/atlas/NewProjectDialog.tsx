@@ -80,7 +80,7 @@ export function NewProjectDialog({
       onOpenChange(false)
       navigate({ to: '/atlas/projects/$projectId', params: { projectId: project.id } })
     } catch (e) {
-      setErr(e instanceof Error ? e.message : 'Could not create the project.')
+      setErr(e instanceof Error ? e.message : 'Не удалось создать проект.')
     }
   }
 
@@ -88,43 +88,43 @@ export function NewProjectDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>New Atlas project</DialogTitle>
+          <DialogTitle>Новый проект Атласа</DialogTitle>
           <DialogDescription>
-            A project bundles sources into one output space. You'll add the repos / Jira projects next, then run it. Paid plans keep it refreshed automatically on a schedule; you can always run it manually. Adjust in settings.
+            Проект объединяет источники в одном выходном пространстве. Добавьте репозитории или проекты Jira и запустите его. На платных тарифах проект автоматически обновляется по расписанию; в любой момент его можно запустить вручную. Настройки доступны в настройках проекта.
           </DialogDescription>
         </DialogHeader>
 
         <div className="flex flex-col gap-[var(--space-4)] py-[var(--space-2)]">
-          <Field label="Project name">
-            <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Payments API" autoFocus />
+          <Field label="Название проекта">
+            <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="например, Payments API" autoFocus />
           </Field>
 
           {owners.length > 1 && (
-            <Field label="Owner" hint="Who manages it — you, or an org's admins.">
+            <Field label="Владелец" hint="Кто управляет проектом — вы или администраторы организации.">
               <Select value={String(ownerIdx)} onChange={(e) => setOwnerIdx(Number(e.target.value))}>
                 {owners.map((o, i) => (
                   <option key={`${o.kind}:${o.id}`} value={i}>
-                    {o.kind === 'user' ? `${o.name} (personal)` : `${o.name} (org)`}
+                    {o.kind === 'user' ? `${o.name} (личный)` : `${o.name} (организация)`}
                   </option>
                 ))}
               </Select>
             </Field>
           )}
 
-          <FieldBlock label="Output space" hint={`Pick an existing space or name a new one. A new space is created ${owner?.kind === 'org' ? `in ${owner.name}` : 'as personal'} (the project's owner); defaults to the project name.`}>
+          <FieldBlock label="Пространство вывода" hint={`Выберите существующее пространство или назовите новое. Новое пространство будет создано ${owner?.kind === 'org' ? `в организации ${owner.name}` : 'как личное'} (владелец проекта); по умолчанию берётся название проекта.`}>
             <SpacePicker
               spaces={(spacesQ.data ?? []).map((s) => ({ id: s.id, name: s.name }))}
               value={output}
               onChange={(v) => { setOutput(v); setParentId(undefined) }}
-              placeholder={name.trim() ? `Default: “${name.trim()}” (new space)` : 'Search a space, or name a new one…'}
+              placeholder={name.trim() ? `По умолчанию: «${name.trim()}» (новое пространство)` : 'Найдите пространство или введите название нового…'}
             />
           </FieldBlock>
 
           {output.space_id != null && (
-            <Field label="Top-dir" hint="Optional folder inside the space; each source publishes under its own folder beneath it.">
+            <Field label="Верхняя папка" hint="Необязательная папка внутри пространства; каждый источник публикуется в собственной папке внутри неё.">
               <Select value={parentId != null ? String(parentId) : ''} onChange={(e) => setParentId(e.target.value ? Number(e.target.value) : undefined)}>
-                <option value="">Space root</option>
-                {dirPages.map((p) => <option key={p.id} value={p.id}>Under “{p.title}”</option>)}
+                <option value="">Корень пространства</option>
+                {dirPages.map((p) => <option key={p.id} value={p.id}>Внутри «{p.title}»</option>)}
               </Select>
             </Field>
           )}
@@ -133,10 +133,10 @@ export function NewProjectDialog({
         </div>
 
         <DialogFooter>
-          <Button variant="ghost" onClick={() => onOpenChange(false)}>Cancel</Button>
+          <Button variant="ghost" onClick={() => onOpenChange(false)}>Отмена</Button>
           <Button variant="primary" disabled={!canSubmit} onClick={submit}>
             {create.isPending && <Loader2 className="size-[var(--space-4)] motion-safe:animate-spin" />}
-            Create project
+            Создать проект
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -31,13 +31,13 @@ export const eventsKeys = {
 // Filter taxonomy for the UI — grouped chips. A token ending in '.' is a family
 // prefix the backend expands with LIKE (so 'access.' covers every access.<action>).
 export const EVENT_TYPE_GROUPS: { label: string; types: string[] }[] = [
-  { label: 'Auth', types: ['auth.login', 'auth.login_failed', 'auth.logout'] },
-  { label: 'Pages', types: ['page.view', 'page.create', 'page.edit'] },
-  { label: 'Access', types: ['access.'] },
-  { label: 'Ask', types: ['ask'] },
+  { label: 'Авторизация', types: ['auth.login', 'auth.login_failed', 'auth.logout'] },
+  { label: 'Страницы', types: ['page.view', 'page.create', 'page.edit'] },
+  { label: 'Доступ', types: ['access.'] },
+  { label: 'Вопросы', types: ['ask'] },
   { label: 'API', types: ['api.request'] },
-  { label: 'Errors', types: ['client.error'] },
-  { label: 'Billing', types: ['billing.'] },
+  { label: 'Ошибки', types: ['client.error'] },
+  { label: 'Оплата', types: ['billing.'] },
 ]
 
 export function useInfiniteEvents(filters: EventFilters) {

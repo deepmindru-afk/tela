@@ -223,7 +223,7 @@ export function DataTable<Row>({
                     <button
                       type="button"
                       onClick={() => toggle(col)}
-                      aria-label={`Sort by ${typeof col.header === 'string' ? col.header : col.key}`}
+                      aria-label={`Сортировать по ${typeof col.header === 'string' ? col.header : col.key}`}
                       className={cn(
                         'group inline-flex items-center gap-[var(--space-1)]',
                         'rounded-[var(--radius-xs)] outline-none',
@@ -268,7 +268,7 @@ export function DataTable<Row>({
                 colSpan={columns.length}
                 className="px-[var(--space-3)] py-[var(--space-4)] text-center text-[var(--text-muted)]"
               >
-                {empty ?? 'Nothing to show.'}
+                {empty ?? 'Нечего показать.'}
               </td>
             </tr>
           ) : (

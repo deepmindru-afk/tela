@@ -14,8 +14,8 @@ export function TrialBanner() {
   if (!trial) return null
 
   const message = trial.ended
-    ? `Your ${trial.plan_name} trial has ended — full access continues until ${localDateFromSqlite(trial.grace_ends_at)}, then you'll move to your base plan.`
-    : `Your ${trial.plan_name} trial ends ${localDateFromSqlite(trial.ends_at)}.`
+    ? `Пробный период по тарифу «${trial.plan_name}» завершился — полный доступ сохранится до ${localDateFromSqlite(trial.grace_ends_at)}, после чего вы перейдёте на базовый тариф.`
+    : `Пробный период по тарифу «${trial.plan_name}» завершится ${localDateFromSqlite(trial.ends_at)}.`
 
   return (
     <div
@@ -29,7 +29,7 @@ export function TrialBanner() {
         search={{ tab: 'billing' }}
         className="shrink-0 font-medium text-[var(--accent)] no-underline hover:underline"
       >
-        View plan
+        Посмотреть тариф
       </Link>
     </div>
   )

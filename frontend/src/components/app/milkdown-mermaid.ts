@@ -59,7 +59,7 @@ export function insertMermaid(ctx: Ctx) {
   const view = ctx.get(editorViewCtx)
   const codeType = view.state.schema.nodes.code_block
   if (!codeType) return
-  const starter = 'graph TD\n  A[Start] --> B[End]'
+  const starter = 'graph TD\n  A[Начало] --> B[Конец]'
   const node = codeType.create({ language: 'mermaid' }, view.state.schema.text(starter))
   insertBlock(view, node, { caret: 'none' })
 }

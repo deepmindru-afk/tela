@@ -1,4 +1,5 @@
 import { useMemo } from 'react'
+import { ruPlural } from '../../lib/ru-plural'
 import type { CommentAnchor } from '../../lib/comments/anchor'
 import {
   useComments,
@@ -144,13 +145,16 @@ export function CommentsPanel({
         onInteractOutside={(e) => e.preventDefault()}
       >
         <SheetHeader>
-          <SheetTitle>Comments</SheetTitle>
+          <SheetTitle>Комментарии</SheetTitle>
           <SheetDescription>
             {totalOpenCount === 0
-              ? 'No open threads on this page yet.'
-              : totalOpenCount === 1
-                ? '1 open thread on this page.'
-                : `${totalOpenCount} open threads on this page.`}
+              ? 'На этой странице пока нет незакрытых обсуждений.'
+              : `${totalOpenCount} ${ruPlural(
+                  totalOpenCount,
+                  'незакрытое обсуждение на этой странице',
+                  'незакрытых обсуждения на этой странице',
+                  'незакрытых обсуждений на этой странице',
+                )}`}
           </SheetDescription>
           {totalResolvedCount > 0 ? (
             <div className="mt-[var(--space-2)]">
@@ -158,9 +162,14 @@ export function CommentsPanel({
                 size="sm"
                 pressed={showResolved}
                 onPressedChange={onShowResolvedChange}
-                aria-label={`Show ${totalResolvedCount} resolved ${totalResolvedCount === 1 ? 'thread' : 'threads'}`}
+                aria-label={`Показать решённые обсуждения: ${totalResolvedCount} ${ruPlural(
+                    totalResolvedCount,
+                    'обсуждение',
+                    'обсуждения',
+                    'обсуждений',
+                  )}`}
               >
-                Show resolved ({totalResolvedCount})
+                Показать решённые ({totalResolvedCount})
               </Toggle>
             </div>
           ) : null}
@@ -179,19 +188,19 @@ export function CommentsPanel({
 
           {commentsQuery.isLoading ? (
             <p className="m-0 text-[length:var(--text-sm)] text-[var(--text-muted)] font-[family-name:var(--font-sans)]">
-              Loading…
+              Загрузка…
             </p>
           ) : commentsQuery.isError ? (
             <p
               role="alert"
               className="m-0 text-[length:var(--text-sm)] text-[var(--danger)]"
             >
-              Couldn't load comments.
+              Не удалось загрузить комментарии.
             </p>
           ) : displayThreads.length === 0 ? (
             <p className="m-0 text-[length:var(--text-sm)] text-[var(--text-muted)] font-[family-name:var(--font-sans)]">
-              No comments yet. Select a passage in the page and write the
-              first one.
+              Пока нет комментариев. Выделите фрагмент на странице и напишите
+              первый.
             </p>
           ) : (
             <ul className="m-0 p-0 flex flex-col gap-[var(--space-3)]">

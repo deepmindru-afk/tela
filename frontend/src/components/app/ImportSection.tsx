@@ -19,6 +19,7 @@ import { Field } from '../ui/field'
 import { Select } from '../ui/select'
 import { ToggleGroup, ToggleGroupItem } from '../ui/toggle'
 import { cn } from '../../lib/utils'
+import { ruPlural } from '../../lib/ru-plural'
 import { ImportResult } from './ImportResult'
 
 type SourceMode = 'folder' | 'file'
@@ -36,7 +37,7 @@ function flattenPages(roots: PageTreeNode[]): FlatPage[] {
   const out: FlatPage[] = []
   function walk(nodes: PageTreeNode[], trail: string[]) {
     for (const n of nodes) {
-      const title = n.title || 'Untitled'
+      const title = n.title || 'Без названия'
       out.push({ id: n.id, title, breadcrumb: trail.join(' / ') })
       walk(n.children, [...trail, title])
     }
@@ -96,8 +97,8 @@ export function ImportSection() {
     const rootChosen = parentId == null
     items.push({
       id: ROOT_PARENT_VALUE,
-      title: '(space root)',
-      subtitle: 'Imported pages sit at the top of the space',
+      title: '(корень пространства)',
+      subtitle: 'Импортированные страницы окажутся в корне пространства',
       icon: rootChosen ? (
         <Check width={14} height={14} />
       ) : (
@@ -165,7 +166,7 @@ export function ImportSection() {
       if (err instanceof ApiError) {
         setError(err.message)
       } else {
-        setError('Import failed. Try again.')
+        setError('Не удалось выполнить импорт. Попробуйте ещё раз.')
       }
     }
   }
@@ -208,12 +209,12 @@ export function ImportSection() {
     >
       <header className="flex flex-col gap-[var(--space-1)]" id="settings-import">
         <h2 className="m-0 font-[family-name:var(--font-sans)] text-[length:var(--text-lg)] leading-[var(--leading-tight)] text-[var(--text-primary)]">
-          Markdown import
+          Импорт Markdown
         </h2>
         <p className="m-0 text-[length:var(--text-sm)] text-[var(--text-muted)] leading-[var(--leading-relaxed)]">
-          Bulk-create pages from a folder of <code>.md</code> files. A{' '}
-          <code>README.md</code> inside a folder becomes that folder's index
-          page; sibling-title conflicts are auto-renamed with a numeric suffix.
+          Массовое создание страниц из папки с файлами <code>.md</code>. Файл{' '}
+          <code>README.md</code> внутри папки становится её страницей-оглавлением; при совпадении
+          названий страниц к ним автоматически добавляется числовое расширение.
         </p>
       </header>
 
@@ -221,17 +222,17 @@ export function ImportSection() {
         onSubmit={handleSubmit}
         className="flex flex-col gap-[var(--space-4)]"
       >
-        <Field label="Target space" htmlFor="import-space">
+        <Field label="Целевое пространство" htmlFor="import-space">
           {spaces.isLoading ? (
             <p className="m-0 text-[length:var(--text-sm)] text-[var(--text-muted)]">
-              Loading spaces…
+              Загрузка пространств…
             </p>
           ) : spaces.isError || !spaces.data ? (
             <p
               role="alert"
               className="m-0 text-[length:var(--text-sm)] text-[var(--danger)]"
             >
-              Couldn't load spaces.
+              Не удалось загрузить пространства.
             </p>
           ) : (
             <Select
@@ -242,7 +243,7 @@ export function ImportSection() {
                 handleSpaceChange(v === '' ? null : Number(v))
               }}
             >
-              <option value="">Choose a space…</option>
+              <option value="">Выберите пространство…</option>
               {spaces.data.map((s) => (
                 <option key={s.id} value={s.id}>
                   {s.name}
@@ -255,15 +256,15 @@ export function ImportSection() {
               role="alert"
               className="m-0 text-[length:var(--text-sm)] text-[var(--danger)]"
             >
-              You need editor or owner role to import into this space.
+              Чтобы импортировать в это пространство, нужны права редактора или владельца.
             </p>
           ) : null}
         </Field>
 
-        <Field label="Target parent" htmlFor="import-parent">
+        <Field label="Родительская страница" htmlFor="import-parent">
           {spaceId == null ? (
             <p className="m-0 text-[length:var(--text-sm)] text-[var(--text-muted)]">
-              Choose a space first.
+              Сначала выберите пространство.
             </p>
           ) : (
             <div
@@ -274,9 +275,9 @@ export function ImportSection() {
             >
               <CommandInlinePicker
                 items={pickerItems}
-                placeholder="Search pages in this space…"
-                emptyMessage="No pages."
-                label="Import parent"
+                placeholder="Поиск страниц в этом пространстве…"
+                emptyMessage="Страниц нет."
+                label="Родительская страница"
                 value={pickerValue}
                 onValueChange={setPickerValue}
                 autoFocus={false}
@@ -285,26 +286,26 @@ export function ImportSection() {
           )}
         </Field>
 
-        <Field label="Source">
+        <Field label="Источник">
           <ToggleGroup
             type="single"
             value={sourceMode}
             onValueChange={handleModeChange}
-            aria-label="Import source mode"
+            aria-label="Режим источника импорта"
           >
-            <ToggleGroupItem value="folder" aria-label="Folder">
+            <ToggleGroupItem value="folder" aria-label="Папка">
               <FolderUp width={14} height={14} />
-              <span>Folder</span>
+              <span>Папка</span>
             </ToggleGroupItem>
-            <ToggleGroupItem value="file" aria-label="Single file">
+            <ToggleGroupItem value="file" aria-label="Один файл">
               <FileText width={14} height={14} />
-              <span>Single file</span>
+              <span>Один файл</span>
             </ToggleGroupItem>
           </ToggleGroup>
         </Field>
 
         <Field
-          label={sourceMode === 'folder' ? 'Folder' : 'File'}
+          label={sourceMode === 'folder' ? 'Папка' : 'Файл'}
           htmlFor="import-files"
         >
           {sourceMode === 'folder' ? (
@@ -334,7 +335,7 @@ export function ImportSection() {
           )}
           {files.length > 0 ? (
             <p className="m-0 text-[length:var(--text-xs)] text-[var(--text-muted)]">
-              {files.length} file{files.length === 1 ? '' : 's'} selected.
+              {files.length} {ruPlural(files.length, 'файл', 'файла', 'файлов')} выбрано.
             </p>
           ) : null}
         </Field>
@@ -349,7 +350,7 @@ export function ImportSection() {
             htmlFor="import-dry-run"
             className="text-[length:var(--text-sm)] text-[var(--text-primary)] cursor-pointer font-[family-name:var(--font-sans)]"
           >
-            Dry run — preview before importing
+            Пробный запуск — предпросмотр перед импортом
           </label>
         </div>
 
@@ -365,10 +366,10 @@ export function ImportSection() {
         <div className="flex">
           <Button type="submit" variant="primary" disabled={submitDisabled}>
             {importPages.isPending
-              ? 'Importing…'
+              ? 'Импортирование…'
               : dryRun
-                ? 'Preview import'
-                : 'Import'}
+                ? 'Предпросмотр импорта'
+                : 'Импорт'}
           </Button>
         </div>
       </form>
@@ -385,7 +386,7 @@ export function ImportSection() {
             'animate-pulse',
           )}
         >
-          Importing…
+          Импортирование…
         </div>
       ) : null}
 

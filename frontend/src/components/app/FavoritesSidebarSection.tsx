@@ -23,7 +23,7 @@ export function FavoritesSidebarSection({
         id="sidebar-favorites-heading"
         className="m-0 px-[var(--space-2)] text-[length:var(--text-xs)] uppercase tracking-wider text-[var(--text-muted)] font-[family-name:var(--font-sans)]"
       >
-        Favorites
+        Избранное
       </h2>
       <ul className="m-0 p-0 list-none flex flex-col gap-[1px]">
         {data.map((f) => (
@@ -31,7 +31,7 @@ export function FavoritesSidebarSection({
             <Link
               to="/spaces/$spaceId/pages/$pageId/{-$slug}"
               params={{ spaceId: f.space_id, pageId: f.page_id, slug: undefined }}
-              title={f.title || 'Untitled'}
+              title={f.title || 'Без названия'}
               className={cn(
                 'flex items-center gap-[var(--space-2)] px-[var(--space-2)] py-[var(--space-1)]',
                 'rounded-[var(--radius-sm)] no-underline',
@@ -47,7 +47,7 @@ export function FavoritesSidebarSection({
                 aria-hidden
                 className="shrink-0 fill-[var(--accent)] text-[var(--accent)]"
               />
-              <span className="truncate">{f.title || 'Untitled'}</span>
+              <span className="truncate">{f.title || 'Без названия'}</span>
             </Link>
           </li>
         ))}

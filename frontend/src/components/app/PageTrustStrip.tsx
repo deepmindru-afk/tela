@@ -8,6 +8,7 @@ import {
 } from 'lucide-react'
 import { useAgreement, useProvenance } from '../../lib/queries/pages'
 import { daysSinceSqlite, relativeTimeFromSqlite } from '../../lib/relativeTime'
+import { ruPlural } from '../../lib/ru-plural'
 import { navigateToPage } from '../../lib/pageHitItem'
 import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover'
 import { cn } from '../../lib/utils'
@@ -63,11 +64,11 @@ export function PageTrustStrip({
   // different person. Falls back to whichever single name we know.
   const byline =
     author && editor && editor !== author
-      ? `by ${author} · edited by ${editor}`
+      ? `Автор: ${author} · последняя правка: ${editor}`
       : author
-        ? `by ${author}`
+        ? `Автор: ${author}`
         : editor
-          ? `by ${editor}`
+          ? `Правка: ${editor}`
           : null
   const ag = agree.data?.computed ? agree.data : null
 
@@ -86,8 +87,8 @@ export function PageTrustStrip({
           <Clock width={12} height={12} aria-hidden />
         )}
         <span>
-          Updated {relativeTimeFromSqlite(updatedAt)}
-          {overdue ? ' · review overdue' : ''}
+          Обновлено {relativeTimeFromSqlite(updatedAt)}
+          {overdue ? ' · проверка просрочена' : ''}
         </span>
       </span>
 
@@ -95,11 +96,11 @@ export function PageTrustStrip({
           noticing); sync and human are muted. */}
       {source === 'agent' ? (
         <span className="inline-flex items-center gap-[var(--space-1)] text-[var(--accent)]">
-          <Bot width={12} height={12} aria-hidden /> Agent-written
+          <Bot width={12} height={12} aria-hidden /> Создано агентом
         </span>
       ) : source === 'sync' ? (
         <span className="inline-flex items-center gap-[var(--space-1)]">
-          <RefreshCw width={12} height={12} aria-hidden /> Synced
+          <RefreshCw width={12} height={12} aria-hidden /> Синхронизировано
         </span>
       ) : source === 'human' && byline ? (
         <span className="inline-flex items-center gap-[var(--space-1)]">
@@ -124,13 +125,18 @@ export function PageTrustStrip({
               type="button"
               className="inline-flex items-center gap-[var(--space-1)] text-[var(--danger)] bg-transparent border-0 p-0 cursor-pointer font-[family-name:var(--font-sans)] text-[length:var(--text-xs)] hover:underline focus-visible:outline-none focus-visible:underline"
             >
-              <ShieldAlert width={12} height={12} aria-hidden /> {ag.dispute} may
-              dispute this
+              <ShieldAlert width={12} height={12} aria-hidden /> {ag.dispute}{' '}
+              {ruPlural(
+                ag.dispute,
+                'страница это оспаривает',
+                'страницы это оспаривают',
+                'страниц это оспаривают',
+              )}
             </button>
           </PopoverTrigger>
           <PopoverContent align="start">
             <p className="m-0 mb-[var(--space-2)] text-[length:var(--text-xs)] uppercase tracking-wider text-[var(--text-muted)]">
-              Possible contradictions
+              Возможные противоречия
             </p>
             <ul className="m-0 p-0 list-none flex flex-col gap-[var(--space-3)]">
               {ag.disputes.map((d, i) => (
@@ -141,11 +147,11 @@ export function PageTrustStrip({
                       onClick={() => navigateToPage(spaceId, d.page_id)}
                       className="text-left text-[length:var(--text-sm)] text-[var(--accent)] font-medium bg-transparent border-0 p-0 cursor-pointer hover:underline"
                     >
-                      {d.title || 'Untitled'}
+                      {d.title || 'Без названия'}
                     </button>
                   ) : (
                     <span className="text-[length:var(--text-sm)] text-[var(--text-primary)] font-medium">
-                      {d.title || 'Untitled'}
+                      {d.title || 'Без названия'}
                     </span>
                   )}
                   {d.reason ? (

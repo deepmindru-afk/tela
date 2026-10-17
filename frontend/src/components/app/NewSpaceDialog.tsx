@@ -48,7 +48,7 @@ export function NewSpaceDialog({ open, onOpenChange }: NewSpaceDialogProps) {
     e.preventDefault()
     const trimmed = name.trim()
     if (!trimmed) {
-      setError('Name is required.')
+      setError('Обязательно укажите название.')
       return
     }
     setError(null)
@@ -65,7 +65,7 @@ export function NewSpaceDialog({ open, onOpenChange }: NewSpaceDialogProps) {
         setOverQuota(true)
         setError(err.message)
       } else {
-        setError(err instanceof ApiError ? err.message : 'Failed to create space.')
+        setError(err instanceof ApiError ? err.message : 'Не удалось создать пространство.')
       }
     }
   }
@@ -74,9 +74,10 @@ export function NewSpaceDialog({ open, onOpenChange }: NewSpaceDialogProps) {
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Create a new space</DialogTitle>
+          <DialogTitle>Создать новое пространство</DialogTitle>
           <DialogDescription>
-            Spaces hold a tree of pages. The slug is derived from the name.
+            В пространстве хранится дерево страниц. Слаг формируется из
+            названия.
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="flex flex-col gap-[var(--space-3)]">
@@ -85,14 +86,14 @@ export function NewSpaceDialog({ open, onOpenChange }: NewSpaceDialogProps) {
               htmlFor="new-space-name"
               className="text-[length:var(--text-sm)] text-[var(--text-muted)]"
             >
-              Name
+              Название
             </label>
             <Input
               id="new-space-name"
               autoFocus
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="e.g. Engineering"
+              placeholder="например, Разработка"
               aria-invalid={error != null}
             />
           </div>
@@ -103,14 +104,14 @@ export function NewSpaceDialog({ open, onOpenChange }: NewSpaceDialogProps) {
                 htmlFor="new-space-owner"
                 className="text-[length:var(--text-sm)] text-[var(--text-muted)]"
               >
-                Owner
+                Владелец
               </label>
               <Select
                 id="new-space-owner"
                 value={owner}
                 onChange={(e) => setOwner(e.target.value)}
               >
-                <option value={PERSONAL}>Personal</option>
+                <option value={PERSONAL}>Личное</option>
                 {myOrgs.map((o) => (
                   <option key={o.id} value={String(o.id)}>
                     {o.name}
@@ -119,8 +120,8 @@ export function NewSpaceDialog({ open, onOpenChange }: NewSpaceDialogProps) {
               </Select>
               <p className="m-0 text-[length:var(--text-xs)] text-[var(--text-muted)]">
                 {owner === PERSONAL
-                  ? 'Owned by you and counts against your personal plan.'
-                  : 'Owned by the organization; its members can edit and it uses the org plan.'}
+                  ? 'Принадлежит вам и учитывается в вашем личном тарифе.'
+                  : 'Принадлежит организации; её участники могут редактировать, используется тариф организации.'}
               </p>
             </div>
           ) : null}
@@ -142,7 +143,7 @@ export function NewSpaceDialog({ open, onOpenChange }: NewSpaceDialogProps) {
                       void navigate({ to: '/settings' })
                     }}
                   >
-                    View plan &amp; usage
+                    Посмотреть тариф и использование
                   </button>
                 </>
               ) : null}
@@ -152,11 +153,11 @@ export function NewSpaceDialog({ open, onOpenChange }: NewSpaceDialogProps) {
           <DialogFooter>
             <DialogClose asChild>
               <Button type="button" variant="ghost">
-                Cancel
+                Отмена
               </Button>
             </DialogClose>
             <Button type="submit" disabled={createSpace.isPending}>
-              {createSpace.isPending ? 'Creating…' : 'Create'}
+              {createSpace.isPending ? 'Создание…' : 'Создать'}
             </Button>
           </DialogFooter>
         </form>

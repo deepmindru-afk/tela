@@ -628,11 +628,11 @@ export function ExcalidrawEditSheet({
         onOpenAutoFocus={(e) => e.preventDefault()}
       >
         <SheetHeader>
-          <SheetTitle>Edit diagram</SheetTitle>
+          <SheetTitle>Редактировать диаграмму</SheetTitle>
           <SheetDescription>
             {session
-              ? 'Changes sync live and save automatically.'
-              : 'Draw your diagram, optionally add alt text, then Save to embed it in the page.'}
+              ? 'Изменения синхронизируются в реальном времени и сохраняются автоматически.'
+              : 'Нарисуйте диаграмму, при необходимости добавьте альтернативный текст, затем нажмите «Сохранить», чтобы встроить её в страницу.'}
           </SheetDescription>
         </SheetHeader>
 
@@ -663,8 +663,8 @@ export function ExcalidrawEditSheet({
           <Input
             value={altText}
             onChange={(e) => setAltText(e.target.value)}
-            placeholder="Add alt text? (Helps screen readers and broken-image fallback)"
-            aria-label="Diagram alt text"
+            placeholder="Добавить альтернативный текст? (Помогает скринридерам и при отсутствии изображения)"
+            aria-label="Альтернативный текст диаграммы"
             className="flex-1"
           />
           {status === 'error' && errorMessage ? (
@@ -682,7 +682,7 @@ export function ExcalidrawEditSheet({
               onClick={handleClose}
               disabled={status === 'saving'}
             >
-              {session ? 'Close' : 'Cancel'}
+              {session ? 'Закрыть' : 'Отмена'}
             </Button>
             <Button
               type="button"
@@ -690,7 +690,7 @@ export function ExcalidrawEditSheet({
               onClick={() => void commitScene({ close: true })}
               disabled={status === 'saving'}
             >
-              {status === 'saving' ? 'Saving…' : session ? 'Save & close' : 'Save'}
+              {status === 'saving' ? 'Сохранение…' : session ? 'Сохранить и закрыть' : 'Сохранить'}
             </Button>
           </div>
         </SheetFooter>
@@ -704,7 +704,7 @@ function CanvasFallback() {
     <div
       role="status"
       aria-busy="true"
-      aria-label="Loading diagram editor"
+      aria-label="Загрузка редактора диаграмм"
       className="flex-1 min-h-0 bg-[var(--surface-2)]"
     />
   )

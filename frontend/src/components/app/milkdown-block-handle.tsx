@@ -215,8 +215,8 @@ export function BlockHandleView() {
         <button
           type="button"
           className="tela-block-handle-btn"
-          aria-label="Add block below"
-          title="Add block below"
+          aria-label="Добавить блок ниже"
+          title="Добавить блок ниже"
           draggable={false}
           // Don't let the + initiate a block drag (drag lives on the grip).
           onMouseDown={(e) => e.stopPropagation()}
@@ -227,8 +227,8 @@ export function BlockHandleView() {
         <button
           type="button"
           className="tela-block-handle-btn tela-block-handle-grip"
-          aria-label="Drag to move; click for actions"
-          title="Drag to move · click for actions"
+          aria-label="Перетащить, чтобы переместить; нажмите для действий"
+          title="Перетащить, чтобы переместить · нажмите для действий"
           onClick={openMenu}
         >
           <GripVertical size="1em" strokeWidth={2.5} aria-hidden />
@@ -241,7 +241,7 @@ export function BlockHandleView() {
               role="menu"
               style={{ left: `${menu.left}px`, top: `${menu.top}px` }}
             >
-              <div className="tela-block-menu-label">Turn into</div>
+              <div className="tela-block-menu-label">Превратить в</div>
               {TURN_INTO.map((option) => {
                 const Icon = option.icon
                 return (
@@ -265,7 +265,7 @@ export function BlockHandleView() {
                 onClick={onDuplicate}
               >
                 <Copy size="1em" aria-hidden />
-                <span>Duplicate</span>
+                <span>Дублировать</span>
               </button>
               <button
                 type="button"
@@ -274,7 +274,7 @@ export function BlockHandleView() {
                 onClick={onDelete}
               >
                 <Trash2 size="1em" aria-hidden />
-                <span>Delete</span>
+                <span>Удалить</span>
               </button>
             </div>,
             document.body,

@@ -9,7 +9,7 @@ import { Decoration, DecorationSet } from '@milkdown/kit/prose/view'
 // (`content: attr(data-placeholder)`), so it never enters the document or the
 // canonical markdown.
 
-export const PLACEHOLDER_TEXT = 'Type / for commands…'
+export const PLACEHOLDER_TEXT = 'Введите / для команд…'
 
 const key = new PluginKey('tela-placeholder')
 

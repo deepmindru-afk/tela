@@ -146,12 +146,14 @@ export function PublicReaderView({
   )
   const byline = author ? (
     <>
-      by {authorLink(author)}
-      {editor && editor !== author ? <> · edited by {authorLink(editor)}</> : null}
+      Автор: {authorLink(author)}
+      {editor && editor !== author ? (
+        <> · Редактор: {authorLink(editor)}</>
+      ) : null}
     </>
   ) : space.owner_handle ? (
     <>
-      by {authorLink(space.owner_handle)}
+      Автор: {authorLink(space.owner_handle)}
     </>
   ) : undefined
 
@@ -182,7 +184,7 @@ export function PublicReaderView({
       <>
         <ChildGallery spaceId={space.id} handle={handle} spaceSlug={spaceSlug} posts={childPosts} />
         {hasPostNav ? (
-          <nav className="reader-postnav" aria-label="More posts">
+          <nav className="reader-postnav" aria-label="Другие публикации">
             {postNav!.older ? (
               <PostNavLink spaceId={space.id} handle={handle} spaceSlug={spaceSlug} post={postNav!.older} dir="older" />
             ) : (
@@ -221,7 +223,7 @@ export function PublicReaderView({
         collabPageId={null}
         readOnly
         pageId={pageId}
-        ariaLabel="Spreadsheet (read-only)"
+        ariaLabel="Таблица (только чтение)"
       />
     </Suspense>
   ) : undefined
@@ -279,7 +281,7 @@ export function PublicReaderView({
           ) : null}
           <a
             href={telaHome}
-            aria-label="tela home"
+            aria-label="Главная tela"
             // shrink-0: a flex child shrinks below its content by default, so on
             // a phone the wordmark was squeezed until its text spilled out of its
             // own box and collided with the trailing controls. The space name
@@ -307,7 +309,7 @@ export function PublicReaderView({
         <>
           <DownloadPdfButton url={`${window.location.pathname}.pdf`} themed compact />
           <Button asChild variant="ghost" size="sm">
-            <a href="/login">Sign in</a>
+            <a href="/login">Войти</a>
           </Button>
         </>
       }
@@ -354,7 +356,7 @@ function PublicDeckView({
         <span className="flex min-w-0 items-center gap-[var(--space-2)]">
           <a
             href={telaHome ?? '/'}
-            aria-label="tela home"
+            aria-label="Главная tela"
             className="font-[family-name:var(--font-sans)] text-[length:var(--text-base)] font-medium text-[var(--text-primary)] no-underline hover:opacity-70"
           >
             tela
@@ -372,31 +374,31 @@ function PublicDeckView({
           </Link>
         </span>
         <Button asChild variant="ghost" size="sm">
-          <a href="/login">Sign in</a>
+          <a href="/login">Войти</a>
         </Button>
       </header>
       <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col items-center justify-center gap-[var(--space-5)] p-[var(--space-6)]">
         <button
           type="button"
           onClick={present}
-          aria-label={`Present ${pageTitle || 'deck'}`}
+          aria-label={`Показать ${pageTitle || 'колоду'}`}
           className="group relative block aspect-video w-full overflow-hidden rounded-[var(--radius-lg)] border border-[var(--border-subtle)] bg-[var(--surface-2)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
         >
           <DeckCoverImage
             src={coverPath}
-            alt={pageTitle || 'Deck cover'}
+            alt={pageTitle || 'Обложка колоды'}
             className="h-full w-full object-cover"
             loading="eager"
           />
           <span className="absolute inset-0 flex items-center justify-center bg-[color-mix(in_srgb,var(--text-primary)_45%,transparent)] opacity-0 transition-opacity duration-[var(--duration-fast)] group-hover:opacity-100">
             <span className="flex items-center gap-[var(--space-2)] rounded-[var(--radius-md)] bg-[var(--surface-1)] px-[var(--space-4)] py-[var(--space-2)] text-[length:var(--text-sm)] font-medium shadow-[var(--shadow-md)]">
-              <Play width={16} height={16} /> Present
+              <Play width={16} height={16} /> Показать
             </span>
           </span>
         </button>
         <div className="flex flex-col items-center gap-[var(--space-3)] text-center">
           <h1 className="font-[family-name:var(--font-serif)] text-[length:var(--text-2xl)] font-semibold">
-            {pageTitle || 'Untitled deck'}
+            {pageTitle || 'Колода без названия'}
           </h1>
           {summary ? (
             <p className="max-w-prose text-[length:var(--text-base)] text-[var(--text-muted)]">
@@ -404,7 +406,7 @@ function PublicDeckView({
             </p>
           ) : null}
           <Button onClick={present} size="md">
-            <Play width={16} height={16} /> Present
+            <Play width={16} height={16} /> Показать
           </Button>
         </div>
       </main>
@@ -443,9 +445,9 @@ function PostNavLink({
       className={`reader-postnav-link reader-postnav-${dir}`}
     >
       <span className="reader-postnav-dir">
-        {dir === 'older' ? '← Older' : 'Newer →'}
+        {dir === 'older' ? '← Предыдущая' : 'Следующая →'}
       </span>
-      <span className="reader-postnav-title">{post.title || 'Untitled'}</span>
+      <span className="reader-postnav-title">{post.title || 'Без названия'}</span>
     </Link>
   )
 }
@@ -471,7 +473,7 @@ function PublicSpaceNav({
 }) {
   const tree = useMemo(() => buildPageTree(pages), [pages])
   return (
-    <nav aria-label={`${spaceName} pages`} className="reader-spacenav">
+    <nav aria-label={`Страницы: ${spaceName}`} className="reader-spacenav">
       <p className="reader-spacenav-title">{spaceName}</p>
       <PublicSpaceNavList
         spaceId={spaceId}
@@ -528,10 +530,10 @@ function PublicSpaceNavList({
             className="reader-spacenav-link"
             data-active={node.id === activePageId}
             aria-current={node.id === activePageId ? 'page' : undefined}
-            title={node.title || 'Untitled'}
+            title={node.title || 'Без названия'}
             onClick={onNavigate}
           >
-            {node.title || 'Untitled'}
+            {node.title || 'Без названия'}
           </Link>
           {node.children.length > 0 ? (
             <PublicSpaceNavList
@@ -576,7 +578,7 @@ function PublicSpaceNavSheet({
         <Button
           variant="ghost"
           size="sm"
-          aria-label="Pages in this space"
+          aria-label="Страницы этого пространства"
           className="lg:hidden h-[var(--space-8)] w-[var(--space-8)] p-0"
         >
           <Menu width={18} height={18} />
@@ -587,7 +589,7 @@ function PublicSpaceNavSheet({
           <SheetTitle>{spaceName}</SheetTitle>
         </SheetHeader>
         <SheetBody>
-          <nav aria-label={`${spaceName} pages`}>
+          <nav aria-label={`Страницы: ${spaceName}`}>
             <PublicSpaceNavList
               spaceId={spaceId}
               handle={handle}

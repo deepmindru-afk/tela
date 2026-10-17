@@ -12,13 +12,15 @@ import {
   type SpaceFreshness,
 } from '../../lib/queries/freshness'
 import { cn } from '../../lib/utils'
+import { ruPlural } from '../../lib/ru-plural'
 
+// Russian plural for counted nouns: 1 страница, 2 страницы, 5 страниц.
 // Per-page status → label + whether it reads as "needs attention" (amber dot).
 const STATUS_META: Record<PageIndexStatus, { label: string; attention: boolean }> = {
-  fresh: { label: 'Indexed', attention: false },
-  stale: { label: 'Edited since index', attention: true },
-  unindexed: { label: 'Not indexed', attention: true },
-  empty: { label: 'Empty', attention: false },
+  fresh: { label: 'Проиндексировано', attention: false },
+  stale: { label: 'Изменено после индексации', attention: true },
+  unindexed: { label: 'Не проиндексировано', attention: true },
+  empty: { label: 'Пусто', attention: false },
 }
 
 function StatusDot({ attention }: { attention: boolean }) {
@@ -66,16 +68,16 @@ function SpaceRow({ space }: { space: SpaceFreshness }) {
         {needsAttention ? (
           <span className="inline-flex items-center gap-[var(--space-1)] text-[length:var(--text-xs)] text-[var(--warning)]">
             <StatusDot attention />
-            {space.stale_pages} need indexing
+            {space.stale_pages} {ruPlural(space.stale_pages, 'страница требует', 'страницы требуют', 'страниц требуют')} индексации
           </span>
         ) : (
           <span className="text-[length:var(--text-xs)] text-[var(--text-muted)]">
-            All indexed
+            Всё проиндексировано
           </span>
         )}
 
         <span className="text-[length:var(--text-xs)] text-[var(--text-muted)] tabular-nums hidden sm:inline">
-          {space.indexed_pages}/{space.pages} pages · {space.chunk_count} chunks
+          {space.indexed_pages}/{space.pages} страниц · {space.chunk_count} фрагментов
         </span>
 
         <Button
@@ -91,7 +93,7 @@ function SpaceRow({ space }: { space: SpaceFreshness }) {
             height={14}
             className={cn(reindex.isPending && 'animate-spin')}
           />
-          {reindex.isPending ? 'Reindexing…' : 'Reindex'}
+          {reindex.isPending ? 'Переиндексация…' : 'Переиндексировать'}
         </Button>
       </div>
 
@@ -99,12 +101,12 @@ function SpaceRow({ space }: { space: SpaceFreshness }) {
         <div className="border-0 border-t border-[var(--border-subtle)] bg-[var(--surface-1)]">
           {pageQuery.isLoading && (
             <p className="m-0 p-[var(--space-4)] text-[length:var(--text-sm)] text-[var(--text-muted)]">
-              Loading pages…
+              Загрузка страниц…
             </p>
           )}
           {pageQuery.data && pageQuery.data.pages.length === 0 && (
             <p className="m-0 p-[var(--space-4)] text-[length:var(--text-sm)] text-[var(--text-muted)]">
-              No pages in this space.
+              В этом пространстве нет страниц.
             </p>
           )}
           {pageQuery.data && pageQuery.data.pages.length > 0 && (
@@ -118,7 +120,7 @@ function SpaceRow({ space }: { space: SpaceFreshness }) {
                   >
                     <StatusDot attention={meta.attention} />
                     <span className="min-w-0 flex-1 truncate text-[length:var(--text-sm)] text-[var(--text-primary)]">
-                      {p.title || 'Untitled'}
+                      {p.title || 'Без названия'}
                     </span>
                     <span className="text-[length:var(--text-xs)] text-[var(--text-muted)]">
                       {meta.label}
@@ -152,18 +154,18 @@ function BackfillDotPref() {
       <Checkbox
         checked={shown}
         disabled={me.isLoading || update.isPending}
-        aria-label="Show indexing activity in the sidebar"
+        aria-label="Показывать активность индексации в боковой панели"
         onCheckedChange={(v) => update.mutate({ show_backfill_dot: v === true })}
         className="mt-[2px]"
       />
       <span className="flex flex-col gap-[1px]">
         <span className="text-[length:var(--text-sm)] text-[var(--text-primary)] font-medium">
-          Show indexing activity in the sidebar
+          Показывать активность индексации в боковой панели
         </span>
         <span className="text-[length:var(--text-xs)] text-[var(--text-muted)]">
-          The small amber dot next to a page or space while its index or summary
-          is catching up. Turning it off changes nothing about the indexing
-          itself — this page still shows the full status.
+          Небольшая янтарная точка рядом со страницей или пространством, пока их
+          индекс или сводка догоняет изменения. Отключение никак не влияет на саму
+          индексацию — эта страница по-прежнему показывает полный статус.
         </span>
       </span>
     </label>
@@ -177,14 +179,14 @@ function IndexStatus() {
   if (isLoading) {
     return (
       <p className="m-0 text-[length:var(--text-sm)] text-[var(--text-muted)]">
-        Loading index status…
+        Загрузка статуса индекса…
       </p>
     )
   }
   if (isError || !data) {
     return (
       <p className="m-0 text-[length:var(--text-sm)] text-[var(--text-muted)]">
-        Couldn’t load index status.
+        Не удалось загрузить статус индекса.
       </p>
     )
   }
@@ -192,24 +194,24 @@ function IndexStatus() {
   return (
     <div className="flex flex-col gap-[var(--space-4)]">
       <p className="m-0 text-[length:var(--text-sm)] text-[var(--text-muted)]">
-        Semantic search indexes page content into searchable chunks. Pages
-        reindex automatically a few seconds after an edit; use Reindex to rebuild
-        a whole space.
+        Семантический поиск разбивает содержимое страниц на фрагменты и индексирует
+        их. Страницы переиндексируются автоматически через несколько секунд после
+        правки; кнопка «Переиндексировать» пересобирает индекс целого пространства.
       </p>
 
       {!data.enabled && (
         <Card className="p-[var(--space-4)]">
           <p className="m-0 text-[length:var(--text-sm)] text-[var(--text-muted)]">
-            Semantic search is <strong className="text-[var(--text-primary)]">not configured</strong> on
-            this server — counts below reflect any existing index, but new
-            content won’t be embedded until an embedder is set up.
+            Семантический поиск на этом сервере <strong className="text-[var(--text-primary)]">не настроен</strong> —
+            приведённые ниже счётчики отражают существующий индекс, но новое содержимое
+            не будет переведено в векторы, пока не настроен эмбеддер.
           </p>
         </Card>
       )}
 
       {data.spaces.length === 0 ? (
         <p className="m-0 text-[length:var(--text-sm)] text-[var(--text-muted)]">
-          No spaces to index.
+          Нет пространств для индексации.
         </p>
       ) : (
         <div className="flex flex-col gap-[var(--space-3)]">

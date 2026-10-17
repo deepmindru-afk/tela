@@ -10,6 +10,7 @@ import {
   type GraphNode,
 } from '../../lib/queries/graph'
 import { navigateToPage } from '../../lib/pageHitItem'
+import { ruPlural } from '../../lib/ru-plural'
 import { Button } from '../ui/button'
 import { PageGraph } from './PageGraph'
 
@@ -99,7 +100,7 @@ export function GraphRoute() {
       {/* Controls */}
       <div className="flex flex-wrap items-center gap-[var(--space-3)] border-b border-[var(--border-subtle)] px-[var(--space-5)] py-[var(--space-3)]">
         <h1 className="m-0 text-[length:var(--text-base)] font-medium text-[var(--text-primary)]">
-          Graph
+          Граф
         </h1>
         {focus != null ? (
           <Button
@@ -110,7 +111,7 @@ export function GraphRoute() {
             }
           >
             <X width={14} height={14} />
-            Focused — show all
+            Фокус — показать всё
           </Button>
         ) : null}
 
@@ -124,38 +125,38 @@ export function GraphRoute() {
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Highlight…"
-            aria-label="Highlight pages"
+            placeholder="Подсветить…"
+            aria-label="Подсветить страницы"
             className="h-[var(--space-8)] w-[12rem] rounded-[var(--radius-sm)] border border-[var(--border-subtle)] bg-[var(--surface-1)] pl-[calc(var(--space-2)*2+var(--space-2))] pr-[var(--space-2)] text-[length:var(--text-sm)] text-[var(--text-primary)] outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
           />
         </div>
 
         <ToggleChip active={showLinks} onClick={() => setShowLinks((v) => !v)}>
-          Links
+          Ссылки
         </ToggleChip>
         <ToggleChip active={showTree} onClick={() => setShowTree((v) => !v)}>
-          Hierarchy
+          Иерархия
         </ToggleChip>
         <ToggleChip active={showSemantic} onClick={() => setShowSemantic((v) => !v)}>
-          Semantic
+          Семантические
         </ToggleChip>
         <ToggleChip active={showTrust} onClick={() => setShowTrust((v) => !v)}>
-          Trust
+          Достоверность
         </ToggleChip>
         <ToggleChip active={recency} onClick={() => setRecency((v) => !v)}>
-          Recency
+          Свежесть
         </ToggleChip>
         <ToggleChip active={orphansOnly} onClick={() => setOrphansOnly((v) => !v)}>
-          Orphans
+          Осиротевшие
         </ToggleChip>
         <ToggleChip active={showStats} onClick={() => setShowStats((v) => !v)}>
-          Stats
+          Статистика
         </ToggleChip>
         <Button
           variant="ghost"
           size="sm"
-          aria-label="Fit graph to view"
-          title="Fit to view"
+          aria-label="Вписать граф в экран"
+          title="Вписать в экран"
           onClick={() => setFitNonce((n) => n + 1)}
         >
           <Maximize2 width={14} height={14} />
@@ -165,12 +166,12 @@ export function GraphRoute() {
       {/* Canvas + overlays */}
       <div className="relative min-h-0 flex-1">
         {graph.isLoading ? (
-          <CenterNote>Loading graph…</CenterNote>
+          <CenterNote>Загрузка графа…</CenterNote>
         ) : nodes.length === 0 ? (
           <CenterNote>
             {orphansOnly
-              ? 'No orphan pages — everything is linked.'
-              : 'No pages to graph yet.'}
+              ? 'Осиротевших страниц нет — всё связано ссылками.'
+              : 'Пока нет страниц для графа.'}
           </CenterNote>
         ) : (
           <PageGraph
@@ -241,22 +242,22 @@ function computeStats(nodes: GraphNode[], links: GraphLink[]): Stats {
     connected.add(l.target)
   }
   const hubs = [...nodes]
-    .map((n) => ({ id: n.id, title: n.title || 'Untitled', deg: deg.get(n.id) ?? 0 }))
+    .map((n) => ({ id: n.id, title: n.title || 'Без названия', deg: deg.get(n.id) ?? 0 }))
     .sort((a, b) => b.deg - a.deg)
     .slice(0, 6)
   const recent = [...nodes]
     .sort((a, b) => (a.updated_at < b.updated_at ? 1 : -1))
     .slice(0, 6)
-    .map((n) => ({ id: n.id, title: n.title || 'Untitled' }))
+    .map((n) => ({ id: n.id, title: n.title || 'Без названия' }))
   // Trust health: disputed first (most disputes first), then the stale worklist.
   const disputed = nodes
     .filter((n) => (n.dispute ?? 0) > 0)
     .sort((a, b) => (b.dispute ?? 0) - (a.dispute ?? 0))
-    .map((n) => ({ id: n.id, title: n.title || 'Untitled', n: n.dispute ?? 0 }))
+    .map((n) => ({ id: n.id, title: n.title || 'Без названия', n: n.dispute ?? 0 }))
   const stale = nodes
     .filter((n) => isStaleNode(n.updated_at))
     .sort((a, b) => (a.updated_at < b.updated_at ? -1 : 1))
-    .map((n) => ({ id: n.id, title: n.title || 'Untitled' }))
+    .map((n) => ({ id: n.id, title: n.title || 'Без названия' }))
   return {
     hubs,
     recent,
@@ -280,43 +281,75 @@ function StatsPanel({
     <div className="absolute right-[var(--space-3)] top-[var(--space-3)] flex w-[15rem] flex-col gap-[var(--space-3)] rounded-[var(--radius-md)] border border-[var(--border-subtle)] bg-[color-mix(in_srgb,var(--surface-1)_92%,transparent)] p-[var(--space-3)] backdrop-blur">
       <div className="flex items-center justify-between">
         <span className="text-[length:var(--text-sm)] font-medium text-[var(--text-primary)]">
-          Stats
+          Статистика
         </span>
         <button
           type="button"
           onClick={onClose}
-          aria-label="Close stats"
+          aria-label="Закрыть статистику"
           className="text-[var(--text-muted)] hover:text-[var(--text-primary)]"
         >
           <X width={14} height={14} />
         </button>
       </div>
       <div className="flex flex-wrap gap-x-[var(--space-3)] gap-y-[var(--space-1)] text-[length:var(--text-xs)] text-[var(--text-muted)]">
-        <span>{stats.orphanCount} orphans</span>
-        <span>{stats.brokenCount} broken-link</span>
+        <span>
+          {stats.orphanCount}{' '}
+          {ruPlural(
+            stats.orphanCount,
+            'осиротевшая страница',
+            'осиротевшие страницы',
+            'осиротевших страниц',
+          )}
+        </span>
+        <span>
+          {stats.brokenCount}{' '}
+          {ruPlural(
+            stats.brokenCount,
+            'страница с битой ссылкой',
+            'страницы с битыми ссылками',
+            'страниц с битыми ссылками',
+          )}
+        </span>
         {stats.disputed.length > 0 ? (
-          <span className="text-[var(--danger)]">{stats.disputed.length} disputed</span>
+          <span className="text-[var(--danger)]">
+            {stats.disputed.length}{' '}
+            {ruPlural(
+              stats.disputed.length,
+              'страница с противоречием',
+              'страницы с противоречиями',
+              'страниц с противоречиями',
+            )}
+          </span>
         ) : null}
         {stats.stale.length > 0 ? (
-          <span className="text-[var(--warning)]">{stats.stale.length} stale</span>
+          <span className="text-[var(--warning)]">
+            {stats.stale.length}{' '}
+            {ruPlural(
+              stats.stale.length,
+              'устаревшая страница',
+              'устаревшие страницы',
+              'устаревших страниц',
+            )}
+          </span>
         ) : null}
       </div>
       {stats.disputed.length > 0 ? (
         <StatList
-          label="Disputed"
+          label="Противоречия"
           rows={stats.disputed.map((d) => ({ id: d.id, title: d.title, meta: `${d.n}` }))}
           onNavigate={onNavigate}
         />
       ) : null}
       {stats.stale.length > 0 ? (
         <StatList
-          label="Stale — needs review"
+          label="Устаревшие — нужна проверка"
           rows={stats.stale.slice(0, 8).map((s) => ({ id: s.id, title: s.title }))}
           onNavigate={onNavigate}
         />
       ) : null}
-      <StatList label="Most connected" rows={stats.hubs.map((h) => ({ id: h.id, title: h.title, meta: `${h.deg}` }))} onNavigate={onNavigate} />
-      <StatList label="Recently updated" rows={stats.recent.map((r) => ({ id: r.id, title: r.title }))} onNavigate={onNavigate} />
+      <StatList label="Самые связанные" rows={stats.hubs.map((h) => ({ id: h.id, title: h.title, meta: `${h.deg}` }))} onNavigate={onNavigate} />
+      <StatList label="Недавно обновлённые" rows={stats.recent.map((r) => ({ id: r.id, title: r.title }))} onNavigate={onNavigate} />
     </div>
   )
 }

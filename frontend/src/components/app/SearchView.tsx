@@ -194,14 +194,14 @@ export function SearchRoute() {
           className="text-[var(--text-muted)]"
         />
         <h1 className="m-0 text-[length:var(--text-xl)] leading-[var(--leading-tight)] font-[family-name:var(--font-sans)] text-[var(--text-primary)]">
-          Search
+          Поиск
         </h1>
         <span
           aria-live="polite"
           className="ml-auto text-[length:var(--text-xs)] text-[var(--text-muted)] font-[family-name:var(--font-sans)]"
         >
           {trimmed.length > 0
-            ? `${results.length} result${results.length === 1 ? '' : 's'}`
+            ? `${results.length} ${results.length === 1 ? 'результат' : 'результатов'}`
             : ''}
         </span>
       </header>
@@ -212,8 +212,8 @@ export function SearchRoute() {
             type="text"
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
-            placeholder="Search across all your spaces…"
-            aria-label="Search query"
+            placeholder="Поиск по всем вашим пространствам…"
+            aria-label="Поисковый запрос"
             autoFocus
           />
           <SpaceFilterChips
@@ -227,14 +227,14 @@ export function SearchRoute() {
               htmlFor="search-since"
               className="text-[length:var(--text-sm)] text-[var(--text-muted)] font-[family-name:var(--font-sans)]"
             >
-              Updated since
+              Обновлено с
             </label>
             <Input
               id="search-since"
               type="date"
               value={since}
               onChange={handleSinceChange}
-              aria-label="Filter by updated-since date"
+              aria-label="Фильтр по дате обновления"
               className="max-w-[12rem]"
             />
           </div>
@@ -243,7 +243,7 @@ export function SearchRoute() {
               role="status"
               className="m-0 text-[length:var(--text-xs)] text-[var(--text-muted)] font-[family-name:var(--font-sans)]"
             >
-              Loading indexes…
+              Загрузка индексов…
             </p>
           ) : null}
         </CardBody>
@@ -253,16 +253,16 @@ export function SearchRoute() {
         // Roving target for the j/k keyboard layer (see lib/keys); outranks the
         // sidebar so j/k drives results while on /search.
         data-keynav-region="list"
-        aria-label="Search results"
+        aria-label="Результаты поиска"
         className="flex flex-col gap-[var(--space-1)] min-h-0"
       >
         {trimmed.length === 0 ? (
           <p className="m-0 px-[var(--space-4)] py-[var(--space-3)] text-[length:var(--text-sm)] text-[var(--text-muted)] font-[family-name:var(--font-sans)]">
-            Type to search across all your spaces.
+            Начните вводить, чтобы искать по всем вашим пространствам.
           </p>
         ) : results.length === 0 ? (
           <p className="m-0 px-[var(--space-4)] py-[var(--space-3)] text-[length:var(--text-sm)] text-[var(--text-muted)] font-[family-name:var(--font-sans)]">
-            No pages match &quot;{trimmed}&quot;.
+            Нет страниц по запросу «{trimmed}».
           </p>
         ) : (
           results.map((row) => (
@@ -302,7 +302,7 @@ function SpaceFilterChips({
   return (
     <div className="flex flex-wrap items-center gap-[var(--space-2)]">
       <span className="text-[length:var(--text-sm)] text-[var(--text-muted)] font-[family-name:var(--font-sans)] mr-[var(--space-1)]">
-        Spaces
+        Пространства
       </span>
       <Toggle
         size="sm"
@@ -311,7 +311,7 @@ function SpaceFilterChips({
           if (next) onClear()
         }}
       >
-        All
+        Все
       </Toggle>
       {spaces.map((sp) => {
         const isOn = selected.includes(sp.id)

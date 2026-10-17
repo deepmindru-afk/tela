@@ -141,8 +141,8 @@ function inlineMarker(kind: RowKind): string {
 export function DiffViewer({
   oldBody,
   newBody,
-  oldLabel = 'Old',
-  newLabel = 'New',
+  oldLabel = 'Старая версия',
+  newLabel = 'Новая версия',
   defaultMode = 'split',
 }: DiffViewerProps) {
   const [mode, setMode] = useState<DiffMode>(defaultMode)
@@ -172,9 +172,9 @@ export function DiffViewer({
     return (
       <Card className="self-start">
         <CardHeader>
-          <CardTitle>No changes</CardTitle>
+          <CardTitle>Без изменений</CardTitle>
           <CardDescription>
-            No changes between this revision and the current page.
+            Между этой редакцией и текущей страницей нет различий.
           </CardDescription>
         </CardHeader>
         <CardBody />
@@ -234,13 +234,13 @@ function DiffToolbar({ mode, onChangeMode, oldLabel, newLabel }: DiffToolbarProp
         onValueChange={(next) => {
           if (next === 'split' || next === 'inline') onChangeMode(next)
         }}
-        aria-label="Diff layout"
+        aria-label="Вид сравнения"
       >
-        <ToggleGroupItem value="split" size="sm" aria-label="Side-by-side">
-          Split
+        <ToggleGroupItem value="split" size="sm" aria-label="Рядом">
+          Рядом
         </ToggleGroupItem>
-        <ToggleGroupItem value="inline" size="sm" aria-label="Inline">
-          Inline
+        <ToggleGroupItem value="inline" size="sm" aria-label="В строку">
+          В строку
         </ToggleGroupItem>
       </ToggleGroup>
       <p className="m-0 text-[length:var(--text-xs)] text-[var(--text-muted)] truncate">
@@ -265,7 +265,7 @@ function SplitView({ rows, oldLabel, newLabel }: SplitViewProps) {
     <div
       className="grid grid-cols-2"
       role="table"
-      aria-label="Side-by-side diff"
+      aria-label="Попарное сравнение"
     >
       <PaneHeader label={oldLabel} side="left" />
       <PaneHeader label={newLabel} side="right" />
@@ -366,7 +366,7 @@ function DiffCell({ row, lineNoSide, borderRight, borderBottom }: DiffCellProps)
 
 function InlineView({ rows }: { rows: DiffRow[] }) {
   return (
-    <div role="table" aria-label="Inline diff">
+    <div role="table" aria-label="Сравнение в одну колонку">
       {rows.map((row, idx) => (
         <InlineRow key={idx} row={row} isLast={idx === rows.length - 1} />
       ))}

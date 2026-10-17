@@ -52,7 +52,7 @@ export function SpaceView({ spaceId }: { spaceId: number }) {
   // What the confirm dialog is about to destroy: one entry, or the whole bin.
   const [pendingPurge, setPendingPurge] = useState<TrashEntry | 'all' | null>(null)
   const spaceName = useMemo(
-    () => spacesQuery.data?.find((s) => s.id === spaceId)?.name ?? 'Space',
+    () => spacesQuery.data?.find((s) => s.id === spaceId)?.name ?? 'Пространство',
     [spacesQuery.data, spaceId],
   )
 
@@ -73,7 +73,7 @@ export function SpaceView({ spaceId }: { spaceId: number }) {
           </h1>
           {data ? (
             <span className="text-[length:var(--text-sm)] text-[var(--text-muted)] font-[family-name:var(--font-sans)]">
-              {data.pages} {data.pages === 1 ? 'page' : 'pages'}
+              {data.pages} {data.pages === 1 ? 'страница' : 'страницы'}
             </span>
           ) : null}
           <span className="ml-auto self-center">
@@ -83,10 +83,10 @@ export function SpaceView({ spaceId }: { spaceId: number }) {
 
         <Tabs defaultValue="overview" className="flex flex-col gap-[var(--space-4)]">
           <TabsList>
-            <TabsTrigger value="overview">Overview</TabsTrigger>
+            <TabsTrigger value="overview">Обзор</TabsTrigger>
             <TabsTrigger value="health">
               <span className="inline-flex items-center gap-[var(--space-2)]">
-                Health
+                Состояние
                 {problems > 0 ? (
                   <span className="inline-flex items-center justify-center min-w-[var(--space-5)] h-[var(--space-5)] px-[var(--space-1)] rounded-full text-[length:var(--text-xs)] bg-[color-mix(in_oklch,var(--danger)_18%,transparent)] text-[var(--danger)]">
                     {problems}
@@ -96,7 +96,7 @@ export function SpaceView({ spaceId }: { spaceId: number }) {
             </TabsTrigger>
             <TabsTrigger value="trash">
               <span className="inline-flex items-center gap-[var(--space-2)]">
-                Trash
+                Корзина
                 {trash.data && trash.data.length > 0 ? (
                   <span className="text-[length:var(--text-xs)] text-[var(--text-muted)]">
                     {trash.data.length}
@@ -112,17 +112,17 @@ export function SpaceView({ spaceId }: { spaceId: number }) {
               <Skeleton />
             ) : (
               <>
-                <Section title="Contents" icon={Folder}>
+                <Section title="Содержимое" icon={Folder}>
                   {data && data.top_level.length > 0 ? (
                     <List>
                       {data.top_level.map((p) => (
                         <Row
                           key={p.id}
                           icon={FileText}
-                          title={p.title || 'Untitled'}
+                          title={p.title || 'Без названия'}
                           meta={
                             p.children > 0
-                              ? `${p.children} ${p.children === 1 ? 'page' : 'pages'}`
+                              ? `${p.children} ${p.children === 1 ? 'страница' : 'страницы'}`
                               : undefined
                           }
                           onSelect={() => navigateToPage(spaceId, p.id)}
@@ -130,18 +130,18 @@ export function SpaceView({ spaceId }: { spaceId: number }) {
                       ))}
                     </List>
                   ) : (
-                    <Muted>No top-level pages yet.</Muted>
+                    <Muted>Пока нет страниц верхнего уровня.</Muted>
                   )}
                 </Section>
 
                 {data && data.recent.length > 0 ? (
-                  <Section title="Recently updated" icon={Clock}>
+                  <Section title="Недавно обновлённые" icon={Clock}>
                     <List>
                       {data.recent.map((p) => (
                         <Row
                           key={p.id}
                           icon={FileText}
-                          title={p.title || 'Untitled'}
+                          title={p.title || 'Без названия'}
                           meta={p.updated_at ? relativeTimeFromSqlite(p.updated_at) : undefined}
                           onSelect={() => navigateToPage(spaceId, p.id)}
                         />
@@ -160,21 +160,21 @@ export function SpaceView({ spaceId }: { spaceId: number }) {
             ) : anything === 0 ? (
               <EmptyState
                 icon={ShieldAlert}
-                title="This space looks healthy"
-                description="No disputes, orphans, overdue reviews, or likely duplicates right now."
+                title="С этим пространством всё в порядке"
+                description="Сейчас нет противоречий, страниц-сирот, просроченных проверок и вероятных дубликатов."
               />
             ) : (
               <>
                 {h && h.disputed.length > 0 ? (
-                  <Section title="Disputed" icon={ShieldAlert} tone="danger">
+                  <Section title="Противоречия" icon={ShieldAlert} tone="danger">
                     <List>
                       {h.disputed.map((d) => (
                         <Row
                           key={d.id}
                           icon={ShieldAlert}
                           tone="danger"
-                          title={d.title || 'Untitled'}
-                          meta={`${d.n} conflict${d.n === 1 ? '' : 's'}`}
+                          title={d.title || 'Без названия'}
+                          meta={`${d.n} конфликт${d.n === 1 ? '' : 'а'}`}
                           onSelect={() => navigateToPage(spaceId, d.id)}
                         />
                       ))}
@@ -183,15 +183,15 @@ export function SpaceView({ spaceId }: { spaceId: number }) {
                 ) : null}
 
                 {h && h.review_overdue.length > 0 ? (
-                  <Section title="Needs review" icon={CalendarClock} tone="warning">
+                  <Section title="Требует проверки" icon={CalendarClock} tone="warning">
                     <List>
                       {h.review_overdue.map((p) => (
                         <Row
                           key={p.id}
                           icon={CalendarClock}
                           tone="warning"
-                          title={p.title || 'Untitled'}
-                          meta={`due — every ${p.every}d, ${p.age_days}d old`}
+                          title={p.title || 'Без названия'}
+                          meta={`просрочено — каждые ${p.every} дн., ${p.age_days} дн.`}
                           onSelect={() => navigateToPage(spaceId, p.id)}
                         />
                       ))}
@@ -200,14 +200,14 @@ export function SpaceView({ spaceId }: { spaceId: number }) {
                 ) : null}
 
                 {h && h.orphans.length > 0 ? (
-                  <Section title="Orphans" icon={Unlink}>
+                  <Section title="Сироты" icon={Unlink}>
                     <List>
                       {h.orphans.map((p) => (
                         <Row
                           key={p.id}
                           icon={Unlink}
-                          title={p.title || 'Untitled'}
-                          meta="no links"
+                          title={p.title || 'Без названия'}
+                          meta="без ссылок"
                           onSelect={() => navigateToPage(spaceId, p.id)}
                         />
                       ))}
@@ -216,14 +216,14 @@ export function SpaceView({ spaceId }: { spaceId: number }) {
                 ) : null}
 
                 {h && h.duplicates.length > 0 ? (
-                  <Section title="Possible duplicates" icon={Copy}>
+                  <Section title="Возможные дубликаты" icon={Copy}>
                     <List>
                       {h.duplicates.map((d, i) => (
                         <Row
                           key={`${d.page_a}-${d.page_b}-${i}`}
                           icon={Copy}
-                          title={`${d.title_a || 'Untitled'}  ·  ${d.title_b || 'Untitled'}`}
-                          meta={`${Math.round(d.similarity * 100)}% alike`}
+                          title={`${d.title_a || 'Без названия'}  ·  ${d.title_b || 'Без названия'}`}
+                          meta={`${Math.round(d.similarity * 100)}% совпадения`}
                           onSelect={() => navigateToPage(spaceId, d.page_a)}
                         />
                       ))}
@@ -241,16 +241,16 @@ export function SpaceView({ spaceId }: { spaceId: number }) {
             ) : !trash.data || trash.data.length === 0 ? (
               <EmptyState
                 icon={Trash2}
-                title="Nothing deleted"
-                description="Deleted pages come here instead of disappearing, and can be put back. You see your own; a space owner sees everyone's."
+                title="Ничего не удалено"
+                description="Удалённые страницы попадают сюда, а не исчезают, и их можно вернуть. Вы видите только свои; владелец пространства видит все."
               />
             ) : (
               <Section
-                title="Deleted pages"
+                title="Удалённые страницы"
                 icon={Trash2}
                 aside={
                   <Button variant="ghost" size="sm" onClick={() => setPendingPurge('all')}>
-                    Empty trash
+                    Очистить корзину
                   </Button>
                 }
               >
@@ -259,7 +259,7 @@ export function SpaceView({ spaceId }: { spaceId: number }) {
                     <Row
                       key={e.id}
                       icon={Trash2}
-                      title={e.title || 'Untitled'}
+                      title={e.title || 'Без названия'}
                       meta={trashMeta(e)}
                       action={
                         <span className="inline-flex items-center gap-[var(--space-1)]">
@@ -271,14 +271,14 @@ export function SpaceView({ spaceId }: { spaceId: number }) {
                           >
                             <RotateCcw width={13} height={13} aria-hidden />
                             {restore.isPending && restore.variables?.id === e.id
-                              ? 'Restoring…'
-                              : 'Restore'}
+                              ? 'Восстановление…'
+                              : 'Восстановить'}
                           </Button>
                           <Button
                             variant="ghost"
                             size="sm"
-                            aria-label={`Delete "${e.title || 'Untitled'}" permanently`}
-                            title="Delete permanently"
+                            aria-label={`Удалить «${e.title || 'Без названия'}» безвозвратно`}
+                            title="Удалить безвозвратно"
                             onClick={() => setPendingPurge(e)}
                           >
                             <X width={13} height={13} aria-hidden />
@@ -289,7 +289,7 @@ export function SpaceView({ spaceId }: { spaceId: number }) {
                   ))}
                 </List>
                 {restore.isError ? (
-                  <Muted>Could not restore that page — reload and try again.</Muted>
+                  <Muted>Не удалось восстановить страницу — обновите страницу и попробуйте снова.</Muted>
                 ) : null}
               </Section>
             )}
@@ -331,25 +331,25 @@ function PurgeConfirmDialog({
     <Dialog open={target !== null} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>{all ? 'Empty the trash?' : 'Delete this page for good?'}</DialogTitle>
+          <DialogTitle>{all ? 'Очистить корзину?' : 'Удалить эту страницу навсегда?'}</DialogTitle>
           <DialogDescription>
             {all
-              ? 'Every deleted page you can see here will be destroyed, along with its sub-pages, history and attachments. This cannot be undone.'
-              : `"${entry?.title || 'Untitled'}"${
+              ? 'Все удалённые страницы, которые вы видите, будут уничтожены вместе с подстраницами, историей и вложениями. Это нельзя отменить.'
+              : `«${entry?.title || 'Без названия'}»${
                   entry && entry.sub_pages > 0
-                    ? ` and its ${entry.sub_pages} sub-page${entry.sub_pages === 1 ? '' : 's'}`
+                    ? ` и ${entry.sub_pages} ${entry.sub_pages === 1 ? 'подстраница' : 'подстраниц'}`
                     : ''
-                } will be destroyed, along with its history and attachments. This cannot be undone.`}
+                } будут уничтожены вместе с историей и вложениями. Это нельзя отменить.`}
           </DialogDescription>
         </DialogHeader>
         <DialogFooter>
           <DialogClose asChild>
             <Button type="button" variant="ghost">
-              Cancel
+              Отмена
             </Button>
           </DialogClose>
           <Button type="button" variant="danger" onClick={() => void onConfirm()} disabled={pending}>
-            {pending ? 'Deleting…' : all ? 'Empty trash' : 'Delete for good'}
+            {pending ? 'Удаление…' : all ? 'Очистить корзину' : 'Удалить навсегда'}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -469,15 +469,16 @@ function Row({
 // enough to tell two same-named pages apart, to see what a restore will bring
 // back with it, and to tell your own delete from a vault sync's.
 function trashMeta(e: TrashEntry): string {
-  let when = `deleted ${relativeTimeFromSqlite(e.deleted_at)}`
+  let when = `удалено ${relativeTimeFromSqlite(e.deleted_at)}`
   // Only name someone else: "by you" on every row of your own bin is noise.
-  if (e.deleted_by && !e.deleted_by_you) when += ` by ${e.deleted_by}`
+  if (e.deleted_by && !e.deleted_by_you) when += ` автором ${e.deleted_by}`
   const bits = [when]
   // A click in the app is the norm and goes unsaid; an agent or a vault sync
   // doing the deleting is exactly what you want to notice.
-  if (e.deleted_via && e.deleted_via !== 'manual') bits.push(`via ${e.deleted_via}`)
-  if (e.sub_pages > 0) bits.push(`${e.sub_pages} sub-page${e.sub_pages === 1 ? '' : 's'}`)
-  if (e.parent_title) bits.push(`in ${e.parent_title}`)
+  if (e.deleted_via && e.deleted_via !== 'manual') bits.push(`через ${e.deleted_via}`)
+  if (e.sub_pages > 0)
+    bits.push(`${e.sub_pages} ${e.sub_pages === 1 ? 'подстраница' : 'подстраниц'}`)
+  if (e.parent_title) bits.push(`в «${e.parent_title}»`)
   return bits.join(' · ')
 }
 

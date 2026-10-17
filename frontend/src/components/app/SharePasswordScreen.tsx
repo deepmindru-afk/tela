@@ -51,25 +51,25 @@ export function SharePasswordScreen({ token }: SharePasswordScreenProps) {
       if (err instanceof ShareError) {
         if (err.kind === 'rate_limited') {
           setRetryAfter(err.retryAfter ?? 60)
-          setError('Too many attempts. Try again shortly.')
+          setError('Слишком много попыток. Повторите чуть позже.')
           return
         }
         if (err.kind === 'invalid_password') {
-          setError('Incorrect password.')
+          setError('Неверный пароль.')
           return
         }
         if (err.kind === 'not_found') {
-          setError('This share link is no longer available.')
+          setError('Эта ссылка больше недоступна.')
           return
         }
         if (err.kind === 'bad_request') {
-          setError('This share link no longer requires a password.')
+          setError('Для этой ссылки больше не требуется пароль.')
           return
         }
-        setError(err.message || 'Something went wrong.')
+        setError(err.message || 'Что-то пошло не так.')
         return
       }
-      setError('Something went wrong. Please try again.')
+      setError('Что-то пошло не так. Попробуйте ещё раз.')
     }
   }
 
@@ -88,10 +88,10 @@ export function SharePasswordScreen({ token }: SharePasswordScreenProps) {
         <Card className="w-full max-w-[24rem]">
           <CardHeader>
             <CardTitle className="text-[length:var(--text-2xl)]">
-              Password required
+              Требуется пароль
             </CardTitle>
             <CardDescription>
-              This share is protected. Enter the password to view it.
+              Эта ссылка защищена. Введите пароль, чтобы открыть её.
             </CardDescription>
           </CardHeader>
           <CardBody>
@@ -105,7 +105,7 @@ export function SharePasswordScreen({ token }: SharePasswordScreenProps) {
                   htmlFor="share-password"
                   className="text-[length:var(--text-sm)] text-[var(--text-muted)]"
                 >
-                  Password
+                  Пароль
                 </label>
                 <Input
                   id="share-password"
@@ -124,7 +124,7 @@ export function SharePasswordScreen({ token }: SharePasswordScreenProps) {
                   className="m-0 text-[length:var(--text-sm)] text-[var(--danger)]"
                 >
                   {error}
-                  {retryAfter > 0 ? ` (${retryAfter}s)` : ''}
+                  {retryAfter > 0 ? ` (${retryAfter} с)` : ''}
                 </p>
               ) : null}
               {auth.isPending ? (
@@ -132,7 +132,7 @@ export function SharePasswordScreen({ token }: SharePasswordScreenProps) {
                   role="status"
                   className="m-0 text-[length:var(--text-sm)] text-[var(--text-muted)]"
                 >
-                  Checking…
+                  Проверка…
                 </p>
               ) : null}
               <Button
@@ -142,10 +142,10 @@ export function SharePasswordScreen({ token }: SharePasswordScreenProps) {
                 disabled={submitDisabled}
               >
                 {retryAfter > 0
-                  ? `Try again in ${retryAfter}s`
+                  ? `Повторите через ${retryAfter} с`
                   : auth.isPending
-                    ? 'Checking…'
-                    : 'View share'}
+                    ? 'Проверка…'
+                    : 'Открыть'}
               </Button>
             </form>
           </CardBody>

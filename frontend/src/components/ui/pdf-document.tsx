@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Document, Page, pdfjs } from 'react-pdf'
 import { Loader2, ZoomIn, ZoomOut } from 'lucide-react'
+import { ruPlural } from '../../lib/ru-plural'
 import 'react-pdf/dist/Page/TextLayer.css'
 import 'react-pdf/dist/Page/AnnotationLayer.css'
 
@@ -78,14 +79,16 @@ export default function PdfDocument({ url }: { url: string }) {
     <div className="tela-pdf">
       <div className="tela-pdf-toolbar">
         <span>
-          {numPages ? `${numPages} page${numPages > 1 ? 's' : ''}` : ' '}
+          {numPages
+            ? `${numPages} ${ruPlural(numPages, 'страница', 'страницы', 'страниц')}`
+            : ' '}
         </span>
         <span className="tela-pdf-zoom">
           <button
             type="button"
             onClick={() => zoom(-1)}
             disabled={scale <= ZOOM_MIN}
-            aria-label="Zoom out"
+            aria-label="Уменьшить масштаб"
           >
             <ZoomOut width={15} height={15} aria-hidden />
           </button>
@@ -94,7 +97,7 @@ export default function PdfDocument({ url }: { url: string }) {
             type="button"
             onClick={() => zoom(1)}
             disabled={scale >= ZOOM_MAX}
-            aria-label="Zoom in"
+            aria-label="Увеличить масштаб"
           >
             <ZoomIn width={15} height={15} aria-hidden />
           </button>
@@ -104,13 +107,14 @@ export default function PdfDocument({ url }: { url: string }) {
         <Document
           file={url}
           onLoadSuccess={({ numPages }) => setNumPages(numPages)}
-          loading={<PdfStatus spin>Loading PDF…</PdfStatus>}
+          loading={<PdfStatus spin>Загрузка PDF…</PdfStatus>}
           error={
             <PdfStatus>
-              Couldn’t display this PDF — use Download to open it.
+              Не удалось отобразить этот PDF — воспользуйтесь кнопкой «Скачать»,
+              чтобы открыть его.
             </PdfStatus>
           }
-          noData={<PdfStatus>No PDF to show.</PdfStatus>}
+          noData={<PdfStatus>Нет PDF для отображения.</PdfStatus>}
         >
           {baseWidth > 0
             ? Array.from({ length: numPages }, (_, i) => (

@@ -60,7 +60,7 @@ export function PublicSpaceIndex({ space, pages }: PublicSpaceIndexProps) {
 
   useHeadMeta({
     title: `${space.name}${activeTag ? ` · ${activeTag}` : ''} — tela`,
-    description: space.description || `Posts from ${space.name}.`,
+    description: space.description || `Публикации из ${space.name}.`,
     canonicalPath:
       space.owner_handle && space.slug
         ? `/${space.owner_handle}/${space.slug}`
@@ -85,7 +85,7 @@ export function PublicSpaceIndex({ space, pages }: PublicSpaceIndexProps) {
             {space.owner_handle ? (
               <>
                 <span>
-                  by{' '}
+                  Автор:{' '}
                   <Link
                     to="/$handle"
                     params={{ handle: space.owner_handle }}
@@ -98,7 +98,7 @@ export function PublicSpaceIndex({ space, pages }: PublicSpaceIndexProps) {
               </>
             ) : null}
             <span>
-              {posts.length} {posts.length === 1 ? 'post' : 'posts'}
+              {posts.length} {posts.length === 1 ? 'публикация' : 'публикаций'}
             </span>
             <MetaDot />
             <a
@@ -123,8 +123,8 @@ export function PublicSpaceIndex({ space, pages }: PublicSpaceIndexProps) {
             type="search"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder={`Search ${posts.length} posts…`}
-            aria-label="Search posts"
+            placeholder={`Поиск публикаций (${posts.length})…`}
+            aria-label="Поиск публикаций"
             className="pl-[calc(var(--space-3)*2+15px)]"
           />
         </div>
@@ -136,13 +136,13 @@ export function PublicSpaceIndex({ space, pages }: PublicSpaceIndexProps) {
 
       {posts.length === 0 ? (
         <p className="mt-[var(--space-8)] text-[length:var(--text-sm)] text-[var(--text-muted)]">
-          Nothing published here yet.
+          Здесь пока ничего не опубликовано.
         </p>
       ) : shown.length === 0 ? (
         <p className="mt-[var(--space-6)] text-[length:var(--text-sm)] text-[var(--text-muted)]">
           {q
-            ? `No posts match “${query.trim()}”.`
-            : `No posts tagged “${activeTag}”.`}
+            ? `Нет публикаций по запросу «${query.trim()}».`
+            : `Нет публикаций с тегом «${activeTag}».`}
         </p>
       ) : (
         <div className="mt-[var(--space-6)] flex flex-col gap-[var(--space-5)]">
@@ -221,7 +221,7 @@ function TagBar({
         search={{ tag: undefined }}
         className={blogChip(!active)}
       >
-        All
+        Все
       </Link>
       {tags.map((t) => (
         <Link

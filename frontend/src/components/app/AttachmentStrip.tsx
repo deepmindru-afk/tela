@@ -5,6 +5,7 @@ import { cn } from '../../lib/utils'
 import { isPdf, PdfPreviewDialog } from '../ui/pdf-viewer'
 import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip'
 import {
+import { ruPlural } from '../../lib/ru-plural'
   attachmentKeys,
   useAttachments,
   useDeleteAttachment,
@@ -77,7 +78,7 @@ export function AttachmentStripView({
         >
           <Paperclip aria-hidden width={14} height={14} className="shrink-0" />
           {attachments.length}{' '}
-          {attachments.length === 1 ? 'attachment' : 'attachments'}
+          {ruPlural(attachments.length, 'вложение', 'вложения', 'вложений')}
         </button>
       </div>
     )
@@ -89,7 +90,7 @@ export function AttachmentStripView({
   return (
     <div
       className="flex flex-wrap items-center gap-[var(--space-2)] py-[var(--space-2)]"
-      aria-label={`Attachments (${attachments.length})`}
+      aria-label={`Вложения (${attachments.length})`}
     >
       <button
         type="button"
@@ -97,7 +98,7 @@ export function AttachmentStripView({
           setOpen(false)
           setShowAll(false)
         }}
-        aria-label="Hide attachments"
+        aria-label="Скрыть вложения"
         aria-expanded
         className="text-[var(--text-muted)] hover:text-[var(--text-primary)] shrink-0"
       >
@@ -123,7 +124,7 @@ export function AttachmentStripView({
             'hover:text-[var(--text-primary)] hover:bg-[var(--surface-3)]',
           )}
         >
-          +{hidden} more
+          +{hidden} ещё
         </button>
       ) : null}
     </div>
@@ -196,7 +197,7 @@ function AttachmentChip({
           type="button"
           onClick={() => setPreview(true)}
           className="inline-flex items-center gap-[var(--space-2)] min-w-0 cursor-pointer border-0 bg-transparent p-0 text-left"
-          title={`Preview ${a.name}`}
+          title={`Просмотр ${a.name}`}
         >
           {inner}
         </button>
@@ -223,8 +224,8 @@ function AttachmentChip({
       <button
         type="button"
         onClick={() => void copyLink()}
-        aria-label={`Copy a link to ${a.name}`}
-        title="Copy link"
+        aria-label={`Копировать ссылку на ${a.name}`}
+        title="Копировать ссылку"
         className="shrink-0 text-[var(--text-muted)] hover:text-[var(--text-primary)]"
       >
         {copied ? (
@@ -235,7 +236,7 @@ function AttachmentChip({
       </button>
       {a.embedded ? (
         <CornerLeftUp
-          aria-label="Embedded in page"
+          aria-label="Встроено в страницу"
           width={13}
           height={13}
           className="text-[var(--text-muted)] shrink-0"
@@ -247,7 +248,7 @@ function AttachmentChip({
             <button
               type="button"
               onClick={() => onInsert(a)}
-              aria-label={`Insert ${a.name} into the page`}
+              aria-label={`Вставить ${a.name} в страницу`}
               className="text-[var(--text-muted)] hover:text-[var(--text-primary)]"
             >
               <Download width={13} height={13} className="rotate-180" aria-hidden />
@@ -258,7 +259,7 @@ function AttachmentChip({
               type="button"
               onClick={() => onDelete(a)}
               disabled={deleting}
-              aria-label={`Remove ${a.name}`}
+              aria-label={`Удалить ${a.name}`}
               className="text-[var(--text-muted)] hover:text-[var(--accent-negative-fg)]"
             >
               <Trash2 width={13} height={13} aria-hidden />
@@ -281,7 +282,7 @@ function AttachmentChip({
         className="max-w-[24rem] p-[var(--space-3)] text-[length:var(--text-sm)] leading-[var(--leading-normal)]"
       >
         <p className="m-0 mb-[var(--space-1)] text-[length:var(--text-xs)] text-[var(--text-muted)] font-[family-name:var(--font-mono)]">
-          file summary
+          сводка файла
         </p>
         <p className="m-0">{summary}</p>
       </TooltipContent>

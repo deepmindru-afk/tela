@@ -79,17 +79,17 @@ export function SheetExportMenu({
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="sm" aria-label="Export sheet" disabled={busy}>
+        <Button variant="ghost" size="sm" aria-label="Экспортировать лист" disabled={busy}>
           <Download width={16} height={16} aria-hidden />
-          <span className="hidden sm:inline">Export</span>
+          <span className="hidden sm:inline">Экспорт</span>
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
         <DropdownMenuItem onSelect={exportCsv}>
-          This sheet (.csv)
+          Этот лист (.csv)
         </DropdownMenuItem>
         <DropdownMenuItem onSelect={() => void exportXlsx()}>
-          Workbook (.xlsx)
+          Вся книга (.xlsx)
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

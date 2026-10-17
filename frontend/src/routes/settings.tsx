@@ -48,44 +48,44 @@ interface SettingsGroup {
 
 const PROFILE_TAB: SettingsTab = {
   id: 'profile',
-  label: 'Profile',
+  label: 'Профиль',
   render: () => <SettingsProfileTab />,
 }
 
 const NOTIFICATIONS_TAB: SettingsTab = {
   id: 'notifications',
-  label: 'Notifications',
+  label: 'Уведомления',
   render: () => <SettingsNotificationsTab />,
 }
 
 const FOLLOWING_TAB: SettingsTab = {
   id: 'following',
-  label: 'Following',
+  label: 'Подписки',
   render: () => <SettingsFollowingTab />,
 }
 
 const IMPORT_TAB: SettingsTab = {
   id: 'import',
-  label: 'Import',
+  label: 'Импорт',
   render: () => <ImportSection />,
 }
 
 const API_KEYS_TAB: SettingsTab = {
   id: 'api-keys',
-  label: 'API Keys',
+  label: 'API-ключи',
   render: () => <SettingsApiKeysTab />,
 }
 
 const USERS_TAB: SettingsTab = {
   id: 'users',
-  label: 'Users',
+  label: 'Пользователи',
   wide: true,
   render: () => <SettingsUsersTab />,
 }
 
 const ORGS_TAB: SettingsTab = {
   id: 'orgs',
-  label: 'Organizations',
+  label: 'Организации',
   render: () => <SettingsOrgsTab scope="instance" />,
 }
 
@@ -93,13 +93,13 @@ const ORGS_TAB: SettingsTab = {
 // administer at least one org. Scoped to their orgs; no create/delete/domains.
 const ORG_ADMIN_TAB: SettingsTab = {
   id: 'orgs',
-  label: 'Organizations',
+  label: 'Организации',
   render: () => <SettingsOrgsTab scope="admin" />,
 }
 
 const AUDIT_TAB: SettingsTab = {
   id: 'audit',
-  label: 'Audit',
+  label: 'Аудит',
   render: () => <SettingsAuditTab />,
 }
 
@@ -107,7 +107,7 @@ const AUDIT_TAB: SettingsTab = {
 // only. The firehose to Audit's focused access-control view.
 const EVENTS_TAB: SettingsTab = {
   id: 'events',
-  label: 'Events',
+  label: 'События',
   render: () => <SettingsEventsTab />,
 }
 
@@ -116,7 +116,7 @@ const EVENTS_TAB: SettingsTab = {
 // sits above the focused Usage / Events / Errors tabs.
 const INSIGHTS_TAB: SettingsTab = {
   id: 'insights',
-  label: 'Insights',
+  label: 'Аналитика',
   render: () => <SettingsInsightsTab />,
 }
 
@@ -124,7 +124,7 @@ const INSIGHTS_TAB: SettingsTab = {
 // Instance-admin only.
 const USAGE_TAB: SettingsTab = {
   id: 'usage',
-  label: 'Usage',
+  label: 'Использование',
   render: () => <SettingsUsageTab />,
 }
 
@@ -132,7 +132,7 @@ const USAGE_TAB: SettingsTab = {
 // fingerprint. Instance-admin only. The triage companion to the raw Events feed.
 const ERRORS_TAB: SettingsTab = {
   id: 'errors',
-  label: 'Errors',
+  label: 'Ошибки',
   render: () => <SettingsErrorsTab />,
 }
 
@@ -140,28 +140,28 @@ const ERRORS_TAB: SettingsTab = {
 // Instance-admin only.
 const FEEDBACK_TAB: SettingsTab = {
   id: 'feedback',
-  label: 'Feedback',
+  label: 'Обратная связь',
   render: () => <SettingsFeedbackTab />,
 }
 
 // Instance-wide runtime config (settings substrate) — instance-admin only.
 const INSTANCE_TAB: SettingsTab = {
   id: 'instance',
-  label: 'Instance',
+  label: 'Инстанс',
   render: () => <SettingsInstanceTab />,
 }
 
 // Search index freshness — available to all users (scoped to their own spaces).
 const SEARCH_INDEX_TAB: SettingsTab = {
   id: 'search-index',
-  label: 'Search index',
+  label: 'Индекс поиска',
   render: () => <SettingsSearchIndexTab />,
 }
 
 // Auto-summary freshness — available to all users (scoped to their own spaces).
 const SUMMARIES_TAB: SettingsTab = {
   id: 'summaries',
-  label: 'Summaries',
+  label: 'Саммари',
   render: () => <SettingsSummariesTab />,
 }
 
@@ -169,7 +169,7 @@ const SUMMARIES_TAB: SettingsTab = {
 // (the backend gates token scope on the user's own space membership).
 const SYNC_TAB: SettingsTab = {
   id: 'sync',
-  label: 'Sync',
+  label: 'Синхронизация',
   render: () => <SettingsSyncTab />,
 }
 
@@ -177,7 +177,7 @@ const SYNC_TAB: SettingsTab = {
 // to all users.
 const BILLING_TAB: SettingsTab = {
   id: 'billing',
-  label: 'Plan & Usage',
+  label: 'Тариф и использование',
   render: () => <SettingsBillingTab />,
 }
 
@@ -185,7 +185,7 @@ const BILLING_TAB: SettingsTab = {
 // unlocks ee-gated features on this instance.
 const LICENSE_TAB: SettingsTab = {
   id: 'license',
-  label: 'License',
+  label: 'Лицензия',
   render: () => <SettingsLicenseTab />,
 }
 
@@ -193,7 +193,7 @@ const LICENSE_TAB: SettingsTab = {
 // where this instance can sell them, or when the user already owns a key.
 const LICENSES_TAB: SettingsTab = {
   id: 'licenses',
-  label: 'Self-host licenses',
+  label: 'Лицензии для локального размещения',
   render: () => <SettingsLicensesTab />,
 }
 
@@ -225,17 +225,17 @@ export function SettingsPage() {
     if (showLicenses) account.splice(4, 0, LICENSES_TAB) // after Plan & Usage
     if (me.data?.is_instance_admin) {
       return [
-        { label: 'Account', tabs: account },
-        { label: 'Instance admin', tabs: [INSIGHTS_TAB, USERS_TAB, ORGS_TAB, USAGE_TAB, { ...FEEDBACK_TAB, badge: feedbackUnseen }, EVENTS_TAB, ERRORS_TAB, AUDIT_TAB, LICENSE_TAB, INSTANCE_TAB] },
+        { label: 'Аккаунт', tabs: account },
+        { label: 'Администратор инстанса', tabs: [INSIGHTS_TAB, USERS_TAB, ORGS_TAB, USAGE_TAB, { ...FEEDBACK_TAB, badge: feedbackUnseen }, EVENTS_TAB, ERRORS_TAB, AUDIT_TAB, LICENSE_TAB, INSTANCE_TAB] },
       ]
     }
     if (isOrgAdmin) {
       return [
-        { label: 'Account', tabs: account },
-        { label: 'Organization', tabs: [ORG_ADMIN_TAB] },
+        { label: 'Аккаунт', tabs: account },
+        { label: 'Организация', tabs: [ORG_ADMIN_TAB] },
       ]
     }
-    return [{ label: 'Account', tabs: account }]
+    return [{ label: 'Аккаунт', tabs: account }]
   }, [me.data?.is_instance_admin, isOrgAdmin, feedbackUnseen, showLicenses])
   const tabs = useMemo<SettingsTab[]>(() => groups.flatMap((g) => g.tabs), [groups])
   // The active section lives in the URL (`?tab=`), not local state, so a refresh
@@ -254,7 +254,7 @@ export function SettingsPage() {
   return (
     <div className="flex-1 flex min-h-0">
       <nav
-        aria-label="Settings sections"
+        aria-label="Разделы настроек"
         className="shrink-0 w-[var(--space-8)] sm:w-[14rem] border-r border-[var(--border-subtle)] bg-[var(--surface-2)] py-[var(--space-4)] px-[var(--space-3)] flex flex-col gap-[var(--space-4)]"
       >
         {groups.map((group) => (

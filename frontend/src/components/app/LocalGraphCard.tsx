@@ -11,7 +11,7 @@ const LocalGraph = lazy(() => import('./LocalGraph'))
 export function LocalGraphCard({ pageId }: { pageId: number }) {
   return (
     <CollapsibleSection
-      title="Connections"
+      title="Связи"
       persistKey="tela:page-connections-open"
       mountOnOpen
     >

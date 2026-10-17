@@ -30,7 +30,7 @@ export function SettingsLicenseTab() {
       await setLicense.mutateAsync(token.trim())
       setToken('')
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : 'Could not install the license key.')
+      setError(e instanceof ApiError ? e.message : 'Не удалось установить лицензионный ключ.')
     }
   }
 
@@ -39,7 +39,7 @@ export function SettingsLicenseTab() {
     try {
       await clearLicense.mutateAsync()
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : 'Could not remove the license key.')
+      setError(e instanceof ApiError ? e.message : 'Не удалось удалить лицензионный ключ.')
     }
   }
 
@@ -47,25 +47,26 @@ export function SettingsLicenseTab() {
     <div className="flex flex-col gap-[var(--space-6)] max-w-[var(--measure,60ch)]">
       <header className="flex flex-col gap-[var(--space-1)]">
         <h2 className="m-0 text-[length:var(--text-lg)] font-medium text-[var(--text-primary)]">
-          License
+          Лицензия
         </h2>
         <p className="m-0 text-[length:var(--text-sm)] text-[var(--text-muted)]">
-          tela is the open Community edition by default. An Enterprise license key unlocks
-          SSO, audit, and the other team-of-record features on this instance.
+          По умолчанию tela работает как открытая версия Community. Лицензионный
+          ключ Enterprise открывает SSO, аудит и остальные возможности для команд
+          на этом инстансе.
         </p>
       </header>
 
       {info.isError ? (
         <p className="m-0 text-[length:var(--text-sm)] text-[var(--danger)]">
-          Could not load license status.
+          Не удалось загрузить статус лицензии.
         </p>
       ) : null}
 
       {overSeats && seatUsage ? (
         <p className="m-0 rounded-[var(--radius-md)] border border-[var(--warning-border,var(--border))] bg-[var(--warning-bg,var(--surface-sunk))] px-[var(--space-3)] py-[var(--space-2)] text-[length:var(--text-sm)] text-[var(--text-primary)]">
-          This instance has <strong>{seatUsage.used}</strong> active users but the license covers{' '}
-          <strong>{seatUsage.licensed}</strong> seats. Enterprise features stay on — please update your
-          subscription’s seat count to stay licensed.
+          На этом инстансе <strong>{seatUsage.used}</strong> активных пользователей, но лицензия покрывает{' '}
+          <strong>{seatUsage.licensed}</strong> мест. Возможности Enterprise продолжают работать — обновите
+          количество мест в подписке, чтобы сохранить лицензию.
         </p>
       ) : null}
 
@@ -80,16 +81,16 @@ export function SettingsLicenseTab() {
             )}
             <span className="font-medium text-[var(--text-primary)]">
               {info.isPending
-                ? 'Checking license…'
+                ? 'Проверка лицензии…'
                 : active
                   ? `Enterprise — ${lic?.tier}`
-                  : 'Community edition'}
+                  : 'Версия Community'}
             </span>
           </div>
           {info.isPending ? null : active ? (
-            <Badge variant="accent">Active</Badge>
+            <Badge variant="accent">Активна</Badge>
           ) : (
-            <Badge>Free</Badge>
+            <Badge>Бесплатно</Badge>
           )}
         </div>
 
@@ -97,34 +98,34 @@ export function SettingsLicenseTab() {
           <dl className="m-0 grid grid-cols-[auto_1fr] gap-x-[var(--space-4)] gap-y-[var(--space-1)] text-[length:var(--text-sm)]">
             {lic.customer ? (
               <>
-                <dt className="text-[var(--text-muted)]">Licensed to</dt>
+                <dt className="text-[var(--text-muted)]">Лицензиат</dt>
                 <dd className="m-0 text-[var(--text-primary)]">{lic.customer}</dd>
               </>
             ) : null}
             {lic.seats > 0 ? (
               <>
-                <dt className="text-[var(--text-muted)]">Seats</dt>
+                <dt className="text-[var(--text-muted)]">Места</dt>
                 <dd className="m-0 text-[var(--text-primary)]">{lic.seats}</dd>
               </>
             ) : null}
-            <dt className="text-[var(--text-muted)]">Features</dt>
+            <dt className="text-[var(--text-muted)]">Возможности</dt>
             <dd className="m-0 text-[var(--text-primary)]">
-              {lic.features.includes('*') ? 'All Enterprise features' : lic.features.join(', ') || '—'}
+              {lic.features.includes('*') ? 'Все возможности Enterprise' : lic.features.join(', ') || '—'}
             </dd>
-            <dt className="text-[var(--text-muted)]">Expires</dt>
-            <dd className="m-0 text-[var(--text-primary)]">{lic.expires_at ? lic.expires_at.slice(0, 10) : 'Never'}</dd>
+            <dt className="text-[var(--text-muted)]">Истекает</dt>
+            <dd className="m-0 text-[var(--text-primary)]">{lic.expires_at ? lic.expires_at.slice(0, 10) : 'Никогда'}</dd>
           </dl>
         ) : null}
 
         {active && info.data?.refreshable ? (
           <p className="m-0 text-[length:var(--text-xs)] text-[var(--text-muted)]">
-            Auto-renews from telawiki.com when your subscription renews — no manual re-install needed
-            (as long as this instance can reach it).
+            Продлевается автоматически через telawiki.com при обновлении подписки — вручную
+            переустанавливать не нужно (если этот инстанс имеет к нему доступ).
           </p>
         ) : active ? null : (
           <p className="m-0 text-[length:var(--text-sm)] text-[var(--text-muted)]">
-            No license installed. The whole product works without one — Enterprise features
-            stay locked until a key is added.
+            Лицензия не установлена. Продукт полностью работает и без неё — возможности
+            Enterprise останутся заблокированными, пока не будет добавлен ключ.
           </p>
         )}
 
@@ -135,7 +136,7 @@ export function SettingsLicenseTab() {
               onClick={remove}
               disabled={clearLicense.isPending}
             >
-              Remove license
+              Удалить лицензию
             </Button>
           </div>
         ) : null}
@@ -145,13 +146,13 @@ export function SettingsLicenseTab() {
       {envLocked ? (
         <p className="m-0 flex items-center gap-[var(--space-2)] text-[length:var(--text-sm)] text-[var(--text-muted)]">
           <Lock width={15} height={15} aria-hidden />
-          The license key is set via the <code>TELA_LICENSE_KEY</code> environment variable and
-          can&apos;t be changed here.
+          Лицензионный ключ задаётся переменной окружения <code>TELA_LICENSE_KEY</code>
+          и не может быть изменён здесь.
         </p>
       ) : (
         <div className="flex flex-col gap-[var(--space-2)]">
           <label htmlFor="license-token" className="text-[length:var(--text-sm)] font-medium text-[var(--text-primary)]">
-            {active ? 'Replace license key' : 'Install a license key'}
+            {active ? 'Заменить лицензионный ключ' : 'Установить лицензионный ключ'}
           </label>
           <TextArea
             id="license-token"
@@ -166,7 +167,7 @@ export function SettingsLicenseTab() {
           ) : null}
           <div>
             <Button onClick={install} disabled={setLicense.isPending || token.trim() === ''}>
-              {active ? 'Replace' : 'Install'}
+              {active ? 'Заменить' : 'Установить'}
             </Button>
           </div>
         </div>

@@ -2,6 +2,7 @@ import { ChevronRight, FileText, AlertTriangle } from 'lucide-react'
 import { Button } from '../ui/button'
 import { Card, CardBody } from '../ui/card'
 import { cn } from '../../lib/utils'
+import { ruPlural } from '../../lib/ru-plural'
 import type { ImportResult as ImportResultPayload } from '../../lib/queries/imports'
 
 export interface ImportResultProps {
@@ -32,8 +33,8 @@ export function ImportResult({
   onOpenFirstPage,
 }: ImportResultProps) {
   const { summary, pages, skipped, errors } = result
-  const verb = dryRun ? 'Would import' : 'Imported'
-  const skippedVerb = dryRun ? 'would skip' : 'skipped'
+  const verb = dryRun ? 'Будет импортировано' : 'Импортировано'
+  const skippedVerb = dryRun ? 'будет пропущено' : 'пропущено'
 
   return (
     <Card aria-live="polite">
@@ -44,10 +45,10 @@ export function ImportResult({
         >
           {verb}{' '}
           <strong className="text-[var(--accent)]">{summary.created}</strong>{' '}
-          {summary.created === 1 ? 'page' : 'pages'},{' '}
+          {ruPlural(summary.created, 'страница', 'страницы', 'страниц')},{' '}
           <strong>{summary.skipped}</strong> {skippedVerb},{' '}
           <strong>{summary.conflicts_renamed}</strong>{' '}
-          {summary.conflicts_renamed === 1 ? 'renamed' : 'renamed'}.
+          переименовано.
         </p>
 
         {errors.length > 0 ? (
@@ -63,8 +64,8 @@ export function ImportResult({
           >
             <AlertTriangle width={14} height={14} className="shrink-0 mt-[2px]" />
             <span>
-              {errors.length} file{errors.length === 1 ? '' : 's'} could not be
-              parsed.
+              {errors.length} {ruPlural(errors.length, 'файл', 'файла', 'файлов')} не удалось
+              разобрать.
             </span>
           </p>
         ) : null}
@@ -77,23 +78,23 @@ export function ImportResult({
               onClick={onConfirm}
               disabled={confirmPending || summary.created === 0}
             >
-              {confirmPending ? 'Importing…' : 'Confirm import'}
+              {confirmPending ? 'Импортирование…' : 'Подтвердить импорт'}
             </Button>
             <Button type="button" variant="ghost" onClick={onCancel}>
-              Cancel
+              Отмена
             </Button>
           </div>
         ) : onOpenFirstPage && pages.length > 0 ? (
           <div>
             <Button type="button" variant="primary" onClick={onOpenFirstPage}>
-              Open "{pages[0].title || 'Untitled'}"
+              Открыть «{pages[0].title || 'Без названия'}»
             </Button>
           </div>
         ) : null}
 
         {pages.length > 0 ? (
           <ImportDetails
-            label={dryRun ? 'Planned pages' : 'Imported pages'}
+            label={dryRun ? 'Запланированные страницы' : 'Импортированные страницы'}
             count={pages.length}
           >
             <ul className="m-0 p-0 list-none flex flex-col gap-[var(--space-1)]">
@@ -111,7 +112,7 @@ export function ImportResult({
                     height={14}
                     className="shrink-0 text-[var(--text-muted)]"
                   />
-                  <span className="truncate">{p.title || 'Untitled'}</span>
+                  <span className="truncate">{p.title || 'Без названия'}</span>
                   <span className="text-[var(--text-muted)] truncate">
                     — {p.path}
                   </span>
@@ -122,7 +123,7 @@ export function ImportResult({
         ) : null}
 
         {skipped.length > 0 ? (
-          <ImportDetails label="Skipped files" count={skipped.length}>
+          <ImportDetails label="Пропущенные файлы" count={skipped.length}>
             <ul className="m-0 p-0 list-none flex flex-col gap-[var(--space-1)]">
               {skipped.map((s) => (
                 <li
@@ -144,7 +145,7 @@ export function ImportResult({
         ) : null}
 
         {errors.length > 0 ? (
-          <ImportDetails label="Errors" count={errors.length}>
+          <ImportDetails label="Ошибки" count={errors.length}>
             <ul className="m-0 p-0 list-none flex flex-col gap-[var(--space-1)]">
               {errors.map((e) => (
                 <li
@@ -210,7 +211,7 @@ function ImportDetails({
 function skippedReasonLabel(reason: string): string {
   switch (reason) {
     case 'not_markdown':
-      return 'not a markdown file'
+      return 'не файл Markdown'
     default:
       return reason
   }

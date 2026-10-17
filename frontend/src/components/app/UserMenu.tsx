@@ -69,7 +69,7 @@ export function UserMenu() {
           className="w-full justify-center gap-[var(--space-2)]"
           onClick={goToBilling}
         >
-          <Sparkles width={14} height={14} aria-hidden /> Upgrade to Personal
+          <Sparkles width={14} height={14} aria-hidden /> Перейти на тариф Personal
         </Button>
       ) : null}
       <DropdownMenu>
@@ -78,13 +78,17 @@ export function UserMenu() {
             variant="ghost"
             size="sm"
             className="w-full justify-start gap-[var(--space-2)]"
-            aria-label={`Account menu for ${user.username}`}
+            aria-label={`Меню аккаунта: ${user.username}`}
           >
             <span className="flex-1 text-left truncate">{user.username}</span>
             {feedbackUnseen > 0 || update ? (
               <span
                 aria-label={
-                  feedbackUnseen > 0 ? `${feedbackUnseen} unread feedback` : `tela ${update} is available`
+                  feedbackUnseen > 0
+                    ? `${feedbackUnseen} ${
+                        feedbackUnseen === 1 ? 'непрочитанный отзыв' : 'непрочитанных отзывов'
+                      }`
+                    : `Доступна новая версия tela ${update}`
                 }
                 className="size-[var(--space-2)] shrink-0 rounded-full bg-[var(--accent)]"
               />
@@ -103,7 +107,7 @@ export function UserMenu() {
               <DropdownMenuItem
                 onSelect={() => void navigate({ to: '/settings', search: { tab: 'instance' } })}
               >
-                <CircleArrowUp width={14} height={14} /> Update available
+                <CircleArrowUp width={14} height={14} /> Доступно обновление
                 <Badge variant="accent" className="ml-auto">
                   v{update}
                 </Badge>
@@ -117,7 +121,7 @@ export function UserMenu() {
               void navigate({ to: '/shared' })
             }}
           >
-            <Link2 width={14} height={14} /> Shared
+            <Link2 width={14} height={14} /> Общий доступ
           </DropdownMenuItem>
           <DropdownMenuItem
             onSelect={(e) => {
@@ -130,7 +134,7 @@ export function UserMenu() {
               })
             }}
           >
-            <Settings width={14} height={14} /> Settings
+            <Settings width={14} height={14} /> Настройки
             {feedbackUnseen > 0 ? (
               <Badge variant="accent" className="ml-auto">
                 {feedbackUnseen}
@@ -143,7 +147,7 @@ export function UserMenu() {
               goToBilling()
             }}
           >
-            <CreditCard width={14} height={14} /> Plan &amp; usage
+            <CreditCard width={14} height={14} /> Тариф и использование
             {planName ? (
               <Badge variant="muted" className="ml-auto">
                 {planName}
@@ -159,7 +163,7 @@ export function UserMenu() {
               emitOpenFeedback()
             }}
           >
-            <MessageSquarePlus width={14} height={14} /> Send feedback
+            <MessageSquarePlus width={14} height={14} /> Отправить отзыв
           </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem
@@ -178,7 +182,7 @@ export function UserMenu() {
               )
             }}
           >
-            <Globe width={14} height={14} /> Landing page
+            <Globe width={14} height={14} /> Главная страница сайта
           </DropdownMenuItem>
           <DropdownMenuItem
             onSelect={(e) => {
@@ -186,7 +190,7 @@ export function UserMenu() {
               void handleSignOut()
             }}
           >
-            <LogOut width={14} height={14} /> Sign out
+            <LogOut width={14} height={14} /> Выйти
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>

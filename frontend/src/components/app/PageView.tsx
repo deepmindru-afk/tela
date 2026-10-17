@@ -187,7 +187,7 @@ function EditorFallback() {
     <div
       role="status"
       aria-busy="true"
-      aria-label="Loading editor"
+      aria-label="Загрузка редактора"
       className={cn(
         EDITOR_MIN_H,
         'p-[var(--space-2)]',
@@ -626,15 +626,15 @@ function PageViewer({
                 type="button"
                 variant="ghost"
                 size="sm"
-                aria-label="Comments"
+                aria-label="Комментарии"
                 onClick={openComments}
                 className="h-[var(--space-8)] px-[var(--space-3)]"
               >
                 <MessageSquare width={16} height={16} />
                 {openThreadCount != null ? (
-                  <span>Comments ({openThreadCount})</span>
+                  <span>Комментарии ({openThreadCount})</span>
                 ) : (
-                  <span>Comments</span>
+                  <span>Комментарии</span>
                 )}
               </Button>
             ) : null}
@@ -643,8 +643,8 @@ function PageViewer({
                 type="button"
                 variant="ghost"
                 size="sm"
-                aria-label="Graph"
-                title="Graph — this page's connections"
+                aria-label="Граф"
+                title="Граф — связи этой страницы"
                 onClick={openGraph}
                 className="h-[var(--space-8)] w-[var(--space-8)] p-0"
               >
@@ -670,11 +670,11 @@ function PageViewer({
               type="button"
               variant={isDeck ? 'primary' : 'ghost'}
               size="sm"
-              aria-label={isDeck ? 'Present' : 'Read mode'}
+              aria-label={isDeck ? 'Показ' : 'Режим чтения'}
               title={
                 isDeck
-                  ? 'Present — full-screen slides'
-                  : 'Read mode — distraction-free reading view'
+                  ? 'Показ — слайды на весь экран'
+                  : 'Режим чтения — чтение без отвлечений'
               }
               onClick={openReadMode}
               // A phone bar should carry one labelled action, not two: an
@@ -691,7 +691,7 @@ function PageViewer({
               ) : (
                 <BookOpen width={16} height={16} />
               )}
-              <span>{isDeck ? 'Present' : 'Read mode'}</span>
+              <span>{isDeck ? 'Показ' : 'Режим чтения'}</span>
             </Button>
           ) : null}
           {canEdit ? (
@@ -707,7 +707,7 @@ function PageViewer({
               className="h-[var(--space-8)] px-[var(--space-3)]"
             >
               <Pencil width={16} height={16} />
-              <span>Edit</span>
+              <span>Редактировать</span>
             </Button>
           ) : null}
           {roleResolved ? (
@@ -723,19 +723,19 @@ function PageViewer({
                 <>
                   {!isDeck && !isSheet ? (
                     <DropdownMenuItem onSelect={openReadMode}>
-                      <BookOpen width={14} height={14} /> Read mode
+                      <BookOpen width={14} height={14} /> Режим чтения
                     </DropdownMenuItem>
                   ) : null}
                   {commentsEnabled ? (
                     <DropdownMenuItem onSelect={openComments}>
                       <MessageSquare width={14} height={14} />
                       {openThreadCount != null
-                        ? `Comments (${openThreadCount})`
-                        : 'Comments'}
+                        ? `Комментарии (${openThreadCount})`
+                        : 'Комментарии'}
                     </DropdownMenuItem>
                   ) : null}
                   <DropdownMenuItem onSelect={openGraph}>
-                    <Share2 width={14} height={14} /> Page connections
+                    <Share2 width={14} height={14} /> Связи страницы
                   </DropdownMenuItem>
                   <FavoriteStar pageId={page.id} asMenuItem />
                   <FollowButton id={page.id} asMenuItem />
@@ -759,7 +759,7 @@ function PageViewer({
               collabPageId={null}
               readOnly
               pageId={page.id}
-              ariaLabel="Spreadsheet (read-only)"
+              ariaLabel="Электронная таблица (только для чтения)"
               onSheetChange={setActiveSheet}
             />
           </Suspense>
@@ -788,7 +788,7 @@ function PageViewer({
               'text-[var(--text-primary)]',
             )}
           >
-            {page.title || 'Untitled page'}
+            {page.title || 'Страница без названия'}
           </h1>
         </SummaryTitle>
 
@@ -890,9 +890,9 @@ function DraftBadge({ className }: { className?: string }) {
     <Badge
       variant="warning"
       className={className}
-      title="Draft: not shown on public spaces or share links until published"
+      title="Черновик: не показывается в публичных пространствах и по ссылкам доступа до публикации"
     >
-      Draft
+      Черновик
     </Badge>
   )
 }
@@ -951,21 +951,21 @@ function PageActionsMenu({
   // a deck PDF renders headless Chromium frames and can take several seconds.
   // Surface a spinner toast that morphs to the result when the download lands.
   const exportPdf = () => {
-    const id = toast({ title: 'Preparing PDF…', loading: true, duration: 0 })
+    const id = toast({ title: 'Подготовка PDF…', loading: true, duration: 0 })
     void downloadPdf().then((ok) =>
       updateToast(
         id,
         ok
           ? {
-              title: 'PDF ready',
-              description: 'Your download has started.',
+              title: 'PDF готов',
+              description: 'Загрузка файла началась.',
               variant: 'success',
               loading: false,
               duration: 4000,
             }
           : {
-              title: 'PDF export failed',
-              description: 'Please try again.',
+              title: 'Не удалось экспортировать PDF',
+              description: 'Попробуйте ещё раз.',
               variant: 'destructive',
               loading: false,
               duration: 6000,
@@ -981,7 +981,7 @@ function PageActionsMenu({
           type="button"
           variant="ghost"
           size="sm"
-          aria-label="More actions"
+          aria-label="Другие действия"
           className="h-[var(--space-8)] w-[var(--space-8)] p-0"
         >
           <MoreHorizontal width={16} height={16} />
@@ -995,13 +995,13 @@ function PageActionsMenu({
           </div>
         ) : null}
         <DropdownMenuItem onSelect={() => copy(pretty)}>
-          <Link2 width={14} height={14} /> Copy link
+          <Link2 width={14} height={14} /> Копировать ссылку
         </DropdownMenuItem>
         <DropdownMenuItem
           onSelect={() => copy(short)}
           className="text-[var(--text-muted)]"
         >
-          <Hash width={14} height={14} /> Copy short link
+          <Hash width={14} height={14} /> Копировать короткую ссылку
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem
@@ -1009,13 +1009,13 @@ function PageActionsMenu({
             void navigate({ to: '/graph', search: { focus: pageId } })
           }
         >
-          <Share2 width={14} height={14} /> Open in graph
+          <Share2 width={14} height={14} /> Открыть в графе
         </DropdownMenuItem>
         <DropdownMenuItem onSelect={exportPdf}>
-          <FileDown width={14} height={14} /> Export PDF
+          <FileDown width={14} height={14} /> Экспорт в PDF
         </DropdownMenuItem>
         <DropdownMenuItem onSelect={() => void downloadMd()}>
-          <FileDown width={14} height={14} /> Export Markdown
+          <FileDown width={14} height={14} /> Экспорт в Markdown
         </DropdownMenuItem>
         {!isViewer ? (
           <DropdownMenuItem
@@ -1026,7 +1026,7 @@ function PageActionsMenu({
               })
             }
           >
-            <History width={14} height={14} /> Version history
+            <History width={14} height={14} /> История версий
           </DropdownMenuItem>
         ) : null}
         {!isViewer ? (
@@ -1037,11 +1037,11 @@ function PageActionsMenu({
           >
             {isDraft ? (
               <>
-                <FileCheck width={14} height={14} /> Publish
+                <FileCheck width={14} height={14} /> Опубликовать
               </>
             ) : (
               <>
-                <FilePen width={14} height={14} /> Mark as draft
+                <FilePen width={14} height={14} /> Отметить как черновик
               </>
             )}
           </DropdownMenuItem>
@@ -1050,7 +1050,7 @@ function PageActionsMenu({
           <>
             <DropdownMenuSeparator />
             <DropdownMenuItem destructive onSelect={onDelete}>
-              <Trash2 width={14} height={14} /> Delete page
+              <Trash2 width={14} height={14} /> Удалить страницу
             </DropdownMenuItem>
           </>
         ) : null}
@@ -1673,7 +1673,7 @@ function PageEditor({ page, spaceId, draftRevId, onDeleted, isDeck, isSheet, scr
                 onClick={handleDraftCancel}
                 className="h-[var(--space-8)] px-[var(--space-3)]"
               >
-                Cancel
+                Отмена
               </Button>
               <Button
                 type="button"
@@ -1684,8 +1684,8 @@ function PageEditor({ page, spaceId, draftRevId, onDeleted, isDeck, isSheet, scr
                 className="h-[var(--space-8)] px-[var(--space-3)]"
               >
                 {status === 'saving' || status === 'retrying'
-                  ? 'Saving…'
-                  : 'Save'}
+                  ? 'Сохранение…'
+                  : 'Сохранить'}
               </Button>
             </>
           ) : (
@@ -1702,7 +1702,7 @@ function PageEditor({ page, spaceId, draftRevId, onDeleted, isDeck, isSheet, scr
                   onClick={() => void (sourceMode ? saveSource() : Promise.resolve(true)).then((ok) => ok && exitEdit())}
                   className="h-[var(--space-8)] px-[var(--space-3)]"
                 >
-                  Done
+                  Готово
                 </Button>
               ) : null}
               {roleResolved && !isViewer && !isDeck && !isSheet ? (
@@ -1711,8 +1711,8 @@ function PageEditor({ page, spaceId, draftRevId, onDeleted, isDeck, isSheet, scr
                   variant={sourceMode ? 'secondary' : 'ghost'}
                   size="sm"
                   aria-pressed={sourceMode}
-                  aria-label="Edit as Markdown"
-                  title={sourceMode ? 'Back to the rich editor' : 'Edit as Markdown'}
+                  aria-label="Редактировать как Markdown"
+                  title={sourceMode ? 'Вернуться в визуальный редактор' : 'Редактировать как Markdown'}
                   onClick={() => void (sourceMode ? exitSource() : enterSource())}
                   className="h-[var(--space-8)] px-[var(--space-2)]"
                 >
@@ -1725,13 +1725,13 @@ function PageEditor({ page, spaceId, draftRevId, onDeleted, isDeck, isSheet, scr
                   type="button"
                   variant="primary"
                   size="sm"
-                  aria-label="Present"
-                  title="Present — live slides in a new tab"
+                  aria-label="Показ"
+                  title="Показ — живые слайды в новой вкладке"
                   onClick={() => openDeckPresent(page.id)}
                   className="h-[var(--space-8)] px-[var(--space-3)]"
                 >
                   <Presentation width={16} height={16} />
-                  <span>Present</span>
+                  <span>Показ</span>
                 </Button>
               ) : null}
               <PresenceAvatars awareness={provider?.awareness ?? null} />
@@ -1749,15 +1749,15 @@ function PageEditor({ page, spaceId, draftRevId, onDeleted, isDeck, isSheet, scr
                     type="button"
                     variant="ghost"
                     size="sm"
-                    aria-label="Comments"
+                    aria-label="Комментарии"
                     onClick={openComments}
                     className="h-[var(--space-8)] px-[var(--space-3)]"
                   >
                     <MessageSquare width={16} height={16} />
                     {openThreadCount != null ? (
-                      <span>Comments ({openThreadCount})</span>
+                      <span>Комментарии ({openThreadCount})</span>
                     ) : (
-                      <span>Comments</span>
+                      <span>Комментарии</span>
                     )}
                   </Button>
                 ) : null}
@@ -1766,8 +1766,8 @@ function PageEditor({ page, spaceId, draftRevId, onDeleted, isDeck, isSheet, scr
                     type="button"
                     variant="ghost"
                     size="sm"
-                    aria-label="Graph"
-                    title="Graph — this page's connections"
+                    aria-label="Граф"
+                    title="Граф — связи этой страницы"
                     onClick={openGraph}
                     className="h-[var(--space-8)] w-[var(--space-8)] p-0"
                   >
@@ -1781,7 +1781,7 @@ function PageEditor({ page, spaceId, draftRevId, onDeleted, isDeck, isSheet, scr
                     type="button"
                     variant="ghost"
                     size="sm"
-                    aria-label="Manage sharing"
+                    aria-label="Управление доступом"
                     onClick={() => setShareOpen(true)}
                     className="h-[var(--space-8)] px-[var(--space-2)]"
                   >
@@ -1815,16 +1815,16 @@ function PageEditor({ page, spaceId, draftRevId, onDeleted, isDeck, isSheet, scr
                         <DropdownMenuItem onSelect={openComments}>
                           <MessageSquare width={14} height={14} />
                           {openThreadCount != null
-                            ? `Comments (${openThreadCount})`
-                            : 'Comments'}
+                            ? `Комментарии (${openThreadCount})`
+                            : 'Комментарии'}
                         </DropdownMenuItem>
                       ) : null}
                       <DropdownMenuItem onSelect={openGraph}>
-                        <Share2 width={14} height={14} /> Page connections
+                        <Share2 width={14} height={14} /> Связи страницы
                       </DropdownMenuItem>
                       {!isViewer ? (
                         <DropdownMenuItem onSelect={() => setShareOpen(true)}>
-                          <Users width={14} height={14} /> Sharing &amp; access
+                          <Users width={14} height={14} /> Совместный доступ
                         </DropdownMenuItem>
                       ) : null}
                       <FavoriteStar pageId={page.id} asMenuItem />
@@ -1887,8 +1887,9 @@ function PageEditor({ page, spaceId, draftRevId, onDeleted, isDeck, isSheet, scr
           >
             <History aria-hidden width={14} height={14} />
             <span>
-              Restoring Revision #{draftRevId} · review and press Save to
-              commit, or Cancel to abandon.
+              Восстановление версии #{draftRevId} · проверьте и нажмите
+              «Сохранить», чтобы зафиксировать, или «Отмена», чтобы
+              отказаться.
             </span>
           </div>
         ) : null}
@@ -1904,12 +1905,12 @@ function PageEditor({ page, spaceId, draftRevId, onDeleted, isDeck, isSheet, scr
             )}
           >
             <TriangleAlert aria-hidden width={14} height={14} className="text-[var(--warning)]" />
-            <span className="flex-1">Someone else saved this page while you were editing its Markdown.</span>
+            <span className="flex-1">Кто-то другой сохранил эту страницу, пока вы редактировали её в Markdown.</span>
             <Button type="button" variant="ghost" size="sm" onClick={() => void loadSource()}>
-              Discard mine, load theirs
+              Отказаться от моих изменений и загрузить их
             </Button>
             <Button type="button" variant="secondary" size="sm" onClick={() => void saveSource(true)}>
-              Overwrite with mine
+              Перезаписать моей версией
             </Button>
           </div>
         ) : null}
@@ -1929,8 +1930,8 @@ function PageEditor({ page, spaceId, draftRevId, onDeleted, isDeck, isSheet, scr
               e.currentTarget.blur()
             }
           }}
-          placeholder="Untitled page"
-          aria-label="Page title"
+          placeholder="Страница без названия"
+          aria-label="Заголовок страницы"
           className={cn(
             // shrink-0: the title sits in a height-constrained flex column, and
             // a textarea is a shrinkable flex item — without this, flex compresses
@@ -1960,8 +1961,8 @@ function PageEditor({ page, spaceId, draftRevId, onDeleted, isDeck, isSheet, scr
                 onBlur={handleBodyBlur}
                 onSave={handleBodyBlur}
                 autoFocus={bodyAutoFocus}
-                ariaLabel="Deck markdown"
-                placeholder={'# Slide one\n\nWrite slides in Markdown.\n\n---\n\n# Slide two\n\n- Separate slides with ---'}
+                ariaLabel="Markdown колоды"
+                placeholder={'# Слайд один\n\nПишите слайды в Markdown.\n\n---\n\n# Слайд два\n\n- Разделяйте слайды символом ---'}
                 className={cn(EDITOR_MIN_H, 'flex-1')}
               />
             </Suspense>
@@ -1973,10 +1974,10 @@ function PageEditor({ page, spaceId, draftRevId, onDeleted, isDeck, isSheet, scr
           draftRevisionQuery.isError ? (
             <Card>
               <CardHeader>
-                <CardTitle>Couldn't load revision</CardTitle>
+                <CardTitle>Не удалось загрузить версию</CardTitle>
                 <CardDescription>
-                  Revision #{draftRevId} couldn't be retrieved. Cancel to
-                  return to the live page.
+                  Не удалось получить версию #{draftRevId}. Нажмите
+                  «Отмена», чтобы вернуться к актуальной странице.
                 </CardDescription>
               </CardHeader>
               <CardFooter>
@@ -1985,7 +1986,7 @@ function PageEditor({ page, spaceId, draftRevId, onDeleted, isDeck, isSheet, scr
                   variant="secondary"
                   onClick={handleDraftCancel}
                 >
-                  Cancel draft
+                  Отменить черновик
                 </Button>
               </CardFooter>
             </Card>
@@ -1999,7 +2000,7 @@ function PageEditor({ page, spaceId, draftRevId, onDeleted, isDeck, isSheet, scr
                 onChange={handleBodyChange}
                 onBlur={handleBodyBlur}
                 autoFocus={true}
-                ariaLabel="Page body (draft)"
+                ariaLabel="Содержимое страницы (черновик)"
                 className={EDITOR_MIN_H}
                 aliveWikilinkIds={aliveWikilinkIds}
                 wikilinkResolveIndex={wikilinkResolveIndex}
@@ -2020,7 +2021,7 @@ function PageEditor({ page, spaceId, draftRevId, onDeleted, isDeck, isSheet, scr
               onBlur={() => void saveSource()}
               onSave={() => void saveSource()}
               autoFocus
-              ariaLabel="Page markdown"
+              ariaLabel="Markdown страницы"
               className={EDITOR_MIN_H}
             />
           </Suspense>
@@ -2032,7 +2033,7 @@ function PageEditor({ page, spaceId, draftRevId, onDeleted, isDeck, isSheet, scr
               onChange={handleBodyChange}
               onBlur={handleBodyBlur}
               autoFocus={bodyAutoFocus}
-              ariaLabel="Page body"
+              ariaLabel="Содержимое страницы"
               className={EDITOR_MIN_H}
               aliveWikilinkIds={aliveWikilinkIds}
               wikilinkResolveIndex={wikilinkResolveIndex}
@@ -2201,7 +2202,7 @@ function ChildPagesSection({
           disabled={createPage.isPending}
           className="text-[var(--text-muted)] hover:text-[var(--text-primary)] px-[var(--space-2)]"
         >
-          <Plus width={14} height={14} /> Add child page
+          <Plus width={14} height={14} /> Добавить дочернюю страницу
         </Button>
       </div>
     )
@@ -2216,7 +2217,7 @@ function ChildPagesSection({
         id={`child-pages-${pageId}`}
         className="m-0 text-[length:var(--text-xs)] uppercase tracking-wider text-[var(--text-muted)] font-[family-name:var(--font-sans)]"
       >
-        Child pages
+        Дочерние страницы
       </h2>
       <ul className="m-0 p-0 list-none flex flex-col gap-[1px]">
         {children.map((child) => {
@@ -2251,7 +2252,7 @@ function ChildPagesSection({
                 />
                 <span className="flex-1 min-w-0 flex flex-col gap-[2px]">
                   <span className="truncate text-[length:var(--text-sm)] text-[var(--text-primary)] font-medium font-[family-name:var(--font-sans)]">
-                    {child.title || 'Untitled'}
+                    {child.title || 'Без названия'}
                   </span>
                   {excerpt ? (
                     <span className="truncate text-[length:var(--text-xs)] text-[var(--text-muted)] font-[family-name:var(--font-sans)]">
@@ -2289,7 +2290,7 @@ function Breadcrumb({
 
   return (
     <nav
-      aria-label="Breadcrumb"
+      aria-label="Хлебные крошки"
       className="flex items-center min-w-0 text-[length:var(--text-sm)] text-[var(--text-muted)] font-[family-name:var(--font-sans)]"
     >
       {/* Phone: the full chain never fits — it truncated to "P… › D…", which
@@ -2301,7 +2302,7 @@ function Breadcrumb({
           <Link
             to="/spaces/$spaceId/pages/$pageId/{-$slug}"
             params={{ spaceId, pageId: parent.id, slug: undefined }}
-            aria-label={`Up to ${parent.title || 'Untitled'}`}
+            aria-label={`Перейти к ${parent.title || 'Без названия'}`}
             className="shrink-0 -ml-[var(--space-2)] inline-flex h-[var(--space-8)] w-[var(--space-8)] items-center justify-center rounded-[var(--radius-xs)] hover:text-[var(--text-primary)]"
           >
             <ChevronLeft width={18} height={18} aria-hidden />
@@ -2310,7 +2311,7 @@ function Breadcrumb({
           <Link
             to="/spaces/$spaceId"
             params={{ spaceId }}
-            aria-label={`Up to ${space.data?.name ?? 'space'}`}
+            aria-label={`Перейти к ${space.data?.name ?? 'пространству'}`}
             className="shrink-0 -ml-[var(--space-2)] inline-flex h-[var(--space-8)] w-[var(--space-8)] items-center justify-center rounded-[var(--radius-xs)] hover:text-[var(--text-primary)]"
           >
             <ChevronLeft width={18} height={18} aria-hidden />
@@ -2327,13 +2328,13 @@ function Breadcrumb({
                 e.currentTarget.blur()
               }
             }}
-            placeholder="Untitled sheet"
-            aria-label="Sheet title"
+            placeholder="Таблица без названия"
+            aria-label="Заголовок таблицы"
             className="min-w-0 flex-1 rounded-[var(--radius-sm)] border border-transparent bg-transparent px-[var(--space-1)] text-[var(--text-primary)] outline-none focus-visible:border-[var(--border-subtle)]"
           />
         ) : (
           <span className="truncate font-medium text-[var(--text-primary)]">
-            {current?.title || space.data?.name || 'Untitled'}
+            {current?.title || space.data?.name || 'Без названия'}
           </span>
         )}
       </div>
@@ -2344,7 +2345,7 @@ function Breadcrumb({
         params={{ spaceId }}
         className="truncate hover:text-[var(--text-primary)] hover:underline underline-offset-2"
       >
-        {space.data?.name ?? 'Space'}
+        {space.data?.name ?? 'Пространство'}
       </Link>
       {chain.map((node, idx) => {
         const isLast = idx === chain.length - 1
@@ -2372,13 +2373,13 @@ function Breadcrumb({
                       e.currentTarget.blur()
                     }
                   }}
-                  placeholder="Untitled sheet"
-                  aria-label="Sheet title"
+                  placeholder="Таблица без названия"
+                  aria-label="Заголовок таблицы"
                   className="min-w-0 w-[min(28rem,50vw)] rounded-[var(--radius-sm)] border border-transparent bg-transparent px-[var(--space-1)] -mx-[var(--space-1)] text-[var(--text-primary)] outline-none hover:bg-[var(--surface-2)] focus-visible:border-[var(--border-subtle)]"
                 />
               ) : (
                 <span className="truncate text-[var(--text-primary)]">
-                  {node.title || 'Untitled'}
+                  {node.title || 'Без названия'}
                 </span>
               )
             ) : (
@@ -2387,7 +2388,7 @@ function Breadcrumb({
                 params={{ spaceId, pageId: node.id, slug: undefined }}
                 className="truncate hover:text-[var(--text-primary)] hover:underline underline-offset-2"
               >
-                {node.title || 'Untitled'}
+                {node.title || 'Без названия'}
               </Link>
             )}
           </span>
@@ -2412,11 +2413,11 @@ function PageError({ onRetry }: { onRetry: () => void }) {
     <EmptyState
       icon={TriangleAlert}
       tone="danger"
-      title="Couldn't load this page"
-      description="Something went wrong reaching the server. Try again."
+      title="Не удалось загрузить страницу"
+      description="Не удалось связаться с сервером. Попробуйте ещё раз."
       actions={
         <Button variant="secondary" onClick={onRetry}>
-          Retry
+          Повторить
         </Button>
       }
     />
@@ -2432,15 +2433,15 @@ function PageForbidden({ username }: { username?: string }) {
   return (
     <EmptyState
       icon={Lock}
-      title="You don't have access to this page"
+      title="У вас нет доступа к этой странице"
       description={
         username
-          ? `Ask an owner of this space to share it with you. You're signed in as ${username}.`
-          : 'Ask an owner of this space to share it with you.'
+          ? `Попросите владельца этого пространства предоставить вам доступ. Вы вошли как ${username}.`
+          : 'Попросите владельца этого пространства предоставить вам доступ.'
       }
       actions={
         <Button asChild variant="secondary">
-          <Link to="/">Your spaces</Link>
+          <Link to="/">Ваши пространства</Link>
         </Button>
       }
     />
@@ -2451,12 +2452,12 @@ function PageNotFound({ spaceId }: { spaceId: number }) {
   return (
     <EmptyState
       icon={FileQuestion}
-      title="Page not found"
-      description="The page may have been deleted or moved to another space."
+      title="Страница не найдена"
+      description="Возможно, страница была удалена или перемещена в другое пространство."
       actions={
         <Button asChild variant="secondary">
           <Link to="/spaces/$spaceId" params={{ spaceId }}>
-            Back to space
+            Вернуться к пространству
           </Link>
         </Button>
       }
@@ -2494,7 +2495,7 @@ function DeletePageConfirmDialog({
       handleClose(false)
       onDeleted()
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Failed to delete page.')
+      setError(err instanceof ApiError ? err.message : 'Не удалось удалить страницу.')
     }
   }
 
@@ -2502,10 +2503,11 @@ function DeletePageConfirmDialog({
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Delete this page?</DialogTitle>
+          <DialogTitle>Удалить эту страницу?</DialogTitle>
           <DialogDescription>
-            "{page.title || 'Untitled'}" and any child pages move to this space's
-            Trash. You can put them back from there — the space's Trash tab.
+            «{page.title || 'Без названия'}» и все дочерние страницы переместятся в
+            корзину этого пространства. Их можно вернуть оттуда — на вкладке
+            «Корзина» пространства.
           </DialogDescription>
         </DialogHeader>
         {error ? (
@@ -2516,7 +2518,7 @@ function DeletePageConfirmDialog({
         <DialogFooter>
           <DialogClose asChild>
             <Button type="button" variant="ghost">
-              Cancel
+              Отмена
             </Button>
           </DialogClose>
           <Button
@@ -2525,7 +2527,7 @@ function DeletePageConfirmDialog({
             onClick={handleDelete}
             disabled={deletePage.isPending}
           >
-            {deletePage.isPending ? 'Deleting…' : 'Delete'}
+            {deletePage.isPending ? 'Удаление…' : 'Удалить'}
           </Button>
         </DialogFooter>
       </DialogContent>

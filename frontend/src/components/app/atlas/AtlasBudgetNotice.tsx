@@ -1,6 +1,7 @@
 import { AlertTriangle, Gauge } from 'lucide-react'
 import { useAtlasBudget } from '../../../lib/queries/atlas'
 import type { AtlasBudget, AtlasBudgetEntry } from '../../../lib/queries/atlas'
+import { ruPlural } from '../../../lib/ru-plural'
 
 // AtlasBudgetNotice — how much Atlas indexing this account's schedule will cost,
 // against what its plan allows.
@@ -23,16 +24,16 @@ import type { AtlasBudget, AtlasBudgetEntry } from '../../../lib/queries/atlas'
 //     rather than quietly presenting a guess as measurement.
 
 function fmtMinutes(m: number): string {
-  if (m >= 600) return `${Math.round(m / 60)}h`
-  if (m >= 60) return `${(m / 60).toFixed(1)}h`
-  return `${Math.round(m)} min`
+  if (m >= 600) return `${Math.round(m / 60)} ч`
+  if (m >= 60) return `${(m / 60).toFixed(1)} ч`
+  return `${Math.round(m)} мин`
 }
 
 const CADENCE_LABEL: Record<string, string> = {
-  hourly: 'hourly',
-  daily: 'daily',
-  weekly: 'weekly',
-  monthly: 'monthly',
+  hourly: 'часовое расписание',
+  daily: 'дневное расписание',
+  weekly: 'недельное расписание',
+  monthly: 'месячное расписание',
 }
 
 export function AtlasBudgetNotice({ projectId }: { projectId?: number }) {
@@ -85,44 +86,44 @@ function OneBudget({ b, showOwner }: { b: AtlasBudgetEntry; showOwner: boolean }
           <p className="text-[length:var(--text-sm)] font-medium text-[var(--text-primary)]">
             {label}
             {overSpent
-              ? 'This month’s Atlas budget is used up'
-              : 'This schedule will use more Atlas time than the plan allows'}
+              ? 'Бюджет Атласа на этот месяц исчерпан'
+              : 'При таком расписании Атлас потратит больше времени, чем допускает тариф'}
           </p>
           <p className="text-[length:var(--text-sm)] text-[var(--text-muted)]">
             {overSpent ? (
               <>
-                {fmtMinutes(b.used_minutes)} of {fmtMinutes(cap)} used. Scheduled refreshes resume
-                on the 1st.{' '}
+                Использовано {fmtMinutes(b.used_minutes)} из {fmtMinutes(cap)}. Плановые обновления
+                возобновятся 1-го числа.{' '}
               </>
             ) : (
               <>
-                This schedule works out at about{' '}
+                При таком расписании индексация составит около{' '}
                 <strong className="text-[var(--text-primary)]">
                   {fmtMinutes(b.projected_minutes)}
                 </strong>{' '}
-                of indexing a month, against {fmtMinutes(cap)} on the plan.{' '}
+                в месяц — при {fmtMinutes(cap)} по тарифу.{' '}
               </>
             )}
-            {b.estimated && 'Some projects have no run history yet, so this is an estimate. '}
+            {b.estimated && 'У некоторых проектов ещё нет истории запусков, поэтому это оценка. '}
           </p>
 
           {b.suggestion && (
             <p className="text-[length:var(--text-sm)] text-[var(--text-muted)]">
-              Switching{' '}
+              Если перевести{' '}
               {b.suggestion.applies_to.length === 1
-                ? 'it'
-                : `${b.suggestion.applies_to.length} projects`}{' '}
-              to{' '}
+                ? 'этот проект'
+                : `${b.suggestion.applies_to.length} ${ruPlural(b.suggestion.applies_to.length, 'проекта', 'проекта', 'проектов')}`}{' '}
+              на{' '}
               <strong className="text-[var(--text-primary)]">
                 {CADENCE_LABEL[b.suggestion.cadence] ?? b.suggestion.cadence}
-              </strong>{' '}
-              would bring that to about {fmtMinutes(b.suggestion.projected_minutes)}.
+              </strong>
+              , индексация составит около {fmtMinutes(b.suggestion.projected_minutes)} в месяц.
             </p>
           )}
           {!b.suggestion && !overSpent && (
             <p className="text-[length:var(--text-sm)] text-[var(--text-muted)]">
-              Even monthly refreshes would exceed this plan’s budget, so a slower schedule won’t
-              help — this needs fewer sources or more capacity.
+              Даже ежемесячные обновления превысили бы бюджет этого тарифа, поэтому более редкое
+              расписание не поможет — нужно меньше источников или больше мощности.
             </p>
           )}
         </div>
@@ -141,8 +142,9 @@ function BudgetMeter({ data, cap, label }: { data: AtlasBudget; cap: number; lab
         <Gauge className="size-[var(--space-3)]" />
         <span>
           {label}
-          {fmtMinutes(data.used_minutes)} of {fmtMinutes(cap)} Atlas time used this month
-          {data.projected_minutes > 0 && <> · this schedule ≈ {fmtMinutes(data.projected_minutes)}/mo</>}
+          {fmtMinutes(data.used_minutes)} из {fmtMinutes(cap)} времени Атласа использовано за этот
+          месяц
+          {data.projected_minutes > 0 && <> · при этом расписании ≈ {fmtMinutes(data.projected_minutes)}/мес</>}
         </span>
       </div>
       <div className="h-[var(--space-1)] w-full overflow-hidden rounded-[var(--radius-sm)] bg-[var(--surface-2)]">

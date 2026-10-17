@@ -48,12 +48,12 @@ export function CommentComposer({
   async function handleSubmit() {
     const trimmed = body.trim()
     if (!trimmed) {
-      setError('Body is required.')
+      setError('Текст комментария обязателен.')
       return
     }
     const anchor = captureAnchor()
     if (!anchor) {
-      setError('Select a passage in the page before commenting.')
+      setError('Сначала выделите фрагмент на странице.')
       return
     }
     setBusy(true)
@@ -67,7 +67,7 @@ export function CommentComposer({
       })
       setBody('')
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Failed to post comment.')
+      setError(err instanceof ApiError ? err.message : 'Не удалось отправить комментарий.')
     } finally {
       setBusy(false)
     }
@@ -85,7 +85,7 @@ export function CommentComposer({
           )}
         >
           <div className="mb-[2px] uppercase tracking-wider">
-            Commenting on
+            Комментарий к фрагменту
           </div>
           <div
             className={cn(

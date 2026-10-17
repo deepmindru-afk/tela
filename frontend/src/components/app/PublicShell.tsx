@@ -23,7 +23,7 @@ export function PublicShell({
   const telaHome = useTelaHomeHref()
   const org = useHostContext().data?.org ?? null
   const brandHref = org ? '/' : telaHome
-  const brandLabel = org ? `${org.name} home` : 'tela home'
+  const brandLabel = org ? `Главная ${org.name}` : 'Главная tela'
   return (
     <div className="min-h-dvh flex flex-col bg-[var(--surface-1)] text-[var(--text-primary)]">
       <header className="flex items-center justify-between px-[var(--space-6)] py-[var(--space-3)] border-b border-[var(--border-subtle)] shrink-0">
@@ -55,7 +55,7 @@ export function PublicShell({
 // The neutral miss for a public surface: a page/space/file that isn't there, or
 // isn't public. Never a bounce to /login — a logged-out visitor stays put.
 export function PublicUnavailable({
-  message = 'This page is not publicly available.',
+  message = 'Эта страница не доступна в интернете.',
 }: {
   message?: string
 }) {
@@ -64,7 +64,7 @@ export function PublicUnavailable({
     <PublicShell>
       <Card className="w-full max-w-[24rem]">
         <CardHeader>
-          <CardTitle className="text-[length:var(--text-2xl)]">Not available</CardTitle>
+          <CardTitle className="text-[length:var(--text-2xl)]">Недоступно</CardTitle>
           <CardDescription>{message}</CardDescription>
         </CardHeader>
       </Card>

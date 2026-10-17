@@ -27,6 +27,7 @@ import { useHostContext } from '../../lib/queries/host-context'
 import type { Space } from '../../lib/types'
 import { useAskDocsStream } from '../../lib/queries/ask'
 import { navigateToPage } from '../../lib/pageHitItem'
+import { ruPlural } from '../../lib/ru-plural'
 import { ApiError, ASK_UNAVAILABLE_CODES, type SemanticHit } from '../../lib/api'
 import { SearchResult } from './SearchResult'
 import { usePageHoverPreview } from './wikilink-hover-preview'
@@ -65,10 +66,10 @@ function isModelUnreachable(err: unknown): boolean {
 
 function askErrorMessage(err: unknown): string {
   if (isModelUnreachable(err)) {
-    return 'The model may be warming up or briefly offline. Give it a moment and try again.'
+    return 'Модель, возможно, запускается или временно недоступна. Подождите немного и попробуйте ещё раз.'
   }
   if (err instanceof ApiError) return err.message
-  return 'Something went wrong. Try again.'
+  return 'Что-то пошло не так. Попробуйте ещё раз.'
 }
 
 // /ask — "Ask your docs". A question box → an LLM answer grounded in the user's
@@ -188,9 +189,9 @@ export function AskRoute() {
   // Starter prompts for the empty state — clicking runs the question. Generic on
   // purpose so they work on any instance regardless of content.
   const SUGGESTIONS = [
-    'What changed recently?',
-    'How do I get started?',
-    'Summarize what’s in my spaces',
+    'Что изменилось недавно?',
+    'С чего начать?',
+    'Кратко опиши содержимое моих пространств',
   ]
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
@@ -222,11 +223,11 @@ export function AskRoute() {
             <Sparkles width={17} height={17} />
           </span>
           <h1 className="m-0 text-[length:var(--text-2xl)] leading-[var(--leading-tight)] tracking-[-0.02em] font-semibold font-[family-name:var(--font-sans)] text-[var(--text-primary)]">
-            Ask your docs
+            Спросите документы
           </h1>
         </div>
         <p className="m-0 text-[length:var(--text-sm)] leading-[var(--leading-normal)] text-[var(--text-muted)] font-[family-name:var(--font-sans)]">
-          Answers grounded in your pages, with the exact sources they came from.
+          Ответы на основе ваших страниц — с указанием точных источников.
         </p>
       </header>
 
@@ -240,8 +241,8 @@ export function AskRoute() {
             value={question}
             onChange={(e) => setQuestion(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder={aiPaused ? 'Ask is temporarily unavailable…' : 'Ask anything about your pages…'}
-            aria-label="Question"
+            placeholder={aiPaused ? 'Функция «Спросить» временно недоступна…' : 'Спросите что угодно о ваших страницах…'}
+            aria-label="Вопрос"
             rows={2}
             autoFocus
             disabled={ask.isPending || aiPaused}
@@ -257,7 +258,7 @@ export function AskRoute() {
               onChange={(id) => setScope(id != null ? String(id) : '')}
             />
             <span className="ml-auto flex items-center gap-[var(--space-1)] whitespace-nowrap text-[length:var(--text-xs)] text-[var(--text-muted)] font-[family-name:var(--font-sans)] hidden sm:flex">
-              <Kbd>↵</Kbd> to ask
+              <Kbd>↵</Kbd> чтобы отправить
             </span>
             {/* Circular send — a focused "ask" affordance, not a generic form
                 button. Owned Button primitive, shaped to a circle. */}
@@ -265,7 +266,7 @@ export function AskRoute() {
               variant="primary"
               size="sm"
               onClick={submit}
-              aria-label="Ask"
+              aria-label="Спросить"
               disabled={question.trim().length === 0 || ask.isPending || aiPaused || demoTyping}
               className="size-[var(--space-8)] shrink-0 rounded-full p-0"
             >
@@ -279,31 +280,31 @@ export function AskRoute() {
         </CardBody>
       </Card>
 
-      <section aria-label="Answer" aria-live="polite" className="min-h-0">
+      <section aria-label="Ответ" aria-live="polite" className="min-h-0">
         {aiPaused ? (
           <EmptyState
             icon={Wrench}
-            title="AI is temporarily unavailable"
+            title="ИИ временно недоступен"
             description={
               maintenanceNote ||
-              'AI features (ask & semantic search) are offline right now — the model may be down or under maintenance. Full-text search still works; give it a moment and try again later.'
+              'Функции ИИ («Спросить» и семантический поиск) сейчас недоступны — возможно, модель перезапускается или на обслуживании. Полнотекстовый поиск продолжает работать: подождите и попробуйте позже.'
             }
           />
         ) : unavailable ? (
           <EmptyState
             icon={Sparkles}
-            title="Ask your docs isn't available yet"
-            description="This tela instance hasn't been configured with an AI model for answering questions. Search still works in the meantime."
+            title="«Спросить документы» пока недоступно"
+            description="Для этого инстанса tela не настроена ИИ-модель для ответов на вопросы. Пока вы можете пользоваться поиском."
           />
         ) : ask.status === 'error' ? (
           <EmptyState
             icon={AlertTriangle}
             tone="danger"
-            title={isModelUnreachable(ask.error) ? 'The answer model didn’t respond' : 'Couldn’t generate an answer'}
+            title={isModelUnreachable(ask.error) ? 'Модель не ответила' : 'Не удалось сформировать ответ'}
             description={askErrorMessage(ask.error)}
             actions={
               <Button variant="secondary" size="sm" onClick={submit}>
-                Try again
+                Попробовать снова
               </Button>
             }
           />
@@ -317,7 +318,7 @@ export function AskRoute() {
                 className="animate-spin text-[var(--text-muted)]"
               />
               <span className="text-[length:var(--text-sm)] text-[var(--text-muted)] font-[family-name:var(--font-sans)]">
-                Reading your pages…
+                Читаем ваши страницы…
               </span>
             </CardBody>
           </Card>
@@ -330,8 +331,8 @@ export function AskRoute() {
                 <button
                   type="button"
                   onClick={copyAskLink}
-                  aria-label="Copy a shareable link that re-asks this question"
-                  title="Copy a link that re-asks this for someone"
+                  aria-label="Скопировать ссылку, по которой этот вопрос зададут заново"
+                  title="Скопировать ссылку, чтобы кто-то задал этот вопрос заново"
                   className="inline-flex items-center gap-[var(--space-1)] rounded-[var(--radius-md)] px-[var(--space-2)] py-[var(--space-1)] text-[length:var(--text-xs)] text-[var(--text-muted)] font-[family-name:var(--font-sans)] cursor-pointer outline-none transition-colors duration-[var(--duration-fast)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-2)] focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
                 >
                   {copied ? (
@@ -339,7 +340,7 @@ export function AskRoute() {
                   ) : (
                     <Link2 width={13} height={13} aria-hidden />
                   )}
-                  {copied ? 'Link copied' : 'Share'}
+                  {copied ? 'Ссылка скопирована' : 'Поделиться'}
                 </button>
               </div>
             ) : null}
@@ -357,7 +358,7 @@ export function AskRoute() {
                   ) : (
                     <span className="inline-flex items-center gap-[var(--space-2)] text-[length:var(--text-sm)] text-[var(--text-muted)] font-[family-name:var(--font-sans)]">
                       <Loader2 width={14} height={14} className="animate-spin" />
-                      Writing…
+                      Пишем…
                     </span>
                   )
                 ) : null}
@@ -366,13 +367,19 @@ export function AskRoute() {
             {sources.length > 0 ? (
               <div className="flex flex-col gap-[var(--space-1)]">
                 <h2 className="m-0 px-[var(--space-4)] text-[length:var(--text-xs)] uppercase tracking-[0.04em] text-[var(--text-muted)] font-[family-name:var(--font-sans)]">
-                  Sources
+                  Источники
                   {/* Retrieval cited a window, not everything it matched. Saying
                       so is the difference between "your wiki holds 12 answers"
                       and "we showed you 12" — silence reads as the former. */}
                   {ask.truncated ? (
                     <span className="ml-[var(--space-2)] normal-case tracking-normal text-[var(--text-muted)] opacity-70">
-                      showing {ask.sources.length} of {ask.considered} matches
+                      показано {ask.sources.length} из {ask.considered}{' '}
+                      {ruPlural(
+                        ask.considered,
+                        'совпадения',
+                        'совпадений',
+                        'совпадений',
+                      )}
                     </span>
                   ) : null}
                 </h2>
@@ -401,7 +408,7 @@ export function AskRoute() {
         ) : (
           <div className="flex flex-col gap-[var(--space-3)]">
             <span className="text-[length:var(--text-xs)] uppercase tracking-[0.06em] text-[var(--text-muted)] font-medium font-[family-name:var(--font-sans)]">
-              Try asking
+              Попробуйте спросить
             </span>
             <div className="flex flex-col gap-[var(--space-1)]">
               {SUGGESTIONS.map((s) => (
@@ -496,7 +503,7 @@ function FollowUps({
   return (
     <div className="flex flex-col gap-[var(--space-2)]">
       <h2 className="m-0 px-[var(--space-4)] text-[length:var(--text-xs)] uppercase tracking-[0.04em] text-[var(--text-muted)] font-[family-name:var(--font-sans)]">
-        Keep exploring
+        Продолжайте изучать
       </h2>
       <div className="flex flex-col gap-[var(--space-1)]">
         {questions.map((q) => (
@@ -544,14 +551,14 @@ function ScopePicker({
   onChange: (id: number | undefined) => void
 }) {
   const current = value != null ? spaces.find((s) => s.id === value) : undefined
-  const label = current ? current.name : 'All spaces'
+  const label = current ? current.name : 'Все пространства'
 
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <button
           type="button"
-          aria-label={`Answer from: ${label}`}
+          aria-label={`Источник ответа: ${label}`}
           className="inline-flex max-w-[14rem] items-center gap-[var(--space-1)] rounded-[var(--radius-md)] px-[var(--space-2)] py-[var(--space-1)] text-[length:var(--text-sm)] text-[var(--text-primary)] font-[family-name:var(--font-sans)] cursor-pointer outline-none transition-colors duration-[var(--duration-fast)] hover:bg-[var(--surface-3)] focus-visible:ring-2 focus-visible:ring-[var(--accent)] data-[state=open]:bg-[var(--surface-3)]"
         >
           <Library
@@ -571,7 +578,7 @@ function ScopePicker({
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="max-h-[18rem] overflow-y-auto">
         <ScopeOption
-          label="All spaces"
+          label="Все пространства"
           icon={<Library width={14} height={14} aria-hidden className="text-[var(--text-muted)]" />}
           selected={value == null}
           onSelect={() => onChange(undefined)}
@@ -579,7 +586,7 @@ function ScopePicker({
         {spaces.map((s) => (
           <ScopeOption
             key={s.id}
-            label={s.name || 'Untitled space'}
+            label={s.name || 'Пространство без названия'}
             selected={value === s.id}
             onSelect={() => onChange(s.id)}
           />

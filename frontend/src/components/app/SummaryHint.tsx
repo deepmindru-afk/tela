@@ -48,7 +48,7 @@ export function SummaryTitle({
         <div className="group relative">
           <button
             type="button"
-            aria-label="Page summary"
+            aria-label="Краткое описание страницы"
             className={cn(
               'items-center justify-center h-[var(--space-6)] w-[var(--space-6)]',
               'rounded-[var(--radius-sm)] border-none bg-transparent p-0 cursor-default',
@@ -71,7 +71,7 @@ export function SummaryTitle({
         className="max-w-[24rem] p-[var(--space-3)] text-[length:var(--text-sm)] leading-[var(--leading-normal)]"
       >
         <p className="m-0 mb-[var(--space-1)] text-[length:var(--text-xs)] text-[var(--text-muted)] font-[family-name:var(--font-mono)]">
-          summary
+          краткое описание
         </p>
         <p className="m-0">{summary}</p>
       </TooltipContent>

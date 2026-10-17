@@ -50,9 +50,9 @@ import { cn } from '../../lib/utils'
 import { spaceOwnership } from '../../lib/space-owner'
 
 const ROLE_LABEL: Record<SpaceMember['role'], string> = {
-  owner: 'Owner',
-  editor: 'Editor',
-  viewer: 'Viewer',
+  owner: 'Владелец',
+  editor: 'Редактор',
+  viewer: 'Наблюдатель',
 }
 
 interface ShareSpaceDialogProps {
@@ -74,10 +74,10 @@ export function ShareSpaceDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Share "{space.name}"</DialogTitle>
+          <DialogTitle>Поделиться «{space.name}»</DialogTitle>
           <DialogDescription>
-            Members of this space can view its pages. Owners can change roles
-            and invite new members.
+            Участники этого пространства могут просматривать его страницы.
+            Владельцы могут менять роли и приглашать новых участников.
           </DialogDescription>
         </DialogHeader>
 
@@ -88,18 +88,18 @@ export function ShareSpaceDialog({
 
           <div className="flex flex-col gap-[var(--space-2)] pt-[var(--space-3)] border-t border-[var(--border-subtle)]">
             <span className="text-[length:var(--text-xs)] uppercase tracking-wider text-[var(--text-muted)] font-[family-name:var(--font-sans)]">
-              Direct members
+              Прямые участники
             </span>
           {members.isLoading ? (
             <p className="m-0 text-[length:var(--text-sm)] text-[var(--text-muted)]">
-              Loading members…
+              Загрузка участников…
             </p>
           ) : members.isError ? (
             <p
               role="alert"
               className="m-0 text-[length:var(--text-sm)] text-[var(--danger)]"
             >
-              Couldn't load members.
+              Не удалось загрузить участников.
             </p>
           ) : members.data && members.data.length > 0 ? (
             <ul className="m-0 p-0 list-none flex flex-col gap-[var(--space-1)]">
@@ -134,7 +134,7 @@ export function ShareSpaceDialog({
         <DialogFooter>
           <DialogClose asChild>
             <Button type="button" variant="ghost">
-              Close
+              Закрыть
             </Button>
           </DialogClose>
         </DialogFooter>
@@ -161,17 +161,17 @@ function OwnedByLine({ space }: { space: Space }) {
       <span>
         {owner.kind === 'org' ? (
           <>
-            Owned by{' '}
+            Принадлежит{' '}
             <span className="font-medium text-[var(--text-primary)]">
               {owner.org}
             </span>
           </>
         ) : owner.kind === 'personal' ? (
-          'Personal space'
+          'Личное пространство'
         ) : (
           <>
-            Owned by{' '}
-            <span className="font-medium text-[var(--text-primary)]">you</span>
+            Принадлежит{' '}
+            <span className="font-medium text-[var(--text-primary)]">вам</span>
           </>
         )}
       </span>
@@ -242,7 +242,7 @@ function MemberRow({
           <span className="truncate text-[length:var(--text-sm)] text-[var(--text-primary)] font-medium font-[family-name:var(--font-sans)]">
             {member.username}
           </span>
-          {isSelf ? <Badge variant="muted">You</Badge> : null}
+          {isSelf ? <Badge variant="muted">Вы</Badge> : null}
         </div>
         {rowError ? (
           <span
@@ -258,16 +258,16 @@ function MemberRow({
         <div className="w-[6.5rem] shrink-0">
           <Select
             size="sm"
-            aria-label={`Role for ${member.username}`}
+            aria-label={`Роль для ${member.username}`}
             value={member.role}
             disabled={updateMember.isPending}
             onChange={(e) =>
               void handleRoleChange(e.target.value as SpaceMember['role'])
             }
           >
-            <option value="owner">Owner</option>
-            <option value="editor">Editor</option>
-            <option value="viewer">Viewer</option>
+            <option value="owner">Владелец</option>
+            <option value="editor">Редактор</option>
+            <option value="viewer">Наблюдатель</option>
           </Select>
         </div>
       ) : (
@@ -281,7 +281,7 @@ function MemberRow({
           type="button"
           variant="ghost"
           size="sm"
-          aria-label={`Remove ${member.username}`}
+          aria-label={`Удалить ${member.username}`}
           onClick={() => void handleRemove()}
           disabled={removeMember.isPending}
           className="text-[var(--text-muted)] hover:text-[var(--danger)]"
@@ -298,7 +298,7 @@ function MemberRow({
             size="sm"
             onClick={() => setLeaveOpen(true)}
           >
-            Leave space
+            Покинуть пространство
           </Button>
           <LeaveSpaceConfirmDialog
             space={space}
@@ -356,10 +356,10 @@ function LeaveSpaceConfirmDialog({
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Leave "{space.name}"?</DialogTitle>
+          <DialogTitle>Покинуть «{space.name}»?</DialogTitle>
           <DialogDescription>
-            You'll lose access to this space and its pages. An owner will need
-            to re-invite you to come back.
+            Вы потеряете доступ к этому пространству и его страницам. Чтобы
+            вернуться, владельцу нужно будет снова пригласить вас.
           </DialogDescription>
         </DialogHeader>
         {error ? (
@@ -373,7 +373,7 @@ function LeaveSpaceConfirmDialog({
         <DialogFooter>
           <DialogClose asChild>
             <Button type="button" variant="ghost">
-              Cancel
+              Отмена
             </Button>
           </DialogClose>
           <Button
@@ -382,7 +382,7 @@ function LeaveSpaceConfirmDialog({
             onClick={() => void handleConfirm()}
             disabled={removeMember.isPending}
           >
-            {removeMember.isPending ? 'Leaving…' : 'Leave space'}
+            {removeMember.isPending ? 'Выход…' : 'Покинуть пространство'}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -416,7 +416,7 @@ function AddMemberForm({ spaceId }: { spaceId: number }) {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!user && !email) {
-      setError('Pick someone, or type an email address to invite.')
+      setError('Выберите человека или введите адрес электронной почты для приглашения.')
       return
     }
     setError(null)
@@ -426,12 +426,12 @@ function AddMemberForm({ spaceId }: { spaceId: number }) {
         const res = await shareByEmail.mutateAsync({ email, role })
         setOutcome(
           res.member
-            ? `Shared with ${res.member.username} — they have access now.`
-            : `Invitation sent to ${email}.`,
+            ? `Общий доступ предоставлен: ${res.member.username}.`
+            : `Приглашение отправлено на ${email}.`,
         )
       } else if (user) {
         await addMember.mutateAsync({ spaceId, username: user.username, role })
-        setOutcome(`Shared with ${user.username}.`)
+        setOutcome(`Общий доступ предоставлен: ${user.username}.`)
       }
       reset()
     } catch (err) {
@@ -453,13 +453,13 @@ function AddMemberForm({ spaceId }: { spaceId: number }) {
         htmlFor={`add-member-username-${spaceId}`}
         className="text-[length:var(--text-xs)] uppercase tracking-wider text-[var(--text-muted)] font-[family-name:var(--font-sans)]"
       >
-        Share with a person
+        Поделиться с человеком
       </label>
       <div className="flex items-start gap-[var(--space-2)]">
         <div className="flex-1 min-w-0">
           <UserPicker
             id={`add-member-username-${spaceId}`}
-            placeholder="Search people, or type an email…"
+            placeholder="Поиск людей или введите адрес…"
             value={user}
             onChange={(u) => {
               setUser(u)
@@ -472,7 +472,7 @@ function AddMemberForm({ spaceId }: { spaceId: number }) {
               setUser(null)
               setError(null)
             }}
-            inviteHint="Invite by email"
+            inviteHint="Пригласить по электронной почте"
             invalid={error != null}
             excludeIds={(members.data ?? []).map((m) => m.user_id)}
           />
@@ -480,13 +480,13 @@ function AddMemberForm({ spaceId }: { spaceId: number }) {
         <div className="w-[6.5rem] shrink-0">
           <Select
             size="md"
-            aria-label="Role for new member"
+            aria-label="Роль нового участника"
             value={role}
             onChange={(e) => setRole(e.target.value as SpaceMember['role'])}
           >
-            <option value="owner">Owner</option>
-            <option value="editor">Editor</option>
-            <option value="viewer">Viewer</option>
+            <option value="owner">Владелец</option>
+            <option value="editor">Редактор</option>
+            <option value="viewer">Наблюдатель</option>
           </Select>
         </div>
         <Button
@@ -500,13 +500,13 @@ function AddMemberForm({ spaceId }: { spaceId: number }) {
             <UserPlus width={14} height={14} />
           )}
           <span>
-            {busy ? 'Sharing…' : email ? 'Invite' : 'Add'}
+            {busy ? 'Отправка…' : email ? 'Пригласить' : 'Добавить'}
           </span>
         </Button>
       </div>
       <p className="m-0 text-[length:var(--text-xs)] text-[var(--text-muted)]">
-        No account yet? Type their email — they'll get an invitation and this
-        space the moment they sign up.
+        Ещё нет аккаунта? Введите адрес электронной почты — сразу после
+        регистрации они получат приглашение и доступ к этому пространству.
       </p>
       {outcome ? (
         <p
@@ -544,14 +544,14 @@ function PendingInvites({ spaceId }: { spaceId: number }) {
     try {
       await revoke.mutateAsync(id)
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Failed to revoke.')
+      setError(err instanceof ApiError ? err.message : 'Не удалось отозвать приглашение.')
     }
   }
 
   return (
     <div className="flex flex-col gap-[var(--space-2)] pt-[var(--space-3)]">
       <span className="text-[length:var(--text-xs)] uppercase tracking-wider text-[var(--text-muted)] font-[family-name:var(--font-sans)]">
-        Pending invitations
+        Приглашения в ожидании
       </span>
       <ul className="m-0 p-0 list-none flex flex-col gap-[var(--space-1)]">
         {list.map((inv) => (
@@ -575,15 +575,15 @@ function PendingInvites({ spaceId }: { spaceId: number }) {
                 {inv.email}
               </span>
               <span className="truncate text-[length:var(--text-xs)] text-[var(--text-muted)]">
-                Invited — joins as {ROLE_LABEL[inv.role].toLowerCase()} when they
-                sign up
+                Приглашён — присоединится как {ROLE_LABEL[inv.role].toLowerCase()} после
+                регистрации
               </span>
             </div>
             <Button
               type="button"
               variant="ghost"
               size="sm"
-              aria-label={`Revoke invitation to ${inv.email}`}
+              aria-label={`Отозвать приглашение для ${inv.email}`}
               onClick={() => void handleRevoke(inv.id)}
               disabled={revoke.isPending}
               className="text-[var(--text-muted)] hover:text-[var(--danger)]"
@@ -603,8 +603,8 @@ function PendingInvites({ spaceId }: { spaceId: number }) {
 }
 
 const GRANT_ROLE_LABEL: Record<SpaceGrant['role'], string> = {
-  editor: 'Editor',
-  viewer: 'Viewer',
+  editor: 'Редактор',
+  viewer: 'Наблюдатель',
 }
 
 // The authoritative answer to "who can access this space, and why" — resolves
@@ -619,15 +619,15 @@ function SpaceAccessSummary({ spaceId }: { spaceId: number }) {
   return (
     <div className="flex flex-col gap-[var(--space-2)]">
       <span className="text-[length:var(--text-xs)] uppercase tracking-wider text-[var(--text-muted)] font-[family-name:var(--font-sans)]">
-        People with access{people.length > 0 ? ` (${people.length})` : ''}
+        Участники с доступом{people.length > 0 ? ` (${people.length})` : ''}
       </span>
       {access.isLoading ? (
         <p className="m-0 text-[length:var(--text-sm)] text-[var(--text-muted)]">
-          Resolving access…
+          Определение доступа…
         </p>
       ) : access.isError ? (
         <p role="alert" className="m-0 text-[length:var(--text-sm)] text-[var(--danger)]">
-          Couldn't resolve access.
+          Не удалось определить доступ.
         </p>
       ) : people.length > 0 ? (
         <ul className="m-0 p-0 list-none flex flex-col gap-[var(--space-1)]">
@@ -658,11 +658,11 @@ function SpaceAccessSummary({ spaceId }: { spaceId: number }) {
 // "Direct" and/or "via <Org/Group>, …" — explains every route a person has in.
 function provenanceLabel(sources: AccessSource[]): string {
   const parts: string[] = []
-  if (sources.some((s) => s.kind === 'direct')) parts.push('Direct')
+  if (sources.some((s) => s.kind === 'direct')) parts.push('Прямой доступ')
   const vias = sources
     .filter((s) => s.kind !== 'direct' && s.name)
     .map((s) => s.name as string)
-  if (vias.length > 0) parts.push(`via ${vias.join(', ')}`)
+  if (vias.length > 0) parts.push(`через ${vias.join(', ')}`)
   return parts.join(' · ')
 }
 
@@ -687,12 +687,12 @@ function SpaceOrgGrants({
   return (
     <div className="flex flex-col gap-[var(--space-2)] pt-[var(--space-3)] border-t border-[var(--border-subtle)]">
       <span className="text-[length:var(--text-xs)] uppercase tracking-wider text-[var(--text-muted)] font-[family-name:var(--font-sans)]">
-        Organizations &amp; groups
+        Организации и группы
       </span>
 
       {grants.isError ? (
         <p role="alert" className="m-0 text-[length:var(--text-sm)] text-[var(--danger)]">
-          Couldn't load shared access.
+          Не удалось загрузить общий доступ.
         </p>
       ) : grants.data && grants.data.length > 0 ? (
         <ul className="m-0 p-0 list-none flex flex-col gap-[var(--space-1)]">
@@ -733,7 +733,7 @@ function GrantRow({
     try {
       await updateGrant.mutateAsync({ spaceId, grantId: grant.id, role })
     } catch (err) {
-      setRowError(err instanceof ApiError ? err.message : 'Something went wrong.')
+      setRowError(err instanceof ApiError ? err.message : 'Что-то пошло не так.')
     }
   }
 
@@ -742,7 +742,7 @@ function GrantRow({
     try {
       await removeGrant.mutateAsync({ spaceId, grantId: grant.id })
     } catch (err) {
-      setRowError(err instanceof ApiError ? err.message : 'Something went wrong.')
+      setRowError(err instanceof ApiError ? err.message : 'Что-то пошло не так.')
     }
   }
 
@@ -768,8 +768,8 @@ function GrantRow({
         </div>
         <span className="truncate text-[length:var(--text-xs)] text-[var(--text-muted)]">
           {grant.principal_kind === 'group'
-            ? `Group${grant.context_name ? ` · ${grant.context_name}` : ''}`
-            : 'Organization'}
+            ? `Группа${grant.context_name ? ` · ${grant.context_name}` : ''}`
+            : 'Организация'}
         </span>
         {rowError ? (
           <span role="alert" className="text-[length:var(--text-xs)] text-[var(--danger)]">
@@ -782,13 +782,13 @@ function GrantRow({
         <div className="w-[6.5rem] shrink-0">
           <Select
             size="sm"
-            aria-label={`Role for ${grant.principal_name}`}
+            aria-label={`Роль для ${grant.principal_name}`}
             value={grant.role}
             disabled={updateGrant.isPending}
             onChange={(e) => void handleRoleChange(e.target.value as SpaceGrant['role'])}
           >
-            <option value="editor">Editor</option>
-            <option value="viewer">Viewer</option>
+            <option value="editor">Редактор</option>
+            <option value="viewer">Наблюдатель</option>
           </Select>
         </div>
       ) : (
@@ -800,7 +800,7 @@ function GrantRow({
           type="button"
           variant="ghost"
           size="sm"
-          aria-label={`Remove ${grant.principal_name}`}
+          aria-label={`Удалить ${grant.principal_name}`}
           onClick={() => void handleRemove()}
           disabled={removeGrant.isPending}
           className="text-[var(--text-muted)] hover:text-[var(--danger)]"
@@ -840,7 +840,7 @@ function AddGrantForm({
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (principal === '') {
-      setError('Pick an org or group to share with.')
+      setError('Выберите организацию или группу, которым предоставить доступ.')
       return
     }
     const [kind, idStr] = principal.split(':')
@@ -856,11 +856,11 @@ function AddGrantForm({
       setRole('viewer')
     } catch (err) {
       if (err instanceof ApiError && err.status === 409) {
-        setError('That org or group already has access.')
+        setError('У этой организации или группы уже есть доступ.')
       } else if (err instanceof ApiError) {
         setError(err.message)
       } else {
-        setError('Failed to share.')
+        setError('Не удалось предоставить доступ.')
       }
     }
   }
@@ -876,13 +876,13 @@ function AddGrantForm({
         <div className="flex-1 min-w-0">
           <Select
             size="md"
-            aria-label="Org or group to share with"
+            aria-label="Организация или группа для доступа"
             value={principal}
             onChange={(e) => setPrincipal(e.target.value)}
           >
-            <option value="">Share with an org or group…</option>
+            <option value="">Предоставить доступ организации или группе…</option>
             {orgOptions.length > 0 ? (
-              <optgroup label="Organizations">
+              <optgroup label="Организации">
                 {orgOptions.map((o) => (
                   <option key={`org:${o.id}`} value={`org:${o.id}`}>
                     {o.name}
@@ -891,7 +891,7 @@ function AddGrantForm({
               </optgroup>
             ) : null}
             {groupOptions.length > 0 ? (
-              <optgroup label="Groups">
+              <optgroup label="Группы">
                 {groupOptions.map((g) => (
                   <option key={`group:${g.id}`} value={`group:${g.id}`}>
                     {g.name} — {g.org_name}
@@ -904,12 +904,12 @@ function AddGrantForm({
         <div className="w-[6.5rem] shrink-0">
           <Select
             size="md"
-            aria-label="Role"
+            aria-label="Роль"
             value={role}
             onChange={(e) => setRole(e.target.value as SpaceGrant['role'])}
           >
-            <option value="editor">Editor</option>
-            <option value="viewer">Viewer</option>
+            <option value="editor">Редактор</option>
+            <option value="viewer">Наблюдатель</option>
           </Select>
         </div>
         <Button
@@ -917,7 +917,7 @@ function AddGrantForm({
           variant="secondary"
           disabled={addGrant.isPending || principal === ''}
         >
-          <span>{addGrant.isPending ? 'Sharing…' : 'Share'}</span>
+          <span>{addGrant.isPending ? 'Отправка…' : 'Поделиться'}</span>
         </Button>
       </div>
       {error ? (
@@ -932,21 +932,21 @@ function AddGrantForm({
 function memberErrorMessage(err: unknown): string {
   if (err instanceof ApiError) {
     if (err.code === 'last_owner') {
-      return "Can't remove the last owner — promote someone else first."
+      return "Нельзя удалить последнего владельца — сначала назначьте владельцем другого участника."
     }
     return err.message
   }
-  return 'Something went wrong. Try again.'
+  return 'Что-то пошло не так. Попробуйте ещё раз.'
 }
 
 function addMemberErrorMessage(err: unknown): string {
   if (err instanceof ApiError) {
-    if (err.status === 404) return 'User not found.'
-    if (err.status === 409) return 'That person already has access.'
+    if (err.status === 404) return 'Пользователь не найден.'
+    if (err.status === 409) return 'У этого человека уже есть доступ.'
     if (err.code === 'bad_request') return err.message
     return err.message
   }
-  return 'Failed to share.'
+  return 'Не удалось предоставить доступ.'
 }
 
 // PublicAccessSection — the Axis-2 space-level "publish to the web" control. A
@@ -977,7 +977,7 @@ function PublicAccessSection({
       })
     } catch (err) {
       setError(
-        err instanceof ApiError ? err.message : 'Failed to update visibility.',
+        err instanceof ApiError ? err.message : 'Не удалось изменить видимость.',
       )
     }
   }
@@ -985,7 +985,7 @@ function PublicAccessSection({
   return (
     <div className="flex flex-col gap-[var(--space-2)] pt-[var(--space-3)] border-t border-[var(--border-subtle)]">
       <span className="text-[length:var(--text-xs)] uppercase tracking-wider text-[var(--text-muted)] font-[family-name:var(--font-sans)]">
-        Public access
+        Публичный доступ
       </span>
       <div className="flex items-start gap-[var(--space-3)]">
         <span
@@ -996,12 +996,12 @@ function PublicAccessSection({
         </span>
         <div className="flex-1 min-w-0">
           <p className="m-0 text-[length:var(--text-sm)] text-[var(--text-primary)]">
-            {isPublic ? 'Public on the web' : 'Private to members'}
+            {isPublic ? 'Доступен в интернете' : 'Только участники'}
           </p>
           <p className="m-0 text-[length:var(--text-xs)] text-[var(--text-muted)]">
             {isPublic
-              ? 'Anyone can read every page in this space — no login. Editing stays members-only.'
-              : 'Only members can read this space.'}
+              ? 'Любой может читать все страницы этого пространства — без входа. Редактирование доступно только участникам.'
+              : 'Это пространство могут читать только участники.'}
           </p>
           {isPublic ? (
             <a
@@ -1022,7 +1022,7 @@ function PublicAccessSection({
             onClick={() => void toggle()}
             disabled={updateSpace.isPending}
           >
-            {isPublic ? 'Make private' : 'Make public'}
+            {isPublic ? 'Сделать приватным' : 'Сделать публичным'}
           </Button>
         ) : null}
       </div>
@@ -1057,21 +1057,21 @@ function TransferOwnershipSection({ space }: { space: Space }) {
   return (
     <div className="flex flex-col gap-[var(--space-2)] pt-[var(--space-3)] border-t border-[var(--border-subtle)]">
       <span className="text-[length:var(--text-xs)] uppercase tracking-wider text-[var(--text-muted)] font-[family-name:var(--font-sans)]">
-        Transfer ownership to an organization
+        Передать владение организацией
       </span>
       <p className="m-0 text-[length:var(--text-xs)] text-[var(--text-muted)]">
-        The organization becomes this space's owning account and gets editor
-        access. You stay the human owner.
+        Организация станет владельцем этого пространства и получит права
+        редактора. Вы останетесь владельцем.
       </p>
       <div className="flex items-start gap-[var(--space-2)]">
         <div className="flex-1 min-w-0">
           <Select
             size="md"
-            aria-label="Organization to transfer to"
+            aria-label="Организация для передачи"
             value={orgId}
             onChange={(e) => setOrgId(e.target.value)}
           >
-            <option value="">Choose an organization…</option>
+            <option value="">Выберите организацию…</option>
             {orgOptions.map((o) => (
               <option key={o.id} value={String(o.id)}>
                 {o.name}
@@ -1086,7 +1086,7 @@ function TransferOwnershipSection({ space }: { space: Space }) {
           onClick={() => setConfirmOpen(true)}
         >
           <Building2 width={14} height={14} />
-          <span>Transfer</span>
+          <span>Передать</span>
         </Button>
       </div>
       {targetOrg ? (
@@ -1130,7 +1130,7 @@ function TransferConfirmDialog({
       handleClose(false)
       onTransferred()
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Failed to transfer.')
+      setError(err instanceof ApiError ? err.message : 'Не удалось передать.')
     }
   }
 
@@ -1138,10 +1138,10 @@ function TransferConfirmDialog({
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Transfer "{space.name}" to {org.name}?</DialogTitle>
+          <DialogTitle>Передать «{space.name}» организации {org.name}?</DialogTitle>
           <DialogDescription>
-            {org.name} becomes the owning account for this space and gets editor
-            access. You'll remain its human owner.
+            {org.name} станет владельцем этого пространства и получит права
+            редактора. Вы останетесь его владельцем.
           </DialogDescription>
         </DialogHeader>
         {error ? (
@@ -1152,7 +1152,7 @@ function TransferConfirmDialog({
         <DialogFooter>
           <DialogClose asChild>
             <Button type="button" variant="ghost">
-              Cancel
+              Отмена
             </Button>
           </DialogClose>
           <Button
@@ -1161,7 +1161,7 @@ function TransferConfirmDialog({
             onClick={() => void handleConfirm()}
             disabled={transfer.isPending}
           >
-            {transfer.isPending ? 'Transferring…' : 'Transfer'}
+            {transfer.isPending ? 'Передача…' : 'Передать'}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -1184,7 +1184,7 @@ function BlogDescriptionField({ space }: { space: Space }) {
       await updateSpace.mutateAsync({ id: space.id, description: next })
     } catch (err) {
       setError(
-        err instanceof ApiError ? err.message : 'Failed to save description.',
+        err instanceof ApiError ? err.message : 'Не удалось сохранить описание.',
       )
     }
   }
@@ -1195,7 +1195,7 @@ function BlogDescriptionField({ space }: { space: Space }) {
         htmlFor={`blog-desc-${space.id}`}
         className="text-[length:var(--text-xs)] text-[var(--text-muted)]"
       >
-        Blog description
+        Описание блога
       </label>
       <TextArea
         id={`blog-desc-${space.id}`}
@@ -1203,13 +1203,13 @@ function BlogDescriptionField({ space }: { space: Space }) {
         onChange={(e) => setValue(e.target.value.slice(0, 280))}
         onBlur={() => void save()}
         rows={2}
-        placeholder="A line that introduces this blog — shown under its title."
+        placeholder="Строка, представляющая этот блог, — показывается под его заголовком."
         size="sm"
         font="sans"
       />
       <div className="flex items-center justify-between">
         <span className="text-[length:var(--text-xs)] text-[var(--text-muted)]">
-          {updateSpace.isPending ? 'Saving…' : 'Shown on the front page'}
+          {updateSpace.isPending ? 'Сохранение…' : 'Показывается на главной странице'}
         </span>
         <span className="text-[length:var(--text-xs)] text-[var(--text-muted)]">
           {value.length}/280

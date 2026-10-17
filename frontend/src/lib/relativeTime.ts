@@ -1,4 +1,5 @@
 import { parseSqliteTs } from './types'
+import { ruPlural, ruPluralAgo } from './ru-plural'
 
 const MINUTE = 60
 const HOUR = 60 * MINUTE
@@ -20,19 +21,19 @@ export function relativeTimeFromSqlite(s: string, now: Date = new Date()): strin
   const diffMs = now.getTime() - past.getTime()
   const seconds = Math.max(0, Math.floor(diffMs / 1000))
 
-  if (seconds < 45) return 'just now'
-  if (seconds < MINUTE * 2) return '1 minute ago'
-  if (seconds < HOUR) return `${Math.floor(seconds / MINUTE)} minutes ago`
-  if (seconds < HOUR * 2) return '1 hour ago'
-  if (seconds < DAY) return `${Math.floor(seconds / HOUR)} hours ago`
-  if (seconds < DAY * 2) return 'yesterday'
-  if (seconds < WEEK) return `${Math.floor(seconds / DAY)} days ago`
-  if (seconds < WEEK * 2) return '1 week ago'
-  if (seconds < MONTH) return `${Math.floor(seconds / WEEK)} weeks ago`
-  if (seconds < MONTH * 2) return '1 month ago'
-  if (seconds < YEAR) return `${Math.floor(seconds / MONTH)} months ago`
-  if (seconds < YEAR * 2) return '1 year ago'
-  return `${Math.floor(seconds / YEAR)} years ago`
+  if (seconds < 45) return 'только что'
+  if (seconds < MINUTE * 2) return 'минуту назад'
+  if (seconds < HOUR) return ruPluralAgo(Math.floor(seconds / MINUTE), 'минуту', 'минуты', 'минут')
+  if (seconds < HOUR * 2) return 'час назад'
+  if (seconds < DAY) return ruPluralAgo(Math.floor(seconds / HOUR), 'час', 'часа', 'часов')
+  if (seconds < DAY * 2) return 'вчера'
+  if (seconds < WEEK) return ruPluralAgo(Math.floor(seconds / DAY), 'день', 'дня', 'дней')
+  if (seconds < WEEK * 2) return 'неделю назад'
+  if (seconds < MONTH) return ruPluralAgo(Math.floor(seconds / WEEK), 'неделю', 'недели', 'недель')
+  if (seconds < MONTH * 2) return 'месяц назад'
+  if (seconds < YEAR) return ruPluralAgo(Math.floor(seconds / MONTH), 'месяц', 'месяца', 'месяцев')
+  if (seconds < YEAR * 2) return 'год назад'
+  return ruPluralAgo(Math.floor(seconds / YEAR), 'год', 'года', 'лет')
 }
 
 // The same thing in as few characters as possible — "6h", "3d", "2mo" — for a
@@ -40,13 +41,13 @@ export function relativeTimeFromSqlite(s: string, now: Date = new Date()): strin
 // the full form in a tooltip; on its own it's terse, not cryptic.
 export function shortRelativeFromSqlite(s: string, now: Date = new Date()): string {
   const seconds = Math.max(0, Math.floor((now.getTime() - parseSqliteTs(s).getTime()) / 1000))
-  if (seconds < 45) return 'now'
-  if (seconds < HOUR) return `${Math.max(1, Math.floor(seconds / MINUTE))}m`
-  if (seconds < DAY) return `${Math.floor(seconds / HOUR)}h`
-  if (seconds < WEEK) return `${Math.floor(seconds / DAY)}d`
-  if (seconds < MONTH) return `${Math.floor(seconds / WEEK)}w`
-  if (seconds < YEAR) return `${Math.floor(seconds / MONTH)}mo`
-  return `${Math.floor(seconds / YEAR)}y`
+  if (seconds < 45) return 'сейчас'
+  if (seconds < HOUR) return `${Math.max(1, Math.floor(seconds / MINUTE))} мин`
+  if (seconds < DAY) return `${Math.floor(seconds / HOUR)} ч`
+  if (seconds < WEEK) return `${Math.floor(seconds / DAY)} д`
+  if (seconds < MONTH) return `${Math.floor(seconds / WEEK)} нед`
+  if (seconds < YEAR) return `${Math.floor(seconds / MONTH)} мес`
+  return `${Math.floor(seconds / YEAR)} г`
 }
 
 // Whole-and-fractional days since a SQLite-native UTC timestamp. Lives here (not
@@ -67,13 +68,13 @@ export function localDateFromSqlite(s: string): string {
   return d.toLocaleDateString('en-CA')
 }
 
-// Render a SQLite-native UTC timestamp as an editorial date — "Jun 7, 2026" —
+// Render a SQLite-native UTC timestamp as an editorial date — "7 июн. 2026" —
 // for blog post bylines/cards. Drops the year when it's the current one for a
-// lighter line ("Jun 7"). Locale-aware month name; stable shape.
+// lighter line ("7 июн."). Locale-aware month name; stable shape.
 export function postDateFromSqlite(s: string, now: Date = new Date()): string {
   const d = parseSqliteTs(s)
   const sameYear = d.getFullYear() === now.getFullYear()
-  return d.toLocaleDateString('en-US', {
+  return d.toLocaleDateString('ru-RU', {
     month: 'short',
     day: 'numeric',
     ...(sameYear ? {} : { year: 'numeric' }),

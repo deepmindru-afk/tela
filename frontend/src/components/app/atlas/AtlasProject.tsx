@@ -30,28 +30,33 @@ import {
   useSyncSource,
 } from '../../../lib/queries/atlas'
 import { type Tone, fmtRelative, fmtUntil, runLabel, runTone } from './atlas-lib'
+import { ruPlural } from '../../../lib/ru-plural'
 import { AddSourceDialog } from './AddSourceDialog'
 
 function headerState(project: AtlasProjectT): { tone: Tone; label: string } {
   const r = project.last_run
-  if (!r) return { tone: 'neutral', label: 'Never run' }
-  if (r.status === 'pending') return { tone: 'info', label: 'Queued' }
-  if (r.status === 'running') return { tone: 'running', label: 'Generating' }
-  if (r.status === 'failed') return { tone: 'negative', label: 'Failed' }
+  if (!r) return { tone: 'neutral', label: 'Не запускался' }
+  if (r.status === 'pending') return { tone: 'info', label: 'В очереди' }
+  if (r.status === 'running') return { tone: 'running', label: 'Генерируется' }
+  if (r.status === 'failed') return { tone: 'negative', label: 'Ошибка' }
   // Ahead of Stale, and ahead of the Fresh a finished run would otherwise earn:
   // a project whose sources can't be reached is not fresh, it's out of contact.
-  if (project.unreachable_sources > 0) return { tone: 'negative', label: 'Unreachable' }
-  if (project.stale_sources > 0) return { tone: 'warning', label: 'Stale' }
-  return { tone: 'positive', label: 'Fresh' }
+  if (project.unreachable_sources > 0) return { tone: 'negative', label: 'Недоступен' }
+  if (project.stale_sources > 0) return { tone: 'warning', label: 'Устарел' }
+  return { tone: 'positive', label: 'Актуален' }
 }
 
 // "all in sync" is a claim about upstream — only sayable when every source was
 // actually reached. Unreachable ones are reported first, since the drift count
 // can't include them.
 function sourcesSub(project: AtlasProjectT): string {
-  if (project.unreachable_sources > 0) return `${project.unreachable_sources} unreachable`
-  if (project.stale_sources > 0) return `${project.stale_sources} behind upstream`
-  return 'all in sync'
+  if (project.unreachable_sources > 0) {
+    return `${project.unreachable_sources} ${ruPlural(project.unreachable_sources, 'недоступен', 'недоступны', 'недоступны')}`
+  }
+  if (project.stale_sources > 0) {
+    return `${project.stale_sources} ${ruPlural(project.stale_sources, 'не синхронизирован', 'не синхронизированы', 'не синхронизированы')}`
+  }
+  return 'все синхронизированы'
 }
 
 export function AtlasProject() {
@@ -61,18 +66,18 @@ export function AtlasProject() {
   const runAll = useStartProjectRun()
 
   if (q.isLoading) {
-    return <Shell><p className="text-[length:var(--text-sm)] text-[var(--text-muted)]">Loading project…</p></Shell>
+    return <Shell><p className="text-[length:var(--text-sm)] text-[var(--text-muted)]">Загрузка проекта…</p></Shell>
   }
   if (!q.data) {
-    return <Shell><EmptyState icon={FolderGit2} title="Project not found" description="It doesn't exist or you can't access it." /></Shell>
+    return <Shell><EmptyState icon={FolderGit2} title="Проект не найден" description="Он не существует или у вас нет к нему доступа." /></Shell>
   }
 
   const { project, sources, runs } = q.data
   const canManage = project.can_manage
   const hs = headerState(project)
   const schedule = project.cadence && project.auto_update && project.scheduled_allowed
-    ? `auto · ${project.cadence}${project.next_due ? ` · next ${fmtUntil(project.next_due)}` : ''}`
-    : 'manual refresh'
+    ? `авто · ${project.cadence}${project.next_due ? ` · следующий запуск ${fmtUntil(project.next_due)}` : ''}`
+    : 'ручное обновление'
 
   const totalPages = sources.reduce((n, s) => n + (s.last_pages ?? 0), 0)
   const mustRates = sources.map((s) => s.last_must_rate).filter((r): r is number => r != null)
@@ -89,16 +94,16 @@ export function AtlasProject() {
         <div className="min-w-0">
           <div className="flex items-center gap-[var(--space-3)]">
             <h1 className="text-[length:var(--text-2xl)] font-semibold text-[var(--text-primary)]">{project.name}</h1>
-            <StatusBadge tone={hs.tone} dot={hs.label === 'Generating'}>{hs.label}</StatusBadge>
+            <StatusBadge tone={hs.tone} dot={hs.tone === 'running'}>{hs.label}</StatusBadge>
           </div>
           <div className="mt-[var(--space-2)] flex flex-wrap items-center gap-x-[var(--space-3)] gap-y-[var(--space-1)] text-[length:var(--text-sm)] text-[var(--text-muted)]">
-            <span>{project.owner.kind === 'org' ? `${project.owner.name} · org` : 'Personal'}</span>
+            <span>{project.owner.kind === 'org' ? `${project.owner.name} · организация` : 'Личное'}</span>
             <span className="opacity-60">·</span>
             <span>{schedule}</span>
             {project.last_refresh_at && (
               <>
                 <span className="opacity-60">·</span>
-                <span>updated {fmtRelative(project.last_refresh_at)}</span>
+                <span>обновлено {fmtRelative(project.last_refresh_at)}</span>
               </>
             )}
             {project.output_space ? (
@@ -111,19 +116,19 @@ export function AtlasProject() {
             ) : (
               <>
                 <span className="opacity-60">·</span>
-                <span>output space created on first run</span>
+                <span>выходное пространство будет создано при первом запуске</span>
               </>
             )}
           </div>
         </div>
         {canManage && (
           <div className="flex items-center gap-[var(--space-2)]">
-            <Button asChild variant="ghost" aria-label="Project settings">
+            <Button asChild variant="ghost" aria-label="Настройки проекта">
               <Link to="/atlas/projects/$projectId/settings" params={{ projectId: project.id }}><Settings2 className="size-[var(--space-4)]" /></Link>
             </Button>
-            <Button variant="secondary" onClick={() => setAddOpen(true)}><Plus className="size-[var(--space-4)]" /> Add source</Button>
+            <Button variant="secondary" onClick={() => setAddOpen(true)}><Plus className="size-[var(--space-4)]" /> Добавить источник</Button>
             <Button variant="primary" disabled={sources.length === 0 || runAll.isPending} onClick={() => runAll.mutate(project.id)}>
-              {runAll.isPending ? <Loader2 className="size-[var(--space-4)] motion-safe:animate-spin" /> : <Play className="size-[var(--space-4)]" />} Run all
+              {runAll.isPending ? <Loader2 className="size-[var(--space-4)] motion-safe:animate-spin" /> : <Play className="size-[var(--space-4)]" />} Запустить всё
             </Button>
           </div>
         )}
@@ -131,21 +136,21 @@ export function AtlasProject() {
 
       {/* stats strip */}
       <div className="mt-[var(--space-5)] grid grid-cols-2 gap-[var(--space-3)] sm:grid-cols-4">
-        <StatTile label="Sources" value={String(sources.length)} sub={sourcesSub(project)} />
-        <StatTile label="Pages" value={totalPages ? String(totalPages) : '—'} sub="generated docs" />
-        <StatTile label="Must-cover" value={minMust != null ? `${Math.round(minMust * 100)}%` : '—'} sub={mustRates.length > 1 ? 'lowest source' : 'critical surface'} />
-        <StatTile label="Last built" value={project.last_refresh_at ? fmtRelative(project.last_refresh_at) : '—'} sub={schedule} />
+        <StatTile label="Источники" value={String(sources.length)} sub={sourcesSub(project)} />
+        <StatTile label="Страницы" value={totalPages ? String(totalPages) : '—'} sub="сгенерированных документов" />
+        <StatTile label="Обязательное покрытие" value={minMust != null ? `${Math.round(minMust * 100)}%` : '—'} sub={mustRates.length > 1 ? 'минимальный среди источников' : 'критичная поверхность'} />
+        <StatTile label="Последняя сборка" value={project.last_refresh_at ? fmtRelative(project.last_refresh_at) : '—'} sub={schedule} />
       </div>
 
       {/* sources */}
       <div className="mt-[var(--space-6)] mb-[var(--space-2)] flex items-center gap-[var(--space-2)] px-[var(--space-1)]">
-        <h2 className="text-[length:var(--text-xs)] font-bold uppercase tracking-[0.08em] text-[var(--text-muted)]">Sources · {sources.length}</h2>
+        <h2 className="text-[length:var(--text-xs)] font-bold uppercase tracking-[0.08em] text-[var(--text-muted)]">Источники · {sources.length}</h2>
         <span className="h-px flex-1 bg-[var(--border-subtle)]" />
       </div>
       {sources.length === 0 ? (
         <div className="flex flex-col items-center gap-[var(--space-3)] rounded-[var(--radius-lg)] border border-dashed border-[var(--border-subtle)] py-[var(--space-6)] text-center">
-          <p className="text-[length:var(--text-sm)] text-[var(--text-muted)]">No sources yet. Add a git repo or Jira project to generate docs from.</p>
-          {canManage && <Button variant="secondary" onClick={() => setAddOpen(true)}><Plus className="size-[var(--space-4)]" /> Add source</Button>}
+          <p className="text-[length:var(--text-sm)] text-[var(--text-muted)]">Источников пока нет. Добавьте git-репозиторий или проект Jira, чтобы генерировать из них документацию.</p>
+          {canManage && <Button variant="secondary" onClick={() => setAddOpen(true)}><Plus className="size-[var(--space-4)]" /> Добавить источник</Button>}
         </div>
       ) : (
         <div className="flex flex-col gap-[var(--space-3)]">
@@ -157,10 +162,10 @@ export function AtlasProject() {
 
       {/* runs */}
       <Card className="mt-[var(--space-6)]">
-        <CardHeader><CardTitle>Recent runs</CardTitle></CardHeader>
+        <CardHeader><CardTitle>Недавние запуски</CardTitle></CardHeader>
         <CardBody>
           {runs.length === 0 ? (
-            <p className="py-[var(--space-2)] text-[length:var(--text-sm)] text-[var(--text-muted)]">No runs yet.</p>
+            <p className="py-[var(--space-2)] text-[length:var(--text-sm)] text-[var(--text-muted)]">Запусков пока нет.</p>
           ) : (
             <ul className="flex flex-col">
               {runs.map((r, i) => <RunRow key={r.id} r={r} first={i === 0} />)}
@@ -227,31 +232,31 @@ function SourceCard({ s, projectId, canManage, space }: { s: AtlasSource; projec
             {s.type === 'jira' ? <Layers className="size-[var(--space-4)] text-[var(--text-muted)]" /> : <FolderGit2 className="size-[var(--space-4)] text-[var(--text-muted)]" />}
             <span className="truncate text-[length:var(--text-base)] font-semibold text-[var(--text-primary)]">{s.name}</span>
             {unreachable ? (
-              <StatusBadge tone="negative" title={s.probe_error}>Unreachable</StatusBadge>
+              <StatusBadge tone="negative" title={s.probe_error}>Недоступен</StatusBadge>
             ) : stale ? (
-              <StatusBadge tone="warning">Stale</StatusBadge>
+              <StatusBadge tone="warning">Устарел</StatusBadge>
             ) : s.last_run_status ? (
               <StatusBadge tone={runTone(s.last_run_status)} dot={s.last_run_status === 'running'}>{runLabel(s.last_run_status)}</StatusBadge>
             ) : (
-              <StatusBadge tone="neutral">Never run</StatusBadge>
+              <StatusBadge tone="neutral">Не запускался</StatusBadge>
             )}
           </div>
           <div className="mt-[var(--space-1)] flex flex-wrap items-center gap-x-[var(--space-3)] gap-y-[2px] font-[family-name:var(--font-mono)] text-[length:var(--text-xs)] text-[var(--text-muted)]">
             <span className="truncate">{s.location}</span>
             {s.branch && <span className="inline-flex items-center gap-[2px]"><GitBranch className="size-[var(--space-3)]" />{s.branch}</span>}
             {s.subpath && <span>/{s.subpath}</span>}
-            {s.cred_id != null && <span className="inline-flex items-center gap-[2px]"><KeyRound className="size-[var(--space-3)]" />cred</span>}
+            {s.cred_id != null && <span className="inline-flex items-center gap-[2px]"><KeyRound className="size-[var(--space-3)]" />учётные данные</span>}
           </div>
         </div>
         {canManage && (
           <div className="flex shrink-0 items-center gap-[var(--space-1)]">
-            <Button variant="ghost" size="sm" disabled={busy} onClick={doRun} aria-label="Run now" title="Run now">
+            <Button variant="ghost" size="sm" disabled={busy} onClick={doRun} aria-label="Запустить сейчас" title="Запустить сейчас">
               {run.isPending ? <Loader2 className="size-[var(--space-4)] motion-safe:animate-spin" /> : <Play className="size-[var(--space-4)]" />}
             </Button>
-            <Button variant="ghost" size="sm" disabled={busy} onClick={doSync} aria-label="Sync changes" title="Sync changes">
+            <Button variant="ghost" size="sm" disabled={busy} onClick={doSync} aria-label="Синхронизировать изменения" title="Синхронизировать изменения">
               {sync.isPending ? <Loader2 className="size-[var(--space-4)] motion-safe:animate-spin" /> : <RefreshCw className="size-[var(--space-4)]" />}
             </Button>
-            <Button variant="ghost" size="sm" disabled={del.isPending} onClick={() => del.mutate(s.id)} aria-label="Delete source" title="Delete source">
+            <Button variant="ghost" size="sm" disabled={del.isPending} onClick={() => del.mutate(s.id)} aria-label="Удалить источник" title="Удалить источник">
               <Trash2 className="size-[var(--space-4)]" />
             </Button>
           </div>
@@ -269,15 +274,15 @@ function SourceCard({ s, projectId, canManage, space }: { s: AtlasSource; projec
 
       {s.last_run_id ? (
         <div className="mt-[var(--space-3)] flex flex-wrap gap-x-[var(--space-6)] gap-y-[var(--space-2)] border-t border-[var(--border-subtle)] pt-[var(--space-3)]">
-          {s.last_must_rate != null && <Metric label="must-cover" value={`${Math.round(s.last_must_rate * 100)}%`} />}
-          {s.last_surface_rate != null && <Metric label="surface" value={`${Math.round(s.last_surface_rate * 100)}%`} />}
-          {s.last_pages != null && <Metric label="pages" value={String(s.last_pages)} />}
-          {s.last_generated_at && <Metric label="generated" value={fmtRelative(s.last_generated_at)} />}
-          {short && <Metric label="commit" value={short} mono />}
+          {s.last_must_rate != null && <Metric label="обязательное покрытие" value={`${Math.round(s.last_must_rate * 100)}%`} />}
+          {s.last_surface_rate != null && <Metric label="поверхность" value={`${Math.round(s.last_surface_rate * 100)}%`} />}
+          {s.last_pages != null && <Metric label="страницы" value={String(s.last_pages)} />}
+          {s.last_generated_at && <Metric label="сгенерировано" value={fmtRelative(s.last_generated_at)} />}
+          {short && <Metric label="коммит" value={short} mono />}
         </div>
       ) : (
         <p className="mt-[var(--space-3)] border-t border-[var(--border-subtle)] pt-[var(--space-3)] text-[length:var(--text-xs)] text-[var(--text-muted)]">
-          Not generated yet — run it to create the docs.
+          Ещё не сгенерировано — запустите, чтобы создать документацию.
         </p>
       )}
 
@@ -287,11 +292,11 @@ function SourceCard({ s, projectId, canManage, space }: { s: AtlasSource; projec
             → {space.name} / <span className="font-[family-name:var(--font-mono)]">{s.name}</span>
           </a>
         ) : (
-          <span className="text-[var(--text-muted)]">output created on first run</span>
+          <span className="text-[var(--text-muted)]">результат появится после первого запуска</span>
         )}
         {s.last_run_id && (
           <button type="button" onClick={() => navigate({ to: '/atlas/runs/$runId', params: { runId: s.last_run_id! } })} className="text-[var(--text-muted)] hover:text-[var(--text-primary)]">
-            View last run →
+            Последний запуск →
           </button>
         )}
       </div>
@@ -314,7 +319,7 @@ function RunRow({ r, first }: { r: AtlasRunSummary; first: boolean }) {
         <span className="flex-1" />
         {r.coverage && (
           <span className="hidden font-[family-name:var(--font-mono)] text-[length:var(--text-xs)] text-[var(--text-muted)] sm:inline">
-            must-cover {Math.round(mustCoverRate(r.coverage) * 100)}%
+            обязательное покрытие {Math.round(mustCoverRate(r.coverage) * 100)}%
           </span>
         )}
         <span className="whitespace-nowrap text-[length:var(--text-xs)] text-[var(--text-muted)]">{fmtRelative(r.started_at)}</span>

@@ -37,14 +37,14 @@ export interface TurnIntoOption {
 const cmd = (ctx: Ctx) => ctx.get(commandsCtx)
 
 export const TURN_INTO: TurnIntoOption[] = [
-  { id: 'text', label: 'Text', icon: Type, run: (ctx) => cmd(ctx).call(turnIntoTextCommand.key) },
-  { id: 'h1', label: 'Heading 1', icon: Heading1, run: (ctx) => cmd(ctx).call(wrapInHeadingCommand.key, 1) },
-  { id: 'h2', label: 'Heading 2', icon: Heading2, run: (ctx) => cmd(ctx).call(wrapInHeadingCommand.key, 2) },
-  { id: 'h3', label: 'Heading 3', icon: Heading3, run: (ctx) => cmd(ctx).call(wrapInHeadingCommand.key, 3) },
-  { id: 'bullet-list', label: 'Bulleted list', icon: List, run: (ctx) => cmd(ctx).call(wrapInBulletListCommand.key) },
-  { id: 'ordered-list', label: 'Numbered list', icon: ListOrdered, run: (ctx) => cmd(ctx).call(wrapInOrderedListCommand.key) },
-  { id: 'quote', label: 'Quote', icon: Quote, run: (ctx) => cmd(ctx).call(wrapInBlockquoteCommand.key) },
-  { id: 'code', label: 'Code block', icon: Code, run: (ctx) => cmd(ctx).call(createCodeBlockCommand.key) },
+  { id: 'text', label: 'Обычный текст', icon: Type, run: (ctx) => cmd(ctx).call(turnIntoTextCommand.key) },
+  { id: 'h1', label: 'Заголовок 1', icon: Heading1, run: (ctx) => cmd(ctx).call(wrapInHeadingCommand.key, 1) },
+  { id: 'h2', label: 'Заголовок 2', icon: Heading2, run: (ctx) => cmd(ctx).call(wrapInHeadingCommand.key, 2) },
+  { id: 'h3', label: 'Заголовок 3', icon: Heading3, run: (ctx) => cmd(ctx).call(wrapInHeadingCommand.key, 3) },
+  { id: 'bullet-list', label: 'Маркированный список', icon: List, run: (ctx) => cmd(ctx).call(wrapInBulletListCommand.key) },
+  { id: 'ordered-list', label: 'Нумерованный список', icon: ListOrdered, run: (ctx) => cmd(ctx).call(wrapInOrderedListCommand.key) },
+  { id: 'quote', label: 'Цитата', icon: Quote, run: (ctx) => cmd(ctx).call(wrapInBlockquoteCommand.key) },
+  { id: 'code', label: 'Блок кода', icon: Code, run: (ctx) => cmd(ctx).call(createCodeBlockCommand.key) },
 ]
 
 const byId = (id: string) => TURN_INTO.find((o) => o.id === id) ?? null

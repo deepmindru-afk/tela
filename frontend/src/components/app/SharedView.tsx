@@ -39,11 +39,11 @@ export function SharedRoute() {
       <div className="max-w-[56rem] w-full mx-auto p-[var(--space-7)] flex flex-col gap-[var(--space-6)]">
         <header className="flex flex-col gap-[var(--space-1)]">
           <h1 className="m-0 font-[family-name:var(--font-sans)] text-[length:var(--text-2xl)] leading-[var(--leading-tight)] text-[var(--text-primary)]">
-            Shared
+            Общий доступ
           </h1>
           <p className="m-0 text-[length:var(--text-sm)] text-[var(--text-muted)] leading-[var(--leading-relaxed)]">
-            Every page in your spaces reachable by a link right now. Pages with
-            no link are private to their space.
+            Все страницы ваших пространств, доступные по ссылке прямо сейчас.
+            Страницы без ссылки доступны только участникам пространства.
           </p>
         </header>
 
@@ -51,12 +51,12 @@ export function SharedRoute() {
 
         {shares.isError ? (
           <div className="flex items-center justify-between gap-[var(--space-2)] px-[var(--space-3)] py-[var(--space-3)] rounded-[var(--radius-md)] bg-[var(--surface-2)] text-[length:var(--text-sm)] text-[var(--danger)]">
-            <span>Couldn't load shares.</span>
+            <span>Не удалось загрузить ссылки.</span>
             <Button
               variant="ghost"
               size="sm"
               onClick={() => void shares.refetch()}
-              aria-label="Retry"
+              aria-label="Повторить"
             >
               <RotateCw width={14} height={14} />
             </Button>
@@ -66,11 +66,12 @@ export function SharedRoute() {
         {shares.data && groups.length === 0 ? (
           <div className="rounded-[var(--radius-md)] border border-[var(--border-subtle)] bg-[var(--surface-1)] px-[var(--space-4)] py-[var(--space-5)] text-center flex flex-col gap-[var(--space-1)]">
             <p className="m-0 text-[length:var(--text-sm)] font-medium text-[var(--text-primary)]">
-              Nothing is shared
+              Ссылок пока нет
             </p>
             <p className="m-0 text-[length:var(--text-xs)] text-[var(--text-muted)] leading-[var(--leading-relaxed)]">
-              Pages stay private to their space until you create a share link
-              from a page's visibility button.
+              Страницы доступны только участникам пространства, пока вы не
+              создадите ссылку доступа на странице — это делается кнопкой
+              видимости.
             </p>
           </div>
         ) : null}
@@ -122,11 +123,11 @@ function ShareAuditRow({ item, now }: { item: ShareAuditItem; now: number }) {
           params={{ spaceId: item.space_id, pageId: item.page_id, slug: undefined }}
           className="flex-1 min-w-0 truncate text-[length:var(--text-sm)] font-medium text-[var(--text-primary)] no-underline hover:text-[var(--accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] rounded-[var(--radius-xs)]"
         >
-          {item.page_title || 'Untitled'}
+          {item.page_title || 'Без названия'}
         </Link>
         {item.include_descendants ? (
           <span className="text-[length:var(--text-xs)] text-[var(--text-muted)]">
-            + child pages
+            + дочерние страницы
           </span>
         ) : null}
         {expiryLabel ? (
@@ -159,10 +160,10 @@ function ShareAuditRow({ item, now }: { item: ShareAuditItem; now: number }) {
           size="sm"
           onClick={() => void handleCopy()}
           className="h-[var(--space-7)] px-[var(--space-2)] shrink-0"
-          aria-label={copied ? 'Copied' : 'Copy share URL'}
+          aria-label={copied ? 'Скопировано' : 'Копировать ссылку'}
         >
           <Copy width={12} height={12} />
-          <span>{copied ? 'Copied!' : 'Copy'}</span>
+          <span>{copied ? 'Скопировано!' : 'Копировать'}</span>
         </Button>
       </div>
     </div>

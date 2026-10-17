@@ -20,32 +20,32 @@ import { cn } from '../../lib/utils'
 // Human copy per notification type. A new type adds a case here (and an emit
 // site in the backend) — nothing else changes. See docs/notifications.md.
 function describe(n: NotificationItem): string {
-  const actor = n.actor_username ?? 'Someone'
-  const title = typeof n.data.page_title === 'string' ? n.data.page_title : 'a page'
+  const actor = n.actor_username ?? 'Кто-то'
+  const title = typeof n.data.page_title === 'string' ? n.data.page_title : 'Без названия'
   switch (n.type) {
     case 'mention':
-      return `${actor} mentioned you in “${title}”`
+      return `${actor} упомянул вас в «${title}»`
     case 'page_updated':
-      return `${actor} updated “${title}”`
+      return `${actor} обновил «${title}»`
     case 'page_created':
-      return `${actor} created “${title}”`
+      return `${actor} создал «${title}»`
     case 'comment_reply':
-      return `${actor} replied to your comment in “${title}”`
+      return `${actor} ответил на ваш комментарий в «${title}»`
     case 'space_added': {
-      const space = typeof n.data.space_name === 'string' ? n.data.space_name : 'a space'
-      return `${actor} added you to ${space}`
+      const space = typeof n.data.space_name === 'string' ? n.data.space_name : 'Без названия'
+      return `${actor} добавил вас в пространство «${space}»`
     }
     case 'user_registered': {
       const who =
         typeof n.data.new_display_name === 'string' && n.data.new_display_name
           ? n.data.new_display_name
           : actor
-      return `${who} just signed up`
+      return `${who} только что зарегистрировался`
     }
     case 'atlas_run': {
       // The backend pre-renders a headline (title) + one-line detail (summary),
       // e.g. "compass regenerated" / "13 pages, must-cover 100%, surface 97%".
-      const t = typeof n.data.title === 'string' ? n.data.title : 'Atlas run finished'
+      const t = typeof n.data.title === 'string' ? n.data.title : 'Запуск Атласа завершён'
       const summary = typeof n.data.summary === 'string' ? n.data.summary : ''
       return summary ? `${t} — ${summary}` : t
     }
@@ -53,12 +53,12 @@ function describe(n: NotificationItem): string {
       // Backend-rendered like atlas_run: the copy describes a change we made, so
       // it is written where the change is (migration 0074) rather than assembled
       // from fields here.
-      const t = typeof n.data.title === 'string' ? n.data.title : 'Atlas refresh cadence changed'
+      const t = typeof n.data.title === 'string' ? n.data.title : 'Изменён период обновления Атласа'
       const summary = typeof n.data.summary === 'string' ? n.data.summary : ''
       return summary ? `${t} — ${summary}` : t
     }
     default:
-      return `${actor} sent you a notification`
+      return `${actor} отправил вам уведомление`
   }
 }
 
@@ -78,7 +78,7 @@ export function NotificationBell() {
         <Button
           variant="ghost"
           size="sm"
-          aria-label={count > 0 ? `Notifications, ${count} unread` : 'Notifications'}
+          aria-label={count > 0 ? `Уведомления, непрочитано: ${count}` : 'Уведомления'}
           className="relative h-[var(--space-8)] w-[var(--space-8)] p-0"
         >
           <Bell width={16} height={16} />
@@ -95,7 +95,7 @@ export function NotificationBell() {
       >
         <div className="flex items-center justify-between px-[var(--space-2)] py-[var(--space-1)]">
           <span className="text-[length:var(--text-sm)] font-semibold text-[var(--text-primary)]">
-            Notifications
+            Уведомления
           </span>
           {count > 0 ? (
             <button
@@ -106,14 +106,14 @@ export function NotificationBell() {
               }}
               className="inline-flex items-center gap-[var(--space-1)] text-[length:var(--text-xs)] text-[var(--text-muted)] hover:text-[var(--text-primary)]"
             >
-              <Check width={12} height={12} /> Mark all read
+              <Check width={12} height={12} /> Отметить все прочитанными
             </button>
           ) : null}
         </div>
 
         {items.length === 0 ? (
           <p className="m-0 px-[var(--space-2)] py-[var(--space-5)] text-center text-[length:var(--text-sm)] text-[var(--text-muted)]">
-            You’re all caught up.
+            Новых уведомлений нет.
           </p>
         ) : (
           items.map((n) => (

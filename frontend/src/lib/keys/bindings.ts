@@ -9,12 +9,12 @@
 import { registerKeys } from './keymap'
 
 // --- Go to (jumps) — authed app only -----------------------------------
-const GO = 'Go to'
+const GO = 'Перейти'
 
 registerKeys({
   id: 'go.home',
   keys: 'g h',
-  label: 'Home',
+  label: 'Главная',
   group: GO,
   when: 'app',
   run: (c) => c.navigate('/'),
@@ -22,7 +22,7 @@ registerKeys({
 registerKeys({
   id: 'go.ask',
   keys: 'g a',
-  label: 'Ask your docs',
+  label: 'Спросить о документах',
   group: GO,
   when: 'app',
   run: (c) => c.navigate('/ask'),
@@ -30,7 +30,7 @@ registerKeys({
 registerKeys({
   id: 'go.graph',
   keys: 'g r',
-  label: 'Graph',
+  label: 'Граф',
   group: GO,
   when: 'app',
   run: (c) => c.navigate('/graph'),
@@ -38,7 +38,7 @@ registerKeys({
 registerKeys({
   id: 'go.shared',
   keys: 'g e',
-  label: 'Shared with everyone',
+  label: 'Доступно всем',
   group: GO,
   when: 'app',
   run: (c) => c.navigate('/shared'),
@@ -46,7 +46,7 @@ registerKeys({
 registerKeys({
   id: 'go.inbox',
   keys: 'g i',
-  label: 'Quick notes',
+  label: 'Быстрые заметки',
   group: GO,
   when: 'app',
   run: (c) => c.navigate('/n'),
@@ -54,19 +54,19 @@ registerKeys({
 registerKeys({
   id: 'go.search',
   keys: 'g s',
-  label: 'Full search',
+  label: 'Полный поиск',
   group: GO,
   when: 'app',
   run: (c) => c.navigate('/search'),
 })
 
 // --- Actions — authed app only -----------------------------------------
-const ACT = 'Actions'
+const ACT = 'Действия'
 
 registerKeys({
   id: 'act.palette',
   keys: '/',
-  label: 'Find a page',
+  label: 'Найти страницу',
   group: ACT,
   when: 'app',
   run: (c) => c.openPalette(),
@@ -74,7 +74,7 @@ registerKeys({
 registerKeys({
   id: 'act.new',
   keys: 'c',
-  label: 'Create page',
+  label: 'Создать страницу',
   group: ACT,
   when: 'app',
   run: (c) => c.openNewPage(),
@@ -82,7 +82,7 @@ registerKeys({
 registerKeys({
   id: 'act.theme',
   keys: 't',
-  label: 'Toggle theme',
+  label: 'Переключить тему',
   group: ACT,
   when: 'app',
   run: (c) => c.toggleTheme(),
@@ -90,65 +90,65 @@ registerKeys({
 registerKeys({
   id: 'act.sidebar',
   keys: '\\',
-  label: 'Toggle sidebar',
+  label: 'Переключить боковую панель',
   group: ACT,
   when: 'app',
   run: (c) => c.toggleSidebar(),
 })
 
 // --- Move (roving / scroll) — every surface ----------------------------
-const MOVE = 'Move'
+const MOVE = 'Перемещение'
 
 registerKeys({
   id: 'move.down',
   keys: 'j',
-  label: 'Down (next item / scroll)',
+  label: 'Вниз (следующий элемент / прокрутка)',
   group: MOVE,
   run: (c) => c.down(),
 })
 registerKeys({
   id: 'move.up',
   keys: 'k',
-  label: 'Up (previous item / scroll)',
+  label: 'Вверх (предыдущий элемент / прокрутка)',
   group: MOVE,
   run: (c) => c.up(),
 })
 registerKeys({
   id: 'move.top',
   keys: 'g g',
-  label: 'Jump to top',
+  label: 'Перейти в начало',
   group: MOVE,
   run: (c) => c.top(),
 })
 registerKeys({
   id: 'move.bottom',
   keys: 'G',
-  label: 'Jump to bottom',
+  label: 'Перейти в конец',
   group: MOVE,
   run: (c) => c.bottom(),
 })
 registerKeys({
   id: 'move.activate',
   keys: ['Enter', 'o'],
-  label: 'Open focused item',
+  label: 'Открыть выбранный элемент',
   group: MOVE,
   run: (c) => c.activate(),
 })
 
 // --- Reading — every surface (no-ops outside a reader) ------------------
-const READ = 'Reading'
+const READ = 'Чтение'
 
 registerKeys({
   id: 'read.prev-section',
   keys: '[',
-  label: 'Previous heading',
+  label: 'Предыдущий заголовок',
   group: READ,
   run: (c) => c.prevSection(),
 })
 registerKeys({
   id: 'read.next-section',
   keys: ']',
-  label: 'Next heading',
+  label: 'Следующий заголовок',
   group: READ,
   run: (c) => c.nextSection(),
 })
@@ -157,7 +157,7 @@ registerKeys({
 registerKeys({
   id: 'gen.help',
   keys: '?',
-  label: 'Keyboard shortcuts',
-  group: 'General',
+  label: 'Сочетания клавиш',
+  group: 'Общие',
   run: (c) => c.openCheatsheet(),
 })

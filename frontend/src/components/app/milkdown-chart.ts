@@ -65,7 +65,7 @@ export function insertChart(ctx: Ctx) {
   const codeType = view.state.schema.nodes.code_block
   if (!codeType) return
   const starter =
-    'type: bar\ntitle: Quarterly revenue\nx: [Q1, Q2, Q3, Q4]\nseries:\n  - name: Revenue\n    data: [120, 145, 180, 210]'
+    'type: bar\ntitle: Квартальная выручка\nx: [Q1, Q2, Q3, Q4]\nseries:\n  - name: Выручка\n    data: [120, 145, 180, 210]'
   const node = codeType.create(
     { language: 'chart' },
     view.state.schema.text(starter),

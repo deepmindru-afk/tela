@@ -22,9 +22,9 @@ const THEME_ICON: Record<ThemeName, typeof Sun> = {
 }
 
 const THEME_LABEL: Record<ThemeName, string> = {
-  light: 'Light',
-  dark: 'Dark',
-  warm: 'Warm',
+  light: 'Светлая',
+  dark: 'Тёмная',
+  warm: 'Тёплая',
 }
 
 // Which segments follow-system is currently pointing at. The pairing is
@@ -38,10 +38,10 @@ function pairRole(state: ThemeState, name: ThemeName): 'active' | 'other' | null
 
 // The same fact in words, for the tooltip and for anyone who can't see the band.
 function describe(state: ThemeState): string {
-  if (state.mode !== 'system') return `Theme — ${THEME_LABEL[state.theme]}`
+  if (state.mode !== 'system') return `Тема — ${THEME_LABEL[state.theme]}`
   return (
-    `Follow system — ${THEME_LABEL[state.pair.light]} when light, ` +
-    `${THEME_LABEL[state.pair.dark]} when dark. Currently ${THEME_LABEL[state.resolved]}.`
+    `Следует системе — ${THEME_LABEL[state.pair.light]} в светлом режиме, ` +
+    `${THEME_LABEL[state.pair.dark]} в тёмном. Сейчас: ${THEME_LABEL[state.resolved]}.`
   )
 }
 
@@ -140,7 +140,7 @@ function ThemeRow({
         if (value === 'system') followSystem()
         else setTheme(value as ThemeName)
       }}
-      aria-label="Theme"
+      aria-label="Тема"
       className="relative"
     >
       {band ? (
@@ -158,7 +158,7 @@ function ThemeRow({
         value="system"
         size="sm"
         title={describe(state)}
-        aria-label={terseSystemLabel ? 'Follow system' : describe(state)}
+        aria-label={terseSystemLabel ? 'Следует системе' : describe(state)}
         className="relative z-[1] flex-1 px-[var(--space-2)]"
       >
         <Monitor width={14} height={14} aria-hidden />

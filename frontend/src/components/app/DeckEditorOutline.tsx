@@ -3,6 +3,7 @@ import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { AlertTriangle, CircleAlert } from 'lucide-react'
 import { api } from '../../lib/api'
 import { cn } from '../../lib/utils'
+import { ruPlural } from '../../lib/ru-plural'
 
 interface DeckSlide {
   no: number
@@ -88,7 +89,7 @@ export function DeckEditorOutline({
     ...(data?.errors ?? []).map((e) => ({
       slide: 0,
       level: 'error' as const,
-      message: e.row != null ? `line ${e.row}: ${e.message}` : e.message,
+      message: e.row != null ? `Строка ${e.row}: ${e.message}` : e.message,
     })),
     ...(lint?.issues ?? []),
   ].sort((a, b) => (a.level === b.level ? a.slide - b.slide : a.level === 'error' ? -1 : 1))
@@ -100,15 +101,17 @@ export function DeckEditorOutline({
         'rounded-[var(--radius-md)] border border-[var(--border-subtle)] bg-[var(--surface-2)] p-[var(--space-3)]',
         className,
       )}
-      aria-label="Slide outline"
+      aria-label="Структура слайдов"
     >
       <div className="flex items-center justify-between text-[var(--text-xs)] uppercase tracking-wide text-[var(--text-muted)]">
-        <span>Outline</span>
-        <span className="tabular-nums">{data ? `${data.count} slide${data.count === 1 ? '' : 's'}` : ''}</span>
+        <span>Структура</span>
+        <span className="tabular-nums">{data
+          ? `${data.count} ${ruPlural(data.count, 'слайд', 'слайда', 'слайдов')}`
+          : ''}</span>
       </div>
 
       {issues.length ? (
-        <ul className="flex flex-col gap-[1px]" aria-label="Deck issues">
+        <ul className="flex flex-col gap-[1px]" aria-label="Проблемы колоды">
           {issues.slice(0, MAX_ISSUES).map((x, i) => (
             <li
               key={`${x.level}-${x.slide}-${i}`}
@@ -127,23 +130,23 @@ export function DeckEditorOutline({
               {/* Messages carry the full fix instructions (they're written for agents
                   too); clamp so a long one can't push the outline itself out of view. */}
               <span className="line-clamp-8 min-w-0" title={x.message}>
-                {x.slide > 0 ? <span className="font-medium tabular-nums">Slide {x.slide}: </span> : null}
+                {x.slide > 0 ? <span className="font-medium tabular-nums">Слайд {x.slide}: </span> : null}
                 {x.message}
               </span>
             </li>
           ))}
           {issues.length > MAX_ISSUES ? (
             <li className="px-[var(--space-2)] pt-[var(--space-1)] text-[var(--text-xs)] text-[var(--text-muted)]">
-              +{issues.length - MAX_ISSUES} more
+              +{issues.length - MAX_ISSUES} ещё
             </li>
           ) : null}
         </ul>
       ) : null}
 
       {isError ? (
-        <p className="text-[var(--text-xs)] text-[var(--text-muted)]">Outline unavailable.</p>
+        <p className="text-[var(--text-xs)] text-[var(--text-muted)]">Структура недоступна.</p>
       ) : !data ? (
-        <p className="text-[var(--text-xs)] text-[var(--text-muted)]">Start typing slides…</p>
+        <p className="text-[var(--text-xs)] text-[var(--text-muted)]">Начните печатать слайды…</p>
       ) : (
         <ol className="flex flex-col gap-[1px]">
           {data.slides.map((s) => (
@@ -153,7 +156,7 @@ export function DeckEditorOutline({
             >
               <span className="w-5 shrink-0 text-right text-[var(--text-xs)] tabular-nums text-[var(--text-muted)]">{s.no}</span>
               <span className="min-w-0 flex-1 truncate text-[var(--text-primary)]">
-                {s.title || <span className="text-[var(--text-muted)]">Untitled</span>}
+                {s.title || <span className="text-[var(--text-muted)]">Без названия</span>}
               </span>
               <span className="shrink-0 rounded-[var(--radius-sm)] bg-[var(--surface-3)] px-[var(--space-1)] text-[var(--text-xs)] text-[var(--text-muted)]">
                 {s.layout}

@@ -8,6 +8,7 @@ import {
   TooltipTrigger,
 } from '../ui/tooltip'
 import { cn } from '../../lib/utils'
+import { ruPlural } from '../../lib/ru-plural'
 
 const MAX_VISIBLE = 5
 const TRANSITION_MS = 120
@@ -37,7 +38,7 @@ export function PresenceAvatars({ awareness, className }: PresenceAvatarsProps) 
   return (
     <div
       className={cn('flex items-center', className)}
-      aria-label={`${mounted.length} ${mounted.length === 1 ? 'person' : 'people'} viewing this page`}
+      aria-label={`${mounted.length} ${ruPlural(mounted.length, 'человек', 'человека', 'человек')} на этой странице`}
     >
       {visible.map((entry) => (
         <PresencePill key={entry.peer.user.id} entry={entry} />
@@ -47,7 +48,7 @@ export function PresenceAvatars({ awareness, className }: PresenceAvatarsProps) 
           size="sm"
           tone="neutral"
           className="-ml-[var(--space-2)] ring-2 ring-[var(--surface-1)]"
-          aria-label={`${overflow} more`}
+          aria-label={`ещё ${overflow}`}
         >
           {`+${overflow}`}
         </Avatar>

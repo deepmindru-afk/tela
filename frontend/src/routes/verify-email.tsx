@@ -40,10 +40,10 @@ export function VerifyEmailPage() {
         <Card className="tela-auth-card w-full bg-[var(--surface-1)] shadow-[var(--shadow-lg)] text-center">
           <CardHeader className="items-center">
             <CardTitle className="text-[length:var(--text-2xl)]">
-              Email confirmed
+              Электронная почта подтверждена
             </CardTitle>
             <CardDescription>
-              Your account is active. Welcome to tela.
+              Ваш аккаунт активен. Добро пожаловать в сервис tela.
             </CardDescription>
           </CardHeader>
           <CardBody>
@@ -52,7 +52,7 @@ export function VerifyEmailPage() {
               size="lg"
               onClick={() => void navigate({ to: '/' })}
             >
-              Go to tela
+              Перейти в сервис tela
             </Button>
           </CardBody>
         </Card>
@@ -66,9 +66,9 @@ export function VerifyEmailPage() {
         <Card className="tela-auth-card w-full bg-[var(--surface-1)] shadow-[var(--shadow-lg)] text-center">
           <CardHeader className="items-center">
             <CardTitle className="text-[length:var(--text-2xl)]">
-              Confirming…
+              Подтверждение…
             </CardTitle>
-            <CardDescription>Hang tight for a moment.</CardDescription>
+            <CardDescription>Одну минуту.</CardDescription>
           </CardHeader>
         </Card>
       </AuthShell>
@@ -81,15 +81,16 @@ export function VerifyEmailPage() {
       <Card className="tela-auth-card w-full bg-[var(--surface-1)] shadow-[var(--shadow-lg)] text-center">
         <CardHeader className="items-center">
           <CardTitle className="text-[length:var(--text-2xl)]">
-            Link invalid or expired
+            Ссылка недействительна или истекла
           </CardTitle>
           <CardDescription>
-            This confirmation link can't be used. Sign in to request a new one.
+            Эту ссылку для подтверждения нельзя использовать. Войдите, чтобы
+            запросить новую.
           </CardDescription>
         </CardHeader>
         <CardBody>
           <Button asChild variant="primary" size="lg">
-            <Link to="/login">Back to sign in</Link>
+            <Link to="/login">Назад ко входу</Link>
           </Button>
         </CardBody>
       </Card>

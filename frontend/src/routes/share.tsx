@@ -24,7 +24,7 @@ function ShareShell({ children }: { children: React.ReactNode }) {
               wordmark escapes the SPA rather than client-routing into the app. */}
           <a
             href="/"
-            aria-label="tela home"
+            aria-label="Главная страница tela"
             className="inline-block rounded-[var(--radius-xs)] text-[var(--text-primary)] no-underline transition-opacity duration-[var(--duration-fast)] hover:opacity-70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
           >
             tela
@@ -46,14 +46,14 @@ function ShareLoading() {
         role="status"
         className="m-0 text-[length:var(--text-sm)] text-[var(--text-muted)]"
       >
-        Loading…
+        Загрузка…
       </p>
     </ShareShell>
   )
 }
 
 function ShareUnavailable({
-  message = "This share link is not available.",
+  message = 'Эта ссылка для совместного доступа недоступна.',
 }: {
   message?: string
 }) {
@@ -62,7 +62,7 @@ function ShareUnavailable({
       <Card className="w-full max-w-[24rem]">
         <CardHeader>
           <CardTitle className="text-[length:var(--text-2xl)]">
-            Not available
+            Недоступно
           </CardTitle>
           <CardDescription>{message}</CardDescription>
         </CardHeader>
@@ -137,7 +137,7 @@ export function ShareRootRoute() {
     if (err.kind === 'not_found') {
       return <ShareUnavailable />
     }
-    return <ShareUnavailable message="Couldn't open this share. Please try again." />
+    return <ShareUnavailable message="Не удалось открыть эту ссылку доступа. Попробуйте ещё раз." />
   }
 
   const data = rootQuery.data
@@ -187,7 +187,7 @@ export function ShareDescendantRoute() {
     if (rootErr.kind === 'not_found') {
       return <ShareUnavailable />
     }
-    return <ShareUnavailable message="Couldn't open this share. Please try again." />
+    return <ShareUnavailable message="Не удалось открыть эту ссылку доступа. Попробуйте ещё раз." />
   }
   const rootData = rootQuery.data
   if (!rootData) return <ShareLoading />
@@ -200,7 +200,7 @@ export function ShareDescendantRoute() {
             role="status"
             className="m-0 text-[length:var(--text-sm)] text-[var(--text-muted)]"
           >
-            Loading…
+            Загрузка…
           </p>
         </div>
       </ShareLayout>
@@ -214,9 +214,9 @@ export function ShareDescendantRoute() {
         <div className="flex-1 flex items-center justify-center p-[var(--space-7)]">
           <Card className="w-full max-w-[28rem] text-center">
             <CardHeader className="items-center">
-              <CardTitle>Page not part of this share</CardTitle>
+              <CardTitle>Страница не входит в этот доступ</CardTitle>
               <CardDescription>
-                The page you're looking for isn't in the shared subtree.
+                Страница, которую вы ищете, не входит в общий набор страниц.
               </CardDescription>
             </CardHeader>
           </Card>
@@ -231,9 +231,9 @@ export function ShareDescendantRoute() {
         <div className="flex-1 flex items-center justify-center p-[var(--space-7)]">
           <Card className="w-full max-w-[28rem] text-center">
             <CardHeader className="items-center">
-              <CardTitle>Couldn't load page</CardTitle>
+              <CardTitle>Не удалось загрузить страницу</CardTitle>
               <CardDescription>
-                Please reload and try again.
+                Перезагрузите страницу и попробуйте ещё раз.
               </CardDescription>
             </CardHeader>
           </Card>

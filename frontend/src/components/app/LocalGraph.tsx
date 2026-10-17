@@ -31,10 +31,10 @@ export default function LocalGraph({ pageId, depth = 1 }: LocalGraphProps) {
   }, [graph.data, pageId, depth])
 
   if (graph.isLoading) {
-    return <Note>Loading…</Note>
+    return <Note>Загрузка…</Note>
   }
   if (total <= 1) {
-    return <Note>No links to or from this page yet.</Note>
+    return <Note>Пока нет ссылок на эту страницу или с неё.</Note>
   }
 
   return (
@@ -55,8 +55,8 @@ export default function LocalGraph({ pageId, depth = 1 }: LocalGraphProps) {
       <Link
         to="/graph"
         search={{ focus: pageId }}
-        aria-label="Open in full graph"
-        title="Open in full graph"
+        aria-label="Открыть в полном графе"
+        title="Открыть в полном графе"
         className="absolute right-[var(--space-2)] top-[var(--space-2)] inline-flex h-[var(--space-7)] w-[var(--space-7)] items-center justify-center rounded-[var(--radius-sm)] border border-[var(--border-subtle)] bg-[color-mix(in_srgb,var(--surface-1)_85%,transparent)] text-[var(--text-muted)] backdrop-blur hover:text-[var(--text-primary)]"
       >
         <Maximize2 width={14} height={14} />

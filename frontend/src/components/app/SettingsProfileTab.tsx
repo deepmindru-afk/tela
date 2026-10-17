@@ -87,12 +87,12 @@ function AccountSection() {
       className="flex flex-col gap-[var(--space-3)]"
     >
       <SectionHeader
-        title="Account"
-        description="The username you signed in with. Renames aren't supported yet."
+        title="Учётная запись"
+        description="Имя пользователя, с которым вы вошли. Переименование пока не поддерживается."
       />
       <div className="flex flex-col gap-[var(--space-1)]" id="settings-account">
         <span className="text-[length:var(--text-xs)] uppercase tracking-wider text-[var(--text-muted)] font-[family-name:var(--font-sans)]">
-          Username
+          Имя пользователя
         </span>
         <span className="text-[length:var(--text-base)] text-[var(--text-primary)] font-[family-name:var(--font-sans)]">
           {me.data?.username ?? '—'}
@@ -123,7 +123,7 @@ function DisplayNameSection() {
       setValue(null)
       setSuccess(true)
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Something went wrong. Try again.')
+      setError(err instanceof ApiError ? err.message : 'Что-то пошло не так. Попробуйте ещё раз.')
     }
   }
 
@@ -133,18 +133,18 @@ function DisplayNameSection() {
       className="flex flex-col gap-[var(--space-3)]"
     >
       <SectionHeader
-        title="Display name"
-        description="How tela addresses you (e.g. in the home greeting). Falls back to your username when blank."
+        title="Отображаемое имя"
+        description="Как tela к вам обращается (например, в приветствии на главной). Если поле пустое, используется ваше имя пользователя."
       />
       <div className="flex flex-col gap-[var(--space-2)] max-w-[24rem]" id="settings-display-name">
         <Input
-          aria-label="Display name"
+          aria-label="Отображаемое имя"
           value={name}
           onChange={(e) => {
             setValue(e.target.value.slice(0, MAX_DISPLAY_NAME_LEN))
             setSuccess(false)
           }}
-          placeholder={me.data?.username ?? 'Your name'}
+          placeholder={me.data?.username ?? 'Ваше имя'}
         />
         {error ? (
           <p role="alert" className="m-0 text-[length:var(--text-sm)] text-[var(--danger)]">
@@ -153,7 +153,7 @@ function DisplayNameSection() {
         ) : null}
         {success ? (
           <p role="status" className="m-0 text-[length:var(--text-sm)] text-[var(--success)]">
-            Display name saved.
+            Отображаемое имя сохранено.
           </p>
         ) : null}
         <div className="flex">
@@ -164,7 +164,7 @@ function DisplayNameSection() {
             onClick={() => void handleSave()}
             disabled={!dirty || updateProfile.isPending}
           >
-            {updateProfile.isPending ? 'Saving…' : 'Save name'}
+            {updateProfile.isPending ? 'Сохранение…' : 'Сохранить имя'}
           </Button>
         </div>
       </div>
@@ -193,7 +193,7 @@ function BioSection() {
       setValue(null)
       setSuccess(true)
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Something went wrong. Try again.')
+      setError(err instanceof ApiError ? err.message : 'Что-то пошло не так. Попробуйте ещё раз.')
     }
   }
 
@@ -203,12 +203,12 @@ function BioSection() {
       className="flex flex-col gap-[var(--space-3)]"
     >
       <SectionHeader
-        title="Bio"
-        description="A short line about you, shown on your public profile at /u/your-handle."
+        title="О себе"
+        description="Короткая строка о вас — отображается в вашем публичном профиле по адресу /u/your-handle."
       />
       <div className="flex flex-col gap-[var(--space-2)] max-w-[36rem]" id="settings-bio">
         <TextArea
-          aria-label="Bio"
+          aria-label="О себе"
           value={bio}
           onChange={(e) => {
             setValue(e.target.value.slice(0, MAX_BIO_LEN))
@@ -216,7 +216,7 @@ function BioSection() {
           }}
           rows={3}
           font="sans"
-          placeholder="Writer. Builder. Tending a small corner of the web."
+          placeholder="Автор. Разработчик. Обслуживаю небольшой уголок интернета."
         />
         <div className="flex items-center justify-between">
           <span className="text-[length:var(--text-xs)] text-[var(--text-muted)]">
@@ -227,7 +227,7 @@ function BioSection() {
                 rel="noopener noreferrer"
                 className="text-[var(--accent)] no-underline hover:underline"
               >
-                View your profile →
+                Посмотреть профиль →
               </a>
             ) : null}
           </span>
@@ -242,7 +242,7 @@ function BioSection() {
         ) : null}
         {success ? (
           <p role="status" className="m-0 text-[length:var(--text-sm)] text-[var(--success)]">
-            Bio saved.
+            Информация о себе сохранена.
           </p>
         ) : null}
         <div className="flex">
@@ -253,7 +253,7 @@ function BioSection() {
             onClick={() => void handleSave()}
             disabled={!dirty || updateProfile.isPending}
           >
-            {updateProfile.isPending ? 'Saving…' : 'Save bio'}
+            {updateProfile.isPending ? 'Сохранение…' : 'Сохранить'}
           </Button>
         </div>
       </div>
@@ -279,15 +279,15 @@ function ChangePasswordSection() {
     e.preventDefault()
     setSuccess(false)
     if (!oldPw || !newPw || !confirmPw) {
-      setError('All fields are required.')
+      setError('Заполните все поля.')
       return
     }
     if (newPw !== confirmPw) {
-      setError('New password and confirmation do not match.')
+      setError('Новый пароль и его подтверждение не совпадают.')
       return
     }
     if (newPw.length < MIN_PASSWORD_LEN) {
-      setError(`New password must be at least ${MIN_PASSWORD_LEN} characters.`)
+      setError(`Новый пароль должен содержать не менее ${MIN_PASSWORD_LEN} символов.`)
       return
     }
     setError(null)
@@ -301,11 +301,11 @@ function ChangePasswordSection() {
     } catch (err) {
       setSuccess(false)
       if (err instanceof ApiError && err.status === 401) {
-        setError('Current password is incorrect.')
+        setError('Текущий пароль указан неверно.')
       } else if (err instanceof ApiError && err.code === 'bad_request') {
         setError(err.message)
       } else {
-        setError('Something went wrong. Try again.')
+        setError('Что-то пошло не так. Попробуйте ещё раз.')
       }
     }
   }
@@ -316,8 +316,8 @@ function ChangePasswordSection() {
       className="flex flex-col gap-[var(--space-3)]"
     >
       <SectionHeader
-        title="Change password"
-        description="After a successful change, other devices will be signed out."
+        title="Смена пароля"
+        description="После успешной смены остальные устройства будут отключены."
       />
       <form
         id="settings-password"
@@ -327,7 +327,7 @@ function ChangePasswordSection() {
       >
         <PasswordField
           id="settings-current-password"
-          label="Current password"
+          label="Текущий пароль"
           autoComplete="current-password"
           value={oldPw}
           onChange={setOldPw}
@@ -335,7 +335,7 @@ function ChangePasswordSection() {
         />
         <PasswordField
           id="settings-new-password"
-          label="New password"
+          label="Новый пароль"
           autoComplete="new-password"
           value={newPw}
           onChange={setNewPw}
@@ -343,7 +343,7 @@ function ChangePasswordSection() {
         />
         <PasswordField
           id="settings-confirm-password"
-          label="Confirm new password"
+          label="Подтвердите новый пароль"
           autoComplete="new-password"
           value={confirmPw}
           onChange={setConfirmPw}
@@ -368,7 +368,7 @@ function ChangePasswordSection() {
               'text-[length:var(--text-sm)] text-[var(--success)]',
             )}
           >
-            Password changed. Other devices have been signed out.
+            Пароль изменён. Остальные устройства отключены.
           </p>
         ) : null}
         <div className="flex">
@@ -377,7 +377,7 @@ function ChangePasswordSection() {
             variant="primary"
             disabled={changePassword.isPending}
           >
-            {changePassword.isPending ? 'Changing…' : 'Change password'}
+            {changePassword.isPending ? 'Смена…' : 'Изменить пароль'}
           </Button>
         </div>
       </form>
@@ -434,21 +434,21 @@ function SessionsSection() {
       className="flex flex-col gap-[var(--space-3)]"
     >
       <SectionHeader
-        title="Sessions"
-        description="Devices currently signed in to your account. Sliding 30-day expiry."
+        title="Сессии"
+        description="Устройства, в которых выполнен вход в вашу учётную запись. Срок действия — скользящие 30 дней."
       />
       <div id="settings-sessions">
         {isLoading ? (
           <p className="m-0 text-[length:var(--text-sm)] text-[var(--text-muted)]">
-            Loading sessions…
+            Загрузка сессий…
           </p>
         ) : isError ? (
           <p className="m-0 text-[length:var(--text-sm)] text-[var(--danger)]">
-            Couldn't load sessions.
+            Не удалось загрузить сессии.
           </p>
         ) : sessions.length === 0 ? (
           <p className="m-0 text-[length:var(--text-sm)] text-[var(--text-muted)]">
-            No sessions found.
+            Сессии не найдены.
           </p>
         ) : (
           <ul className="m-0 p-0 list-none flex flex-col gap-[var(--space-1)]">
@@ -470,7 +470,7 @@ function SessionsSection() {
             variant="danger"
             onClick={() => setLogoutOpen(true)}
           >
-            Sign out of all other devices
+            Выйти на всех остальных устройствах
           </Button>
         </div>
       ) : null}
@@ -508,13 +508,13 @@ function SessionRowItem({
             {device}
           </span>
           {row.current ? (
-            <Badge variant="accent" aria-label="Current session">
-              This device
+            <Badge variant="accent" aria-label="Текущая сессия">
+              Это устройство
             </Badge>
           ) : null}
         </div>
         <span className="text-[length:var(--text-xs)] text-[var(--text-muted)] font-[family-name:var(--font-sans)]">
-          Last seen {relativeTimeFromSqlite(row.last_seen_at)} · Created{' '}
+          Последняя активность {relativeTimeFromSqlite(row.last_seen_at)} · Создана{' '}
           {localDateFromSqlite(row.created_at)}
         </span>
       </div>
@@ -543,10 +543,10 @@ function RevokeButton({
       size="sm"
       onClick={onClick}
       disabled={disabled}
-      aria-label={currentSession ? 'Sign out from this menu' : 'Revoke session'}
+      aria-label={currentSession ? 'Выйти из этого меню' : 'Отозвать сессию'}
     >
       <LogOut width={14} height={14} />
-      <span>Revoke</span>
+      <span>Отозвать</span>
     </Button>
   )
   if (!currentSession) return button
@@ -559,7 +559,7 @@ function RevokeButton({
           {button}
         </span>
       </TooltipTrigger>
-      <TooltipContent>Sign out from this menu</TooltipContent>
+      <TooltipContent>Выйти из этого меню</TooltipContent>
     </Tooltip>
   )
 }
@@ -588,7 +588,7 @@ function LogoutEverywhereDialog({
       setError(
         err instanceof ApiError
           ? err.message
-          : 'Failed to sign out other devices.',
+          : 'Не удалось выйти на других устройствах.',
       )
     }
   }
@@ -597,9 +597,9 @@ function LogoutEverywhereDialog({
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Sign out of all other devices?</DialogTitle>
+          <DialogTitle>Выйти на всех остальных устройствах?</DialogTitle>
           <DialogDescription>
-            You'll need to log in again on every device except this one.
+            Вам придётся войти заново на каждом устройстве, кроме текущего.
           </DialogDescription>
         </DialogHeader>
         {error ? (
@@ -610,7 +610,7 @@ function LogoutEverywhereDialog({
         <DialogFooter>
           <DialogClose asChild>
             <Button type="button" variant="ghost">
-              Cancel
+              Отмена
             </Button>
           </DialogClose>
           <Button
@@ -620,8 +620,8 @@ function LogoutEverywhereDialog({
             disabled={logoutEverywhere.isPending}
           >
             {logoutEverywhere.isPending
-              ? 'Signing out…'
-              : 'Sign out everywhere'}
+              ? 'Выход…'
+              : 'Выйти везде'}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -634,7 +634,7 @@ function LogoutEverywhereDialog({
 // falls back to a truncated raw string when nothing matches. Keep this
 // small; if it grows we should grab a real UA parser instead.
 function describeUserAgent(ua: string): string {
-  if (!ua || ua.trim().length === 0) return 'Unknown device'
+  if (!ua || ua.trim().length === 0) return 'Неизвестное устройство'
   const browserMatch = ua.match(/(Edg|Chrome|Firefox|Safari)[\\/ ](\d+)/)
   // Safari/<version> also shows in Chrome UAs, so prefer the more specific
   // engine names first by checking Edg/Chrome before Safari.
@@ -665,8 +665,8 @@ function DeleteAccountSection() {
       className="flex flex-col gap-[var(--space-3)]"
     >
       <SectionHeader
-        title="Delete account"
-        description="Permanently delete your account and remove you from all spaces."
+        title="Удаление учётной записи"
+        description="Навсегда удалите свою учётную запись и исключите себя из всех пространств."
       />
       <div id="settings-delete-account">
         <Button
@@ -674,7 +674,7 @@ function DeleteAccountSection() {
           variant="danger"
           onClick={() => setOpen(true)}
         >
-          Delete account
+          Удалить учётную запись
         </Button>
       </div>
       <DeleteAccountDialog open={open} onOpenChange={setOpen} />
@@ -707,7 +707,7 @@ function DeleteAccountDialog({
       if (err instanceof ApiError && err.code === 'org_owner') {
         setError(err.message)
       } else {
-        setError('Something went wrong. Try again.')
+        setError('Что-то пошло не так. Попробуйте ещё раз.')
       }
     }
   }
@@ -716,9 +716,9 @@ function DeleteAccountDialog({
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Delete your account?</DialogTitle>
+          <DialogTitle>Удалить учётную запись?</DialogTitle>
           <DialogDescription>
-            This will permanently delete your account and remove you from all spaces. This cannot be undone.
+            Учётная запись будет удалена навсегда, а вы исключены из всех пространств. Отменить это действие нельзя.
           </DialogDescription>
         </DialogHeader>
         {error ? (
@@ -729,7 +729,7 @@ function DeleteAccountDialog({
         <DialogFooter>
           <DialogClose asChild>
             <Button type="button" variant="ghost">
-              Cancel
+              Отмена
             </Button>
           </DialogClose>
           <Button
@@ -738,7 +738,7 @@ function DeleteAccountDialog({
             onClick={handleConfirm}
             disabled={deleteAccount.isPending}
           >
-            {deleteAccount.isPending ? 'Deleting…' : 'Delete account'}
+            {deleteAccount.isPending ? 'Удаление…' : 'Удалить учётную запись'}
           </Button>
         </DialogFooter>
       </DialogContent>

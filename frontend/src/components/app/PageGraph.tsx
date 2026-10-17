@@ -14,6 +14,7 @@ import { subscribeToTheme } from '../../lib/theme'
 import { parseSqliteTs } from '../../lib/types'
 import { relativeTimeFromSqlite } from '../../lib/relativeTime'
 import { buildSpacePalette, GRAPH_STALE_DAYS, type GraphLink, type GraphNode } from '../../lib/queries/graph'
+import { ruPlural } from '../../lib/ru-plural'
 
 // Interactive force-directed graph on a <canvas>: d3-force does the layout, a
 // thin hand-rolled renderer + pointer layer does the rest (pan / wheel-zoom /
@@ -461,7 +462,7 @@ export function PageGraph({
         k > 1.6
       if (!labelled) continue
       ctx.globalAlpha = dimmed(n.id) ? 0.25 : 1
-      const label = n.title.length > 28 ? n.title.slice(0, 27) + '…' : n.title || 'Untitled'
+      const label = n.title.length > 28 ? n.title.slice(0, 27) + '…' : n.title || 'Без названия'
       const ly = n.y! + n.r + 3 / k
       ctx.strokeStyle = c.surface
       ctx.strokeText(label, n.x, ly)
@@ -658,7 +659,7 @@ export function PageGraph({
       <canvas
         ref={canvasRef}
         className="block h-full w-full touch-none select-none"
-        aria-label="Page graph"
+        aria-label="Граф страниц"
       />
       {card ? <NodeHoverCard card={card} /> : null}
     </div>
@@ -667,25 +668,25 @@ export function PageGraph({
 
 function NodeHoverCard({ card }: { card: HoverCard }) {
   const parts: string[] = []
-  if (card.linksOut) parts.push(`${card.linksOut} link${card.linksOut === 1 ? '' : 's'}`)
-  if (card.linksIn) parts.push(`${card.linksIn} backlink${card.linksIn === 1 ? '' : 's'}`)
-  if (card.children) parts.push(`${card.children} child${card.children === 1 ? '' : 'ren'}`)
+  if (card.linksOut) parts.push(ruPlural(card.linksOut, 'исходящая ссылка', 'исходящие ссылки', 'исходящих ссылок'))
+  if (card.linksIn) parts.push(ruPlural(card.linksIn, 'входящая ссылка', 'входящие ссылки', 'входящих ссылок'))
+  if (card.children) parts.push(ruPlural(card.children, 'дочерняя страница', 'дочерние страницы', 'дочерних страниц'))
   const left = card.flipX ? card.x - 220 - 12 : card.x + 12
   const top = card.flipY ? undefined : card.y + 12
   const bottom = card.flipY ? `calc(100% - ${card.y - 12}px)` : undefined
   return (
     <div className="tela-graph-nodecard" style={{ left, top, bottom }}>
-      <p className="tela-graph-nodecard-title">{card.title || 'Untitled'}</p>
+      <p className="tela-graph-nodecard-title">{card.title || 'Без названия'}</p>
       <p className="tela-graph-nodecard-sub" title={card.location}>{card.location}</p>
       <p className="tela-graph-nodecard-meta">
-        {parts.length ? parts.join(' · ') : 'No connections'}
+        {parts.length ? parts.join(' · ') : 'Нет связей'}
       </p>
       {card.broken > 0 ? (
         <p className="tela-graph-nodecard-broken">
-          {card.broken} broken link{card.broken === 1 ? '' : 's'}
+          {ruPlural(card.broken, 'битая ссылка', 'битые ссылки', 'битых ссылок')}
         </p>
       ) : null}
-      <p className="tela-graph-nodecard-meta">Updated {relativeTimeFromSqlite(card.updatedAt)}</p>
+      <p className="tela-graph-nodecard-meta">Обновлено {relativeTimeFromSqlite(card.updatedAt)}</p>
     </div>
   )
 }

@@ -58,7 +58,7 @@ function wireFootnotes(root: HTMLElement) {
       back.href = `#fnref-${label}`
       // U+FE0E forces text (not emoji) presentation of the return arrow.
       back.textContent = '↩︎'
-      back.setAttribute('aria-label', 'Back to reference')
+      back.setAttribute('aria-label', 'Вернуться к ссылке')
       def.appendChild(back)
     }
   })
@@ -237,7 +237,7 @@ export function ReaderShell({
   // Document title (+ full SEO/social meta on the public reader, when headMeta
   // is supplied) while in the reader.
   useHeadMeta({
-    title: `${title || 'Untitled'} — tela`,
+    title: `${title || 'Без названия'} — tela`,
     description: headMeta?.description,
     canonicalPath: headMeta?.canonicalPath,
     image: headMeta?.image,
@@ -294,7 +294,7 @@ export function ReaderShell({
           a.href = `#${el.id}`
           a.textContent = '#'
           a.setAttribute('contenteditable', 'false')
-          a.setAttribute('aria-label', 'Copy link to this section')
+          a.setAttribute('aria-label', 'Копировать ссылку на этот раздел')
           el.prepend(a)
         } else {
           const a = el.querySelector(':scope > .reader-anchor') as HTMLElement
@@ -492,7 +492,7 @@ export function ReaderShell({
       <header ref={topbarRef} className="reader-topbar" data-scrolled="false">
         <div className="reader-topbar-left">
           {topbarLeading}
-          <span className="reader-topbar-title">{title || 'Untitled'}</span>
+          <span className="reader-topbar-title">{title || 'Без названия'}</span>
         </div>
 
         <div className="reader-topbar-right">
@@ -502,17 +502,17 @@ export function ReaderShell({
               <Button
                 variant="ghost"
                 size="sm"
-                aria-label="Reading display options"
+                aria-label="Параметры отображения"
                 className="h-[var(--space-8)] px-[var(--space-3)]"
               >
                 <Type width={16} height={16} />
-                <span>Display</span>
+                <span>Отображение</span>
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               <div className="reader-prefs">
                 <div className="reader-prefs-group">
-                  <span className="reader-prefs-label">Text size</span>
+                  <span className="reader-prefs-label">Размер текста</span>
                   <ToggleGroup
                     type="single"
                     value={size}
@@ -521,15 +521,15 @@ export function ReaderShell({
                       setSize(v as ReaderSize)
                       writePref(SIZE_KEY, v)
                     }}
-                    aria-label="Text size"
+                    aria-label="Размер текста"
                   >
-                    <ToggleGroupItem value="s">Small</ToggleGroupItem>
-                    <ToggleGroupItem value="m">Medium</ToggleGroupItem>
-                    <ToggleGroupItem value="l">Large</ToggleGroupItem>
+                    <ToggleGroupItem value="s">Мелкий</ToggleGroupItem>
+                    <ToggleGroupItem value="m">Средний</ToggleGroupItem>
+                    <ToggleGroupItem value="l">Крупный</ToggleGroupItem>
                   </ToggleGroup>
                 </div>
                 <div className="reader-prefs-group">
-                  <span className="reader-prefs-label">Typeface</span>
+                  <span className="reader-prefs-label">Шрифт</span>
                   <ToggleGroup
                     type="single"
                     value={font}
@@ -538,14 +538,14 @@ export function ReaderShell({
                       setFont(v as ReaderFont)
                       writePref(FONT_KEY, v)
                     }}
-                    aria-label="Typeface"
+                    aria-label="Шрифт"
                   >
-                    <ToggleGroupItem value="sans">Sans</ToggleGroupItem>
-                    <ToggleGroupItem value="serif">Serif</ToggleGroupItem>
+                    <ToggleGroupItem value="sans">Без засечек</ToggleGroupItem>
+                    <ToggleGroupItem value="serif">С засечками</ToggleGroupItem>
                   </ToggleGroup>
                 </div>
                 <div className="reader-prefs-group">
-                  <span className="reader-prefs-label">Theme</span>
+                  <span className="reader-prefs-label">Тема</span>
                   {/* The shared control, not a copy. Inline here: this menu is
                       already an open panel, so there's nothing to collapse. */}
                   <ThemeSwitcher inline />
@@ -563,8 +563,8 @@ export function ReaderShell({
         <div ref={scrollRef} className="reader-scroll" data-keynav-region="reader">
           <div className="reader-grid">
             {toc.length > 1 ? (
-              <nav className="reader-toc" aria-label="On this page">
-                <p className="reader-toc-label">On this page</p>
+              <nav className="reader-toc" aria-label="На этой странице">
+                <p className="reader-toc-label">На этой странице</p>
                 <ul className="reader-toc-list">
                   {toc.map((entry) => (
                     <li key={entry.id}>
@@ -598,7 +598,7 @@ export function ReaderShell({
                 summary={summary ?? null}
                 hintClassName="absolute top-[var(--space-2)] left-[calc(-1*(var(--space-6)+var(--space-1)))] hidden sm:inline-flex"
               >
-                <h1 className="reader-title">{title || 'Untitled'}</h1>
+                <h1 className="reader-title">{title || 'Без названия'}</h1>
               </SummaryTitle>
               {attachmentStrip}
               <div className="reader-meta">
@@ -608,12 +608,12 @@ export function ReaderShell({
                     <span className="reader-meta-dot" aria-hidden />
                   </>
                 ) : null}
-                <span>{minutes} min read</span>
+                <span>{minutes} мин чтения</span>
                 <span className="reader-meta-dot" aria-hidden />
                 {publishedAt ? (
                   <span>{postDateFromSqlite(publishedAt)}</span>
                 ) : (
-                  <span>Updated {relativeTimeFromSqlite(updatedAt)}</span>
+                  <span>Обновлено {relativeTimeFromSqlite(updatedAt)}</span>
                 )}
                 {sourceLabel ? (
                   <>

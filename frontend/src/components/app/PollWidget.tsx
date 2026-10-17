@@ -81,6 +81,15 @@ function totalVotes(poll: PollData): number {
   return poll.options.reduce((n, o) => n + o.count, 0)
 }
 
+// Russian needs three plural forms: 1 голос / 2 голоса / 5 голосов.
+function votesLabel(n: number): string {
+  const m10 = n % 10
+  const m100 = n % 100
+  if (m10 === 1 && m100 !== 11) return `${n} голос`
+  if (m10 >= 2 && m10 <= 4 && (m100 < 10 || m100 >= 20)) return `${n} голоса`
+  return `${n} голосов`
+}
+
 function VoterFace({ voter, className }: { voter: PollVoter; className?: string }) {
   return (
     <Avatar
@@ -114,7 +123,7 @@ function AvatarCluster({
         <button
           type="button"
           className="flex items-center pl-[var(--space-2)] transition-opacity hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] rounded-full"
-          aria-label={`See who voted (${count})`}
+          aria-label={`Кто проголосовал (${count})`}
         >
           {shown.map((v) => (
             <span key={v.id} className="-ml-[var(--space-2)] first:ml-0">
@@ -139,7 +148,7 @@ function VoterRoster({ voters, count }: { voters: PollVoter[]; count: number }) 
   return (
     <div className="flex flex-col gap-[var(--space-1)]">
       <div className="px-[var(--space-1)] pb-[var(--space-1)] text-[length:var(--text-xs)] font-medium uppercase tracking-wide text-[var(--text-muted)]">
-        {count} vote{count === 1 ? '' : 's'}
+        {votesLabel(count)}
       </div>
       {voters.map((v) => (
         <div
@@ -175,7 +184,7 @@ function ResultRow({
           {mine && (
             <span className="inline-flex items-center gap-[calc(var(--space-1)/2)] text-[length:var(--text-xs)] font-medium text-[var(--accent)]">
               <Check className="h-[var(--space-3)] w-[var(--space-3)]" strokeWidth={2.5} />
-              Your vote
+              Ваш голос
             </span>
           )}
         </span>
@@ -249,13 +258,13 @@ export function PollWidget({ poll, onVote, className }: PollWidgetProps) {
           </h3>
           <p className="text-[length:var(--text-xs)] text-[var(--text-muted)]">
             {mode === 'choose'
-              ? 'Choose one'
-              : `${total} vote${total === 1 ? '' : 's'}`}
-            {poll.secret && ' · anonymous'}
+              ? 'Выберите один вариант'
+              : votesLabel(total)}
+            {poll.secret && ' · анонимно'}
           </p>
         </div>
         <Badge variant={poll.closed ? 'muted' : 'accent'}>
-          {poll.closed ? 'Closed' : 'Open'}
+          {poll.closed ? 'Закрыт' : 'Открыт'}
         </Badge>
       </div>
 
@@ -281,7 +290,7 @@ export function PollWidget({ poll, onVote, className }: PollWidgetProps) {
 
           {total === 0 && (
             <p className="text-[length:var(--text-sm)] text-[var(--text-muted)]">
-              No votes yet.
+              Голосов пока нет.
             </p>
           )}
 
@@ -292,7 +301,7 @@ export function PollWidget({ poll, onVote, className }: PollWidgetProps) {
                 size="sm"
                 onClick={() => onVote?.('')}
               >
-                Change vote
+                Изменить голос
               </Button>
             ) : (
               <span />
@@ -303,7 +312,7 @@ export function PollWidget({ poll, onVote, className }: PollWidgetProps) {
                 size="sm"
                 onClick={() => setShowVotes((s) => !s)}
               >
-                {showVotes ? 'Hide votes' : 'See votes'}
+                {showVotes ? 'Скрыть голоса' : 'Показать голоса'}
               </Button>
             )}
           </div>

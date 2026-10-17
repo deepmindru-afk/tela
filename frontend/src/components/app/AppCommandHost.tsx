@@ -217,7 +217,7 @@ export function AppCommandHost() {
     () =>
       recents.map((r) => ({
         id: `recent:${r.pageId}`,
-        title: r.title || 'Untitled',
+        title: r.title || 'Без названия',
         icon: <Clock aria-hidden width={14} height={14} />,
         onSelect: () => navigateToPage(r.spaceId, r.pageId),
       })),
@@ -268,7 +268,7 @@ export function AppCommandHost() {
             // space they aren't in has no name here — label it rather than
             // rendering a bare parent chain that reads like an own page.
             spaceName: r.public
-              ? 'Published'
+              ? 'Опубликовано'
               : spaceNameById.get(r.space_id),
           },
         ),
@@ -294,7 +294,7 @@ export function AppCommandHost() {
       const excerpt = bodyExcerpt(hit.body, trimmedQuery)
       items.push({
         id: `page-t3:${hit.id}`,
-        title: hit.title || 'Untitled',
+        title: hit.title || 'Без названия',
         subtitle: excerpt ? <span>{excerpt}</span> : undefined,
         breadcrumb: spaceName || undefined,
         icon: <Search aria-hidden width={14} height={14} />,
@@ -304,7 +304,7 @@ export function AppCommandHost() {
     if (trimmedQuery.length > 0) {
       items.push({
         id: `search-all:${trimmedQuery}`,
-        title: `See all results for "${trimmedQuery}" in /search`,
+        title: `Все результаты по запросу «${trimmedQuery}» в /search`,
         keywords: [trimmedQuery],
         icon: <ArrowRight aria-hidden width={14} height={14} />,
         onSelect: () => {
@@ -338,7 +338,7 @@ export function AppCommandHost() {
       seen.add(hit.page_id)
       items.push({
         id: `page-sem:${hit.page_id}`,
-        title: hit.title || 'Untitled',
+        title: hit.title || 'Без названия',
         subtitle: hit.snippet ? <span>{hit.snippet}</span> : undefined,
         breadcrumb: hit.heading_path || undefined,
         icon: <Sparkles aria-hidden width={14} height={14} />,
@@ -360,16 +360,16 @@ export function AppCommandHost() {
     // tiers miss. They stream in on the debounce, so the instant keyword groups
     // below settle first and Smart results slot in above them on arrival.
     if (smartItems.length > 0) {
-      groups.push({ label: 'Smart results', items: smartItems })
+      groups.push({ label: 'Умные результаты', items: smartItems })
     }
     if (titleItems.length > 0) {
-      groups.push({ label: 'Titles', items: titleItems })
+      groups.push({ label: 'Заголовки', items: titleItems })
     }
     if (searchItems.length > 0) {
-      groups.push({ label: 'All pages', items: searchItems })
+      groups.push({ label: 'Все страницы', items: searchItems })
     }
     if (bodyItems.length > 0) {
-      groups.push({ label: 'Body matches', items: bodyItems })
+      groups.push({ label: 'Совпадения в тексте', items: bodyItems })
     }
     return groups
   }, [trimmedQuery, recentsItems, titleItems, searchItems, bodyItems, smartItems])
@@ -378,7 +378,7 @@ export function AppCommandHost() {
     if (trimmedQuery.length === 0) {
       return recents.length > 0
         ? undefined
-        : 'Recently viewed pages will appear here. Type to search.'
+        : 'Недавно просмотренные страницы появятся здесь. Начните вводить, чтобы искать.'
     }
     // If any tier has results we don't show empty messaging even while others
     // are still in flight — the user sees something instantly.
@@ -386,8 +386,8 @@ export function AppCommandHost() {
       return undefined
     // Loading state — only visible on the very first query for a key, since
     // keepPreviousData keeps stale data around through subsequent re-queries.
-    if (searchResults == null) return 'Searching…'
-    return `No pages match "${debouncedQuery}".`
+    if (searchResults == null) return 'Поиск…'
+    return `Нет страниц по запросу «${debouncedQuery}».`
   }, [
     trimmedQuery,
     debouncedQuery,

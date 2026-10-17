@@ -57,7 +57,7 @@ export function CommentItem({
       return
     }
     if (trimmed.length === 0) {
-      setError('Body is required.')
+      setError('Необходимо указать текст.')
       return
     }
     setBusy(true)
@@ -66,7 +66,7 @@ export function CommentItem({
       await onEdit(comment.id, trimmed)
       setMode('view')
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Failed to save.')
+      setError(err instanceof ApiError ? err.message : 'Не удалось сохранить.')
     } finally {
       setBusy(false)
     }
@@ -78,7 +78,7 @@ export function CommentItem({
     try {
       await onDelete(comment.id)
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Failed to delete.')
+      setError(err instanceof ApiError ? err.message : 'Не удалось удалить.')
       setBusy(false)
       setConfirmDelete(false)
     }
@@ -97,7 +97,7 @@ export function CommentItem({
           {comment.author_username}
         </span>
         <span className="text-[length:var(--text-xs)] text-[var(--text-muted)] font-[family-name:var(--font-sans)]">
-          {isOptimistic ? 'sending…' : relativeTimeFromSqlite(comment.created_at)}
+          {isOptimistic ? 'отправка…' : relativeTimeFromSqlite(comment.created_at)}
         </span>
         <div className="ml-auto flex items-center gap-[var(--space-1)]">
           {canEdit && mode === 'view' ? (
@@ -105,7 +105,7 @@ export function CommentItem({
               type="button"
               variant="ghost"
               size="sm"
-              aria-label="Edit comment"
+              aria-label="Редактировать комментарий"
               onClick={() => {
                 setDraft(comment.body)
                 setError(null)
@@ -121,7 +121,7 @@ export function CommentItem({
               type="button"
               variant="ghost"
               size="sm"
-              aria-label="Delete comment"
+              aria-label="Удалить комментарий"
               onClick={() => setConfirmDelete(true)}
               className="h-[var(--space-6)] w-[var(--space-6)] p-0 hover:text-[var(--danger)]"
             >
@@ -139,7 +139,7 @@ export function CommentItem({
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
             disabled={busy}
-            aria-label="Edit comment body"
+            aria-label="Текст комментария"
           />
           {error ? (
             <p
@@ -161,7 +161,7 @@ export function CommentItem({
               }}
               disabled={busy}
             >
-              Cancel
+              Отмена
             </Button>
             <Button
               type="button"
@@ -170,7 +170,7 @@ export function CommentItem({
               onClick={() => void handleSave()}
               disabled={busy || draft.trim().length === 0}
             >
-              {busy ? 'Saving…' : 'Save'}
+              {busy ? 'Сохранение…' : 'Сохранить'}
             </Button>
           </div>
         </div>
@@ -201,7 +201,7 @@ export function CommentItem({
       {confirmDelete ? (
         <div className="mt-[var(--space-1)] flex items-center justify-between gap-[var(--space-2)] rounded-[var(--radius-sm)] bg-[var(--surface-2)] px-[var(--space-2)] py-[var(--space-2)]">
           <span className="text-[length:var(--text-xs)] text-[var(--text-muted)] font-[family-name:var(--font-sans)]">
-            Delete this comment?
+            Удалить этот комментарий?
           </span>
           <div className="flex items-center gap-[var(--space-1)]">
             <Button
@@ -210,9 +210,9 @@ export function CommentItem({
               size="sm"
               onClick={() => setConfirmDelete(false)}
               disabled={busy}
-              aria-label="Cancel delete"
+              aria-label="Отменить удаление"
             >
-              <X width={12} height={12} /> Cancel
+              <X width={12} height={12} /> Отмена
             </Button>
             <Button
               type="button"
@@ -221,7 +221,7 @@ export function CommentItem({
               onClick={() => void handleDeleteConfirmed()}
               disabled={busy}
             >
-              {busy ? 'Deleting…' : 'Delete'}
+              {busy ? 'Удаление…' : 'Удалить'}
             </Button>
           </div>
         </div>

@@ -36,7 +36,7 @@ export function FavoriteStar({
           height={14}
           className={isFavorited ? 'fill-[var(--accent)] text-[var(--accent)]' : undefined}
         />
-        {isFavorited ? 'Remove from favorites' : 'Add to favorites'}
+        {isFavorited ? 'Убрать из избранного' : 'Добавить в избранное'}
       </DropdownMenuItem>
     )
   }
@@ -48,8 +48,8 @@ export function FavoriteStar({
       size="sm"
       onClick={() => toggle.mutate({ pageId, isFavorited })}
       disabled={toggle.isPending}
-      aria-label={isFavorited ? 'Remove from favorites' : 'Add to favorites'}
-      title={isFavorited ? 'Remove from favorites' : 'Add to favorites'}
+      aria-label={isFavorited ? 'Убрать из избранного' : 'Добавить в избранное'}
+      title={isFavorited ? 'Убрать из избранного' : 'Добавить в избранное'}
       className={cn('h-[var(--space-8)] w-[var(--space-8)] p-0', className)}
     >
       <Star

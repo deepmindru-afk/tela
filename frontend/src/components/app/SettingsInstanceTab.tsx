@@ -29,14 +29,14 @@ export function SettingsInstanceTab() {
       className="flex flex-col gap-[var(--space-5)]"
     >
       <p className="m-0 text-[length:var(--text-sm)] text-[var(--text-muted)] leading-[var(--leading-relaxed)]">
-        Instance-wide settings. Changes apply immediately — no redeploy.
+        Настройки всего инстанса. Изменения применяются сразу — без перезапуска.
       </p>
 
       {settings.isLoading ? (
-        <p className="m-0 text-[length:var(--text-sm)] text-[var(--text-muted)]">Loading…</p>
+        <p className="m-0 text-[length:var(--text-sm)] text-[var(--text-muted)]">Загрузка…</p>
       ) : settings.isError ? (
         <p role="alert" className="m-0 text-[length:var(--text-sm)] text-[var(--danger)]">
-          Couldn’t load instance settings.
+          Не удалось загрузить настройки инстанса.
         </p>
       ) : (
         <>
@@ -47,18 +47,18 @@ export function SettingsInstanceTab() {
               <Checkbox
                 checked={registrationOpen}
                 disabled={update.isPending}
-                aria-label="Allow self-registration"
+                aria-label="Разрешить самостоятельную регистрацию"
                 onCheckedChange={(v) =>
                   update.mutate({ registration_open: v === true ? 'true' : 'false' })
                 }
               />
               <span className="flex flex-col gap-[var(--space-1)]">
                 <span className="text-[length:var(--text-sm)] text-[var(--text-primary)] font-medium">
-                  Allow self-registration
+                  Разрешить самостоятельную регистрацию
                 </span>
                 <span className="text-[length:var(--text-xs)] text-[var(--text-muted)] leading-[var(--leading-relaxed)]">
-                  When off, new users can’t sign up themselves; instance admins can still
-                  create accounts directly.
+                  Если выключено, новые пользователи не могут регистрироваться
+                  сами; администраторы инстанса по-прежнему могут создавать учётные записи напрямую.
                 </span>
               </span>
             </label>
@@ -67,20 +67,21 @@ export function SettingsInstanceTab() {
               <Checkbox
                 checked={aiDisabled}
                 disabled={update.isPending}
-                aria-label="Pause AI features"
+                aria-label="Приостановить ИИ-возможности"
                 onCheckedChange={(v) =>
                   update.mutate({ 'ai.disabled': v === true ? '1' : '0' })
                 }
               />
               <span className="flex flex-col gap-[var(--space-1)]">
                 <span className="text-[length:var(--text-sm)] text-[var(--text-primary)] font-medium">
-                  Pause AI features
+                  Приостановить ИИ-возможности
                 </span>
                 <span className="text-[length:var(--text-xs)] text-[var(--text-muted)] leading-[var(--leading-relaxed)]">
-                  Pauses everything that calls the AI backend — “ask your docs”, semantic
-                  search, and background semantic indexing (backfilling). Ask shows a calm
-                  “paused for maintenance” notice; full-text search keeps working. Pair it
-                  with a banner below.
+                  Приостанавливает всё, что обращается к ИИ-бэкенду, — «вопросы к
+                  вашим документам», семантический поиск и фоновое семантическое
+                  индексирование (дозаполнение). В режиме вопросов появится спокойное
+                  уведомление «приостановлено на обслуживание»; полнотекстовый поиск продолжит работать.
+                  Дополните его баннером ниже.
                 </span>
               </span>
             </label>
@@ -124,12 +125,12 @@ function UpdatesSection() {
       },
     )
 
-  let line: React.ReactNode = `You're on tela v${st.current}.`
+  let line: React.ReactNode = `У вас установлена tela v${st.current}.`
   if (st.enabled && st.update_available) {
     line = (
       <>
-        <span className="text-[var(--text-primary)] font-medium">tela v{st.latest} is available.</span>{' '}
-        You're on v{st.current}.{' '}
+        <span className="text-[var(--text-primary)] font-medium">Доступна tela v{st.latest}.</span>{' '}
+        У вас установлена версия v{st.current}.{' '}
         {st.release_url ? (
           <a
             href={st.release_url}
@@ -137,28 +138,28 @@ function UpdatesSection() {
             rel="noopener noreferrer"
             className="text-[var(--accent)] no-underline hover:underline"
           >
-            Release notes and upgrade steps →
+            Примечания к выпуску и шаги обновления →
           </a>
         ) : null}
       </>
     )
   } else if (st.enabled && st.latest) {
-    line = `You're on the latest version, v${st.current}.`
+    line = `У вас последняя версия, v${st.current}.`
   }
 
   return (
     <div className="flex flex-col rounded-[var(--radius-md)] border border-[var(--border-subtle)] overflow-hidden">
       <div className="flex items-start gap-[var(--space-3)] px-[var(--space-4)] py-[var(--space-3)]">
         <span className="flex-1 min-w-0 flex flex-col gap-[var(--space-1)]">
-          <span className="text-[length:var(--text-sm)] text-[var(--text-primary)] font-medium">Updates</span>
+          <span className="text-[length:var(--text-sm)] text-[var(--text-primary)] font-medium">Обновления</span>
           <span className="text-[length:var(--text-sm)] text-[var(--text-muted)] leading-[var(--leading-relaxed)]">
             {line}
           </span>
           {st.enabled && (st.checked_at || st.error) ? (
             <span className="text-[length:var(--text-xs)] text-[var(--text-muted)]">
               {st.error
-                ? `The last check failed (${st.error}).`
-                : `Checked ${relativeTimeFromSqlite(st.checked_at!)}.`}
+                ? `Последняя проверка не удалась (${st.error}).`
+                : `Проверено ${relativeTimeFromSqlite(st.checked_at!)}.`}
             </span>
           ) : null}
         </span>
@@ -170,7 +171,7 @@ function UpdatesSection() {
             disabled={check.isPending}
             onClick={() => check.mutate()}
           >
-            {check.isPending ? 'Checking…' : 'Check now'}
+            {check.isPending ? 'Проверка…' : 'Проверить сейчас'}
           </Button>
         ) : null}
       </div>
@@ -183,17 +184,17 @@ function UpdatesSection() {
         <Checkbox
           checked={st.enabled}
           disabled={st.env_locked || update.isPending}
-          aria-label="Check for new versions"
+          aria-label="Проверять новые версии"
           onCheckedChange={(v) => toggle(v === true)}
         />
         <span className="flex flex-col gap-[var(--space-1)]">
           <span className="text-[length:var(--text-sm)] text-[var(--text-primary)] font-medium">
-            Check for new versions
+            Проверять новые версии
           </span>
           <span className="text-[length:var(--text-xs)] text-[var(--text-muted)] leading-[var(--leading-relaxed)]">
             {st.env_locked
-              ? 'Turned off by TELA_UPDATE_CHECK in the server environment.'
-              : 'Once a day, asks telawiki.com for the latest tela release and tells instance admins when there is a newer one. It sends the version you run and nothing else; telawiki.com counts how many instances check in, without keeping IP addresses.'}
+              ? 'Отключено переменной TELA_UPDATE_CHECK в окружении сервера.'
+              : 'Раз в сутки запрашивает у telawiki.com последний выпуск tela и сообщает администраторам инстанса о новых версиях. Отправляется только номер вашей версии, ничего больше; telawiki.com считает, сколько инстансов проверяет обновления, не сохраняя IP-адреса.'}
           </span>
         </span>
       </label>
@@ -233,10 +234,11 @@ function MaintenanceNoticeEditor({
     <div className="flex flex-col gap-[var(--space-3)] rounded-[var(--radius-md)] border border-[var(--border-subtle)] p-[var(--space-4)]">
       <div className="flex flex-col gap-[var(--space-1)]">
         <span className="text-[length:var(--text-sm)] text-[var(--text-primary)] font-medium">
-          Maintenance banner
+          Баннер обслуживания
         </span>
         <span className="text-[length:var(--text-xs)] text-[var(--text-muted)] leading-[var(--leading-relaxed)]">
-          A soft notice shown to everyone, top of the app + login. Leave empty to hide it.
+          Ненавязчивое уведомление для всех — вверху приложения и на странице входа.
+          Оставьте поле пустым, чтобы скрыть его.
         </span>
       </div>
       <div className="flex items-start gap-[var(--space-2)]">
@@ -244,18 +246,18 @@ function MaintenanceNoticeEditor({
           <Input
             value={notice}
             onChange={(e) => setNotice(e.target.value)}
-            placeholder="e.g. AI is temporarily unavailable for maintenance."
-            aria-label="Maintenance notice"
+            placeholder="например, ИИ временно недоступен из-за обслуживания."
+            aria-label="Уведомление об обслуживании"
           />
         </div>
         <Select
           value={level}
           onChange={(e) => setLevel(e.target.value as 'info' | 'warning')}
-          aria-label="Notice level"
+          aria-label="Важность уведомления"
           className="w-[8rem] shrink-0"
         >
-          <option value="info">Info</option>
-          <option value="warning">Warning</option>
+          <option value="info">Информация</option>
+          <option value="warning">Предупреждение</option>
         </Select>
         <Button
           type="button"
@@ -263,7 +265,7 @@ function MaintenanceNoticeEditor({
           disabled={saving || !dirty}
           onClick={() => onSave(notice.trim(), level)}
         >
-          {saving ? 'Saving…' : 'Save'}
+          {saving ? 'Сохранение…' : 'Сохранить'}
         </Button>
       </div>
     </div>

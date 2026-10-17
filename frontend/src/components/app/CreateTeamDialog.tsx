@@ -35,7 +35,7 @@ export function CreateTeamDialog({ trigger }: { trigger: React.ReactNode }) {
       setName('')
       void navigate({ to: '/settings/orgs/$orgId', params: { orgId: org.id } })
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Could not create the team.')
+      setError(err instanceof ApiError ? err.message : 'Не удалось создать команду.')
     }
   }
 
@@ -45,10 +45,10 @@ export function CreateTeamDialog({ trigger }: { trigger: React.ReactNode }) {
       <DialogContent>
         <form onSubmit={submit}>
           <DialogHeader>
-            <DialogTitle>Create a team</DialogTitle>
+            <DialogTitle>Создать команду</DialogTitle>
             <DialogDescription>
-              Spin up an organization, invite teammates, then upgrade to the Team plan. It starts
-              free — no card required.
+              Создайте организацию, пригласите коллег, а затем перейдите на тариф «Команда». Начало
+              бесплатно — карта не нужна.
             </DialogDescription>
           </DialogHeader>
           <div className="flex flex-col gap-[var(--space-2)] py-[var(--space-4)]">
@@ -56,7 +56,7 @@ export function CreateTeamDialog({ trigger }: { trigger: React.ReactNode }) {
               htmlFor="team-name"
               className="text-[length:var(--text-sm)] font-medium text-[var(--text-primary)]"
             >
-              Team name
+              Название команды
             </label>
             <Input
               id="team-name"
@@ -73,11 +73,11 @@ export function CreateTeamDialog({ trigger }: { trigger: React.ReactNode }) {
           <DialogFooter>
             <DialogClose asChild>
               <Button type="button" variant="ghost">
-                Cancel
+                Отмена
               </Button>
             </DialogClose>
             <Button type="submit" variant="primary" disabled={createOrg.isPending || name.trim() === ''}>
-              {createOrg.isPending ? 'Creating…' : 'Create team'}
+              {createOrg.isPending ? 'Создание…' : 'Создать команду'}
             </Button>
           </DialogFooter>
         </form>

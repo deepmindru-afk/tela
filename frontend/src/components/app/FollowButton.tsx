@@ -28,7 +28,8 @@ export function FollowButton({
   const { data } = useSubscription(kind, id)
   const toggle = useToggleSubscription(kind, id)
   const following = data ?? false
-  const noun = kind === 'space' ? 'space' : 'page'
+  const nounAcc = kind === 'space' ? 'пространство' : 'страницу'
+  const nounGen = kind === 'space' ? 'пространства' : 'страницы'
 
   if (asMenuItem) {
     return (
@@ -42,7 +43,7 @@ export function FollowButton({
           height={14}
           className={following ? 'fill-[var(--accent)] text-[var(--accent)]' : undefined}
         />
-        {following ? `Unfollow this ${noun}` : `Follow this ${noun}`}
+        {following ? `Отписаться от ${nounGen}` : `Подписаться на ${nounAcc}`}
       </DropdownMenuItem>
     )
   }
@@ -54,13 +55,13 @@ export function FollowButton({
       size="sm"
       onClick={() => toggle.mutate(following)}
       disabled={toggle.isPending}
-      aria-label={following ? `Following this ${noun} — unfollow` : `Follow this ${noun}`}
+      aria-label={following ? `Вы подписаны на ${nounGen} — отписаться` : `Подписаться на ${nounAcc}`}
       title={
         following
-          ? 'Following — you’ll be notified of changes'
+          ? 'Вы подписаны — вы будете получать уведомления об изменениях'
           : kind === 'space'
-            ? 'Follow to be notified of new and changed pages'
-            : 'Follow to be notified when this page changes'
+            ? 'Подпишитесь, чтобы получать уведомления о новых и изменённых страницах'
+            : 'Подпишитесь, чтобы получать уведомления об изменениях этой страницы'
       }
       className={cn('h-[var(--space-8)] w-[var(--space-8)] p-0', className)}
     >

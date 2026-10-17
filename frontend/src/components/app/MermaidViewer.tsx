@@ -66,8 +66,8 @@ function MermaidViewer({ code, onClosed }: { code: string; onClosed: () => void 
       height={view.height}
       actions={
         <ZoomViewerAction
-          aria-label="Download SVG"
-          title="Download SVG"
+          aria-label="Скачать SVG"
+          title="Скачать SVG"
           onClick={() => download(view, title)}
         >
           <Download width={16} height={16} aria-hidden />
@@ -102,27 +102,27 @@ function standalone(svg: string): Standalone | null {
 }
 
 const KIND_NAMES: Record<string, string> = {
-  flowchart: 'Flowchart',
-  'flowchart-v2': 'Flowchart',
-  sequence: 'Sequence diagram',
-  class: 'Class diagram',
-  classDiagram: 'Class diagram',
-  stateDiagram: 'State diagram',
-  er: 'Entity relationship diagram',
-  gantt: 'Gantt chart',
-  pie: 'Pie chart',
-  journey: 'User journey',
-  gitGraph: 'Git graph',
-  mindmap: 'Mind map',
-  timeline: 'Timeline',
-  quadrantChart: 'Quadrant chart',
-  architecture: 'Architecture diagram',
+  flowchart: 'Блок-схема',
+  'flowchart-v2': 'Блок-схема',
+  sequence: 'Диаграмма последовательностей',
+  class: 'Диаграмма классов',
+  classDiagram: 'Диаграмма классов',
+  stateDiagram: 'Диаграмма состояний',
+  er: 'Диаграмма «сущность–связь»',
+  gantt: 'Диаграмма Ганта',
+  pie: 'Круговая диаграмма',
+  journey: 'Путь пользователя',
+  gitGraph: 'Граф Git',
+  mindmap: 'Ментальная карта',
+  timeline: 'Хронология',
+  quadrantChart: 'Квадрантная диаграмма',
+  architecture: 'Архитектурная диаграмма',
 }
 
 // The diagram's own `title:` (frontmatter) or `accTitle:`, else its kind.
 function diagramTitle(code: string, kind: string): string {
   const own = /^\s*(?:title|accTitle)(?:\s*:\s*|\s+)(.+?)\s*$/m.exec(code)?.[1]
-  return own?.replace(/^["']|["']$/g, '') || KIND_NAMES[kind] || 'Diagram'
+  return own?.replace(/^["']|["']$/g, '') || KIND_NAMES[kind] || 'Диаграмма'
 }
 
 // The file gets the natural pixel size back, so it opens at 100% on its own.

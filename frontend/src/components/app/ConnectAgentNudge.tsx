@@ -42,16 +42,16 @@ export function ConnectAgentNudge() {
       </span>
       <div className="flex-1 min-w-0 flex flex-col gap-[var(--space-1)]">
         <span className="text-[length:var(--text-sm)] font-medium text-[var(--text-primary)]">
-          Connect an agent to your wiki
+          Подключите агента к вашей вики
         </span>
         <span className="text-[length:var(--text-sm)] text-[var(--text-muted)] leading-[var(--leading-relaxed)]">
-          Use Claude, Cursor, or ChatGPT to search, read, and write your spaces —
-          it takes a couple of minutes.
+          Используйте Claude, Cursor или ChatGPT, чтобы искать, читать и писать в
+          ваших пространствах — это займёт пару минут.
         </span>
         <div className="mt-[var(--space-1)]">
           <Button asChild variant="primary" size="sm">
             <a href={DOCS.mcp} target="_blank" rel="noreferrer">
-              Set up MCP →
+              Настроить MCP →
             </a>
           </Button>
         </div>
@@ -59,7 +59,7 @@ export function ConnectAgentNudge() {
       <button
         type="button"
         onClick={dismiss}
-        aria-label="Dismiss"
+        aria-label="Скрыть"
         className="shrink-0 rounded-[var(--radius-xs)] p-[var(--space-1)] text-[var(--text-muted)] hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
       >
         <X width={15} height={15} />

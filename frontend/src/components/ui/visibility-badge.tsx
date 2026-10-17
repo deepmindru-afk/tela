@@ -24,9 +24,9 @@ const CONFIG: Record<
   ExposureState,
   { icon: LucideIcon; label: string; variant: 'muted' | 'accent' }
 > = {
-  private: { icon: Users, label: 'Space', variant: 'muted' },
-  public: { icon: Globe, label: 'Public', variant: 'accent' },
-  password: { icon: KeyRound, label: 'Password', variant: 'accent' },
+  private: { icon: Users, label: 'Пространство', variant: 'muted' },
+  public: { icon: Globe, label: 'Публичная', variant: 'accent' },
+  password: { icon: KeyRound, label: 'По паролю', variant: 'accent' },
 }
 
 export interface VisibilityBadgeProps
@@ -46,7 +46,7 @@ export const VisibilityBadge = forwardRef<
   ref,
 ) {
   const { icon: Icon, label, variant } = CONFIG[state]
-  const text = inherited ? `${label} · inherited` : label
+  const text = inherited ? `${label} · унаследовано` : label
   // Inherited (and the resting private state) read muted; live exposure pops.
   const muted = inherited || state === 'private'
 

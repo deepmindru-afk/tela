@@ -64,10 +64,10 @@ export function PageLintNotice({
   return (
     <aside
       className={cn('flex flex-col gap-[1px]', className)}
-      aria-label="Rendering issues"
+      aria-label="Проблемы отображения"
     >
       <p className="px-[var(--space-1)] text-[var(--text-xs)] uppercase tracking-wide text-[var(--text-muted)]">
-        Renders differently than written
+        Отображается иначе, чем записано
       </p>
       <ul className="flex flex-col gap-[1px]">
         {issues.slice(0, MAX_ISSUES).map((x) => (
@@ -88,14 +88,14 @@ export function PageLintNotice({
             {/* Messages carry the full fix instructions (they're written for
                 agents too); clamp so a long one can't dominate the editor. */}
             <span className="line-clamp-4 min-w-0" title={x.message}>
-              <span className="font-medium tabular-nums">Line {x.line}: </span>
+              <span className="font-medium tabular-nums">Строка {x.line}: </span>
               {x.message}
             </span>
           </li>
         ))}
         {issues.length > MAX_ISSUES ? (
           <li className="px-[var(--space-2)] pt-[var(--space-1)] text-[var(--text-xs)] text-[var(--text-muted)]">
-            +{issues.length - MAX_ISSUES} more
+            +{issues.length - MAX_ISSUES} ещё
           </li>
         ) : null}
       </ul>

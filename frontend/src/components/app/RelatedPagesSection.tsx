@@ -46,7 +46,7 @@ export function RelatedPagesSection({ pageId, spaceId }: RelatedPagesSectionProp
         className="m-0 flex items-center gap-[var(--space-2)] text-[length:var(--text-xs)] uppercase tracking-wider text-[var(--text-muted)] font-[family-name:var(--font-sans)]"
       >
         <Sparkles aria-hidden width={13} height={13} className="text-[var(--accent)]" />
-        Related pages
+        Похожие страницы
       </h2>
       <ul className="m-0 p-0 list-none flex flex-col gap-[1px]">
         {rows.map((row) => {
@@ -83,7 +83,7 @@ export function RelatedPagesSection({ pageId, spaceId }: RelatedPagesSectionProp
                 />
                 <span className="flex flex-1 items-center gap-[var(--space-2)] min-w-0">
                   <span className="truncate text-[length:var(--text-sm)] text-[var(--text-primary)] font-medium font-[family-name:var(--font-sans)]">
-                    {row.title || 'Untitled'}
+                    {row.title || 'Без названия'}
                   </span>
                   {crossSpace && spaceName.has(row.space_id) ? (
                     <span
@@ -105,7 +105,7 @@ export function RelatedPagesSection({ pageId, spaceId }: RelatedPagesSectionProp
                     normalised to the top neighbour. Decorative, so aria-hidden. */}
                 <span
                   aria-hidden
-                  title={`${Math.round(row.similarity * 100)}% similar`}
+                  title={`${Math.round(row.similarity * 100)}% похоже`}
                   className="shrink-0 h-[3px] w-[var(--space-8)] rounded-full bg-[var(--surface-3)] overflow-hidden"
                 >
                   <span

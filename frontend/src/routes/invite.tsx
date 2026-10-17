@@ -42,17 +42,17 @@ export function InvitePage() {
   const [error, setError] = useState<string | null>(null)
 
   if (invite.isPending || me.isPending) {
-    return <Shell title="Loading invitation…" description="One moment." />
+    return <Shell title="Загрузка приглашения…" description="Одну минуту." />
   }
   const data = invite.data
   if (!data || !data.valid) {
     return (
       <Shell
-        title="Invitation invalid or expired"
-        description="This invitation can't be used. Ask the team to send a fresh one."
+        title="Приглашение недействительно или истекло"
+        description="Это приглашение нельзя использовать. Попросите команду прислать новое."
       >
         <Button asChild variant="primary" size="lg">
-          <Link to="/login">Go to tela</Link>
+          <Link to="/login">Перейти в сервис tela</Link>
         </Button>
       </Shell>
     )
@@ -60,11 +60,11 @@ export function InvitePage() {
 
   const isSpace = data.kind === 'space'
   // What you're joining, and the noun for it.
-  const target = (isSpace ? data.space_name : data.org_name) ?? (isSpace ? 'a space' : 'the team')
-  const what = isSpace ? `the "${target}" space` : target
+  const target = (isSpace ? data.space_name : data.org_name) ?? (isSpace ? 'пространству' : 'команде')
+  const what = isSpace ? `пространство «${target}»` : target
   const invitedBy = data.inviter
-    ? `${data.inviter} invited you to ${what} on tela.`
-    : `You've been invited to ${what} on tela.`
+    ? `${data.inviter} приглашает вас в ${what} в сервисе tela.`
+    : `Вас приглашают в ${what} в сервисе tela.`
   const invEmail = (data.email ?? '').toLowerCase()
   const user = me.data
   const myEmail = (user?.email ?? '').toLowerCase()
@@ -75,17 +75,17 @@ export function InvitePage() {
       await accept.mutateAsync(token)
       void navigate({ to: '/' })
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : 'Could not accept the invitation.')
+      setError(e instanceof ApiError ? e.message : 'Не удалось принять приглашение.')
     }
   }
 
   // Signed in with the invited address → one-click join.
   if (user && myEmail === invEmail) {
     return (
-      <Shell title={`Join ${target}`} description={invitedBy}>
+      <Shell title={`Присоединиться к ${target}`} description={invitedBy}>
         <div className="flex flex-col items-center gap-[var(--space-3)]">
           <Button variant="primary" size="lg" disabled={accept.isPending} onClick={onAccept}>
-            {accept.isPending ? 'Joining…' : `Join ${target}`}
+            {accept.isPending ? 'Присоединение…' : `Присоединиться к ${target}`}
           </Button>
           {error ? (
             <p className="m-0 text-[length:var(--text-sm)] text-[var(--danger)]">{error}</p>
@@ -99,12 +99,12 @@ export function InvitePage() {
   if (user) {
     return (
       <Shell
-        title={`Invitation for ${data.email}`}
-        description={`This invite is for ${data.email}, but you're signed in as ${user.email ?? user.username}. Sign in with ${data.email} to accept it.`}
+        title={`Приглашение для ${data.email}`}
+        description={`Это приглашение адресовано ${data.email}, но вы вошли как ${user.email ?? user.username}. Войдите под ${data.email}, чтобы принять его.`}
       >
         <Button asChild variant="secondary" size="lg">
           <Link to="/login" search={{ next: `/invite/${token}` }}>
-            Switch account
+            Сменить аккаунт
           </Link>
         </Button>
       </Shell>
@@ -114,18 +114,18 @@ export function InvitePage() {
   // Logged out — sign up (auto-joins on email verify) or sign in.
   return (
     <Shell
-      title={`Join ${target} on tela`}
-      description={`${invitedBy} Create an account with ${data.email} or sign in to accept.`}
+      title={`Присоединиться к ${target} в сервисе tela`}
+      description={`${invitedBy} Создайте аккаунт с адресом ${data.email} или войдите, чтобы принять приглашение.`}
     >
       <div className="flex flex-col items-stretch gap-[var(--space-2)]">
         <Button asChild variant="primary" size="lg">
           <Link to="/register" search={{ email: data.email }}>
-            Create your account
+            Создать аккаунт
           </Link>
         </Button>
         <Button asChild variant="secondary">
           <Link to="/login" search={{ next: `/invite/${token}` }}>
-            I already have an account
+            У меня уже есть аккаунт
           </Link>
         </Button>
       </div>

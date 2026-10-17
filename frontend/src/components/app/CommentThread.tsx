@@ -65,7 +65,7 @@ export function CommentThread({
       await onToggleResolved(root.id, !root.resolved)
     } catch (err) {
       setResolveError(
-        err instanceof ApiError ? err.message : 'Failed to update.',
+        err instanceof ApiError ? err.message : 'Не удалось обновить.',
       )
     } finally {
       setResolving(false)
@@ -113,8 +113,8 @@ export function CommentThread({
           </blockquote>
           {isOrphan ? (
             <span
-              aria-label="Orphaned thread"
-              title="The commented passage was deleted or drifted past the resolver."
+              aria-label="Обсуждение без привязки"
+              title="Комментируемый фрагмент был удалён или больше не найден в тексте."
               className={cn(
                 'shrink-0 mt-[var(--space-1)] px-[var(--space-2)]',
                 'rounded-[var(--radius-xs)]',
@@ -123,7 +123,7 @@ export function CommentThread({
                 'border border-[var(--border-subtle)]',
               )}
             >
-              Orphaned
+              Без привязки
             </span>
           ) : null}
         </div>
@@ -148,9 +148,9 @@ export function CommentThread({
             'font-[family-name:var(--font-sans)] opacity-80',
           )}
         >
-          Resolved by{' '}
+          Решено —{' '}
           <span className="font-medium">
-            {root.resolved_by_username ?? 'unknown'}
+            {root.resolved_by_username ?? 'неизвестно'}
           </span>
           {root.resolved_at ? (
             <>
@@ -188,7 +188,7 @@ export function CommentThread({
             onClick={() => setReplying(true)}
             disabled={isOptimistic(root.id)}
           >
-            <CornerDownRight width={12} height={12} /> Reply
+            <CornerDownRight width={12} height={12} /> Ответить
           </Button>
         ) : null}
         <Button
@@ -197,10 +197,10 @@ export function CommentThread({
           size="sm"
           disabled={isOptimistic(root.id) || resolving}
           onClick={() => void handleToggleResolved()}
-          title={root.resolved ? 'Reopen this thread' : 'Resolve this thread'}
+          title={root.resolved ? 'Открыть обсуждение снова' : 'Решить обсуждение'}
         >
           <MessageSquare width={12} height={12} />{' '}
-          {root.resolved ? 'Reopen' : 'Resolve'}
+          {root.resolved ? 'Открыть снова' : 'Решить'}
         </Button>
       </div>
 

@@ -21,8 +21,8 @@ export function ChildGallery({
 }) {
   if (posts.length === 0) return null
   return (
-    <section className="reader-childgallery" aria-label="In this section">
-      <h2 className="reader-childgallery-title">In this section</h2>
+    <section className="reader-childgallery" aria-label="В этом разделе">
+      <h2 className="reader-childgallery-title">В этом разделе</h2>
       <div className="reader-childgallery-grid">
         {posts.map((p) => (
           <PostCard

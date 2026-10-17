@@ -99,11 +99,11 @@ const rootRoute = createRootRoute({
       <EmptyState
         fullScreen
         icon={FileQuestion}
-        title="Page not found"
-        description="That page doesn’t exist or you don’t have access to it."
+        title="Страница не найдена"
+        description="Эта страница не существует или у вас нет к ней доступа."
         actions={
           <Button asChild variant="primary" size="lg">
-            <Link to="/">Back to tela</Link>
+            <Link to="/">Вернуться в сервис tela</Link>
           </Button>
         }
       />
@@ -167,7 +167,7 @@ const appLayoutRoute = createRoute({
         {sidebarOpen ? (
           <button
             type="button"
-            aria-label="Close navigation"
+            aria-label="Закрыть навигацию"
             className="fixed inset-0 z-40 bg-black/40 md:hidden"
             onClick={() => setSidebarOpen(false)}
           />
@@ -177,7 +177,7 @@ const appLayoutRoute = createRoute({
             <h1 className="m-0 flex items-center gap-[var(--space-2)] text-[length:var(--text-lg)] leading-[var(--leading-tight)] font-[family-name:var(--font-sans)]">
               <button
                 type="button"
-                aria-label="Open navigation"
+                aria-label="Открыть навигацию"
                 className="md:hidden inline-flex items-center justify-center rounded-[var(--radius-xs)] p-[var(--space-1)] text-[var(--text-muted)] hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
                 onClick={() => setSidebarOpen(true)}
               >
@@ -186,9 +186,9 @@ const appLayoutRoute = createRoute({
               {/* Desktop show/hide of the whole left nav (also `\`). */}
               <button
                 type="button"
-                aria-label={collapsed ? 'Show sidebar' : 'Hide sidebar'}
+                aria-label={collapsed ? 'Показать боковую панель' : 'Скрыть боковую панель'}
                 aria-pressed={collapsed}
-                title={collapsed ? 'Show sidebar (\\)' : 'Hide sidebar (\\)'}
+                title={collapsed ? 'Показать боковую панель (\\)' : 'Скрыть боковую панель (\\)'}
                 className="hidden md:inline-flex items-center justify-center rounded-[var(--radius-xs)] p-[var(--space-1)] text-[var(--text-muted)] hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
                 onClick={() => setCollapsed((c) => !c)}
               >
@@ -196,7 +196,7 @@ const appLayoutRoute = createRoute({
               </button>
               <Link
                 to="/"
-                aria-label="tela home"
+                aria-label="Главная страница tela"
                 className="inline-flex rounded-[var(--radius-xs)] no-underline transition-opacity duration-[var(--duration-fast)] hover:opacity-70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
               >
                 <BrandLogo size={20} />
@@ -561,11 +561,11 @@ const spaceIndexRoute = createRoute({
           <Card className="w-full max-w-[28rem] text-center">
             <CardHeader className="items-center">
               <CardTitle className="text-[length:var(--text-2xl)]">
-                {spaceName ? `No pages in ${spaceName}` : 'No pages yet'}
+                {spaceName ? `В пространстве ${spaceName} нет страниц` : 'Пока нет страниц'}
               </CardTitle>
               <CardDescription>
-                Start with an Untitled page, then rename it once you know what
-                it'll be about.
+                Начните со страницы без названия, а затем переименуйте её, когда
+                поймёте, о чём она.
               </CardDescription>
             </CardHeader>
             <CardFooter className="justify-center">
@@ -575,7 +575,7 @@ const spaceIndexRoute = createRoute({
                 onClick={() => void handleCreate()}
                 disabled={createPage.isPending}
               >
-                <FilePlus width={16} height={16} /> Create your first page
+                <FilePlus width={16} height={16} /> Создать первую страницу
               </Button>
             </CardFooter>
           </Card>

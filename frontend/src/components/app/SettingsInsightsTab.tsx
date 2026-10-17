@@ -23,7 +23,9 @@ import { StatusBadge } from '../ui/status-badge'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../ui/tooltip'
 import { relativeTimeFromSqlite } from '../../lib/relativeTime'
 import { cn } from '../../lib/utils'
+import { ruPlural } from '../../lib/ru-plural'
 
+// Russian plural for counted nouns: 1 токен, 2 токена, 5 токенов.
 // Settings → Insights — the instance-analytics hub (instance-admin). A scannable
 // top-to-bottom read: at-a-glance KPIs → growth/signups → activity → people &
 // content → AI/retrieval → knowledge health. Everything is aggregated server-side
@@ -49,8 +51,8 @@ export function SettingsInsightsTab() {
       <section aria-labelledby="settings-insights" className="flex flex-col gap-[var(--space-6)]">
         <div className="flex items-start justify-between gap-[var(--space-3)]">
           <p className="m-0 text-[length:var(--text-sm)] text-[var(--text-muted)] leading-[var(--leading-relaxed)]">
-            A live read on the instance. Trends are daily over the last 30 days; deltas
-            compare the last 7 days with the 7 before.
+            Срез состояния инстанса в реальном времени. Динамика — по дням
+            за последние 30 дней; изменения сравнивают последние 7 дней с предыдущими семью.
           </p>
           <IncludeAdminsToggle checked={includeAdmins} onChange={setIncludeAdmins} />
         </div>
@@ -58,7 +60,7 @@ export function SettingsInsightsTab() {
           <InsightsSkeleton />
         ) : q.isError || !q.data ? (
           <p role="alert" className="m-0 text-[length:var(--text-sm)] text-[var(--danger)]">
-            Couldn't load insights.
+            Не удалось загрузить аналитику.
           </p>
         ) : (
           <InsightsBody s={q.data} />
@@ -77,58 +79,58 @@ function InsightsBody({ s }: { s: AdminStats }) {
         {/* At a glance */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-[var(--space-3)]">
           <Kpi
-            label="Active users"
+            label="Активные пользователи"
             value={s.wau}
             delta={s.wau - s.wau_prev}
-            deltaSuffix="vs last wk"
-            sub={`${nf(s.dau)} today · ${nf(s.mau)} this month`}
-            hint="Distinct users with any logged activity in the last 7 days. The delta compares against the 7 days before that."
+            deltaSuffix="к прошлой неделе"
+            sub={`${nf(s.dau)} сегодня · ${nf(s.mau)} за месяц`}
+            hint="Уникальные пользователи с любой активностью за последние 7 дней. Изменение сравнивается с 7 днями до этого."
           />
           <Kpi
-            label="Users"
+            label="Пользователи"
             value={s.users}
             delta={newInWeek(s.users_cum)}
-            deltaSuffix="this week"
+            deltaSuffix="за неделю"
             series={s.users_cum}
             accent
           />
           <Kpi
-            label="Pages"
+            label="Страницы"
             value={s.pages}
             delta={newInWeek(s.pages_cum)}
-            deltaSuffix="this week"
+            deltaSuffix="за неделю"
             series={s.pages_cum}
             accent
           />
           <Kpi
-            label="Agents connected"
+            label="Подключённые агенты"
             value={s.mcp_users}
-            sub={`${nf(s.active_pats)} active token${s.active_pats === 1 ? '' : 's'} · ${nf(s.public_spaces)} public`}
-            hint="Users who have connected an agent over MCP — tela's first-class audience. Active tokens are live personal access tokens; public = spaces published to the open web."
+            sub={`${nf(s.active_pats)} активных ${ruPlural(s.active_pats, 'токен', 'токена', 'токенов')} · ${nf(s.public_spaces)} публичных`}
+            hint="Пользователи, подключившие агента через MCP — основная аудитория tela. Активные токены — действующие персональные токены доступа; публичные = пространства, опубликованные в интернете."
             accent
           />
         </div>
 
         {/* Growth & signups */}
-        <Section title="Signups & activation" desc="Who's joining, and whether they do anything once they're in.">
+        <Section title="Регистрации и активация" desc="Кто присоединяется и начинает ли работать после этого.">
           <div className="grid gap-[var(--space-5)] lg:grid-cols-[auto_1fr] items-start">
             <div className="flex items-center gap-[var(--space-4)] lg:flex-col lg:items-start">
-              <CoverageGauge value={activation} caption="activated" size="md" />
+              <CoverageGauge value={activation} caption="активированы" size="md" />
               <div className="flex flex-col gap-[var(--space-1)]">
                 <span className="text-[length:var(--text-sm)] text-[var(--text-primary)]">
                   <span className="font-semibold tabular-nums">{nf(s.activated)}</span>
-                  <span className="text-[var(--text-muted)]"> of {nf(s.users)}</span>
+                  <span className="text-[var(--text-muted)]"> из {nf(s.users)}</span>
                 </span>
                 <span className="text-[length:var(--text-xs)] text-[var(--text-muted)]">
-                  have written a page
+                  создали страницу
                 </span>
                 <span className="mt-[var(--space-2)] text-[length:var(--text-sm)] text-[var(--text-primary)]">
                   <span className="font-semibold tabular-nums">{nf(s.new_users_30)}</span>
-                  <span className="text-[var(--text-muted)]"> new · 30d</span>
+                  <span className="text-[var(--text-muted)]"> новых · 30 дн.</span>
                 </span>
               </div>
             </div>
-            <Panel title="Recent signups" empty="No signups yet.">
+            <Panel title="Недавние регистрации" empty="Регистраций пока нет.">
               {s.recent_signups.map((u) => (
                 <SignupRow key={u.user_id} u={u} />
               ))}
@@ -141,10 +143,10 @@ function InsightsBody({ s }: { s: AdminStats }) {
             <div className="flex flex-col gap-[var(--space-2)]">
               <div className="flex items-baseline justify-between gap-[var(--space-3)]">
                 <span className="text-[length:var(--text-xs)] text-[var(--text-muted)]">
-                  New accounts per day · last 30 days
+                  Новых аккаунтов в день · последние 30 дней
                 </span>
                 <span className="text-[length:var(--text-xs)] text-[var(--text-muted)] tabular-nums">
-                  busiest day {nf(Math.max(0, ...s.signups))} · {nf(sum(s.signups))} total
+                  самый активный день {nf(Math.max(0, ...s.signups))} · всего {nf(sum(s.signups))}
                 </span>
               </div>
               <span className="block w-full text-[var(--accent)]">
@@ -152,8 +154,8 @@ function InsightsBody({ s }: { s: AdminStats }) {
                   values={s.signups}
                   labels={s.days}
                   height={56}
-                  ariaLabel="New accounts per day over the last 30 days"
-                  format={(v, d) => `${d}: ${v} ${v === 1 ? 'signup' : 'signups'}`}
+                  ariaLabel="Новых аккаунтов в день за последние 30 дней"
+                  format={(v, d) => `${d}: ${v} ${ruPlural(v, 'регистрация', 'регистрации', 'регистраций')}`}
                 />
               </span>
             </div>
@@ -162,11 +164,11 @@ function InsightsBody({ s }: { s: AdminStats }) {
                 created since it shipped — the caption says how many of the
                 cohort it covers rather than letting the rest read as 'direct'. */}
             <Panel
-              title="Signup sources · 30d"
-              empty="No attributed signups yet."
+              title="Источники регистраций · 30 дн."
+              empty="Атрибутированных регистраций пока нет."
               note={
                 s.signup_sources_known > 0
-                  ? `${nf(s.signup_sources_known)} of ${nf(s.new_users_30)} new accounts attributed`
+                  ? `атрибутировано ${nf(s.signup_sources_known)} из ${nf(s.new_users_30)} новых аккаунтов`
                   : undefined
               }
             >
@@ -178,30 +180,30 @@ function InsightsBody({ s }: { s: AdminStats }) {
         </Section>
 
         {/* Activity */}
-        <Section title="Activity" desc="Daily volume over 30 days, with the week-over-week change.">
+        <Section title="Активность" desc="Объём по дням за 30 дней с изменением по сравнению с прошлой неделей.">
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-[var(--space-3)]">
-            <Trend label="Page views" series={s.views} />
-            <Trend label="Edits" series={s.edits} />
-            <Trend label="Sign-ins" series={s.logins} />
-            <Trend label="Asks" series={s.asks} />
-            <Trend label="Errors" series={s.errors} invert tone="danger" />
+            <Trend label="Просмотры страниц" series={s.views} />
+            <Trend label="Правки" series={s.edits} />
+            <Trend label="Входы" series={s.logins} />
+            <Trend label="Вопросы" series={s.asks} />
+            <Trend label="Ошибки" series={s.errors} invert tone="danger" />
           </div>
         </Section>
 
         {/* People & content */}
-        <Section title="Top content & people" desc="The most active pages, contributors, and spaces over 30 days.">
+        <Section title="Популярное содержимое и участники" desc="Самые активные страницы, авторы и пространства за 30 дней.">
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-[var(--space-4)]">
-            <Panel title="Most-viewed pages" empty="No views yet.">
+            <Panel title="Самые просматриваемые страницы" empty="Просмотров пока нет.">
               {s.top_pages.map((p, i) => (
                 <PageRow key={p.page_id} p={p} rank={i + 1} />
               ))}
             </Panel>
-            <Panel title="Top contributors" empty="No edits yet.">
+            <Panel title="Топ авторов" empty="Правок пока нет.">
               {s.top_contributors.map((c, i) => (
                 <ContributorRow key={c.label} c={c} rank={i + 1} />
               ))}
             </Panel>
-            <Panel title="Most-active spaces" empty="No activity yet.">
+            <Panel title="Самые активные пространства" empty="Активности пока нет.">
               {s.top_spaces.map((sp, i) => (
                 <SpaceRow key={sp.space_id} s={sp} rank={i + 1} />
               ))}
@@ -210,7 +212,7 @@ function InsightsBody({ s }: { s: AdminStats }) {
         </Section>
 
         {/* AI & retrieval */}
-        <Section title="AI & retrieval" desc="Ask usage and the questions your docs couldn't answer — a to-do list for what to write.">
+        <Section title="ИИ и поиск по документам" desc="Вопросы к ИИ и те запросы, на которые ваши документы не дали ответа — список задач для наполнения.">
           <div className="mb-[var(--space-3)] flex items-center gap-[var(--space-2)]">
             <span className={cn(
               'inline-flex items-center gap-[var(--space-1)] rounded-full px-[var(--space-2)] py-0.5',
@@ -220,7 +222,7 @@ function InsightsBody({ s }: { s: AdminStats }) {
                 : 'bg-[var(--accent-negative-subtle)] text-[var(--accent-negative-fg)]',
             )}>
               <span className={cn('h-1.5 w-1.5 rounded-full', s.ai_healthy ? 'bg-[var(--accent-positive-fg)]' : 'bg-[var(--accent-negative-fg)]')} />
-              {s.ai_healthy ? 'AI available' : 'AI unavailable'}
+              {s.ai_healthy ? 'ИИ доступен' : 'ИИ недоступен'}
             </span>
             {!s.ai_healthy && s.ai_reason && (
               <span className="text-[length:var(--text-xs)] text-[var(--text-muted)]">{s.ai_reason}</span>
@@ -228,20 +230,20 @@ function InsightsBody({ s }: { s: AdminStats }) {
           </div>
           <div className="grid gap-[var(--space-5)] lg:grid-cols-[auto_1fr] items-start">
             <div className="flex items-center gap-[var(--space-4)] lg:flex-col lg:items-start">
-              <CoverageGauge value={answerRate} caption="answered" size="md" />
+              <CoverageGauge value={answerRate} caption="с ответом" size="md" />
               <div className="flex flex-col gap-[var(--space-1)]">
                 <span className="text-[length:var(--text-sm)] text-[var(--text-primary)]">
                   <span className="font-semibold tabular-nums">{nf(s.asks_30)}</span>
-                  <span className="text-[var(--text-muted)]"> asks · 30d</span>
+                  <span className="text-[var(--text-muted)]"> вопросов · 30 дн.</span>
                 </span>
                 <span className="text-[length:var(--text-xs)] text-[var(--text-muted)]">
-                  {nf(s.asks_answered_30)} returned grounding
+                  {nf(s.asks_answered_30)} с источниками
                 </span>
               </div>
             </div>
             <Panel
-              title="Unanswered questions"
-              empty="Every recent question found something."
+              title="Вопросы без ответа"
+              empty="На все недавние вопросы найдены ответы."
             >
               {s.unanswered_asks.map((a, i) => (
                 <UnansweredRow key={i} a={a} />
@@ -255,11 +257,11 @@ function InsightsBody({ s }: { s: AdminStats }) {
         <AIUsageSection />
 
         {/* Knowledge health */}
-        <Section title="Knowledge health" desc="Signals worth a periodic tidy-up.">
+        <Section title="Состояние базы знаний" desc="Показатели, которые стоит время от времени проверять.">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-[var(--space-3)]">
-            <Health label="Stale pages" value={s.stale_pages} sub="90d+ untouched" warn={s.stale_pages > 0} />
-            <Health label="Orphan pages" value={s.orphan_pages} sub="no inbound links" warn={s.orphan_pages > 0} />
-            <Health label="Contradictions" value={s.contradictions} sub="pages that disagree" warn={s.contradictions > 0} />
+            <Health label="Устаревшие страницы" value={s.stale_pages} sub="не обновлялись 90+ дн." warn={s.stale_pages > 0} />
+            <Health label="Страницы-сироты" value={s.orphan_pages} sub="нет входящих ссылок" warn={s.orphan_pages > 0} />
+            <Health label="Противоречия" value={s.contradictions} sub="страницы с разными версиями" warn={s.contradictions > 0} />
           </div>
         </Section>
     </>
@@ -317,7 +319,7 @@ function Kpi({
       </span>
       {series && series.length > 1 ? (
         <span className="block w-full text-[var(--accent)]">
-          <Sparkline values={series} height={30} ariaLabel={`${label} trend`} />
+          <Sparkline values={series} height={30} ariaLabel={`Динамика: ${label}`} />
         </span>
       ) : null}
       <div className="flex items-center justify-between gap-[var(--space-2)] min-h-[var(--space-4)]">
@@ -338,7 +340,7 @@ function Trend({ label, series, invert, tone = 'accent' }: { label: string; seri
         {nf(total)}
       </span>
       <span className={cn('block w-full', tone === 'danger' && total > 0 ? 'text-[var(--danger)]' : 'text-[var(--accent)]')}>
-        <Sparkline values={series} height={26} ariaLabel={`${label} trend`} />
+        <Sparkline values={series} height={26} ariaLabel={`Динамика: ${label}`} />
       </span>
       <Delta value={d} invert={invert} />
     </div>
@@ -349,7 +351,7 @@ function Delta({ value, invert, suffix }: { value: number; invert?: boolean; suf
   if (value === 0) {
     return (
       <span className="text-[length:var(--text-xs)] text-[var(--text-muted)]">
-        no change{suffix ? ` ${suffix}` : ''}
+        без изменений{suffix ? ` ${suffix}` : ''}
       </span>
     )
   }
@@ -376,7 +378,7 @@ function Hint({ text }: { text: string }) {
       <TooltipTrigger asChild>
         <button
           type="button"
-          aria-label="What does this mean?"
+          aria-label="Что это значит?"
           className="inline-flex text-[var(--text-muted)] hover:text-[var(--text-primary)]"
         >
           <Info width={12} height={12} aria-hidden="true" />
@@ -465,7 +467,7 @@ function ContributorRow({ c, rank }: { c: StatsTopPerson; rank: number }) {
       <Rank n={rank} />
       <Avatar size="sm" tone={avatarTone(c.label)}>{initials(c.label)}</Avatar>
       <span className="min-w-0 flex-1 truncate font-medium text-[var(--text-primary)]">{c.label}</span>
-      <Count>{nf(c.count)} edits</Count>
+      <Count>{nf(c.count)} правок</Count>
     </li>
   )
 }
@@ -500,7 +502,7 @@ function SignupRow({ u }: { u: StatsSignup }) {
         {u.email ? <div className="truncate text-[length:var(--text-xs)] text-[var(--text-muted)]">{u.email}</div> : null}
       </div>
       <StatusBadge tone={u.activated ? 'positive' : 'neutral'}>
-        {u.activated ? 'active' : 'no activity'}
+        {u.activated ? 'активен' : 'без активности'}
       </StatusBadge>
       <Count>{relativeTimeFromSqlite(u.created_at)}</Count>
     </li>
@@ -529,21 +531,21 @@ function AIReliabilitySection() {
   if (configured.length === 0) {
     return (
       <Section
-        title="AI endpoints & reliability"
-        desc="The backing model services and whether they're reachable."
+        title="ИИ-эндпоинты и надёжность"
+        desc="Служебные модельные сервисы и их доступность."
       >
         <p className="m-0 text-[length:var(--text-sm)] text-[var(--text-muted)]">
-          No AI service is configured. Set <code>TELA_LLM_URL</code> and{' '}
-          <code>TELA_RAG_EMBED_URL</code> to enable chat and embeddings — point them at a relief
-          proxy (LiteLLM) for automatic failover when an endpoint is overloaded.
+          ИИ-сервисы не настроены. Задайте <code>TELA_LLM_URL</code> и{' '}
+          <code>TELA_RAG_EMBED_URL</code>, чтобы включить чат и эмбеддинги, —
+          укажите в них резервный прокси (LiteLLM) для автоматического переключения при перегрузке эндпоинта.
         </p>
       </Section>
     )
   }
   return (
     <Section
-      title="AI endpoints & reliability"
-      desc="Live reachability of each backing model service. Route them through a relief proxy (LiteLLM) so traffic fails over automatically when an endpoint clogs."
+      title="ИИ-эндпоинты и надёжность"
+      desc="Текущая доступность каждого модельного сервиса. Пропустите их через резервный прокси (LiteLLM), чтобы трафик автоматически переключался при перегрузке эндпоинта."
     >
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-[var(--space-3)]">
         {configured.map((s) => (
@@ -558,7 +560,7 @@ function AIReliabilitySection() {
           rel="noreferrer"
           className="reader-meta-link mt-[var(--space-3)] inline-flex items-center gap-[var(--space-1)] text-[length:var(--text-sm)]"
         >
-          Failover & per-endpoint detail in Grafana
+          Переключение и детали по каждому эндпоинту в Grafana
           <ExternalLink width={13} height={13} aria-hidden="true" />
         </a>
       ) : null}
@@ -567,9 +569,9 @@ function AIReliabilitySection() {
 }
 
 function EndpointCard({ s, probed, relief }: { s: AIEndpointHealth; probed: boolean; relief: boolean }) {
-  const label = s.service === 'embed' ? 'Embeddings' : 'Chat & generation'
+  const label = s.service === 'embed' ? 'Эмбеддинги' : 'Чат и генерация'
   const tone = !probed ? 'neutral' : s.healthy ? 'positive' : 'negative'
-  const statusText = !probed ? 'Checking…' : s.healthy ? 'Up' : 'Down'
+  const statusText = !probed ? 'Проверка…' : s.healthy ? 'Доступен' : 'Недоступен'
   return (
     <div className="flex flex-col gap-[var(--space-2)] rounded-[var(--radius-md)] border border-[var(--border-subtle)] bg-[var(--surface-1)] p-[var(--space-3)]">
       <div className="flex items-center justify-between gap-[var(--space-2)]">
@@ -583,19 +585,19 @@ function EndpointCard({ s, probed, relief }: { s: AIEndpointHealth; probed: bool
           {s.endpoint || '—'}
         </span>
         {relief ? (
-          <StatusBadge tone="info">relief pool</StatusBadge>
+          <StatusBadge tone="info">резервный пул</StatusBadge>
         ) : (
-          <StatusBadge tone="neutral">single endpoint</StatusBadge>
+          <StatusBadge tone="neutral">единственный эндпоинт</StatusBadge>
         )}
       </div>
       <dl className="m-0 grid grid-cols-2 gap-x-[var(--space-3)] gap-y-[var(--space-1)]">
-        <EndpointField label="Model" value={s.model || '(default)'} />
-        <EndpointField label="Probe latency" value={probed ? `${s.latency_ms} ms` : '—'} />
+        <EndpointField label="Модель" value={s.model || '(по умолчанию)'} />
+        <EndpointField label="Задержка проверки" value={probed ? `${s.latency_ms} мс` : '—'} />
         <EndpointField
-          label={s.healthy ? 'Up for' : 'Down for'}
+          label={s.healthy ? 'Работает' : 'Не работает'}
           value={s.since ? relativeTimeFromSqlite(s.since) : '—'}
         />
-        <EndpointField label="Last reachable" value={s.last_ok ? relativeTimeFromSqlite(s.last_ok) : 'never'} />
+        <EndpointField label="Последняя доступность" value={s.last_ok ? relativeTimeFromSqlite(s.last_ok) : 'никогда'} />
       </dl>
       {probed && !s.healthy && s.reason ? (
         <p className="m-0 text-[length:var(--text-xs)] text-[var(--danger)] break-words">{s.reason}</p>
@@ -612,20 +614,20 @@ function GateStrip({ g }: { g: AIGate }) {
   return (
     <div className="mt-[var(--space-3)] flex flex-col gap-[var(--space-2)] rounded-[var(--radius-md)] border border-[var(--border-subtle)] bg-[var(--surface-1)] p-[var(--space-3)]">
       <span className="text-[length:var(--text-sm)] font-medium text-[var(--text-primary)]">
-        Foreground concurrency gate
+        Ограничение параллельных запросов
       </span>
       <dl className="m-0 grid grid-cols-3 gap-x-[var(--space-3)] gap-y-[var(--space-1)]">
-        <EndpointField label="Limit" value={String(g.limit)} />
-        <EndpointField label="In flight" value={String(g.in_flight)} />
+        <EndpointField label="Лимит" value={String(g.limit)} />
+        <EndpointField label="В работе" value={String(g.in_flight)} />
         <EndpointField
-          label="Spilled to relief"
-          value={g.overflow ? g.spills.toLocaleString() : 'no target'}
+          label="Перешло в резерв"
+          value={g.overflow ? g.spills.toLocaleString() : 'резерва нет'}
         />
       </dl>
       <p className="m-0 text-[length:var(--text-xs)] text-[var(--text-muted)]">
         {g.overflow
-          ? 'Ask/assist cap on the primary; the surplus spills to the relief layer when saturated.'
-          : 'Ask/assist cap on the primary; with no spill target a full gate queues rather than failing over.'}
+          ? 'Лимит запросов (ask/assist) на основном сервисе; при переполнении избыток уходит в резервный слой.'
+          : 'Лимит запросов (ask/assist) на основном сервисе; без резерва переполнение складывается в очередь, а не переключается.'}
       </p>
     </div>
   )
@@ -650,27 +652,27 @@ function AIUsageSection() {
   const { weeks, models } = q.data
   if (weeks.length === 0 && models.length === 0) {
     return (
-      <Section title="AI usage · token volume">
+      <Section title="Использование ИИ · объём токенов">
         <p className="m-0 text-[length:var(--text-sm)] text-[var(--text-muted)]">
-          No AI usage recorded yet — it accrues as chat, embedding, and image calls run.
+          Использование ИИ пока не зафиксировано — оно накапливается по мере выполнения запросов в чат, эмбеддинги и генерацию изображений.
         </p>
       </Section>
     )
   }
   return (
-    <Section title="AI usage · token volume (estimated)" desc="Apply a per-provider price table to these for a cost estimate (~4 chars/token).">
+    <Section title="Использование ИИ · объём токенов (оценка)" desc="Примените к этим данным прайс-лист провайдера, чтобы оценить стоимость (~4 символа на токен).">
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-[var(--space-4)]">
         <div className="flex flex-col gap-[var(--space-2)] rounded-[var(--radius-md)] border border-[var(--border-subtle)] bg-[var(--surface-1)] p-[var(--space-3)] overflow-x-auto">
           <span className="text-[length:var(--text-xs)] font-medium uppercase tracking-wide text-[var(--text-muted)]">
-            By week
+            По неделям
           </span>
           <table className="w-full text-[length:var(--text-sm)] tabular-nums">
             <thead>
               <tr className="text-[var(--text-muted)] text-left text-[length:var(--text-xs)]">
-                <th className="font-medium pr-[var(--space-3)]">Week</th>
-                <th className="font-medium pr-[var(--space-3)] text-right">Chat tok</th>
-                <th className="font-medium pr-[var(--space-3)] text-right">Embed tok</th>
-                <th className="font-medium text-right">Images</th>
+                <th className="font-medium pr-[var(--space-3)]">Неделя</th>
+                <th className="font-medium pr-[var(--space-3)] text-right">Токены чата</th>
+                <th className="font-medium pr-[var(--space-3)] text-right">Токены эмбеддингов</th>
+                <th className="font-medium text-right">Изображения</th>
               </tr>
             </thead>
             <tbody>
@@ -687,7 +689,7 @@ function AIUsageSection() {
         </div>
         <div className="flex flex-col gap-[var(--space-2)] rounded-[var(--radius-md)] border border-[var(--border-subtle)] bg-[var(--surface-1)] p-[var(--space-3)]">
           <span className="text-[length:var(--text-xs)] font-medium uppercase tracking-wide text-[var(--text-muted)]">
-            By model (12 weeks)
+            По моделям (12 недель)
           </span>
           <ul className="m-0 p-0 list-none flex flex-col gap-[var(--space-1)]">
             {models.map((m) => (
@@ -696,8 +698,8 @@ function AIUsageSection() {
                 className="flex items-baseline justify-between gap-[var(--space-2)] text-[length:var(--text-sm)]"
               >
                 <span className="min-w-0 truncate text-[var(--text-primary)]">
-                  <span className="font-medium">{m.model || '(default)'}</span>{' '}
-                  <span className="text-[var(--text-muted)]">· {m.kind} · {m.calls.toLocaleString()} calls</span>
+                  <span className="font-medium">{m.model || '(по умолчанию)'}</span>{' '}
+                  <span className="text-[var(--text-muted)]">· {m.kind} · {m.calls.toLocaleString()} вызовов</span>
                 </span>
                 <span className="shrink-0 tabular-nums text-[var(--text-muted)]">
                   {(m.kind === 'image' ? m.units : m.tokens).toLocaleString()}
@@ -716,7 +718,7 @@ function AIUsageSection() {
 function InsightsSkeleton() {
   return (
     <div className="flex flex-col gap-[var(--space-6)]" aria-busy="true" aria-live="polite">
-      <span className="sr-only">Loading insights…</span>
+      <span className="sr-only">Загрузка аналитики…</span>
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-[var(--space-3)]">
         {Array.from({ length: 4 }).map((_, i) => (
           <div

@@ -56,7 +56,7 @@ export const SearchResult = forwardRef<HTMLButtonElement, SearchResultProps>(
       >
         <span className="flex items-baseline justify-between gap-[var(--space-3)]">
           <span className="text-[length:var(--text-base)] font-medium text-[var(--text-primary)] truncate font-[family-name:var(--font-sans)]">
-            {title || 'Untitled'}
+            {title || 'Без названия'}
           </span>
           {rel ? (
             <span className="text-[length:var(--text-xs)] text-[var(--text-muted)] shrink-0 font-[family-name:var(--font-sans)]">

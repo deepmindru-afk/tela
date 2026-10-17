@@ -63,15 +63,15 @@ export function ShareManagerSheet({
         }}
       >
         <SheetHeader>
-          <SheetTitle>Share this page</SheetTitle>
+          <SheetTitle>Поделиться страницей</SheetTitle>
           <SheetDescription>
-            Anyone with the link can read this page. Optional password and
-            subtree options below.
+            Все, у кого есть ссылка, могут читать эту страницу. Ниже —
+            необязательный пароль и параметры поддерева.
           </SheetDescription>
           {isDraft ? (
             <p className="text-[length:var(--text-sm)] text-[var(--text-muted)]">
-              This page is a <strong>draft</strong>: its links won&rsquo;t open until you
-              publish it (••• → Publish).
+              Эта страница — <strong>черновик</strong>: её ссылки не откроются, пока
+              вы не опубликуете её (••• → Опубликовать).
             </p>
           ) : null}
         </SheetHeader>
@@ -85,11 +85,11 @@ export function ShareManagerSheet({
               id={`share-active-${pageId}`}
               className="m-0 text-[length:var(--text-xs)] uppercase tracking-wider text-[var(--text-muted)] font-[family-name:var(--font-sans)]"
             >
-              Active shares
+              Активные ссылки
             </h3>
             {sharesQuery.isLoading ? (
               <p className="m-0 text-[length:var(--text-sm)] text-[var(--text-muted)] font-[family-name:var(--font-sans)]">
-                Loading…
+                Загрузка…
               </p>
             ) : sharesQuery.isError ? (
               <p
@@ -100,7 +100,7 @@ export function ShareManagerSheet({
               </p>
             ) : shares.length === 0 ? (
               <p className="m-0 text-[length:var(--text-sm)] text-[var(--text-muted)] font-[family-name:var(--font-sans)]">
-                No active shares yet. Create one below.
+                Активных ссылок пока нет. Создайте ссылку ниже.
               </p>
             ) : (
               <ul className="m-0 p-0 list-none flex flex-col gap-[var(--space-3)]">

@@ -8,16 +8,16 @@ import { cn } from '../../lib/utils'
 
 // Human labels for the audit action codes the backend emits.
 const ACTION_LABEL: Record<string, string> = {
-  'org.create': 'Created org',
-  'org.delete': 'Deleted org',
-  'org_member.add': 'Added org member',
-  'org_member.remove': 'Removed org member',
-  'org_member.role': 'Changed org role',
-  'org_member.auto_join': 'Auto-joined',
-  'grant.add': 'Shared space with org',
-  'grant.role': 'Changed org grant role',
-  'grant.remove': 'Revoked org grant',
-  'domain.map': 'Mapped auto-join domain',
+  'org.create': 'Создана организация',
+  'org.delete': 'Организация удалена',
+  'org_member.add': 'Добавлен участник организации',
+  'org_member.remove': 'Участник организации удалён',
+  'org_member.role': 'Изменена роль в организации',
+  'org_member.auto_join': 'Автоматическое присоединение',
+  'grant.add': 'Пространство открыто для организации',
+  'grant.role': 'Изменена роль доступа для организации',
+  'grant.remove': 'Доступ для организации отозван',
+  'domain.map': 'Добавлен домен автоприсоединения',
 }
 
 export function SettingsAuditTab() {
@@ -31,19 +31,19 @@ export function SettingsAuditTab() {
     >
       <div className="flex items-start justify-between gap-[var(--space-3)]">
         <p className="m-0 text-[length:var(--text-sm)] text-[var(--text-muted)] leading-[var(--leading-relaxed)]">
-          Recent access-control changes — org membership, space grants, auto-joins,
-          and domain mappings. Most recent first.
+          Недавние изменения в управлении доступом — участие в организациях,
+          доступы к пространствам, автоприсоединение и домены. Сначала самые новые.
         </p>
         <IncludeAdminsToggle checked={includeAdmins} onChange={setIncludeAdmins} />
       </div>
 
       {audit.isLoading ? (
         <p className="m-0 text-[length:var(--text-sm)] text-[var(--text-muted)]">
-          Loading audit log…
+          Загрузка журнала аудита…
         </p>
       ) : audit.isError ? (
         <p role="alert" className="m-0 text-[length:var(--text-sm)] text-[var(--danger)]">
-          Couldn't load the audit log.
+          Не удалось загрузить журнал аудита.
         </p>
       ) : audit.data && audit.data.length > 0 ? (
         <ul className="m-0 p-0 list-none flex flex-col gap-[var(--space-1)]">
@@ -53,7 +53,7 @@ export function SettingsAuditTab() {
         </ul>
       ) : (
         <p className="m-0 text-[length:var(--text-sm)] text-[var(--text-muted)]">
-          No access changes recorded yet.
+          Изменений в доступе пока нет.
         </p>
       )}
     </section>
@@ -62,7 +62,7 @@ export function SettingsAuditTab() {
 
 export function AuditRow({ entry }: { entry: AccessAuditEntry }) {
   const label = ACTION_LABEL[entry.action] ?? entry.action
-  const actor = entry.actor_username ?? 'system'
+  const actor = entry.actor_username ?? 'система'
   return (
     <li
       className={cn(
@@ -84,7 +84,7 @@ export function AuditRow({ entry }: { entry: AccessAuditEntry }) {
           ) : null}
         </div>
         <span className="text-[length:var(--text-xs)] text-[var(--text-muted)] font-[family-name:var(--font-sans)]">
-          {actor === 'system' ? 'system' : `by ${actor}`} ·{' '}
+          {actor === 'система' ? 'система' : `от: ${actor}`} ·{' '}
           {localDateFromSqlite(entry.created_at)}
         </span>
       </div>

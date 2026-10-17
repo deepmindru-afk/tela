@@ -56,8 +56,8 @@ export function enhanceReadonlyTable(table: HTMLTableElement): void {
   bar.className = 'tela-table-filter'
   const input = document.createElement('input')
   input.type = 'text'
-  input.placeholder = 'Filter rows…'
-  input.setAttribute('aria-label', 'Filter table rows')
+  input.placeholder = 'Фильтровать строки…'
+  input.setAttribute('aria-label', 'Фильтровать строки таблицы')
   input.addEventListener('input', () => {
     const q = input.value.trim().toLowerCase()
     for (const row of Array.from(tbody.rows)) {

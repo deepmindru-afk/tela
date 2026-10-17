@@ -6,6 +6,7 @@ import { useUpdatePage } from '../../lib/queries/pages'
 import type { Page } from '../../lib/types'
 import { DeckCoverImage } from './deck-cover-image'
 import { useFileDownload } from './use-file-download'
+import { ruPlural } from '../../lib/ru-plural'
 import { toast, updateToast } from '../ui/toast'
 import { Button } from '../ui/button'
 import {
@@ -36,10 +37,10 @@ interface DeckVariant {
 }
 
 const featureLabels: [keyof NonNullable<DeckOutline['features']>, string][] = [
-  ['katex', 'Math'],
-  ['mermaid', 'Diagrams'],
-  ['monaco', 'Live code'],
-  ['tweet', 'Tweets'],
+  ['katex', 'Математика'],
+  ['mermaid', 'Диаграммы'],
+  ['monaco', 'Живой код'],
+  ['tweet', 'Твиты'],
   ['bluesky', 'Bluesky'],
 ]
 
@@ -56,7 +57,7 @@ export function DeckOverview({ page }: { page: Page }) {
     staleTime: 30_000,
     retry: false,
   })
-  const err = error ? (error as Error).message || 'Failed to read deck' : null
+  const err = error ? (error as Error).message || 'Не удалось прочитать колоду' : null
 
   // Style variants come from the theme package (slidev-theme-tahta) — tela
   // hardcodes none. Picking one writes props.variant (merged, PUT semantics).
@@ -91,21 +92,21 @@ export function DeckOverview({ page }: { page: Page }) {
     { fallbackName: 'deck.md' },
   )
   const exportDeck = (kind: 'PDF' | 'PPTX') => {
-    const id = toast({ title: `Preparing ${kind}…`, loading: true, duration: 0 })
+    const id = toast({ title: `Подготовка ${kind}…`, loading: true, duration: 0 })
     void (kind === 'PDF' ? downloadPdf() : downloadPptx()).then((ok) =>
       updateToast(
         id,
         ok
           ? {
-              title: `${kind} ready`,
-              description: 'Your download has started.',
+              title: `${kind} готов`,
+              description: 'Загрузка файла началась.',
               variant: 'success',
               loading: false,
               duration: 4000,
             }
           : {
-              title: `${kind} export failed`,
-              description: 'Please try again.',
+              title: `Не удалось экспортировать ${kind}`,
+              description: 'Попробуйте ещё раз.',
               variant: 'destructive',
               loading: false,
               duration: 6000,
@@ -128,25 +129,29 @@ export function DeckOverview({ page }: { page: Page }) {
       ) : (
         <div className="flex flex-col items-center justify-center gap-[var(--space-2)] rounded-[var(--radius-md)] border border-dashed border-[var(--border-default)] bg-[var(--surface-2)] px-[var(--space-4)] py-[var(--space-7)] text-center">
           <Palette width={20} height={20} className="text-[var(--text-muted)]" />
-          <div className="font-medium text-[var(--text-primary)]">Choose a style</div>
+          <div className="font-medium text-[var(--text-primary)]">Выберите стиль</div>
           <div className="max-w-sm text-[var(--text-sm)] text-[var(--text-muted)]">
-            Pick the variant that fits this deck — it sets the typeface, color scheme, and texture. There's no default; it's a deliberate choice.
+            Выберите вариант оформления для этой колоды — он задаёт шрифт, цветовую схему и фактуру. Значения по умолчанию нет: выбор делается осознанно.
           </div>
         </div>
       )}
       <div className="flex flex-wrap items-center gap-[var(--space-3)] rounded-[var(--radius-md)] border border-[var(--border-subtle)] bg-[var(--surface-2)] p-[var(--space-4)]">
         <Presentation width={20} height={20} className="text-[var(--text-muted)]" />
         <div className="mr-auto">
-          <div className="font-medium text-[var(--text-primary)]">Slide deck</div>
+          <div className="font-medium text-[var(--text-primary)]">Колода слайдов</div>
           <div className="text-[var(--text-sm)] text-[var(--text-muted)]">
-            {data ? `${data.count} slide${data.count === 1 ? '' : 's'}` : err ? 'Deck unavailable' : 'Reading…'}
+            {data
+              ? `${data.count} ${ruPlural(data.count, 'слайд', 'слайда', 'слайдов')}`
+              : err
+                ? 'Колода недоступна'
+                : 'Чтение…'}
             {features.length ? ` · ${features.join(' · ')}` : ''}
           </div>
         </div>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant={chosenVariant ? 'ghost' : 'secondary'} size="sm">
-              <Palette width={16} height={16} /> {chosenLabel ?? 'Choose a style'}
+              <Palette width={16} height={16} /> {chosenLabel ?? 'Выберите стиль'}
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
@@ -164,24 +169,24 @@ export function DeckOverview({ page }: { page: Page }) {
           </DropdownMenuContent>
         </DropdownMenu>
         <Button variant="primary" size="sm" onClick={present}>
-          <Play width={16} height={16} /> Present
+          <Play width={16} height={16} /> Показ
         </Button>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="sm" aria-label="Export deck">
+            <Button variant="ghost" size="sm" aria-label="Экспортировать колоду">
               <Download width={16} height={16} />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             <DropdownMenuItem onSelect={() => exportDeck('PDF')}>
-              Download PDF
+              Скачать PDF
             </DropdownMenuItem>
             <DropdownMenuItem onSelect={() => exportDeck('PPTX')}>
-              Download PPTX
+              Скачать PPTX
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem onSelect={() => void downloadMd()}>
-              Slidev source (.md)
+              Исходный код Slidev (.md)
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
@@ -195,7 +200,7 @@ export function DeckOverview({ page }: { page: Page }) {
               className="flex items-center gap-[var(--space-3)] rounded-[var(--radius-sm)] px-[var(--space-3)] py-[var(--space-2)] hover:bg-[var(--surface-2)]"
             >
               <span className="w-6 text-right text-[var(--text-sm)] tabular-nums text-[var(--text-muted)]">{s.no}</span>
-              <span className="min-w-0 flex-1 truncate text-[var(--text-primary)]">{s.title || <span className="text-[var(--text-muted)]">Untitled slide</span>}</span>
+              <span className="min-w-0 flex-1 truncate text-[var(--text-primary)]">{s.title || <span className="text-[var(--text-muted)]">Слайд без названия</span>}</span>
               <span className="rounded-[var(--radius-sm)] bg-[var(--surface-3)] px-[var(--space-2)] py-[2px] text-[var(--text-xs)] text-[var(--text-muted)]">
                 {s.layout}
               </span>
@@ -226,7 +231,7 @@ function DeckCover({
     <button
       type="button"
       onClick={onPresent}
-      aria-label="Present"
+      aria-label="Показ"
       className="group relative block aspect-video w-full max-w-2xl overflow-hidden rounded-[var(--radius-md)] border border-[var(--border-subtle)] bg-[var(--surface-2)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
     >
       <DeckCoverImage
@@ -237,7 +242,7 @@ function DeckCover({
       />
       <span className="absolute inset-0 flex items-center justify-center bg-[color-mix(in_srgb,var(--text-primary)_40%,transparent)] opacity-0 transition-opacity duration-[var(--duration-fast)] group-hover:opacity-100">
         <span className="flex items-center gap-[var(--space-2)] rounded-[var(--radius-md)] bg-[var(--surface-1)] px-[var(--space-3)] py-[var(--space-2)] text-[length:var(--text-sm)] font-medium shadow-[var(--shadow-md)]">
-          <Play width={16} height={16} /> Present
+          <Play width={16} height={16} /> Показ
         </span>
       </span>
     </button>

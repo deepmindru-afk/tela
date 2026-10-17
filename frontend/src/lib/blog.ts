@@ -1,3 +1,5 @@
+import { ruPlural } from './ru-plural'
+
 // Display helpers for the public blog surfaces (space front page, /u/{handle}).
 // Deterministic, content-derived visuals so a space/author/post has a stable
 // identity even with no uploaded avatar or cover image.
@@ -55,16 +57,19 @@ export function topLevelPosts<T extends { parent_id: number | null }>(
 }
 
 // Index-card label for a "section" post — a page with children shows its child
-// count ("4 decks" / "3 pages") in place of a reading time, since it's an entry
-// point, not an article. Decks-only children read as "decks"; any other mix
-// falls back to "pages". undefined for a childless page (an ordinary post).
+// count ("4 колоды" / "3 страницы") in place of a reading time, since it's an
+// entry point, not an article. Decks-only children read as "колоды"; any other
+// mix falls back to "страницы". undefined for a childless page (an ordinary post).
 export function sectionLabel<
   T extends { id: number; parent_id: number | null; kind?: string },
 >(pages: T[], postId: number): string | undefined {
   const children = pages.filter((p) => p.parent_id === postId)
   if (children.length === 0) return undefined
-  const noun = children.every((c) => c.kind === 'deck') ? 'deck' : 'page'
-  return `${children.length} ${noun}${children.length === 1 ? '' : 's'}`
+  // `c.kind` is the stored value — compare only; never render it.
+  const n = children.length
+  return children.every((c) => c.kind === 'deck')
+    ? `${n} ${ruPlural(n, 'колода', 'колоды', 'колод')}`
+    : `${n} ${ruPlural(n, 'страница', 'страницы', 'страниц')}`
 }
 
 export type TreeNode<T> = T & { children: TreeNode<T>[] }

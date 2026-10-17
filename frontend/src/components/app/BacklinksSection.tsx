@@ -2,6 +2,7 @@ import { useMemo } from 'react'
 import { Link } from '@tanstack/react-router'
 import { FileText } from 'lucide-react'
 import { useBacklinks } from '../../lib/queries/pages'
+import { ruPlural } from '../../lib/ru-plural'
 import { HighlightedSnippet } from '../../lib/highlightSnippet'
 import { disambiguateBreadcrumbs } from '../../lib/disambiguateBreadcrumbs'
 import { CollapsibleSection } from '../ui/collapsible-section'
@@ -22,8 +23,12 @@ export function BacklinksSection({ pageId }: BacklinksSectionProps) {
   if (isLoading || isError) return null
   if (rows.length === 0) return null
 
-  const headerCopy =
-    rows.length === 1 ? '1 page links here' : `${rows.length} pages link here`
+  const headerCopy = `${rows.length} ${ruPlural(
+    rows.length,
+    'страница сюда ссылается',
+    'страницы сюда ссылаются',
+    'страниц сюда ссылаются',
+  )}`
 
   return (
     <CollapsibleSection title={headerCopy} persistKey="tela:page-backlinks-open">
@@ -56,7 +61,7 @@ export function BacklinksSection({ pageId }: BacklinksSectionProps) {
               <span className="flex-1 min-w-0 flex flex-col gap-[2px]">
                 <span className="flex items-center gap-[var(--space-2)] min-w-0">
                   <span className="truncate text-[length:var(--text-sm)] text-[var(--text-primary)] font-medium font-[family-name:var(--font-sans)]">
-                    {row.item.title || 'Untitled'}
+                    {row.item.title || 'Без названия'}
                   </span>
                   {row.showSpaceChip ? (
                     <span

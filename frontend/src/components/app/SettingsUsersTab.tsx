@@ -71,6 +71,9 @@ import {
 import { EmptyState } from '../ui/empty-state'
 import { Input } from '../ui/input'
 import { cn } from '../../lib/utils'
+import { ruPlural } from '../../lib/ru-plural'
+
+// Russian plural for counted nouns: 1 аккаунт, 2 аккаунта, 5 аккаунтов.
 import {
   DELTA_WEEKS,
   buildCohorts,
@@ -131,48 +134,48 @@ const SEGMENTS: {
 }[] = [
   {
     key: 'power',
-    label: 'Power',
-    short: 'Power',
+    label: 'Активный',
+    short: 'Активный',
     tone: 'positive',
     band: 'color-mix(in srgb, var(--accent-positive-fg) 62%, var(--surface-1))',
     dot: 'var(--accent-positive-fg)',
-    hint: '12+ active days in the last 30',
+    hint: '12+ активных дней за последние 30',
   },
   {
     key: 'regular',
-    label: 'Regular',
-    short: 'Regular',
+    label: 'Обычный',
+    short: 'Обычный',
     tone: 'accent',
     band: 'color-mix(in srgb, var(--accent) 62%, var(--surface-1))',
     dot: 'var(--accent)',
-    hint: '4–11 active days in the last 30',
+    hint: '4–11 активных дней за последние 30',
   },
   {
     key: 'dabbler',
-    label: 'Dabbler',
-    short: 'Dabbler',
+    label: 'Редкий',
+    short: 'Редкий',
     tone: 'muted',
     band: 'color-mix(in srgb, var(--text-muted) 48%, var(--surface-1))',
     dot: 'var(--text-muted)',
-    hint: '1–3 active days in the last 30',
+    hint: '1–3 активных дня за последние 30',
   },
   {
     key: 'churned',
-    label: 'Churned',
-    short: 'Churned',
+    label: 'Отошёл',
+    short: 'Отошёл',
     tone: 'warning',
     band: 'color-mix(in srgb, var(--accent-warning-fg) 62%, var(--surface-1))',
     dot: 'var(--accent-warning-fg)',
-    hint: 'was active once, then silent for 30+ days',
+    hint: 'был активен один раз, затем 30+ дней без активности',
   },
   {
     key: 'never',
-    label: 'Never started',
-    short: 'Never',
+    label: 'Не начал',
+    short: 'Не начинал',
     tone: 'negative',
     band: 'color-mix(in srgb, var(--accent-negative-fg) 62%, var(--surface-1))',
     dot: 'var(--accent-negative-fg)',
-    hint: 'signed up and never did anything',
+    hint: 'зарегистрировался, но ничего не делал',
   },
 ]
 const SEGMENT_BY_KEY = new Map(SEGMENTS.map((s) => [s.key, s]))
@@ -270,12 +273,12 @@ export function SettingsUsersTab() {
       } catch (err) {
         if (err instanceof ApiError && err.code === 'last_admin') {
           setRowError(
-            "Can't deactivate or demote the last instance admin — promote someone first.",
+            'Нельзя деактивировать или понизить последнего администратора инстанса — сначала назначьте другого.',
           )
         } else if (err instanceof ApiError) {
           setRowError(`${row.username}: ${err.message}`)
         } else {
-          setRowError(`${row.username}: something went wrong. Try again.`)
+          setRowError(`${row.username}: что-то пошло не так. Попробуйте ещё раз.`)
         }
       }
     },
@@ -308,26 +311,26 @@ export function SettingsUsersTab() {
     const cols: DataTableColumn<AdminUserRow>[] = [
       {
         key: 'person',
-        header: 'Person',
-        group: 'Who',
+        header: 'Человек',
+        group: 'Кто',
         sticky: 'left',
         sortValue: (u) => (u.display_name || u.username).toLowerCase(),
         cell: (u) => <PersonCell row={u} isSelf={me.data?.id === u.id} />,
       },
       {
         key: 'segment',
-        header: 'Status',
-        group: 'Who',
+        header: 'Статус',
+        group: 'Кто',
         title:
-          'Lifecycle, from activity over the last 30 days — independent of the selected window, so it describes the person and not the view.',
+          'Жизненный цикл по активности за последние 30 дней — не зависит от выбранного периода, поэтому описывает человека, а не представление.',
         sortValue: (u) => (u.segment ? SEGMENT_RANK[u.segment] : -1),
         cell: (u) => <SegmentBadge segment={u.segment} />,
       },
       {
         key: 'trend',
-        header: 'Trend',
-        group: 'Who',
-        title: `Active days per week over the last ${TREND_WEEKS} weeks (all rows share a 0–7 scale, so shapes are comparable), and the change from the previous ${DELTA_WEEKS} weeks to the last ${DELTA_WEEKS}.`,
+        header: 'Динамика',
+        group: 'Кто',
+        title: `Активные дни в неделю за последние ${TREND_WEEKS} недель (у всех строк общая шкала 0–7, поэтому формы сравнимы) и изменение за последние ${DELTA_WEEKS} недель по сравнению с предыдущими ${DELTA_WEEKS}.`,
         // Sort by the delta: "who is ramping up" and "who is falling off" are
         // the two ends of the same column.
         sortValue: (u) => trendDelta(metricsOf(u).weeks) ?? -999,
@@ -335,10 +338,10 @@ export function SettingsUsersTab() {
       },
       {
         key: 'edits',
-        header: 'Edits',
-        group: 'Wrote',
+        header: 'Правки',
+        group: 'Написали',
         title:
-          'Page revisions in this window, split by who wrote them. Sync snapshots are counted separately — a synced vault can post thousands of revisions nobody typed.',
+          'Редактирования страниц за выбранный период с разбивкой по автору. Синхронизация учитывается отдельно — синхронизируемое хранилище может добавить тысячи правок, которые никто не печатал.',
         numeric: true,
         scale: (u) => metricsOf(u).edits,
         sortValue: (u) => metricsOf(u).edits,
@@ -356,9 +359,9 @@ export function SettingsUsersTab() {
     if (hasAny((m) => m.pages_created)) {
       cols.push({
         key: 'pages',
-        header: 'Pages',
-        group: 'Wrote',
-        title: 'Pages this user created in the window (they authored the page’s first revision).',
+        header: 'Страницы',
+        group: 'Написали',
+        title: 'Страницы, созданные этим пользователем за период (он автор первой ревизии).',
         numeric: true,
         scale: (u) => metricsOf(u).pages_created,
         sortValue: (u) => metricsOf(u).pages_created,
@@ -368,9 +371,9 @@ export function SettingsUsersTab() {
     if (hasAny((m) => m.views)) {
       cols.push({
         key: 'views',
-        header: 'Views',
-        group: 'Read',
-        title: 'Page views recorded for this user. Limited by the activity-log retention window.',
+        header: 'Просмотры',
+        group: 'Прочитали',
+        title: 'Просмотры страниц, зафиксированные для этого пользователя. Ограничены сроком хранения журнала активности.',
         numeric: true,
         scale: (u) => metricsOf(u).views,
         sortValue: (u) => metricsOf(u).views,
@@ -382,9 +385,9 @@ export function SettingsUsersTab() {
     if (hasAny((m) => m.asks)) {
       cols.push({
         key: 'asks',
-        header: 'Asks',
-        group: 'Read',
-        title: 'Questions they put to Ask.',
+        header: 'Вопросы',
+        group: 'Прочитали',
+        title: 'Вопросы, заданные режиму вопросов.',
         numeric: true,
         scale: (u) => metricsOf(u).asks,
         sortValue: (u) => metricsOf(u).asks,
@@ -394,10 +397,10 @@ export function SettingsUsersTab() {
     if (hasAny((m) => m.llm_calls)) {
       cols.push({
         key: 'ai',
-        header: 'AI',
-        group: 'Read',
+        header: 'ИИ',
+        group: 'Прочитали',
         title:
-          'Metered AI calls. Counted per calendar month, so this follows month boundaries rather than the exact window.',
+          'Учитываемые вызовы ИИ. Считаются по календарному месяцу, поэтому следуют границам месяца, а не точному периоду.',
         numeric: true,
         scale: (u) => metricsOf(u).llm_calls,
         sortValue: (u) => metricsOf(u).llm_calls,
@@ -412,10 +415,10 @@ export function SettingsUsersTab() {
     cols.push(
       {
         key: 'days',
-        header: 'Days',
-        group: 'Cadence',
+        header: 'Дни',
+        group: 'Регулярность',
         title:
-          'Distinct days with any activity — an event or an authored revision. One busy afternoon and a month of daily use look identical under a raw event count.',
+          'Отдельные дни с любой активностью — событие или авторская правка. По числу событий один насыщенный день и месяц ежедневной работы выглядят одинаково.',
         numeric: true,
         scale: (u) => metricsOf(u).days_active,
         sortValue: (u) => metricsOf(u).days_active,
@@ -423,9 +426,9 @@ export function SettingsUsersTab() {
       },
       {
         key: 'last_active',
-        header: 'Seen',
-        group: 'Cadence',
-        title: 'Time since the account’s last authenticated request. Hover a value for the exact date.',
+        header: 'Активность',
+        group: 'Регулярность',
+        title: 'Время с последнего авторизованного запроса аккаунта. Наведите курсор на значение, чтобы увидеть точную дату.',
         // Never-signed-in sorts below every real timestamp in both directions.
         sortValue: (u) => u.last_active_at ?? '',
         cell: (u) =>
@@ -437,15 +440,15 @@ export function SettingsUsersTab() {
               {shortRelativeFromSqlite(u.last_active_at)}
             </span>
           ) : (
-            <span className="text-[var(--text-muted)]">Never</span>
+            <span className="text-[var(--text-muted)]">Никогда</span>
           ),
       },
       {
         key: 'joined',
-        header: 'Joined',
-        group: 'Account',
+        header: 'Регистрация',
+        group: 'Аккаунт',
         title:
-          'When the account was created. Sort by it to read the instance in signup order — same-day joiners land together.',
+          'Когда был создан аккаунт. Сортировка по нему показывает инстанс в порядке регистрации — зарегистрировавшиеся в один день окажутся рядом.',
         sortValue: (u) => u.created_at,
         cell: (u) => (
           <span
@@ -460,9 +463,9 @@ export function SettingsUsersTab() {
     if (anyStorage) {
       cols.push({
         key: 'storage',
-        header: 'Storage',
-        group: 'Account',
-        title: 'Owned spaces and attachment bytes, against the account’s plan limits.',
+        header: 'Хранилище',
+        group: 'Аккаунт',
+        title: 'Собственные пространства и объём вложений по сравнению с лимитами тарифа.',
         sortValue: (u) => u.usage?.storage_bytes ?? -1,
         cell: (u) => {
           const usage = u.usage
@@ -487,8 +490,8 @@ export function SettingsUsersTab() {
 
     cols.push({
       key: 'actions',
-      header: <span className="sr-only">Actions</span>,
-      group: 'Account',
+      header: <span className="sr-only">Действия</span>,
+      group: 'Аккаунт',
       sticky: 'right',
         cell: (u) =>
           me.data?.id === u.id ? null : (
@@ -498,7 +501,7 @@ export function SettingsUsersTab() {
                   <Button
                     variant="ghost"
                     size="sm"
-                    aria-label={`Actions for ${u.username}`}
+                    aria-label={`Действия для ${u.username}`}
                     className="h-[var(--space-7)] w-[var(--space-7)] p-0"
                     disabled={updateUser.isPending}
                   >
@@ -507,32 +510,32 @@ export function SettingsUsersTab() {
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
                   <DropdownMenuItem onSelect={() => setActivityFor(u)}>
-                    View activity
+                    Активность
                   </DropdownMenuItem>
                   <DropdownMenuItem onSelect={() => openEvents(u)}>
-                    Open in Events
+                    Открыть в событиях
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   {/* Plan lives here rather than as a column: an inline select
                       fought row-click for the same pixels and cost the width
                       that pushed these actions off the screen. */}
                   <DropdownMenuItem onSelect={() => setPlanFor(u)}>
-                    Change plan…
+                    Сменить тариф…
                   </DropdownMenuItem>
                   <DropdownMenuItem onSelect={() => setResetFor(u)}>
-                    Reset password
+                    Сбросить пароль
                   </DropdownMenuItem>
                   <DropdownMenuItem
                     onSelect={() => void runUpdate(u, { is_instance_admin: !u.is_instance_admin })}
                   >
-                    {u.is_instance_admin ? 'Revoke instance admin' : 'Make instance admin'}
+                    {u.is_instance_admin ? 'Отозвать права администратора инстанса' : 'Назначить администратором инстанса'}
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem
                     destructive={u.is_active}
                     onSelect={() => void runUpdate(u, { is_active: !u.is_active })}
                   >
-                    {u.is_active ? 'Deactivate' : 'Reactivate'}
+                    {u.is_active ? 'Деактивировать' : 'Активировать снова'}
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
@@ -551,10 +554,10 @@ export function SettingsUsersTab() {
     >
       <header className="flex items-start justify-between gap-[var(--space-3)]">
         <p className="m-0 max-w-[42rem] text-[length:var(--text-sm)] text-[var(--text-muted)] leading-[var(--leading-relaxed)]">
-          Everyone on this instance, with what they've actually done. Sort any
-          column, or filter by lifecycle to get straight to the people worth a
-          message — the ones ramping up, the ones going quiet, the ones who
-          never got started.
+          Все пользователи этого инстанса и то, что они действительно делали.
+          Сортируйте любую колонку или фильтруйте по жизненному циклу, чтобы сразу
+          перейти к тем, кому стоит написать, — кто набирает обороты, кто затих,
+          кто так и не начал.
         </p>
         <div className="flex items-center gap-[var(--space-2)] shrink-0">
           {/* Export follows the people rows, so it hides rather than quietly
@@ -565,15 +568,15 @@ export function SettingsUsersTab() {
               variant="ghost"
               onClick={() => exportUsersCsv(filtered, range)}
               disabled={filtered.length === 0}
-              title="Download the rows below as CSV"
+              title="Скачать приведённые ниже строки в CSV"
             >
               <Download width={14} height={14} />
-              <span>Export</span>
+              <span>Экспорт</span>
             </Button>
           ) : null}
           <Button type="button" variant="primary" onClick={() => setCreateOpen(true)}>
             <UserPlus width={14} height={14} />
-            <span>Create user</span>
+            <span>Создать пользователя</span>
           </Button>
         </div>
       </header>
@@ -586,9 +589,9 @@ export function SettingsUsersTab() {
         <div className="flex items-center gap-[var(--space-1)]">
           {(
             [
-              ['people', 'People'],
-              ['org', 'Teams'],
-              ['space', 'Spaces'],
+              ['people', 'Люди'],
+              ['org', 'Команды'],
+              ['space', 'Пространства'],
             ] as [GroupBy, string][]
           ).map(([val, label]) => (
             <button
@@ -615,9 +618,9 @@ export function SettingsUsersTab() {
             value={range}
             onChange={(next) => setView({ window: next === 'all' ? undefined : next })}
             options={[
-              ['1m', '30 days'],
-              ['3m', '3 months'],
-              ['all', 'All time'],
+              ['1m', '30 дней'],
+              ['3m', '3 месяца'],
+              ['all', 'Всё время'],
             ]}
           />
         </div>
@@ -635,8 +638,8 @@ export function SettingsUsersTab() {
             <Input
               value={q}
               onChange={(e) => setView({ q: e.target.value || undefined })}
-              placeholder="Search name or email…"
-              aria-label="Search users"
+              placeholder="Поиск по имени или почте…"
+              aria-label="Поиск пользователей"
               className="pl-[var(--space-6)]"
             />
           </div>
@@ -644,25 +647,25 @@ export function SettingsUsersTab() {
             value={role}
             onChange={setRole}
             options={[
-              ['all', 'All'],
-              ['admin', 'Admins'],
+              ['all', 'Все'],
+              ['admin', 'Администраторы'],
             ]}
           />
           <FilterPills<StatusFilter>
             value={status}
             onChange={setStatus}
             options={[
-              ['all', 'Any account'],
-              ['active', 'Enabled'],
-              ['inactive', 'Deactivated'],
+              ['all', 'Любая учётная запись'],
+              ['active', 'Активные'],
+              ['inactive', 'Отключённые'],
             ]}
           />
           <FilterPills<McpFilter>
             value={mcp}
             onChange={setMcp}
             options={[
-              ['all', 'Any MCP'],
-              ['yes', 'MCP set up'],
+              ['all', 'Любой MCP'],
+              ['yes', 'MCP настроен'],
             ]}
           />
         </div>
@@ -678,19 +681,19 @@ export function SettingsUsersTab() {
         <TableSkeleton />
       ) : users.isError ? (
         <p className="m-0 text-[length:var(--text-sm)] text-[var(--danger)]">
-          Couldn't load users.
+          Не удалось загрузить пользователей.
         </p>
       ) : groupBy !== 'people' ? (
         <ActivityGroupsTable by={groupBy} window={range} />
       ) : isEmptyInstance ? (
         <EmptyState
           icon={UserPlus}
-          title="Nothing to measure yet"
-          description="Invite someone, or wait for activity — reads, edits and questions all show up here as they happen."
+          title="Пока нечего измерять"
+          description="Пригласите кого-нибудь или подождите активности — чтение, правки и вопросы появятся здесь по мере того, как они происходят."
           actions={
             <Button type="button" variant="primary" onClick={() => setCreateOpen(true)}>
               <UserPlus width={14} height={14} />
-              <span>Create user</span>
+              <span>Создать пользователя</span>
             </Button>
           }
         />
@@ -709,21 +712,21 @@ export function SettingsUsersTab() {
             sort={{ key: sortKey, dir: sortDir }}
             onSortChange={(next) => setView({ sort: next.key, dir: next.dir })}
             onRowClick={(u) => setActivityFor(u)}
-            rowActionLabel={(u) => `Open details for ${u.display_name || u.username}`}
+            rowActionLabel={(u) => `Открыть подробности: ${u.display_name || u.username}`}
             stale={users.isFetching}
-            caption="Users on this instance with their activity"
-            empty={hasFilters ? 'No users match these filters.' : 'No users found.'}
+            caption="Пользователи этого инстанса и их активность"
+            empty={hasFilters ? 'Нет пользователей по этим фильтрам.' : 'Пользователи не найдены.'}
           />
           <p className="m-0 text-[length:var(--text-xs)] text-[var(--text-muted)]">
             <span className="tabular-nums">
-              {filtered.length} of {all.length} {all.length === 1 ? 'user' : 'users'}
+              {filtered.length} из {all.length} пользователей
             </span>
             {retentionClips ? (
               <>
                 {' · '}
-                Views, sign-ins and days-active only go back to{' '}
+                Просмотры, входы и активные дни доступны только начиная с{' '}
                 <span className="tabular-nums">{localDateFromSqlite(eventsSince)}</span>{' '}
-                (activity-log retention)
+                (срок хранения журнала активности)
               </>
             ) : null}
           </p>
@@ -762,11 +765,11 @@ export function SettingsUsersTab() {
 // a table whose row heights wobble reads as unfinished.
 function PersonCell({ row, isSelf }: { row: AdminUserRow; isSelf: boolean }) {
   const chips: React.ReactNode[] = []
-  if (row.is_instance_admin) chips.push(<Badge key="admin" variant="solid">Admin</Badge>)
+  if (row.is_instance_admin) chips.push(<Badge key="admin" variant="solid">Админ</Badge>)
   if (row.used_mcp) chips.push(<Badge key="mcp" variant="muted">MCP</Badge>)
-  else if (row.has_api_key) chips.push(<Badge key="key" variant="muted">API key</Badge>)
-  if (!row.is_active) chips.push(<Badge key="off" variant="ghost">Deactivated</Badge>)
-  if (isSelf) chips.push(<Badge key="you" variant="ghost">You</Badge>)
+  else if (row.has_api_key) chips.push(<Badge key="key" variant="muted">API-ключ</Badge>)
+  if (!row.is_active) chips.push(<Badge key="off" variant="ghost">Отключён</Badge>)
+  if (isSelf) chips.push(<Badge key="you" variant="ghost">Вы</Badge>)
 
   const shown = chips.slice(0, 2)
   const rest = chips.length - shown.length
@@ -781,7 +784,7 @@ function PersonCell({ row, isSelf }: { row: AdminUserRow; isSelf: boolean }) {
         ) : null}
       </span>
       <span className="truncate text-[length:var(--text-xs)] text-[var(--text-muted)]">
-        {row.display_name ? `@${row.username}` : row.email || `Joined ${localDateFromSqlite(row.created_at)}`}
+        {row.display_name ? `@${row.username}` : row.email || `Регистрация ${localDateFromSqlite(row.created_at)}`}
       </span>
     </div>
   )
@@ -810,7 +813,7 @@ function SegmentBand({
     <div className="flex flex-col gap-[var(--space-2)]">
       <div className="flex items-center gap-[var(--space-2)]">
         <span className="text-[length:var(--text-xs)] font-medium text-[var(--text-muted)]">
-          Lifecycle
+          Жизненный цикл
         </span>
         <SegmentRules />
         {active !== 'all' ? (
@@ -819,7 +822,7 @@ function SegmentBand({
             onClick={() => onPick('all')}
             className="ml-auto bg-transparent border-0 p-0 cursor-pointer text-[length:var(--text-xs)] text-[var(--accent)] hover:underline rounded-[var(--radius-xs)] outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
           >
-            Clear filter
+            Сбросить фильтр
           </button>
         ) : null}
       </div>
@@ -827,7 +830,7 @@ function SegmentBand({
       <div
         className="flex h-[var(--space-2)] w-full overflow-hidden rounded-[var(--radius-full)] bg-[var(--surface-2)]"
         role="group"
-        aria-label="Filter by lifecycle"
+        aria-label="Фильтр по жизненному циклу"
       >
         {SEGMENTS.map((s) => {
           const n = counts.get(s.key) ?? 0
@@ -896,7 +899,7 @@ function SegmentRules() {
       <PopoverTrigger asChild>
         <button
           type="button"
-          aria-label="How lifecycle is calculated"
+          aria-label="Как рассчитывается жизненный цикл"
           className="inline-flex items-center text-[var(--text-muted)] hover:text-[var(--text-primary)] bg-transparent border-0 p-0 cursor-pointer rounded-[var(--radius-xs)] outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
         >
           <HelpCircle width={13} height={13} />
@@ -904,10 +907,10 @@ function SegmentRules() {
       </PopoverTrigger>
       <PopoverContent className="w-[22rem] flex flex-col gap-[var(--space-2)]">
         <p className="m-0 text-[length:var(--text-xs)] text-[var(--text-muted)]">
-          Counted over the <strong className="text-[var(--text-primary)]">last 30 days</strong>,
-          whatever window is selected — it describes the person, not the view. An
-          active day is one with any recorded activity, including writes that
-          arrive over file sync.
+          Считается за <strong className="text-[var(--text-primary)]">последние 30 дней</strong>,
+          какой бы период ни был выбран, — это описывает человека, а не представление.
+          Активным считается день с любой зафиксированной активностью, включая
+          правки, приходящие через синхронизацию файлов.
         </p>
         <dl className="m-0 grid grid-cols-[auto_1fr] gap-x-[var(--space-3)] gap-y-[var(--space-1)] text-[length:var(--text-xs)]">
           {SEGMENTS.map((s) => (
@@ -925,8 +928,8 @@ function SegmentRules() {
           ))}
         </dl>
         <p className="m-0 text-[length:var(--text-xs)] text-[var(--text-muted)]">
-          Recency outranks volume: someone who wrote hundreds of pages and hasn't
-          appeared in six weeks is <em>churned</em>, not <em>power</em>.
+          Свежесть важнее объёма: тот, кто написал сотни страниц, но не появлялся
+          шесть недель, считается <em>отошедшим</em>, а не <em>активным</em>.
         </p>
       </PopoverContent>
     </Popover>
@@ -983,10 +986,10 @@ function TrendCell({ row }: { row: AdminUserRow }) {
             ? 'text-[var(--text-muted)]'
             : 'text-[var(--accent)]',
         )}
-        ariaLabel={`Active days per week over the last ${series.length} weeks`}
+        ariaLabel={`Активные дни в неделю за последние ${series.length} недель`}
       />
       <span className={cn('text-[length:var(--text-xs)] tabular-nums whitespace-nowrap leading-none', tone)}>
-        {isNew ? 'new' : delta == null ? '' : `${delta > 0 ? '+' : ''}${delta}%`}
+        {isNew ? 'новый' : delta == null ? '' : `${delta > 0 ? '+' : ''}${delta}%`}
       </span>
     </div>
   )
@@ -1012,21 +1015,21 @@ function CohortGrid({ rows, weeks }: { rows: AdminUserRow[]; weeks: string[] }) 
         className="self-start bg-transparent border-0 p-0 cursor-pointer text-[length:var(--text-sm)] font-medium text-[var(--text-primary)] outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] rounded-[var(--radius-xs)]"
         aria-expanded={open}
       >
-        {open ? '▾' : '▸'} Signup cohorts — do they stay?
+        {open ? '▾' : '▸'} Когорты регистрации — остаются ли?
       </button>
       {open ? (
         <>
           <p className="m-0 text-[length:var(--text-xs)] text-[var(--text-muted)]">
-            Each row is the people who signed up that week; each column is how
-            many were still active that many weeks later. Week 0 is the signup
-            week itself — a row that fades to nothing is the churn you're looking
-            for.
+            Каждая строка — пользователи, зарегистрировавшиеся в эту неделю; каждый
+            столбец — сколько из них оставались активными спустя столько-то недель.
+            Неделя 0 — сама неделя регистрации; строка, которая гаснет до нуля, — это
+            и есть отток, который вы ищете.
             {older > 0 ? (
               <>
                 {' '}
-                {older} {older === 1 ? 'account' : 'accounts'} signed up before this
-                window and can't be shown: the activity log only reaches back{' '}
-                {weeks.length} weeks.
+                {older} {ruPlural(older, 'аккаунт', 'аккаунта', 'аккаунтов')} зарегистрировались
+                до начала этого периода и не могут быть показаны: журнал активности
+                хранится только за {weeks.length} недель.
               </>
             ) : null}
           </p>
@@ -1035,17 +1038,17 @@ function CohortGrid({ rows, weeks }: { rows: AdminUserRow[]; weeks: string[] }) 
               <thead>
                 <tr>
                   <th className="sticky left-0 bg-[var(--surface-2)] px-[var(--space-3)] py-[var(--space-2)] text-left font-semibold text-[var(--text-muted)] whitespace-nowrap">
-                    Signed up
+                    Регистрация
                   </th>
                   <th className="bg-[var(--surface-2)] px-[var(--space-2)] py-[var(--space-2)] text-right font-semibold text-[var(--text-muted)]">
-                    People
+                    Люди
                   </th>
                   {Array.from({ length: span }, (_, i) => (
                     <th
                       key={i}
                       className="bg-[var(--surface-2)] w-[2.75rem] px-0 py-[var(--space-2)] text-center font-semibold text-[var(--text-muted)]"
                     >
-                      W{i}
+                      Н{i}
                     </th>
                   ))}
                 </tr>
@@ -1081,7 +1084,7 @@ function CohortCell({ pct }: { pct: number | null }) {
   if (pct == null) {
     return (
       <td
-        aria-label="not yet"
+        aria-label="ещё не наступила"
         className="w-[2.75rem] h-[2rem] p-0 align-middle"
         style={{
           backgroundImage:
@@ -1143,9 +1146,9 @@ function SummaryStrip({ rows }: { rows: AdminUserRow[] }) {
       <div className="flex min-w-[13rem] flex-col justify-center gap-[2px] rounded-[var(--radius-md)] border border-[var(--border-subtle)] bg-[var(--surface-1)] px-[var(--space-4)] py-[var(--space-3)]">
         <span
           className="text-[length:var(--text-xs)] text-[var(--text-muted)]"
-          title="People with any activity in the last 30 days — power, regular or dabbler. Churned and never-started accounts don't count, whatever window is selected."
+          title="Пользователи с любой активностью за последние 30 дней — активные, обычные или редкие. Отошедшие и не начавшие аккаунты не учитываются, какой бы период ни был выбран."
         >
-          Active people
+          Активные пользователи
         </span>
         <span className="text-[length:var(--text-2xl)] font-semibold leading-[var(--leading-tight)] tabular-nums text-[var(--text-primary)]">
           {t.active}
@@ -1166,22 +1169,22 @@ function SummaryStrip({ rows }: { rows: AdminUserRow[] }) {
         {/* The one figure here that ignores the window — say so, or it reads as
             "active in the selected window" and quietly contradicts Lifecycle. */}
         <span className="text-[length:var(--text-xs)] text-[var(--text-muted)]">
-          last 30 days
+          за последние 30 дней
         </span>
       </div>
       <dl className="m-0 grid flex-1 grid-cols-2 sm:grid-cols-4 gap-[var(--space-2)]">
         <SummaryStat
-          label="Edits"
+          label="Правки"
           value={t.edits.toLocaleString()}
           sub={
             t.edits > 0
-              ? `${share(t.human)}% human · ${share(t.agent)}% agent · ${share(t.sync)}% sync`
+              ? `${share(t.human)}% человек · ${share(t.agent)}% агент · ${share(t.sync)}% синхронизация`
               : undefined
           }
         />
-        <SummaryStat label="Pages created" value={t.pages.toLocaleString()} />
-        <SummaryStat label="Asks" value={t.asks.toLocaleString()} />
-        <SummaryStat label="AI calls" value={t.ai.toLocaleString()} />
+        <SummaryStat label="Создано страниц" value={t.pages.toLocaleString()} />
+        <SummaryStat label="Вопросы" value={t.asks.toLocaleString()} />
+        <SummaryStat label="Вызовы ИИ" value={t.ai.toLocaleString()} />
       </dl>
     </div>
   )
@@ -1206,7 +1209,7 @@ function TableSkeleton() {
   return (
     <div
       aria-busy="true"
-      aria-label="Loading users"
+      aria-label="Загрузка пользователей"
       className="flex flex-col gap-[1px] overflow-hidden rounded-[var(--radius-md)] border border-[var(--border-subtle)]"
     >
       {Array.from({ length: 6 }, (_, i) => (
@@ -1225,8 +1228,8 @@ function TableSkeleton() {
 // the two that aren't.
 function EditSplit({ m }: { m: AdminUserMetrics }) {
   const parts: string[] = []
-  if (m.agent_edits > 0) parts.push(`${m.agent_edits.toLocaleString()} agent`)
-  if (m.sync_edits > 0) parts.push(`${m.sync_edits.toLocaleString()} sync`)
+  if (m.agent_edits > 0) parts.push(`${m.agent_edits.toLocaleString()} агент`)
+  if (m.sync_edits > 0) parts.push(`${m.sync_edits.toLocaleString()} синхронизация`)
   if (parts.length === 0) return null
   return (
     <span className="block text-[length:var(--text-xs)] text-[var(--text-muted)] whitespace-nowrap">
@@ -1262,7 +1265,7 @@ function DrillCount({
         onClick()
       }}
       className="block w-full bg-transparent border-0 p-0 cursor-pointer text-inherit text-right tabular-nums rounded-[var(--radius-xs)] outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] hover:underline"
-      title="Open these in Events"
+      title="Открыть это в событиях"
     >
       {n.toLocaleString()}
       {children}
@@ -1326,10 +1329,10 @@ function ChangePlanDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Plan for {user.display_name || user.username}</DialogTitle>
+          <DialogTitle>Тариф для {user.display_name || user.username}</DialogTitle>
           <DialogDescription>
-            Sets the tier this account is metered against. Takes effect immediately;
-            there's no charge either way.
+            Задаёт тариф, по которому учитывается этот аккаунт. Применяется сразу;
+            списаний не будет ни в том, ни в другом случае.
           </DialogDescription>
         </DialogHeader>
         <PlanTierSelect
@@ -1341,7 +1344,7 @@ function ChangePlanDialog({
         <DialogFooter>
           <DialogClose asChild>
             <Button type="button" variant="ghost">
-              Done
+              Готово
             </Button>
           </DialogClose>
         </DialogFooter>
@@ -1405,36 +1408,36 @@ function UserActivitySheet({
           <SheetTitle>{user.display_name || user.username}</SheetTitle>
           <SheetDescription>
             @{user.username}
-            {user.email ? ` · ${user.email}${user.email_verified ? ' ✓' : ' (unverified)'}` : ''}
+            {user.email ? ` · ${user.email}${user.email_verified ? ' ✓' : ' (не подтверждён)'}` : ''}
           </SheetDescription>
         </SheetHeader>
         <SheetBody>
           {/* Stat grid — the account facts the table's activity columns don't
               carry (quota, orgs, MCP, when they joined). */}
           <div className="mb-[var(--space-4)] grid grid-cols-2 gap-[var(--space-2)]">
-            <DetailStat icon={<Boxes width={14} height={14} />} label="Spaces" value={u ? String(u.spaces) : '—'} />
-            <DetailStat icon={<Boxes width={14} height={14} />} label="Orgs" value={String(user.orgs ?? 0)} />
-            <DetailStat icon={<Sparkles width={14} height={14} />} label="AI calls" value={String(m.llm_calls)} />
+            <DetailStat icon={<Boxes width={14} height={14} />} label="Пространства" value={u ? String(u.spaces) : '—'} />
+            <DetailStat icon={<Boxes width={14} height={14} />} label="Организации" value={String(user.orgs ?? 0)} />
+            <DetailStat icon={<Sparkles width={14} height={14} />} label="Вызовы ИИ" value={String(m.llm_calls)} />
             <DetailStat
               icon={<Plug width={14} height={14} />}
               label="MCP"
               value={
                 user.mcp_last_seen_at
-                  ? `Connected · ${relativeTimeFromSqlite(user.mcp_last_seen_at)}`
+                  ? `Подключено · ${relativeTimeFromSqlite(user.mcp_last_seen_at)}`
                   : user.used_mcp
-                    ? 'Connected'
+                    ? 'Подключено'
                     : user.has_api_key
-                      ? 'Key, no use'
-                      : 'Not set up'
+                      ? 'Ключ, без использования'
+                      : 'Не настроен'
               }
             />
-            <DetailStat label="Attachments" value={u ? formatBytes(u.storage_bytes) : '—'} />
-            <DetailStat label="Joined" value={localDateFromSqlite(user.created_at)} />
+            <DetailStat label="Вложения" value={u ? formatBytes(u.storage_bytes) : '—'} />
+            <DetailStat label="Регистрация" value={localDateFromSqlite(user.created_at)} />
             <DetailStat
-              label="Last active"
-              value={user.last_active_at ? relativeTimeFromSqlite(user.last_active_at) : 'Never'}
+              label="Последняя активность"
+              value={user.last_active_at ? relativeTimeFromSqlite(user.last_active_at) : 'Никогда'}
             />
-            <DetailStat label="Sign-ins" value={String(m.logins)} />
+            <DetailStat label="Входы" value={String(m.logins)} />
             {/* Where the account came from — first-touch attribution captured on
                 the landing. Rendered only when we have it: every account created
                 before that shipped has none, and an empty "unknown" tile would
@@ -1442,7 +1445,7 @@ function UserActivitySheet({
             {user.signup ? (
               <DetailStat
                 icon={<Compass width={14} height={14} />}
-                label="Came from"
+                label="Источник"
                 value={signupSourceLabel(user.signup)}
                 title={signupSourceDetail(user.signup)}
                 wide
@@ -1450,15 +1453,15 @@ function UserActivitySheet({
             ) : null}
           </div>
           <p className="m-0 mb-[var(--space-2)] text-[length:var(--text-xs)] font-medium uppercase tracking-wide text-[var(--text-muted)]">
-            Recent edits
+            Недавние правки
           </p>
           {activity.isLoading ? (
             <p className="m-0 text-[length:var(--text-sm)] text-[var(--text-muted)]">
-              Loading…
+              Загрузка…
             </p>
           ) : activity.isError ? (
             <p className="m-0 text-[length:var(--text-sm)] text-[var(--danger)]">
-              Couldn't load activity.
+              Не удалось загрузить активность.
             </p>
           ) : activity.data && activity.data.length > 0 ? (
             <ul className="m-0 p-0 list-none flex flex-col gap-[var(--space-1)]">
@@ -1479,7 +1482,7 @@ function UserActivitySheet({
                     )}
                   >
                     <span className="truncate text-[length:var(--text-sm)] text-[var(--text-primary)] font-[family-name:var(--font-sans)]">
-                      {c.title || 'Untitled'}
+                      {c.title || 'Без названия'}
                     </span>
                     <span className="text-[length:var(--text-xs)] text-[var(--text-muted)] font-[family-name:var(--font-sans)]">
                       {c.space_name} · {relativeTimeFromSqlite(c.updated_at)}
@@ -1490,7 +1493,7 @@ function UserActivitySheet({
             </ul>
           ) : (
             <p className="m-0 text-[length:var(--text-sm)] text-[var(--text-muted)]">
-              No edits yet.
+              Правок пока нет.
             </p>
           )}
         </SheetBody>
@@ -1520,7 +1523,7 @@ function signupSourceLabel(s: AdminUserSignup): string {
 // thing an admin actually wants to see when the collapsed source is ambiguous.
 function signupSourceDetail(s: AdminUserSignup): string {
   const bits = [s.referrer, s.term, s.content].filter(Boolean)
-  if (s.landing_path) bits.push(`landed on ${s.landing_path}`)
+  if (s.landing_path) bits.push(`перешёл на ${s.landing_path}`)
   return bits.join(' · ')
 }
 
@@ -1589,11 +1592,11 @@ function CreateUserDialog({
     e.preventDefault()
     const trimmedUsername = username.trim()
     if (!trimmedUsername) {
-      setError('Username is required.')
+      setError('Имя пользователя обязательно.')
       return
     }
     if (password.length < MIN_PASSWORD_LEN) {
-      setError(`Password must be at least ${MIN_PASSWORD_LEN} characters.`)
+      setError(`Пароль должен содержать не менее ${MIN_PASSWORD_LEN} символов.`)
       return
     }
     setError(null)
@@ -1608,11 +1611,11 @@ function CreateUserDialog({
       handleClose(false)
     } catch (err) {
       if (err instanceof ApiError && err.status === 409) {
-        setError('That username or email is already taken.')
+        setError('Это имя пользователя или почта уже заняты.')
       } else if (err instanceof ApiError) {
         setError(err.message)
       } else {
-        setError('Failed to create user.')
+        setError('Не удалось создать пользователя.')
       }
     }
   }
@@ -1621,9 +1624,9 @@ function CreateUserDialog({
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Create a new user</DialogTitle>
+          <DialogTitle>Новый пользователь</DialogTitle>
           <DialogDescription>
-            The user can change their password later from Settings → Profile.
+            Пользователь сможет изменить свой пароль позже в разделе Настройки → Профиль.
           </DialogDescription>
         </DialogHeader>
         <form
@@ -1636,7 +1639,7 @@ function CreateUserDialog({
               htmlFor="new-user-username"
               className="text-[length:var(--text-sm)] text-[var(--text-muted)]"
             >
-              Username
+              Имя пользователя
             </label>
             <Input
               id="new-user-username"
@@ -1652,7 +1655,7 @@ function CreateUserDialog({
               htmlFor="new-user-email"
               className="text-[length:var(--text-sm)] text-[var(--text-muted)]"
             >
-              Email <span className="text-[var(--text-muted)]">(optional)</span>
+              Электронная почта <span className="text-[var(--text-muted)]">(необязательно)</span>
             </label>
             <Input
               id="new-user-email"
@@ -1668,7 +1671,7 @@ function CreateUserDialog({
               htmlFor="new-user-password"
               className="text-[length:var(--text-sm)] text-[var(--text-muted)]"
             >
-              Initial password
+              Начальный пароль
             </label>
             <Input
               id="new-user-password"
@@ -1684,7 +1687,7 @@ function CreateUserDialog({
               checked={makeAdmin}
               onCheckedChange={(next) => setMakeAdmin(next === true)}
             />
-            <span>Make this user an instance admin</span>
+            <span>Назначить администратором инстанса</span>
           </label>
           {error ? (
             <p
@@ -1697,11 +1700,11 @@ function CreateUserDialog({
           <DialogFooter>
             <DialogClose asChild>
               <Button type="button" variant="ghost">
-                Cancel
+                Отмена
               </Button>
             </DialogClose>
             <Button type="submit" disabled={createUser.isPending}>
-              {createUser.isPending ? 'Creating…' : 'Create user'}
+              {createUser.isPending ? 'Создание…' : 'Создать пользователя'}
             </Button>
           </DialogFooter>
         </form>
@@ -1734,7 +1737,7 @@ function ResetPasswordDialog({
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (password.length < MIN_PASSWORD_LEN) {
-      setError(`Password must be at least ${MIN_PASSWORD_LEN} characters.`)
+      setError(`Пароль должен содержать не менее ${MIN_PASSWORD_LEN} символов.`)
       return
     }
     setError(null)
@@ -1745,7 +1748,7 @@ function ResetPasswordDialog({
       if (err instanceof ApiError) {
         setError(err.message)
       } else {
-        setError('Failed to reset password.')
+        setError('Не удалось сбросить пароль.')
       }
     }
   }
@@ -1758,9 +1761,9 @@ function ResetPasswordDialog({
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Reset password for {user.username}</DialogTitle>
+          <DialogTitle>Сброс пароля для {user.username}</DialogTitle>
           <DialogDescription>
-            The user will be signed out of every device after this change.
+            После этой смены пользователь будет отключён на всех устройствах.
           </DialogDescription>
         </DialogHeader>
         <form
@@ -1773,7 +1776,7 @@ function ResetPasswordDialog({
               htmlFor={formId}
               className="text-[length:var(--text-sm)] text-[var(--text-muted)]"
             >
-              New password
+              Новый пароль
             </label>
             <Input
               id={formId}
@@ -1796,11 +1799,11 @@ function ResetPasswordDialog({
           <DialogFooter>
             <DialogClose asChild>
               <Button type="button" variant="ghost">
-                Cancel
+                Отмена
               </Button>
             </DialogClose>
             <Button type="submit" disabled={updateUser.isPending}>
-              {updateUser.isPending ? 'Saving…' : 'Reset password'}
+              {updateUser.isPending ? 'Сохранение…' : 'Сбросить пароль'}
             </Button>
           </DialogFooter>
         </form>

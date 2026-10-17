@@ -20,11 +20,11 @@ import { Field, FieldBlock } from './NewProjectDialog'
 import { SpacePicker, type SpaceChoice } from './SpacePicker'
 
 const CADENCES: { value: AtlasCadence; label: string }[] = [
-  { value: '', label: 'Manual — I run it' },
-  { value: 'hourly', label: 'Automatic · hourly' },
-  { value: 'daily', label: 'Automatic · daily' },
-  { value: 'weekly', label: 'Automatic · weekly' },
-  { value: 'monthly', label: 'Automatic · monthly' },
+  { value: '', label: 'Вручную — запуск по требованию' },
+  { value: 'hourly', label: 'Авто · каждый час' },
+  { value: 'daily', label: 'Авто · ежедневно' },
+  { value: 'weekly', label: 'Авто · еженедельно' },
+  { value: 'monthly', label: 'Авто · ежемесячно' },
 ]
 
 export function AtlasProjectSettings() {
@@ -68,10 +68,10 @@ export function AtlasProjectSettings() {
   const dirPages = (dirPagesQ.data ?? []) as { id: number; title: string }[]
 
   if (q.isLoading) {
-    return <Shell><p className="text-[length:var(--text-sm)] text-[var(--text-muted)]">Loading…</p></Shell>
+    return <Shell><p className="text-[length:var(--text-sm)] text-[var(--text-muted)]">Загрузка…</p></Shell>
   }
   if (!project) {
-    return <Shell><EmptyState icon={FolderGit2} title="Project not found" description="It doesn't exist or you can't access it." /></Shell>
+    return <Shell><EmptyState icon={FolderGit2} title="Проект не найден" description="Он не существует или у вас нет к нему доступа." /></Shell>
   }
 
   const backToProject = () => navigate({ to: '/atlas/projects/$projectId', params: { projectId: project.id } })
@@ -106,18 +106,18 @@ export function AtlasProjectSettings() {
       <Link to="/atlas/projects/$projectId" params={{ projectId: project.id }} className="mb-[var(--space-2)] inline-flex items-center gap-[var(--space-1)] text-[length:var(--text-xs)] text-[var(--text-muted)] hover:text-[var(--text-primary)]">
         <ArrowLeft className="size-[var(--space-3)]" /> {project.name}
       </Link>
-      <h1 className="text-[length:var(--text-2xl)] font-semibold text-[var(--text-primary)]">Project settings</h1>
+      <h1 className="text-[length:var(--text-2xl)] font-semibold text-[var(--text-primary)]">Настройки проекта</h1>
       <p className="mt-[var(--space-1)] text-[length:var(--text-sm)] text-[var(--text-muted)]">
-        {project.owner.kind === 'org' ? `${project.owner.name} · org` : 'Personal'}
+        {project.owner.kind === 'org' ? `${project.owner.name} · организация` : 'Личное'}
       </p>
 
       <div className="mt-[var(--space-5)] flex flex-col gap-[var(--space-4)]">
         <Card>
-          <CardHeader><CardTitle>General</CardTitle></CardHeader>
+          <CardHeader><CardTitle>Основные</CardTitle></CardHeader>
           <CardBody className="flex flex-col gap-[var(--space-4)]">
-            <Field label="Name"><Input value={name} onChange={(e) => setName(e.target.value)} /></Field>
+            <Field label="Название"><Input value={name} onChange={(e) => setName(e.target.value)} /></Field>
             {project.scheduled_allowed ? (
-              <Field label="Refresh" hint="How often Atlas re-runs this project to keep its docs current.">
+              <Field label="Обновление" hint="Как часто Атлас перезапускает проект, чтобы документация оставалась актуальной.">
                 <Select value={cadence} onChange={(e) => setCadence(e.target.value as AtlasCadence)}>
                   {CADENCES.filter((c) => c.value !== 'hourly' || hourlyAllowed || cadence === 'hourly').map((c) => (
                     <option key={c.value} value={c.value}>{c.label}</option>
@@ -128,12 +128,12 @@ export function AtlasProjectSettings() {
                 <div className="mt-[var(--space-2)]"><AtlasBudgetNotice projectId={project.id} /></div>
               </Field>
             ) : (
-              <Field label="Refresh" hint="Run this project manually any time from its page. Scheduled auto-refresh is available on paid plans.">
+              <Field label="Обновление" hint="Запускайте проект вручную в любой момент со его страницы. Плановые авто-обновления доступны на платных тарифах.">
                 <Select value="" disabled>
-                  <option value="">Manual — I run it</option>
+                  <option value="">Вручную — запуск по требованию</option>
                 </Select>
                 <a href="/settings?tab=billing" className="mt-[var(--space-1)] inline-block text-[length:var(--text-xs)] font-medium text-[var(--accent)] hover:underline">
-                  Upgrade for scheduled refresh →
+                  Перейти на тариф с плановыми обновлениями →
                 </a>
               </Field>
             )}
@@ -141,9 +141,9 @@ export function AtlasProjectSettings() {
         </Card>
 
         <Card>
-          <CardHeader><CardTitle>Output</CardTitle></CardHeader>
+          <CardHeader><CardTitle>Вывод</CardTitle></CardHeader>
           <CardBody className="flex flex-col gap-[var(--space-4)]">
-            <FieldBlock label="Space" hint="Where the docs land. Pick an existing space or type a name to create one on the next run.">
+            <FieldBlock label="Пространство" hint="Куда попадает документация. Выберите существующее пространство или введите название — оно будет создано при следующем запуске.">
               <SpacePicker
                 spaces={(spacesQ.data ?? []).map((s) => ({ id: s.id, name: s.name }))}
                 value={output}
@@ -151,10 +151,10 @@ export function AtlasProjectSettings() {
               />
             </FieldBlock>
             {output.space_id != null && (
-              <Field label="Top-dir" hint="Optional folder inside the space; each source publishes under its own folder beneath it.">
+              <Field label="Верхняя папка" hint="Необязательная папка внутри пространства; каждый источник публикуется в собственной папке внутри неё.">
                 <Select value={parentId != null ? String(parentId) : ''} onChange={(e) => { setParentId(e.target.value ? Number(e.target.value) : undefined); setOutDirty(true) }}>
-                  <option value="">Space root</option>
-                  {dirPages.map((p) => <option key={p.id} value={p.id}>Under “{p.title}”</option>)}
+                  <option value="">Корень пространства</option>
+                  {dirPages.map((p) => <option key={p.id} value={p.id}>Внутри «{p.title}»</option>)}
                 </Select>
               </Field>
             )}
@@ -162,21 +162,21 @@ export function AtlasProjectSettings() {
         </Card>
 
         <Card>
-          <CardHeader><CardTitle>Danger zone</CardTitle></CardHeader>
+          <CardHeader><CardTitle>Опасная зона</CardTitle></CardHeader>
           <CardBody>
             {confirmDel ? (
               <div className="flex flex-wrap items-center justify-between gap-[var(--space-3)]">
-                <span className="text-[length:var(--text-sm)] text-[var(--text-muted)]">Delete this project? Its output space and generated docs are kept.</span>
+                <span className="text-[length:var(--text-sm)] text-[var(--text-muted)]">Удалить этот проект? Его выходное пространство и сгенерированная документация останутся.</span>
                 <div className="flex gap-[var(--space-2)]">
-                  <Button variant="ghost" size="sm" onClick={() => setConfirmDel(false)}>Cancel</Button>
+                  <Button variant="ghost" size="sm" onClick={() => setConfirmDel(false)}>Отмена</Button>
                   <Button variant="danger" size="sm" disabled={del.isPending} onClick={remove}>
-                    {del.isPending && <Loader2 className="size-[var(--space-4)] motion-safe:animate-spin" />}Delete project
+                    {del.isPending && <Loader2 className="size-[var(--space-4)] motion-safe:animate-spin" />}Удалить проект
                   </Button>
                 </div>
               </div>
             ) : (
               <button type="button" className="text-[length:var(--text-sm)] font-medium text-[var(--accent-negative-fg)] hover:underline" onClick={() => setConfirmDel(true)}>
-                Delete project…
+                Удалить проект…
               </button>
             )}
           </CardBody>
@@ -184,9 +184,9 @@ export function AtlasProjectSettings() {
       </div>
 
       <div className="mt-[var(--space-5)] flex justify-end gap-[var(--space-2)]">
-        <Button variant="ghost" onClick={backToProject}>Cancel</Button>
+        <Button variant="ghost" onClick={backToProject}>Отмена</Button>
         <Button variant="primary" disabled={patch.isPending} onClick={save}>
-          {patch.isPending && <Loader2 className="size-[var(--space-4)] motion-safe:animate-spin" />}Save changes
+          {patch.isPending && <Loader2 className="size-[var(--space-4)] motion-safe:animate-spin" />}Сохранить изменения
         </Button>
       </div>
     </Shell>

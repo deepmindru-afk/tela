@@ -11,18 +11,20 @@ import {
 } from '../../lib/queries/summaries'
 import { relativeTimeFromSqlite } from '../../lib/relativeTime'
 import { cn } from '../../lib/utils'
+import { ruPlural } from '../../lib/ru-plural'
 
+// Russian plural for counted nouns: 1 ошибка, 2 ошибки, 5 ошибок.
 // Per-page status → label + dot tone. "Pending"/"Missing" read as needs-attention
 // (amber), "Failed" as broken (red); locked/empty/fresh are settled states.
 type DotTone = 'ok' | 'warning' | 'danger'
 
 const STATUS_META: Record<PageSummaryStatus, { label: string; tone: DotTone }> = {
-  fresh: { label: 'Fresh', tone: 'ok' },
-  stale: { label: 'Pending', tone: 'warning' },
-  missing: { label: 'Missing', tone: 'warning' },
-  failed: { label: 'Failed', tone: 'danger' },
-  locked: { label: 'Locked', tone: 'ok' },
-  empty: { label: 'Empty', tone: 'ok' },
+  fresh: { label: 'Актуально', tone: 'ok' },
+  stale: { label: 'В очереди', tone: 'warning' },
+  missing: { label: 'Отсутствует', tone: 'warning' },
+  failed: { label: 'Ошибка', tone: 'danger' },
+  locked: { label: 'Заблокировано', tone: 'ok' },
+  empty: { label: 'Пусто', tone: 'ok' },
 }
 
 const TONE_COLOR: Record<DotTone, string> = {
@@ -73,23 +75,23 @@ function SpaceRow({ space }: { space: SpaceSummaries }) {
         {space.failed > 0 && (
           <span className="inline-flex items-center gap-[var(--space-1)] text-[length:var(--text-xs)] text-[var(--danger)]">
             <StatusDot tone="danger" />
-            {space.failed} failed
+            {space.failed} {ruPlural(space.failed, 'ошибка', 'ошибки', 'ошибок')}
           </span>
         )}
         {space.stale > 0 && (
           <span className="inline-flex items-center gap-[var(--space-1)] text-[length:var(--text-xs)] text-[var(--warning)]">
             <StatusDot tone="warning" />
-            {space.stale} pending
+            {space.stale} {ruPlural(space.stale, 'ожидает', 'ожидают', 'ожидают')}
           </span>
         )}
         {space.failed === 0 && space.stale === 0 && (
           <span className="text-[length:var(--text-xs)] text-[var(--text-muted)]">
-            All summarized
+            Всё суммировано
           </span>
         )}
 
         <span className="text-[length:var(--text-xs)] text-[var(--text-muted)] tabular-nums hidden sm:inline">
-          {space.summarized}/{space.pages} summarized
+          {space.summarized}/{space.pages} с сводками
         </span>
 
         <Button
@@ -105,7 +107,7 @@ function SpaceRow({ space }: { space: SpaceSummaries }) {
             height={14}
             className={cn(summarize.isPending && 'animate-pulse')}
           />
-          {summarize.isPending ? 'Queueing…' : 'Summarize'}
+          {summarize.isPending ? 'В очередь…' : 'Суммировать'}
         </Button>
       </div>
 
@@ -113,12 +115,12 @@ function SpaceRow({ space }: { space: SpaceSummaries }) {
         <div className="border-0 border-t border-[var(--border-subtle)] bg-[var(--surface-1)]">
           {pageQuery.isLoading && (
             <p className="m-0 p-[var(--space-4)] text-[length:var(--text-sm)] text-[var(--text-muted)]">
-              Loading pages…
+              Загрузка страниц…
             </p>
           )}
           {pageQuery.data && pageQuery.data.pages.length === 0 && (
             <p className="m-0 p-[var(--space-4)] text-[length:var(--text-sm)] text-[var(--text-muted)]">
-              No pages in this space.
+              В этом пространстве нет страниц.
             </p>
           )}
           {pageQuery.data && pageQuery.data.pages.length > 0 && (
@@ -132,7 +134,7 @@ function SpaceRow({ space }: { space: SpaceSummaries }) {
                   >
                     <StatusDot tone={meta.tone} />
                     <span className="min-w-0 flex-1 truncate text-[length:var(--text-sm)] text-[var(--text-primary)]">
-                      {p.title || 'Untitled'}
+                      {p.title || 'Без названия'}
                     </span>
                     {p.status === 'failed' && p.last_error && (
                       <span
@@ -171,14 +173,14 @@ export function SettingsSummariesTab() {
   if (isLoading) {
     return (
       <p className="m-0 text-[length:var(--text-sm)] text-[var(--text-muted)]">
-        Loading summary status…
+        Загрузка статуса сводок…
       </p>
     )
   }
   if (isError || !data) {
     return (
       <p className="m-0 text-[length:var(--text-sm)] text-[var(--text-muted)]">
-        Couldn’t load summary status.
+        Не удалось загрузить статус сводок.
       </p>
     )
   }
@@ -186,13 +188,13 @@ export function SettingsSummariesTab() {
   return (
     <div className="flex flex-col gap-[var(--space-4)]">
       <p className="m-0 text-[length:var(--text-sm)] text-[var(--text-muted)]">
-        Page summaries are written by the configured LLM and refreshed
-        automatically a few seconds after a page's body changes; use Summarize
-        to queue everything pending in a space.
+        Сводки страниц пишет настроенная LLM: они обновляются автоматически
+        через несколько секунд после изменения текста страницы; кнопка «Суммировать»
+        ставит в очередь всё, что ещё ожидает, в выбранном пространстве.
         {data.enabled && data.model && (
           <>
             {' '}
-            Model: <strong className="text-[var(--text-primary)]">{data.model}</strong>.
+            Модель: <strong className="text-[var(--text-primary)]">{data.model}</strong>.
           </>
         )}
       </p>
@@ -200,16 +202,16 @@ export function SettingsSummariesTab() {
       {!data.enabled && (
         <Card className="p-[var(--space-4)]">
           <p className="m-0 text-[length:var(--text-sm)] text-[var(--text-muted)]">
-            Auto-summaries are <strong className="text-[var(--text-primary)]">not configured</strong> on
-            this server — counts below reflect any existing summaries, but
-            nothing new will be generated until an LLM is set up.
+            Автоматические сводки на этом сервере <strong className="text-[var(--text-primary)]">не настроены</strong> —
+            приведённые ниже счётчики отражают существующие сводки, но новые создаваться
+            не будут, пока не будет настроена LLM.
           </p>
         </Card>
       )}
 
       {data.spaces.length === 0 ? (
         <p className="m-0 text-[length:var(--text-sm)] text-[var(--text-muted)]">
-          No spaces to summarize.
+          Нет пространств для суммирования.
         </p>
       ) : (
         <div className="flex flex-col gap-[var(--space-3)]">

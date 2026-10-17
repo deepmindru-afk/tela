@@ -24,7 +24,9 @@ import {
 import { Input } from '../ui/input'
 import { Select } from '../ui/select'
 import { cn } from '../../lib/utils'
+import { ruPlural } from '../../lib/ru-plural'
 
+// Russian plural for counted nouns: 1 участник, 2 участника, 5 участников.
 // The Organizations tab is now just an index: a list of orgs that each link to
 // the dedicated per-org management page (route /settings/orgs/$orgId), plus org
 // creation and the instance-wide auto-join domain map. Everything that used to
@@ -54,24 +56,24 @@ export function SettingsOrgsTab({
         <header className="flex items-start justify-between gap-[var(--space-3)]">
           <p className="m-0 text-[length:var(--text-sm)] text-[var(--text-muted)] leading-[var(--leading-relaxed)]">
             {isInstance
-              ? 'Organizations group people so a whole team can be granted access to a space at once. Open one to manage its members, groups, and single sign-on.'
-              : 'Organizations you administer. Open one to manage its members and groups, and review recent access changes. Creating organizations and mapping email domains is handled by an instance admin.'}
+              ? 'Организации объединяют людей, чтобы всю команду можно было сразу допустить к пространству. Откройте организацию, чтобы управлять её участниками, группами и единым входом.'
+              : 'Организации, которыми вы управляете. Откройте организацию, чтобы управлять её участниками и группами и посмотреть недавние изменения в доступе. Создание организаций и привязка почтовых доменов выполняются администратором инстанса.'}
           </p>
           {isInstance ? (
             <Button type="button" variant="primary" onClick={() => setCreateOpen(true)}>
               <Building2 width={14} height={14} />
-              <span>New org</span>
+              <span>Новая организация</span>
             </Button>
           ) : null}
         </header>
 
         {orgs.isLoading ? (
           <p className="m-0 text-[length:var(--text-sm)] text-[var(--text-muted)]">
-            Loading organizations…
+            Загрузка организаций…
           </p>
         ) : orgs.isError ? (
           <p role="alert" className="m-0 text-[length:var(--text-sm)] text-[var(--danger)]">
-            Couldn't load organizations.
+            Не удалось загрузить организации.
           </p>
         ) : visibleOrgs.length > 0 ? (
           <ul className="m-0 p-0 list-none flex flex-col gap-[var(--space-1)]">
@@ -82,8 +84,8 @@ export function SettingsOrgsTab({
         ) : (
           <p className="m-0 text-[length:var(--text-sm)] text-[var(--text-muted)]">
             {isInstance
-              ? 'No organizations yet. Create one to start grouping members.'
-              : 'You don’t administer any organizations.'}
+              ? 'Организаций пока нет. Создайте первую, чтобы начать объединять участников.'
+              : 'Вы не управляете ни одной организацией.'}
           </p>
         )}
       </div>
@@ -119,7 +121,7 @@ function OrgRow({ org, scope }: { org: Org; scope: 'instance' | 'admin' }) {
             {org.name}
           </Link>
           <Badge variant="muted">
-            {org.member_count} {org.member_count === 1 ? 'member' : 'members'}
+            {org.member_count} {ruPlural(org.member_count, 'участник', 'участника', 'участников')}
           </Badge>
         </div>
         <span className="text-[length:var(--text-xs)] text-[var(--text-muted)] font-[family-name:var(--font-mono)]">
@@ -137,7 +139,7 @@ function OrgRow({ org, scope }: { org: Org; scope: 'instance' | 'admin' }) {
       ) : null}
       <Button asChild variant="secondary" size="sm">
         <Link to="/settings/orgs/$orgId" params={{ orgId: org.id }}>
-          <span>Manage</span>
+          <span>Управление</span>
           <ChevronRight width={14} height={14} />
         </Link>
       </Button>
@@ -172,7 +174,7 @@ function CreateOrgDialog({
     e.preventDefault()
     const trimmedName = name.trim()
     if (!trimmedName) {
-      setError('Name is required.')
+      setError('Название обязательно.')
       return
     }
     setError(null)
@@ -185,11 +187,11 @@ function CreateOrgDialog({
       handleClose(false)
     } catch (err) {
       if (err instanceof ApiError && err.status === 409) {
-        setError('An org with that slug already exists.')
+        setError('Организация с таким слагом уже существует.')
       } else if (err instanceof ApiError) {
         setError(err.message)
       } else {
-        setError('Failed to create org.')
+        setError('Не удалось создать организацию.')
       }
     }
   }
@@ -198,15 +200,15 @@ function CreateOrgDialog({
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Create an organization</DialogTitle>
+          <DialogTitle>Создание организации</DialogTitle>
           <DialogDescription>
-            You'll add members after it's created.
+            Участников можно будет добавить после создания.
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="flex flex-col gap-[var(--space-3)]" noValidate>
           <div className="flex flex-col gap-[var(--space-2)]">
             <label htmlFor="new-org-name" className="text-[length:var(--text-sm)] text-[var(--text-muted)]">
-              Name
+              Название
             </label>
             <Input
               id="new-org-name"
@@ -219,7 +221,7 @@ function CreateOrgDialog({
           </div>
           <div className="flex flex-col gap-[var(--space-2)]">
             <label htmlFor="new-org-slug" className="text-[length:var(--text-sm)] text-[var(--text-muted)]">
-              Slug <span className="text-[var(--text-muted)]">(optional — derived from name)</span>
+              Слаг <span className="text-[var(--text-muted)]">(необязательно — формируется из названия)</span>
             </label>
             <Input
               id="new-org-slug"
@@ -238,11 +240,11 @@ function CreateOrgDialog({
           <DialogFooter>
             <DialogClose asChild>
               <Button type="button" variant="ghost">
-                Cancel
+                Отмена
               </Button>
             </DialogClose>
             <Button type="submit" disabled={createOrg.isPending}>
-              {createOrg.isPending ? 'Creating…' : 'Create org'}
+              {createOrg.isPending ? 'Создание…' : 'Создать организацию'}
             </Button>
           </DialogFooter>
         </form>
@@ -263,11 +265,11 @@ function DomainsSection({ orgs }: { orgs: Org[] }) {
     e.preventDefault()
     const trimmed = domain.trim()
     if (!trimmed) {
-      setError('Domain is required.')
+      setError('Домен обязателен.')
       return
     }
     if (orgId === '') {
-      setError('Pick an org to map the domain to.')
+      setError('Выберите организацию, к которой привязывается домен.')
       return
     }
     setError(null)
@@ -277,11 +279,11 @@ function DomainsSection({ orgs }: { orgs: Org[] }) {
       setOrgId('')
     } catch (err) {
       if (err instanceof ApiError && err.status === 409) {
-        setError('That domain is already mapped to an org.')
+        setError('Этот домен уже привязан к организации.')
       } else if (err instanceof ApiError) {
         setError(err.message)
       } else {
-        setError('Failed to add domain.')
+        setError('Не удалось добавить домен.')
       }
     }
   }
@@ -291,15 +293,15 @@ function DomainsSection({ orgs }: { orgs: Org[] }) {
       <header className="flex flex-col gap-[var(--space-1)]">
         <h2 className="m-0 flex items-center gap-[var(--space-2)] font-[family-name:var(--font-sans)] text-[length:var(--text-lg)] text-[var(--text-primary)]">
           <Globe width={16} height={16} />
-          Auto-join domains
+          Домены автоприсоединения
         </h2>
         <p className="m-0 text-[length:var(--text-sm)] text-[var(--text-muted)] leading-[var(--leading-relaxed)]">
-          A user whose verified email domain matches is enrolled into the mapped
-          org as a <strong className="font-medium text-[var(--text-primary)]">member</strong>{' '}
-          automatically on sign-in — membership is identity-derived, so they
-          can't be removed without removing the mapping. Domains here also route
-          users to the org's single sign-on. Avoid public providers like
-          gmail.com.
+          Пользователь, чей подтверждённый почтовый домен совпадает, при входе
+          автоматически зачисляется в привязанную организацию как{' '}
+          <strong className="font-medium text-[var(--text-primary)]">участник</strong> —
+          членство определяется по учётной записи, поэтому исключить его можно только
+          вместе с удалением привязки. Домены здесь также направляют пользователей к
+          единому входу организации. Избегайте публичных сервисов вроде gmail.com.
         </p>
       </header>
 
@@ -328,7 +330,7 @@ function DomainsSection({ orgs }: { orgs: Org[] }) {
                 type="button"
                 variant="ghost"
                 size="sm"
-                aria-label={`Remove ${d.domain}`}
+                aria-label={`Удалить ${d.domain}`}
                 onClick={() => void deleteDomain.mutateAsync(d.domain)}
                 disabled={deleteDomain.isPending}
                 className="text-[var(--text-muted)] hover:text-[var(--danger)]"
@@ -340,7 +342,7 @@ function DomainsSection({ orgs }: { orgs: Org[] }) {
         </ul>
       ) : (
         <p className="m-0 text-[length:var(--text-sm)] text-[var(--text-muted)]">
-          No auto-join domains configured.
+          Домены автоприсоединения не настроены.
         </p>
       )}
 
@@ -353,7 +355,7 @@ function DomainsSection({ orgs }: { orgs: Org[] }) {
           htmlFor="add-org-domain"
           className="text-[length:var(--text-xs)] uppercase tracking-wider text-[var(--text-muted)] font-[family-name:var(--font-sans)]"
         >
-          Map a domain
+          Привязать домен
         </label>
         <div className="flex items-start gap-[var(--space-2)] flex-wrap">
           <div className="flex-1 min-w-[10rem]">
@@ -369,11 +371,11 @@ function DomainsSection({ orgs }: { orgs: Org[] }) {
           <div className="w-[10rem] shrink-0">
             <Select
               size="md"
-              aria-label="Org to map the domain to"
+              aria-label="Организация для привязки домена"
               value={orgId === '' ? '' : String(orgId)}
               onChange={(e) => setOrgId(e.target.value === '' ? '' : Number(e.target.value))}
             >
-              <option value="">Choose org…</option>
+              <option value="">Выберите организацию…</option>
               {orgs.map((o) => (
                 <option key={o.id} value={o.id}>
                   {o.name}
@@ -382,7 +384,7 @@ function DomainsSection({ orgs }: { orgs: Org[] }) {
             </Select>
           </div>
           <Button type="submit" variant="secondary" disabled={createDomain.isPending}>
-            <span>{createDomain.isPending ? 'Adding…' : 'Add'}</span>
+            <span>{createDomain.isPending ? 'Добавление…' : 'Добавить'}</span>
           </Button>
         </div>
         {error ? (

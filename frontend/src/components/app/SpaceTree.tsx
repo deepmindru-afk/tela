@@ -196,7 +196,7 @@ export function SpaceTree({ activeSpaceId, activePageId }: SpaceTreeProps) {
         <Fragment key={key}>
           {labelled ? (
             <ClusterHeader
-              label={org ?? 'My spaces'}
+              label={org ?? 'Мои пространства'}
               collapsed={collapsed}
               onToggle={() => collapsedOrgs.toggle(key)}
             />
@@ -219,7 +219,7 @@ export function SpaceTree({ activeSpaceId, activePageId }: SpaceTreeProps) {
           dashboard. The tree is purely navigation. */}
       <section
         className="flex flex-col gap-[1px] px-[var(--space-3)]"
-        aria-label="Spaces"
+        aria-label="Пространства"
       >
         {spaces.isLoading ? <SpacesSkeleton /> : null}
 
@@ -231,10 +231,10 @@ export function SpaceTree({ activeSpaceId, activePageId }: SpaceTreeProps) {
           <Card className="bg-[var(--surface-1)]">
             <CardBody className="px-[var(--space-4)] py-[var(--space-3)] gap-[var(--space-1)]">
               <p className="m-0 text-[length:var(--text-sm)] font-medium text-[var(--text-primary)]">
-                No spaces yet
+                Пока нет пространств
               </p>
               <p className="m-0 text-[length:var(--text-xs)] text-[var(--text-muted)] leading-[var(--leading-relaxed)]">
-                Create a space to get started.
+                Создайте пространство, чтобы начать.
               </p>
             </CardBody>
             <CardFooter className="px-[var(--space-4)] pt-0 pb-[var(--space-3)]">
@@ -244,7 +244,7 @@ export function SpaceTree({ activeSpaceId, activePageId }: SpaceTreeProps) {
                 className="w-full"
                 onClick={() => emitOpenNewSpace()}
               >
-                <Plus width={14} height={14} /> New space
+                <Plus width={14} height={14} /> Новое пространство
               </Button>
             </CardFooter>
           </Card>
@@ -268,7 +268,7 @@ export function SpaceTree({ activeSpaceId, activePageId }: SpaceTreeProps) {
               <Eye width={12} height={12} aria-hidden className="shrink-0" />
             )}
             <span className="truncate">
-              {showHidden ? 'Hide hidden' : `Show hidden (${tuckedIds.size})`}
+              {showHidden ? 'Скрыть скрытые' : `Показать скрытые (${tuckedIds.size})`}
             </span>
           </button>
         ) : null}
@@ -380,8 +380,8 @@ function SpacesSkeleton() {
 function SpacesError({ onRetry }: { onRetry: () => void }) {
   return (
     <div className="flex items-center justify-between gap-[var(--space-2)] px-[var(--space-2)] py-[var(--space-2)] rounded-[var(--radius-sm)] bg-[var(--surface-2)] text-[length:var(--text-sm)] text-[var(--danger)]">
-      <span>Couldn't load spaces.</span>
-      <Button variant="ghost" size="sm" onClick={onRetry} aria-label="Retry">
+      <span>Не удалось загрузить пространства.</span>
+      <Button variant="ghost" size="sm" onClick={onRetry} aria-label="Повторить">
         <RotateCw width={14} height={14} />
       </Button>
     </div>
@@ -431,7 +431,7 @@ function SpaceRow({
       >
         <button
           type="button"
-          aria-label={expanded ? 'Collapse' : 'Expand'}
+          aria-label={expanded ? 'Свернуть' : 'Развернуть'}
           aria-expanded={expanded}
           onClick={onToggleExpand}
           className="inline-flex items-center justify-center h-[var(--space-6)] w-[var(--space-4)] shrink-0 rounded-[var(--radius-xs)] bg-transparent border-0 cursor-pointer text-[var(--text-muted)] hover:text-[var(--text-primary)] outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
@@ -456,7 +456,7 @@ function SpaceRow({
           )}
         >
           {space.name || (
-            <span className="text-[var(--text-muted)]">Untitled space</span>
+            <span className="text-[var(--text-muted)]">Пространство без названия</span>
           )}
         </button>
 
@@ -467,7 +467,7 @@ function SpaceRow({
           <Globe
             width={13}
             height={13}
-            aria-label="Public on the web"
+            aria-label="Доступен в интернете"
             className="shrink-0 text-[var(--text-muted)] group-hover:hidden"
           />
         ) : null}
@@ -481,7 +481,7 @@ function SpaceRow({
           <TooltipTrigger asChild>
             <button
               type="button"
-              aria-label={`${accessAriaLabel(space)} — manage access`}
+              aria-label={`${accessAriaLabel(space)} — управление доступом`}
               onClick={(e) => {
                 e.stopPropagation()
                 setShareOpen(true)
@@ -505,7 +505,7 @@ function SpaceRow({
             <Button
               variant="ghost"
               size="sm"
-              aria-label={`Actions for ${space.name || 'space'}`}
+              aria-label={`Действия для ${space.name || 'пространство'}`}
               className={cn(
                 'shrink-0 h-[var(--space-6)] w-[var(--space-6)] p-0 hidden group-hover:inline-flex data-[state=open]:inline-flex focus-visible:inline-flex',
                 active && '[@media(hover:none)]:inline-flex',
@@ -515,12 +515,12 @@ function SpaceRow({
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuItem onSelect={() => setRenameOpen(true)}>Rename</DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => setRenameOpen(true)}>Переименовать</DropdownMenuItem>
             <DropdownMenuItem onSelect={() => setShareOpen(true)}>
-              <UsersRound width={14} height={14} /> Share
+              <UsersRound width={14} height={14} /> Поделиться
             </DropdownMenuItem>
             <DropdownMenuItem onSelect={() => void downloadZip()}>
-              <FileDown width={14} height={14} /> Export Markdown (.zip)
+              <FileDown width={14} height={14} /> Экспорт в Markdown (.zip)
             </DropdownMenuItem>
             <DropdownMenuItem
               onSelect={() =>
@@ -529,17 +529,17 @@ function SpaceRow({
             >
               {hidden ? (
                 <>
-                  <Eye width={14} height={14} /> Unhide space
+                  <Eye width={14} height={14} /> Показать пространство
                 </>
               ) : (
                 <>
-                  <EyeOff width={14} height={14} /> Hide space
+                  <EyeOff width={14} height={14} /> Скрыть пространство
                 </>
               )}
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem destructive onSelect={() => setDeleteOpen(true)}>
-              Delete
+              Удалить
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
@@ -578,12 +578,12 @@ function isPrivateSpace(space: Space): boolean {
 }
 
 function accessAriaLabel(space: Space): string {
-  if (space.visibility === 'public') return 'Public on the web'
-  if (space.is_personal) return 'Personal space, only you'
-  if (isPrivateSpace(space)) return 'Private, only you'
+  if (space.visibility === 'public') return 'Доступен в интернете'
+  if (space.is_personal) return 'Личное пространство, только вы'
+  if (isPrivateSpace(space)) return 'Приватное пространство, только вы'
   const people = space.member_count ?? 0
   const shared = (space.principals ?? []).map((p) => p.name).join(', ')
-  return `${people} ${people === 1 ? 'person' : 'people'}${shared ? `, shared with ${shared}` : ''}`
+  return `${people} ${people === 1 ? 'человек' : 'людей'}${shared ? `, доступ для ${shared}` : ''}`
 }
 
 // AccessCluster — the compact access signal shown on row hover: a lock for solo
@@ -627,14 +627,14 @@ function SpaceAccessPeek({ space }: { space: Space }) {
   if (space.visibility === 'public') {
     return (
       <span className="text-[var(--text-muted)]">
-        Public on the web — anyone with the link can read
+        Доступен в интернете — читать могут все, у кого есть ссылка
       </span>
     )
   }
   if (space.is_personal || isPrivateSpace(space)) {
     return (
       <span className="text-[var(--text-muted)]">
-        {space.is_personal ? 'Your personal space' : 'Private'} — only you
+        {space.is_personal ? 'Ваше личное пространство' : 'Приватное'} — только вы
       </span>
     )
   }
@@ -644,7 +644,7 @@ function SpaceAccessPeek({ space }: { space: Space }) {
       {principals.length > 0 ? (
         <div className="flex flex-col gap-[2px]">
           <span className="text-[length:var(--text-xs)] uppercase tracking-wider text-[var(--text-muted)]">
-            Shared with
+            Общий доступ с
           </span>
           {principals.map((p) => (
             <span key={`${p.kind}:${p.name}`} className="flex items-center gap-[var(--space-1)]">
@@ -655,7 +655,7 @@ function SpaceAccessPeek({ space }: { space: Space }) {
               )}
               <span className="truncate">{p.name}</span>
               <span className="text-[var(--text-muted)]">
-                {p.kind === 'group' ? 'group' : 'org'}
+                {p.kind === 'group' ? 'группа' : 'организация'}
               </span>
             </span>
           ))}
@@ -664,10 +664,10 @@ function SpaceAccessPeek({ space }: { space: Space }) {
 
       <div className="flex flex-col gap-[2px]">
         <span className="text-[length:var(--text-xs)] uppercase tracking-wider text-[var(--text-muted)]">
-          {access.data ? `People (${access.data.length})` : 'People'}
+          {access.data ? `Участники (${access.data.length})` : 'Участники'}
         </span>
         {access.isLoading ? (
-          <span className="text-[var(--text-muted)]">Loading…</span>
+          <span className="text-[var(--text-muted)]">Загрузка…</span>
         ) : (
           (access.data ?? []).slice(0, 8).map((p) => (
             <div key={p.user_id} className="flex items-center justify-between gap-[var(--space-3)]">
@@ -681,7 +681,7 @@ function SpaceAccessPeek({ space }: { space: Space }) {
         )}
         {(access.data?.length ?? 0) > 8 ? (
           <span className="text-[var(--text-muted)]">
-            +{(access.data?.length ?? 0) - 8} more
+            +{(access.data?.length ?? 0) - 8} ещё
           </span>
         ) : null}
       </div>
@@ -691,9 +691,9 @@ function SpaceAccessPeek({ space }: { space: Space }) {
 
 // peekVia — compact provenance for the tooltip: "direct" or "via Acme".
 function peekVia(sources: { kind: string; name?: string }[]): string {
-  if (sources.some((s) => s.kind === 'direct')) return 'direct'
+  if (sources.some((s) => s.kind === 'direct')) return 'напрямую'
   const name = sources.find((s) => s.kind !== 'direct' && s.name)?.name
-  return name ? `via ${name}` : ''
+  return name ? `через ${name}` : ''
 }
 
 interface RenameSpaceDialogProps {
@@ -719,7 +719,7 @@ function RenameSpaceDialog({ space, open, onOpenChange }: RenameSpaceDialogProps
     e.preventDefault()
     const trimmed = name.trim()
     if (!trimmed) {
-      setError('Name is required.')
+      setError('Обязательно укажите название.')
       return
     }
     if (trimmed === space.name) {
@@ -731,7 +731,7 @@ function RenameSpaceDialog({ space, open, onOpenChange }: RenameSpaceDialogProps
       await updateSpace.mutateAsync({ id: space.id, name: trimmed })
       handleClose(false)
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Failed to rename space.')
+      setError(err instanceof ApiError ? err.message : 'Не удалось переименовать пространство.')
     }
   }
 
@@ -739,7 +739,7 @@ function RenameSpaceDialog({ space, open, onOpenChange }: RenameSpaceDialogProps
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Rename space</DialogTitle>
+          <DialogTitle>Переименовать пространство</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="flex flex-col gap-[var(--space-3)]">
           <div className="flex flex-col gap-[var(--space-2)]">
@@ -747,7 +747,7 @@ function RenameSpaceDialog({ space, open, onOpenChange }: RenameSpaceDialogProps
               htmlFor={`rename-space-${space.id}`}
               className="text-[length:var(--text-sm)] text-[var(--text-muted)]"
             >
-              Name
+              Название
             </label>
             <Input
               id={`rename-space-${space.id}`}
@@ -765,11 +765,11 @@ function RenameSpaceDialog({ space, open, onOpenChange }: RenameSpaceDialogProps
           <DialogFooter>
             <DialogClose asChild>
               <Button type="button" variant="ghost">
-                Cancel
+                Отмена
               </Button>
             </DialogClose>
             <Button type="submit" disabled={updateSpace.isPending}>
-              {updateSpace.isPending ? 'Saving…' : 'Save'}
+              {updateSpace.isPending ? 'Сохранение…' : 'Сохранить'}
             </Button>
           </DialogFooter>
         </form>
@@ -815,7 +815,7 @@ function DeleteSpaceDialog({
         void navigate({ to: '/' })
       }
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Failed to delete space.')
+      setError(err instanceof ApiError ? err.message : 'Не удалось удалить пространство.')
     }
   }
 
@@ -823,10 +823,10 @@ function DeleteSpaceDialog({
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Delete this space?</DialogTitle>
+          <DialogTitle>Удалить это пространство?</DialogTitle>
           <DialogDescription>
-            "{space.name}" and all of its pages will be permanently removed. This
-            action cannot be undone.
+            «{space.name}» и все страницы этого пространства будут удалены
+            безвозвратно. Это действие нельзя отменить.
           </DialogDescription>
         </DialogHeader>
         {error ? (
@@ -837,7 +837,7 @@ function DeleteSpaceDialog({
         <DialogFooter>
           <DialogClose asChild>
             <Button type="button" variant="ghost">
-              Cancel
+              Отмена
             </Button>
           </DialogClose>
           <Button
@@ -846,7 +846,7 @@ function DeleteSpaceDialog({
             onClick={handleDelete}
             disabled={deleteSpace.isPending}
           >
-            {deleteSpace.isPending ? 'Deleting…' : 'Delete'}
+            {deleteSpace.isPending ? 'Удаление…' : 'Удалить'}
           </Button>
         </DialogFooter>
       </DialogContent>

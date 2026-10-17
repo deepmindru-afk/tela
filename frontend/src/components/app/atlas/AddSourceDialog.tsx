@@ -62,7 +62,7 @@ export function AddSourceDialog({
       .map((c) => {
         const personal = c.owner_kind === 'user' && c.owner_id === meId
         const ownedByProject = c.owner_kind === owner.kind && c.owner_id === owner.id
-        return { ...c, label: personal && !ownedByProject ? `${c.name} (personal — private to you)` : c.name }
+        return { ...c, label: personal && !ownedByProject ? `${c.name} (личный — виден только вам)` : c.name }
       })
   }, [credsQ.data, owner, type, meId])
   const effectiveName = nameTouched ? name : deriveName(location)
@@ -81,7 +81,7 @@ export function AddSourceDialog({
       })
       onOpenChange(false)
     } catch (e) {
-      setErr(e instanceof Error ? e.message : 'Could not add the source.')
+      setErr(e instanceof Error ? e.message : 'Не удалось добавить источник.')
     }
   }
 
@@ -89,45 +89,45 @@ export function AddSourceDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Add source</DialogTitle>
+          <DialogTitle>Добавить источник</DialogTitle>
           <DialogDescription>
-            Its docs land under a folder named after it, inside the project's output space.
+            Его документация попадёт в папку с его названием внутри выходного пространства проекта.
           </DialogDescription>
         </DialogHeader>
 
         <div className="flex flex-col gap-[var(--space-4)] py-[var(--space-2)]">
           <div className="grid grid-cols-[8rem_1fr] gap-[var(--space-3)]">
-            <Field label="Type">
+            <Field label="Тип">
               <Select value={type} onChange={(e) => setType(e.target.value as AtlasSourceType)}>
-                <option value="git">Git repo</option>
-                <option value="jira">Jira project</option>
+                <option value="git">Репозиторий Git</option>
+                <option value="jira">Проект Jira</option>
               </Select>
             </Field>
-            <Field label={type === 'git' ? 'Repository URL' : 'Jira base · project key'}>
+            <Field label={type === 'git' ? 'URL репозитория' : 'Базовый URL Jira · ключ проекта'}>
               <Input value={location} onChange={(e) => setLocation(e.target.value)} placeholder={type === 'git' ? 'https://github.com/org/repo' : 'https://org.atlassian.net · PROJ'} autoFocus />
             </Field>
           </div>
 
           <div className="grid grid-cols-2 gap-[var(--space-3)]">
-            <Field label="Name" hint="Folder name in the space.">
+            <Field label="Название" hint="Название папки в пространстве.">
               <Input value={effectiveName} onChange={(e) => { setNameTouched(true); setName(e.target.value) }} placeholder="repo" />
             </Field>
             {type === 'git' && (
-              <Field label="Branch" hint="Default branch if blank.">
+              <Field label="Ветка" hint="Если пусто — ветка по умолчанию.">
                 <Input value={branch} onChange={(e) => setBranch(e.target.value)} placeholder="main" />
               </Field>
             )}
           </div>
 
           {type === 'git' && (
-            <Field label="Subpath" hint="Restrict to a directory (optional).">
+            <Field label="Подпуть" hint="Ограничить одну директорию (необязательно).">
               <Input value={subpath} onChange={(e) => setSubpath(e.target.value)} placeholder="packages/core" />
             </Field>
           )}
 
-          <Field label="Credential" hint={creds.length === 0 ? 'None needed for public repos. Add one under Credentials for private sources.' : 'Reused across sources with the same owner.'}>
+          <Field label="Учётные данные" hint={creds.length === 0 ? 'Публичным репозиториям они не нужны. Для приватных источников добавьте их в разделе «Учётные данные».' : 'Переиспользуются между источниками с одним владельцем.'}>
             <Select value={credId} onChange={(e) => setCredId(e.target.value)} disabled={creds.length === 0}>
-              <option value="">{type === 'git' ? 'Public — no credential' : 'None'}</option>
+              <option value="">{type === 'git' ? 'Публичный — без учётных данных' : 'Не требуется'}</option>
               {creds.map((c) => <option key={c.id} value={c.id}>{c.label}</option>)}
             </Select>
           </Field>
@@ -136,9 +136,9 @@ export function AddSourceDialog({
         </div>
 
         <DialogFooter>
-          <Button variant="ghost" onClick={() => onOpenChange(false)}>Cancel</Button>
+          <Button variant="ghost" onClick={() => onOpenChange(false)}>Отмена</Button>
           <Button variant="primary" disabled={!location.trim() || create.isPending} onClick={submit}>
-            {create.isPending && <Loader2 className="size-[var(--space-4)] motion-safe:animate-spin" />}Add source
+            {create.isPending && <Loader2 className="size-[var(--space-4)] motion-safe:animate-spin" />}Добавить источник
           </Button>
         </DialogFooter>
       </DialogContent>

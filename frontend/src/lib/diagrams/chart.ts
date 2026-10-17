@@ -192,7 +192,7 @@ export function buildChartWidget(code: string): HTMLElement {
       .then(([echarts, yaml]) => {
         const spec = (yaml.load(code) ?? {}) as ChartSpec
         if (typeof spec !== 'object' || Array.isArray(spec)) {
-          throw new Error('chart spec must be a YAML mapping')
+          throw new Error('Спецификация диаграммы должна быть задана в формате YAML')
         }
         if (!chart) chart = echarts.init(canvas, null, { renderer: 'svg' })
         chart.setOption(buildOption(spec, readTokens()), true)
@@ -201,7 +201,7 @@ export function buildChartWidget(code: string): HTMLElement {
       .catch((e: unknown) => {
         dom.classList.add('tela-chart-error')
         canvas.textContent =
-          e instanceof Error ? e.message : 'Could not render chart'
+          e instanceof Error ? e.message : 'Не удалось отрисовать диаграмму'
       })
   }
   renderers.set(dom, render)

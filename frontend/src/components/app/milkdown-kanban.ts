@@ -39,13 +39,15 @@ export const kanbanColumnSchema = $nodeSchema('kanban_column', () => ({
   group: 'kanban_column',
   content: 'bullet_list',
   defining: true,
-  attrs: { title: { default: 'Column' } },
+  attrs: { title: { default: 'Колонка' } },
   parseDOM: [
     {
       tag: 'div[data-kanban-column]',
       getAttrs: (dom) => ({
         title:
-          dom instanceof HTMLElement ? (dom.dataset.title ?? 'Column') : 'Column',
+          dom instanceof HTMLElement
+            ? (dom.dataset.title ?? 'Колонка')
+            : 'Колонка',
       }),
     },
   ],
@@ -99,7 +101,7 @@ export const kanbanSchema = $nodeSchema('kanban', () => ({
       while (i < children.length) {
         const child = children[i]
         if (child.type === 'heading' && child.depth === 3) {
-          state.openNode(colType, { title: headingText(child) || 'Column' })
+          state.openNode(colType, { title: headingText(child) || 'Колонка' })
           const next = children[i + 1]
           if (next && next.type === 'list') {
             state.next(next as never)
@@ -118,7 +120,7 @@ export const kanbanSchema = $nodeSchema('kanban', () => ({
       }
       if (columnCount === 0) {
         // No headings → one empty column so `kanban_column+` is satisfied.
-        state.openNode(colType, { title: 'Column' })
+        state.openNode(colType, { title: 'Колонка' })
         openEmptyList()
         state.closeNode()
       }
@@ -131,7 +133,7 @@ export const kanbanSchema = $nodeSchema('kanban', () => ({
       state.openNode('containerDirective', undefined, { name: 'kanban' })
       node.forEach((column) => {
         state.openNode('heading', undefined, { depth: 3 })
-        state.addNode('text', undefined, (column.attrs.title as string) || 'Column')
+        state.addNode('text', undefined, (column.attrs.title as string) || 'Колонка')
         state.closeNode()
         state.next(column.content)
       })
@@ -282,9 +284,9 @@ export function insertKanban(ctx: Ctx) {
   const mkColumn = (title: string, card: string) =>
     colType.create({ title }, listType.create(null, itemType.create(null, paraType.create(null, schema.text(card)))))
   const node = kanbanType.create(null, [
-    mkColumn('To do', 'First task'),
-    mkColumn('In progress', 'Second task'),
-    mkColumn('Done', 'Third task'),
+    mkColumn('К выполнению', 'Первая задача'),
+    mkColumn('В работе', 'Вторая задача'),
+    mkColumn('Готово', 'Третья задача'),
   ])
   insertBlock(view, node, { caret: 'none' })
 }

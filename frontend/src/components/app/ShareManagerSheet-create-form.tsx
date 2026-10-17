@@ -73,7 +73,7 @@ export function CreateShareForm({
         id="create-share-heading"
         className="m-0 text-[length:var(--text-xs)] uppercase tracking-wider text-[var(--text-muted)] font-[family-name:var(--font-sans)]"
       >
-        Create a new share
+        Создать новую ссылку
       </h3>
 
       <label className="flex items-center gap-[var(--space-2)]">
@@ -82,39 +82,39 @@ export function CreateShareForm({
           checked={includeDescendants}
           onCheckedChange={(v) => setIncludeDescendants(v === true)}
           disabled={pending}
-          aria-label="Include child pages"
+          aria-label="Включить дочерние страницы"
         />
         <span className="text-[length:var(--text-sm)] text-[var(--text-primary)] font-[family-name:var(--font-sans)]">
-          Include child pages
+          Включить дочерние страницы
         </span>
       </label>
 
       <label className="flex flex-col gap-[var(--space-1)]">
         <span className="text-[length:var(--text-xs)] text-[var(--text-muted)] font-[family-name:var(--font-sans)]">
-          Password (optional)
+          Пароль (необязательно)
         </span>
         <Input
           size="sm"
           type="text"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          placeholder="Optional password"
-          aria-label="Optional password"
+          placeholder="Необязательный пароль"
+          aria-label="Необязательный пароль"
           disabled={pending}
         />
       </label>
 
       <label className="flex flex-col gap-[var(--space-1)]">
         <span className="text-[length:var(--text-xs)] text-[var(--text-muted)] font-[family-name:var(--font-sans)]">
-          Expires at (UTC, optional)
+          Действует до (UTC, необязательно)
         </span>
         <Input
           size="sm"
           type="text"
           value={expiresAt}
           onChange={(e) => setExpiresAt(e.target.value)}
-          placeholder="YYYY-MM-DD HH:MM:SS — leave empty for none"
-          aria-label="Optional expiry"
+          placeholder="YYYY-MM-DD HH:MM:SS — оставьте пустым, чтобы не задавать"
+          aria-label="Необязательный срок действия"
           disabled={pending}
         />
       </label>
@@ -130,7 +130,7 @@ export function CreateShareForm({
 
       <div className="flex items-center justify-end">
         <Button type="submit" variant="primary" size="sm" disabled={pending}>
-          {pending ? 'Creating…' : 'Create share'}
+          {pending ? 'Создание…' : 'Создать ссылку'}
         </Button>
       </div>
     </form>

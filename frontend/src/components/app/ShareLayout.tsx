@@ -36,7 +36,7 @@ export function ShareLayout({ token, share, children }: ShareLayoutProps) {
   // on the canonical host it stays the tela wordmark → marketing landing.
   const org = useHostContext().data?.org ?? null
   const brandHref = org ? '/' : telaHome
-  const brandLabel = org ? `${org.name} home` : 'tela home'
+  const brandLabel = org ? `Главная ${org.name}` : 'Главная tela'
   const treeEnabled = share.include_descendants
   const tree = useShareTree(token, treeEnabled)
   const pages = tree.data?.pages ?? []
@@ -63,7 +63,7 @@ export function ShareLayout({ token, share, children }: ShareLayoutProps) {
               sign-in is intentional so the post-login app boots cleanly
               outside the share-mode shell. */}
           <Button asChild variant="ghost" size="sm">
-            <a href="/login">Sign in</a>
+            <a href="/login">Войти</a>
           </Button>
         </div>
       </header>
@@ -128,7 +128,7 @@ export function ShareSidebar({ token, pages }: ShareSidebarProps) {
 
   return (
     <nav
-      aria-label="Shared pages"
+      aria-label="Страницы по ссылке"
       className="shrink-0 border-r border-[var(--border-subtle)] bg-[var(--surface-2)] overflow-y-auto p-[var(--space-3)]"
       style={{ width: 'clamp(13rem, 20vw, 16rem)' }}
     >
@@ -241,7 +241,7 @@ function ShareTreeRow({
         height={14}
         className="shrink-0"
       />
-      <span className="truncate">{page.title || 'Untitled'}</span>
+      <span className="truncate">{page.title || 'Без названия'}</span>
     </>
   )
 
@@ -251,7 +251,7 @@ function ShareTreeRow({
         {hasChildren ? (
           <button
             type="button"
-            aria-label={isOpen ? 'Collapse' : 'Expand'}
+            aria-label={isOpen ? 'Свернуть' : 'Развернуть'}
             aria-expanded={isOpen}
             onClick={() => onToggle(page.id)}
             className="inline-flex items-center justify-center h-[var(--space-7)] w-[var(--space-7)] rounded-[var(--radius-sm)] bg-transparent border-0 cursor-pointer text-[var(--text-muted)] hover:text-[var(--text-primary)] outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"

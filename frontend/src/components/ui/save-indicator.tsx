@@ -20,25 +20,25 @@ export function SaveIndicator({ status, className }: SaveIndicatorProps) {
   const map = {
     saving: {
       Icon: Loader2,
-      label: 'Saving…',
+      label: 'Сохранение…',
       color: 'text-[var(--text-muted)]',
       spin: true,
     },
     saved: {
       Icon: CheckCircle2,
-      label: 'Saved',
+      label: 'Сохранено',
       color: 'text-[var(--accent)]',
       spin: false,
     },
     retrying: {
       Icon: Loader2,
-      label: 'Save failed — retrying',
+      label: 'Не удалось сохранить — повторная попытка',
       color: 'text-[var(--text-muted)]',
       spin: true,
     },
     error: {
       Icon: CircleAlert,
-      label: 'Save failed',
+      label: 'Не удалось сохранить',
       color: 'text-[var(--danger)]',
       spin: false,
     },

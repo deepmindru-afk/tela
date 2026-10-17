@@ -22,7 +22,7 @@ export function PublicHandleHome({ data }: { data: ByHandleResponse }) {
 
   useHeadMeta({
     title: `${name} — tela`,
-    description: bio || `${name} (@${handle}) on tela.`,
+    description: bio || `${name} (@${handle}) в tela.`,
     canonicalPath: `/${handle}`,
     ogType: kind === 'org' ? 'website' : 'profile',
   })
@@ -38,14 +38,14 @@ export function PublicHandleHome({ data }: { data: ByHandleResponse }) {
             <span>@{handle}</span>
             <MetaDot />
             <span>
-              {spaces.length} {spaces.length === 1 ? 'space' : 'spaces'}
+              {spaces.length} {spaces.length === 1 ? 'пространство' : 'пространств'}
             </span>
           </>
         }
       />
 
       {posts.length > 0 ? (
-        <SectionHeading className="mt-[var(--space-8)]">Latest</SectionHeading>
+        <SectionHeading className="mt-[var(--space-8)]">Последние</SectionHeading>
       ) : null}
       {posts.length > 0 ? (
         <div className="mt-[var(--space-4)] grid grid-cols-1 gap-[var(--space-5)] sm:grid-cols-2">
@@ -61,11 +61,11 @@ export function PublicHandleHome({ data }: { data: ByHandleResponse }) {
         </div>
       ) : null}
 
-      <SectionHeading className="mt-[var(--space-8)]">Spaces</SectionHeading>
+      <SectionHeading className="mt-[var(--space-8)]">Пространства</SectionHeading>
       <div className="mt-[var(--space-4)]">
         {spaces.length === 0 ? (
           <p className="text-[length:var(--text-sm)] text-[var(--text-muted)]">
-            Nothing published yet.
+            Пока ничего не опубликовано.
           </p>
         ) : (
           <ul className="grid list-none grid-cols-1 gap-[var(--space-5)] p-0 sm:grid-cols-2 lg:grid-cols-3">

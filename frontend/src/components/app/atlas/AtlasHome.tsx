@@ -24,26 +24,26 @@ import { AtlasBudgetNotice } from './AtlasBudgetNotice'
 
 function freshnessOf(p: AtlasProject): { f: Freshness; label: string } {
   const r = p.last_run
-  if (!r) return { f: 'never', label: 'Never run' }
+  if (!r) return { f: 'never', label: 'Не запускался' }
   switch (r.status) {
     case 'running':
-      return { f: 'running', label: 'Generating' }
+      return { f: 'running', label: 'Генерируется' }
     case 'pending':
-      return { f: 'pending', label: 'Queued' }
+      return { f: 'pending', label: 'В очереди' }
     case 'failed':
-      return { f: 'failed', label: 'Failed' }
+      return { f: 'failed', label: 'Ошибка' }
     case 'done':
       // Checked before staleness: an unreachable source can't report drift, so
       // stale_sources stays 0 and the card would otherwise read Fresh forever.
       if (p.unreachable_sources > 0) {
-        return { f: 'unreachable', label: `${p.unreachable_sources} unreachable` }
+        return { f: 'unreachable', label: `${p.unreachable_sources} недоступных` }
       }
       if (p.stale_sources > 0) {
-        return { f: 'stale', label: p.last_refresh_at ? `Stale · built ${fmtRelative(p.last_refresh_at)}` : 'Stale' }
+        return { f: 'stale', label: p.last_refresh_at ? `Устарел · сборка ${fmtRelative(p.last_refresh_at)}` : 'Устарел' }
       }
-      return { f: 'fresh', label: p.last_refresh_at ? `Fresh · ${fmtRelative(p.last_refresh_at)}` : 'Fresh' }
+      return { f: 'fresh', label: p.last_refresh_at ? `Актуален · ${fmtRelative(p.last_refresh_at)}` : 'Актуален' }
     default:
-      return { f: 'never', label: 'Idle' }
+      return { f: 'never', label: 'Простой' }
   }
 }
 
@@ -105,8 +105,8 @@ export function AtlasHome() {
           </h1>
           <p className="mt-[var(--space-2)] text-[length:var(--text-sm)] text-[var(--text-muted)]">
             {projects.length === 0
-              ? 'Living documentation, generated from your systems and kept current.'
-              : `${projects.length} project${projects.length === 1 ? '' : 's'} · ${counts.fresh} fresh${counts.stale ? ` · ${counts.stale} stale` : ''}${counts.unreachable ? ` · ${counts.unreachable} unreachable` : ''}${counts.running ? ` · ${counts.running} generating` : ''}${counts.failed ? ` · ${counts.failed} failed` : ''}`}
+              ? 'Живая документация, генерируемая из ваших систем и постоянно обновляемая.'
+              : `${projects.length} ${projects.length === 1 ? 'проект' : 'проектов'} · ${counts.fresh} свежих${counts.stale ? ` · ${counts.stale} устаревших` : ''}${counts.unreachable ? ` · ${counts.unreachable} недоступных` : ''}${counts.running ? ` · ${counts.running} в работе` : ''}${counts.failed ? ` · ${counts.failed} с ошибкой` : ''}`}
           </p>
           {/* Account-level, because the budget is per account: a user with three
               projects cannot tell from any one of them whether the total fits. */}
@@ -116,10 +116,10 @@ export function AtlasHome() {
         </div>
         <div className="flex items-center gap-[var(--space-2)]">
           <Button variant="ghost" onClick={() => setCredsOpen(true)}>
-            <KeyRound className="size-[var(--space-4)]" /> Credentials
+            <KeyRound className="size-[var(--space-4)]" /> Учётные данные
           </Button>
           <Button variant="primary" onClick={() => setNewOpen(true)} disabled={ownerOptions.length === 0}>
-            <Plus className="size-[var(--space-4)]" /> New project
+            <Plus className="size-[var(--space-4)]" /> Новый проект
           </Button>
         </div>
       </div>
@@ -127,16 +127,16 @@ export function AtlasHome() {
       <AtlasQuotaBar />
 
       {projectsQ.isLoading ? (
-        <p className="mt-[var(--space-6)] text-[length:var(--text-sm)] text-[var(--text-muted)]">Loading projects…</p>
+        <p className="mt-[var(--space-6)] text-[length:var(--text-sm)] text-[var(--text-muted)]">Загрузка проектов…</p>
       ) : projects.length === 0 ? (
         <div className="mt-[var(--space-6)]">
           <EmptyState
             icon={FolderGit2}
-            title="No projects yet"
-            description="Point Atlas at a git repo or Jira project and it generates coverage-audited docs into a space — then keeps them current."
+            title="Проектов пока нет"
+            description="Укажите Атласу git-репозиторий или проект Jira — он сгенерирует в пространство документацию с проверкой покрытия и будет поддерживать её в актуальном состоянии."
             actions={
               <Button variant="primary" onClick={() => setNewOpen(true)} disabled={ownerOptions.length === 0}>
-                <Plus className="size-[var(--space-4)]" /> New project
+                <Plus className="size-[var(--space-4)]" /> Новый проект
               </Button>
             }
           />
@@ -152,9 +152,9 @@ export function AtlasHome() {
                     {g.owner.name.slice(0, 1).toUpperCase()}
                   </span>
                   <h2 className="text-[length:var(--text-xs)] font-bold uppercase tracking-[0.08em] text-[var(--text-muted)]">
-                    {isMe ? 'Personal' : g.owner.name}
+                    {isMe ? 'Личное' : g.owner.name}
                   </h2>
-                  {!isMe && <span className="text-[length:var(--text-xs)] text-[var(--text-muted)] opacity-70">· org</span>}
+                  {!isMe && <span className="text-[length:var(--text-xs)] text-[var(--text-muted)] opacity-70">· организация</span>}
                   <span className="h-px flex-1 bg-[var(--border-subtle)]" />
                   <span className="text-[length:var(--text-xs)] text-[var(--text-muted)]">{g.items.length}</span>
                 </div>

@@ -3,7 +3,7 @@ import { Link } from '@tanstack/react-router'
 import {
   ArrowLeft,
   Boxes,
-  Copy,
+  Скопировать,
   Globe,
   HardDrive,
   LogIn,
@@ -23,35 +23,35 @@ import { useOrgAudit } from '../../lib/queries/org-audit'
 import { useOrgDomains } from '../../lib/queries/org-domains'
 import {
   useAddOrgMember,
-  useDeleteOrg,
+  useУдалитьOrg,
   useOrgMembers,
   useOrgs,
-  useRemoveOrgMember,
+  useУдалитьOrgMember,
   useUpdateOrgMember,
 } from '../../lib/queries/orgs'
 import { useCreateOrgInvite, useOrgInvites, useRevokeOrgInvite } from '../../lib/queries/invites'
 import {
   useAddGroupMember,
   useCreateGroup,
-  useDeleteGroup,
+  useУдалитьGroup,
   useGroupMembers,
-  useOrgGroups,
-  useRemoveGroupMember,
+  useOrgГруппы,
+  useУдалитьGroupMember,
 } from '../../lib/queries/groups'
-import { useDeleteOrgSSO, useOrgSSO, usePutOrgSSO } from '../../lib/queries/org-sso'
+import { useУдалитьOrgSSO, useOrgSSO, usePutOrgSSO } from '../../lib/queries/org-sso'
 import {
   useAddOrgHostname,
   useAdminDomainLogin,
-  useDeleteOrgHostname,
+  useУдалитьOrgHostname,
   useOrgHostnameHealth,
   useOrgHostnames,
-  useVerifyOrgHostname,
+  useПроверитьOrgHostname,
 } from '../../lib/queries/org-hostnames'
 import {
-  useOrgBranding,
-  usePutOrgBranding,
+  useOrgБрендинг,
+  usePutOrgБрендинг,
   useUploadOrgLogo,
-  useDeleteOrgLogo,
+  useУдалитьOrgLogo,
 } from '../../lib/queries/org-branding'
 import {
   useOrgLoginSettings,
@@ -63,7 +63,7 @@ import type {
   Org,
   OrgHostname,
   OrgMember,
-  OrgRole,
+  OrgРоль,
 } from '../../lib/types'
 import { AuditRow } from './SettingsAuditTab'
 import { PlanTierSelect } from './PlanTierSelect'
@@ -88,7 +88,7 @@ import { cn } from '../../lib/utils'
 // Dedicated per-org management page (route /settings/orgs/$orgId). Replaces the
 // old crowded "Members of X" dialog: the org's people, groups, single sign-on,
 // and activity each get their own sub-tab with room to grow. Reached from the
-// Organizations list in Settings. Instance admins see every org plus the SSO
+// Организации list in Settings. Instance admins see every org plus the SSO
 // tab and the danger zone; org admins see only the orgs they administer and
 // manage members/groups/activity.
 
@@ -102,7 +102,7 @@ export function OrgManageView({ orgId }: { orgId: number }) {
   if (orgs.isLoading || me.isLoading) {
     return (
       <div className="flex-1 overflow-y-auto p-[var(--space-7)]">
-        <p className="m-0 text-[length:var(--text-sm)] text-[var(--text-muted)]">Loading organization…</p>
+        <p className="m-0 text-[length:var(--text-sm)] text-[var(--text-muted)]">Загрузка организации…</p>
       </div>
     )
   }
@@ -116,15 +116,15 @@ export function OrgManageView({ orgId }: { orgId: number }) {
             className="inline-flex items-center gap-[var(--space-2)] text-[length:var(--text-sm)] text-[var(--text-muted)] hover:text-[var(--text-primary)] no-underline"
           >
             <ArrowLeft width={14} height={14} />
-            Organizations
+            Организации
           </Link>
           <h1 className="m-0 font-[family-name:var(--font-sans)] text-[length:var(--text-2xl)] text-[var(--text-primary)]">
-            {org ? 'No access' : 'Organization not found'}
+            {org ? 'Нет доступа' : 'Организация не найдена'}
           </h1>
           <p className="m-0 text-[length:var(--text-sm)] text-[var(--text-muted)]">
             {org
-              ? "You don't administer this organization."
-              : "This organization doesn't exist or you can't see it."}
+              ? "У вас нет прав администратора этой организации."
+              : "Эта организация не существует или у вас нет доступа к ней."}
           </p>
         </div>
       </div>
@@ -145,15 +145,15 @@ interface OrgSection {
 function OrgManageBody({ org, isInstance }: { org: Org; isInstance: boolean }) {
   const sections = useMemo<OrgSection[]>(() => {
     const s: OrgSection[] = [
-      { id: 'overview', label: 'Overview', render: () => <OrgOverviewPanel org={org} isInstance={isInstance} /> },
+      { id: 'overview', label: 'Обзор', render: () => <OrgОбзорPanel org={org} isInstance={isInstance} /> },
       { id: 'members', label: 'Members', render: () => <MembersPanel org={org} /> },
-      { id: 'groups', label: 'Groups', render: () => <GroupsPanel org={org} /> },
+      { id: 'groups', label: 'Группы', render: () => <ГруппыPanel org={org} /> },
     ]
-    s.push({ id: 'branding', label: 'Branding', render: () => <BrandingSection orgId={org.id} /> })
-    if (isInstance) s.push({ id: 'sso', label: 'Single sign-on', render: () => <SSOPanel org={org} /> })
-    s.push({ id: 'domains', label: 'Custom domains', render: () => <CustomDomainsPanel org={org} /> })
-    s.push({ id: 'activity', label: 'Activity', render: () => <OrgActivityPanel orgId={org.id} /> })
-    if (isInstance) s.push({ id: 'danger', label: 'Danger zone', render: () => <DangerZone org={org} /> })
+    s.push({ id: 'branding', label: 'Брендинг', render: () => <БрендингSection orgId={org.id} /> })
+    if (isInstance) s.push({ id: 'sso', label: 'Единый вход (SSO)', render: () => <SSOPanel org={org} /> })
+    s.push({ id: 'domains', label: 'Пользовательские домены', render: () => <CustomDomainsPanel org={org} /> })
+    s.push({ id: 'activity', label: 'Активность', render: () => <OrgАктивностьPanel orgId={org.id} /> })
+    if (isInstance) s.push({ id: 'danger', label: 'Опасная зона', render: () => <DangerZone org={org} /> })
     return s
   }, [org, isInstance])
   const [activeId, setActiveId] = useState('overview')
@@ -162,7 +162,7 @@ function OrgManageBody({ org, isInstance }: { org: Org; isInstance: boolean }) {
   return (
     <div className="flex-1 flex min-h-0">
       <nav
-        aria-label="Organization sections"
+        aria-label="Разделы организации"
         className="shrink-0 w-[var(--space-8)] sm:w-[15rem] border-r border-[var(--border-subtle)] bg-[var(--surface-2)] py-[var(--space-4)] px-[var(--space-3)] flex flex-col gap-[var(--space-2)]"
       >
         <Link
@@ -171,7 +171,7 @@ function OrgManageBody({ org, isInstance }: { org: Org; isInstance: boolean }) {
           className="hidden sm:inline-flex items-center gap-[var(--space-2)] px-[var(--space-2)] text-[length:var(--text-sm)] text-[var(--text-muted)] hover:text-[var(--text-primary)] no-underline"
         >
           <ArrowLeft width={14} height={14} />
-          Organizations
+          Организации
         </Link>
         <div className="hidden sm:flex flex-col gap-[var(--space-1)] px-[var(--space-2)] pb-[var(--space-2)] border-b border-[var(--border-subtle)]">
           <span className="truncate font-medium text-[var(--text-primary)] font-[family-name:var(--font-sans)]">
@@ -217,7 +217,7 @@ function OrgManageBody({ org, isInstance }: { org: Org; isInstance: boolean }) {
 
 // Plan + live usage for the org — seats, AI calls, attachments, spaces vs the
 // org plan's caps. Instance admins can change the tier inline here.
-function OrgOverviewPanel({ org, isInstance }: { org: Org; isInstance: boolean }) {
+function OrgОбзорPanel({ org, isInstance }: { org: Org; isInstance: boolean }) {
   const usage = useOrgUsage(org.id)
   const u = usage.data
   return (
@@ -231,7 +231,7 @@ function OrgOverviewPanel({ org, isInstance }: { org: Org; isInstance: boolean }
         </div>
         {isInstance ? (
           <div className="flex items-center gap-[var(--space-2)]">
-            <span className="text-[length:var(--text-xs)] text-[var(--text-muted)]">Admin · set tier</span>
+            <span className="text-[length:var(--text-xs)] text-[var(--text-muted)]">Админ · сменить тариф</span>
             <PlanTierSelect
               accountKind="org"
               accountId={org.id}
@@ -243,16 +243,16 @@ function OrgOverviewPanel({ org, isInstance }: { org: Org; isInstance: boolean }
       </div>
 
       {usage.isLoading ? (
-        <p className="m-0 text-[length:var(--text-sm)] text-[var(--text-muted)]">Loading usage…</p>
+        <p className="m-0 text-[length:var(--text-sm)] text-[var(--text-muted)]">Загрузка использования…</p>
       ) : u ? (
         <div className="flex flex-col gap-[var(--space-4)]">
           <Metric icon={<Users width={15} height={15} />} label="Members" used={u.usage.members ?? org.member_count} max={u.plan.max_members} />
-          <Metric icon={<Sparkles width={15} height={15} />} label="AI calls / mo" used={u.usage.llm_calls} max={u.plan.max_llm_calls_per_month} />
-          <Metric icon={<HardDrive width={15} height={15} />} label="Attachments" used={u.usage.storage_bytes} max={u.plan.max_storage_bytes} format={formatBytes} />
-          <Metric icon={<Boxes width={15} height={15} />} label="Spaces" used={u.usage.spaces} max={u.plan.max_spaces} />
+          <Metric icon={<Sparkles width={15} height={15} />} label="AI-запросы в месяц" used={u.usage.llm_calls} max={u.plan.max_llm_calls_per_month} />
+          <Metric icon={<HardDrive width={15} height={15} />} label="Вложения" used={u.usage.storage_bytes} max={u.plan.max_storage_bytes} format={formatBytes} />
+          <Metric icon={<Boxes width={15} height={15} />} label="Пространства" used={u.usage.spaces} max={u.plan.max_spaces} />
         </div>
       ) : (
-        <p role="alert" className="m-0 text-[length:var(--text-sm)] text-[var(--danger)]">Couldn't load usage.</p>
+        <p role="alert" className="m-0 text-[length:var(--text-sm)] text-[var(--danger)]">Не удалось загрузить данные об использовании.</p>
       )}
     </div>
   )
@@ -268,11 +268,11 @@ function MembersPanel({ org }: { org: Org }) {
       </p>
       {members.isLoading ? (
         <p className="m-0 text-[length:var(--text-sm)] text-[var(--text-muted)]">
-          Loading members…
+          Загрузка участников…
         </p>
       ) : members.isError ? (
         <p role="alert" className="m-0 text-[length:var(--text-sm)] text-[var(--danger)]">
-          Couldn't load members.
+          Не удалось загрузить участников.
         </p>
       ) : members.data && members.data.length > 0 ? (
         <ul className="m-0 p-0 list-none flex flex-col gap-[var(--space-1)]">
@@ -282,7 +282,7 @@ function MembersPanel({ org }: { org: Org }) {
         </ul>
       ) : (
         <p className="m-0 text-[length:var(--text-sm)] text-[var(--text-muted)]">
-          No members yet.
+          Пока нет участников.
         </p>
       )}
       <AddOrgMemberForm orgId={org.id} />
@@ -291,14 +291,14 @@ function MembersPanel({ org }: { org: Org }) {
   )
 }
 
-// Invite teammates by email — the self-serve onboarding path. They get a link to
+// Пригласить участников по email — the self-serve onboarding path. They get a link to
 // join and land in the org once they accept or sign up with the invited address.
 function OrgInvitesSection({ orgId, orgName }: { orgId: number; orgName: string }) {
   const invites = useOrgInvites(orgId)
   const createInvite = useCreateOrgInvite(orgId)
   const revoke = useRevokeOrgInvite(orgId)
   const [email, setEmail] = useState('')
-  const [role, setRole] = useState<OrgRole>('member')
+  const [role, setРоль] = useState<OrgРоль>('member')
   const [error, setError] = useState<string | null>(null)
   const [sent, setSent] = useState<string | null>(null)
 
@@ -313,7 +313,7 @@ function OrgInvitesSection({ orgId, orgName }: { orgId: number; orgName: string 
       setSent(em)
       setEmail('')
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Could not send the invitation.')
+      setError(err instanceof ApiError ? err.message : 'Не удалось отправить приглашение.')
     }
   }
 
@@ -321,11 +321,10 @@ function OrgInvitesSection({ orgId, orgName }: { orgId: number; orgName: string 
     <div className="flex flex-col gap-[var(--space-3)] border-t border-[var(--border-subtle)] pt-[var(--space-4)]">
       <div className="flex flex-col gap-[var(--space-1)]">
         <h3 className="m-0 text-[length:var(--text-sm)] font-medium text-[var(--text-primary)]">
-          Invite teammates
+          Пригласить участников
         </h3>
         <p className="m-0 text-[length:var(--text-sm)] text-[var(--text-muted)]">
-          Invite by email — they'll get a link to join {orgName}, even if they don't have a tela
-          account yet.
+          Пригласить по email — участники получат ссылку для присоединения к {orgName}, даже если у них нет аккаунта tela.
         </p>
       </div>
       <form onSubmit={submit} className="flex flex-wrap items-center gap-[var(--space-2)]">
@@ -336,17 +335,17 @@ function OrgInvitesSection({ orgId, orgName }: { orgId: number; orgName: string 
           onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEmail(e.target.value)}
           className="flex-1 min-w-[12rem]"
         />
-        <Select value={role} onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setRole(e.target.value as OrgRole)}>
+        <Select value={role} onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setРоль(e.target.value as OrgРоль)}>
           <option value="member">Member</option>
           <option value="admin">Admin</option>
         </Select>
         <Button type="submit" variant="secondary" size="sm" disabled={createInvite.isPending || email.trim() === ''}>
-          Send invite
+          Отправить приглашение
         </Button>
       </form>
       {error ? <p className="m-0 text-[length:var(--text-sm)] text-[var(--danger)]">{error}</p> : null}
       {sent ? (
-        <p className="m-0 text-[length:var(--text-sm)] text-[var(--text-muted)]">Invitation sent to {sent}.</p>
+        <p className="m-0 text-[length:var(--text-sm)] text-[var(--text-muted)]">Приглашение отправлено {sent}.</p>
       ) : null}
       {invites.data && invites.data.length > 0 ? (
         <ul className="m-0 p-0 list-none flex flex-col gap-[var(--space-1)]">
@@ -373,9 +372,9 @@ function OrgInvitesSection({ orgId, orgName }: { orgId: number; orgName: string 
 function OrgMemberRow({ orgId, member }: { orgId: number; member: OrgMember }) {
   const [rowError, setRowError] = useState<string | null>(null)
   const updateMember = useUpdateOrgMember()
-  const removeMember = useRemoveOrgMember()
+  const removeMember = useУдалитьOrgMember()
 
-  async function handleRoleChange(org_role: OrgRole) {
+  async function handleРольChange(org_role: OrgРоль) {
     if (org_role === member.org_role) return
     setRowError(null)
     try {
@@ -385,7 +384,7 @@ function OrgMemberRow({ orgId, member }: { orgId: number; member: OrgMember }) {
     }
   }
 
-  async function handleRemove() {
+  async function handleУдалить() {
     setRowError(null)
     try {
       await removeMember.mutateAsync({ orgId, userId: member.user_id })
@@ -422,10 +421,10 @@ function OrgMemberRow({ orgId, member }: { orgId: number; member: OrgMember }) {
       <div className="w-[6.5rem] shrink-0">
         <Select
           size="sm"
-          aria-label={`Role for ${member.username}`}
+          aria-label={`Роль for ${member.username}`}
           value={member.org_role}
           disabled={updateMember.isPending}
-          onChange={(e) => void handleRoleChange(e.target.value as OrgRole)}
+          onChange={(e) => void handleРольChange(e.target.value as OrgРоль)}
         >
           <option value="admin">Admin</option>
           <option value="member">Member</option>
@@ -436,8 +435,8 @@ function OrgMemberRow({ orgId, member }: { orgId: number; member: OrgMember }) {
         type="button"
         variant="ghost"
         size="sm"
-        aria-label={`Remove ${member.username}`}
-        onClick={() => void handleRemove()}
+        aria-label={`Удалить ${member.username}`}
+        onClick={() => void handleУдалить()}
         disabled={removeMember.isPending}
         className="text-[var(--text-muted)] hover:text-[var(--danger)]"
       >
@@ -449,7 +448,7 @@ function OrgMemberRow({ orgId, member }: { orgId: number; member: OrgMember }) {
 
 function AddOrgMemberForm({ orgId }: { orgId: number }) {
   const [user, setUser] = useState<MentionUser | null>(null)
-  const [role, setRole] = useState<OrgRole>('member')
+  const [role, setРоль] = useState<OrgРоль>('member')
   const [error, setError] = useState<string | null>(null)
   const addMember = useAddOrgMember()
   const members = useOrgMembers(orgId)
@@ -464,7 +463,7 @@ function AddOrgMemberForm({ orgId }: { orgId: number }) {
     try {
       await addMember.mutateAsync({ orgId, identifier: user.username, org_role: role })
       setUser(null)
-      setRole('member')
+      setРоль('member')
     } catch (err) {
       setError(addOrgMemberErrorMessage(err))
     }
@@ -502,9 +501,9 @@ function AddOrgMemberForm({ orgId }: { orgId: number }) {
         <div className="w-[6.5rem] shrink-0">
           <Select
             size="md"
-            aria-label="Role for new member"
+            aria-label="Роль for new member"
             value={role}
-            onChange={(e) => setRole(e.target.value as OrgRole)}
+            onChange={(e) => setРоль(e.target.value as OrgРоль)}
           >
             <option value="admin">Admin</option>
             <option value="member">Member</option>
@@ -528,8 +527,8 @@ function AddOrgMemberForm({ orgId }: { orgId: number }) {
   )
 }
 
-function GroupsPanel({ org }: { org: Org }) {
-  const groups = useOrgGroups(org.id)
+function ГруппыPanel({ org }: { org: Org }) {
+  const groups = useOrgГруппы(org.id)
   const [name, setName] = useState('')
   const [error, setError] = useState<string | null>(null)
   const createGroup = useCreateGroup()
@@ -559,7 +558,7 @@ function GroupsPanel({ org }: { org: Org }) {
   return (
     <div className="flex flex-col gap-[var(--space-4)]">
       <p className="m-0 text-[length:var(--text-sm)] text-[var(--text-muted)] leading-[var(--leading-relaxed)]">
-        Groups are sub-teams within the org. Share a space with a group to give
+        Группы are sub-teams within the org. Share a space with a group to give
         just part of the org access.
       </p>
 
@@ -571,7 +570,7 @@ function GroupsPanel({ org }: { org: Org }) {
         </ul>
       ) : (
         <p className="m-0 text-[length:var(--text-sm)] text-[var(--text-muted)]">
-          No groups yet.
+          Пока нет групп.
         </p>
       )}
 
@@ -605,7 +604,7 @@ function GroupsPanel({ org }: { org: Org }) {
 
 function GroupRow({ org, group }: { org: Org; group: Group }) {
   const [membersOpen, setMembersOpen] = useState(false)
-  const deleteGroup = useDeleteGroup()
+  const deleteGroup = useУдалитьGroup()
 
   return (
     <li
@@ -631,7 +630,7 @@ function GroupRow({ org, group }: { org: Org; group: Group }) {
         type="button"
         variant="ghost"
         size="sm"
-        aria-label={`Delete ${group.name}`}
+        aria-label={`Удалить ${group.name}`}
         onClick={() => void deleteGroup.mutateAsync({ orgId: org.id, groupId: group.id })}
         disabled={deleteGroup.isPending}
         className="text-[var(--text-muted)] hover:text-[var(--danger)]"
@@ -664,7 +663,7 @@ function GroupMembersDialog({
   const [user, setUser] = useState<MentionUser | null>(null)
   const [error, setError] = useState<string | null>(null)
   const addMember = useAddGroupMember()
-  const removeMember = useRemoveGroupMember()
+  const removeMember = useУдалитьGroupMember()
 
   async function handleAdd(e: React.FormEvent) {
     e.preventDefault()
@@ -705,7 +704,7 @@ function GroupMembersDialog({
         <div className="flex flex-col gap-[var(--space-3)]">
           {members.isLoading ? (
             <p className="m-0 text-[length:var(--text-sm)] text-[var(--text-muted)]">
-              Loading members…
+              Загрузка участников…
             </p>
           ) : members.data && members.data.length > 0 ? (
             <ul className="m-0 p-0 list-none flex flex-col gap-[var(--space-1)]">
@@ -733,7 +732,7 @@ function GroupMembersDialog({
                     type="button"
                     variant="ghost"
                     size="sm"
-                    aria-label={`Remove ${m.username}`}
+                    aria-label={`Удалить ${m.username}`}
                     onClick={() =>
                       void removeMember.mutateAsync({
                         orgId: org.id,
@@ -751,7 +750,7 @@ function GroupMembersDialog({
             </ul>
           ) : (
             <p className="m-0 text-[length:var(--text-sm)] text-[var(--text-muted)]">
-              No members yet.
+              Пока нет участников.
             </p>
           )}
 
@@ -805,7 +804,7 @@ function SSOPanel({ org }: { org: Org }) {
   const orgId = org.id
   const sso = useOrgSSO(orgId)
   const put = usePutOrgSSO(orgId)
-  const del = useDeleteOrgSSO(orgId)
+  const del = useУдалитьOrgSSO(orgId)
   const domains = useOrgDomains()
   const orgDomains = (domains.data ?? []).filter((d) => d.org_id === orgId)
 
@@ -814,7 +813,7 @@ function SSOPanel({ org }: { org: Org }) {
   const [clientSecret, setClientSecret] = useState('')
   const [enforced, setEnforced] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [saved, setSaved] = useState(false)
+  const [saved, setСохранитьd] = useState(false)
   // Prefill issuer/client_id/enforced from the loaded connection once.
   const [hydratedFor, setHydratedFor] = useState<number | null>(null)
   if (sso.data && hydratedFor !== orgId) {
@@ -831,7 +830,7 @@ function SSOPanel({ org }: { org: Org }) {
       return
     }
     setError(null)
-    setSaved(false)
+    setСохранитьd(false)
     try {
       await put.mutateAsync({
         issuer: issuer.trim(),
@@ -840,7 +839,7 @@ function SSOPanel({ org }: { org: Org }) {
         enforced,
       })
       setClientSecret('')
-      setSaved(true)
+      setСохранитьd(true)
     } catch (err) {
       if (err instanceof ApiError && err.code === 'issuer_unreachable') {
         setError("Couldn't run OIDC discovery against that issuer URL.")
@@ -852,7 +851,7 @@ function SSOPanel({ org }: { org: Org }) {
     }
   }
 
-  async function handleRemove() {
+  async function handleУдалить() {
     setError(null)
     try {
       await del.mutateAsync()
@@ -878,7 +877,7 @@ function SSOPanel({ org }: { org: Org }) {
       </header>
 
       {/* Auto-join domains drive who lands on this connection. Read-only here —
-          mapping is managed in Settings → Organizations. */}
+          mapping is managed in Settings → Организации. */}
       <div className="flex flex-col gap-[var(--space-2)] rounded-[var(--radius-sm)] border border-[var(--border-subtle)] bg-[var(--surface-2)] p-[var(--space-3)]">
         <span className="flex items-center gap-[var(--space-2)] text-[length:var(--text-xs)] uppercase tracking-wider text-[var(--text-muted)] font-[family-name:var(--font-sans)]">
           <Globe width={12} height={12} />
@@ -903,7 +902,7 @@ function SSOPanel({ org }: { org: Org }) {
               search={{ tab: 'orgs' }}
               className="text-[var(--accent)] no-underline hover:underline"
             >
-              Organizations
+              Организации
             </Link>{' '}
             so members resolve to this connection.
           </p>
@@ -947,24 +946,24 @@ function SSOPanel({ org }: { org: Org }) {
           </p>
         ) : saved ? (
           <p className="m-0 text-[length:var(--text-sm)] text-[var(--text-muted)]">
-            Saved.
+            Сохранитьd.
           </p>
         ) : null}
 
         <div className="flex items-center gap-[var(--space-2)]">
           <Button type="submit" variant="secondary" size="sm" disabled={put.isPending}>
-            {put.isPending ? 'Saving…' : 'Save connection'}
+            {put.isPending ? 'Сохранение…' : 'Сохранить connection'}
           </Button>
           {sso.data?.configured ? (
             <Button
               type="button"
               variant="ghost"
               size="sm"
-              onClick={() => void handleRemove()}
+              onClick={() => void handleУдалить()}
               disabled={del.isPending}
               className="text-[var(--text-muted)] hover:text-[var(--danger)]"
             >
-              Remove
+              Удалить
             </Button>
           ) : null}
         </div>
@@ -999,7 +998,7 @@ function CustomDomainsPanel({ org }: { org: Org }) {
           </p>
         ) : hostnames.isError ? (
           <p role="alert" className="m-0 text-[length:var(--text-sm)] text-[var(--danger)]">
-            Couldn't load custom domains.
+            Не удалось загрузить пользовательские домены.
           </p>
         ) : hostnames.data && hostnames.data.length > 0 ? (
           <ul className="m-0 p-0 list-none flex flex-col gap-[var(--space-3)]">
@@ -1009,7 +1008,7 @@ function CustomDomainsPanel({ org }: { org: Org }) {
           </ul>
         ) : (
           <p className="m-0 text-[length:var(--text-sm)] text-[var(--text-muted)]">
-            No custom domains yet.
+            Пока нет пользовательских доменов.
           </p>
         )}
 
@@ -1028,13 +1027,13 @@ function OrgHostnameRow({
   orgId: number
   hostname: OrgHostname
 }) {
-  const verify = useVerifyOrgHostname(orgId)
-  const del = useDeleteOrgHostname(orgId)
+  const verify = useПроверитьOrgHostname(orgId)
+  const del = useУдалитьOrgHostname(orgId)
   const adminLogin = useAdminDomainLogin(orgId)
   const isInstanceAdmin = useMe().data?.is_instance_admin ?? false
   const [error, setError] = useState<string | null>(null)
   const [failedAttempts, setFailedAttempts] = useState(0)
-  const [confirmOpen, setConfirmOpen] = useState(false)
+  const [confirmOpen, setПодтвердитьOpen] = useState(false)
   const isActive = hostname.status === 'active'
 
   // Instance-admin self-login: mint a one-time token and open the org's domain
@@ -1052,24 +1051,24 @@ function OrgHostnameRow({
   // Auto-run the health probe once for Active rows; pending rows check on demand.
   const health = useOrgHostnameHealth(orgId, hostname.hostname, isActive)
 
-  // Cancel-safe auto-retry: after a verification_failed, retry the verify a
+  // Отмена-safe auto-retry: after a verification_failed, retry the verify a
   // couple times on a short delay (DNS propagation), then stop. Cleared on
   // unmount and whenever a fresh manual attempt resets the counter.
   const retryRef = useRef<number | null>(null)
   useEffect(() => {
     if (isActive || failedAttempts === 0 || failedAttempts > 2) return
     retryRef.current = window.setTimeout(() => {
-      void runVerify()
+      void runПроверить()
     }, 4000)
     return () => {
       if (retryRef.current) window.clearTimeout(retryRef.current)
     }
-    // runVerify is stable enough for this effect; keying on the attempt count
+    // runПроверить is stable enough for this effect; keying on the attempt count
     // is what schedules each retry.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [failedAttempts, isActive])
 
-  async function runVerify() {
+  async function runПроверить() {
     setError(null)
     try {
       await verify.mutateAsync(hostname.hostname)
@@ -1086,10 +1085,10 @@ function OrgHostnameRow({
     }
   }
 
-  // A manual Verify resets the retry budget so the auto-retry chain restarts.
-  function handleVerify() {
+  // A manual Проверить resets the retry budget so the auto-retry chain restarts.
+  function handleПроверить() {
     setFailedAttempts(0)
-    void runVerify()
+    void runПроверить()
   }
 
   const retrying = !isActive && failedAttempts > 0 && failedAttempts <= 2
@@ -1115,14 +1114,14 @@ function OrgHostnameRow({
             type="button"
             variant="secondary"
             size="sm"
-            onClick={handleVerify}
+            onClick={handleПроверить}
             disabled={verify.isPending}
           >
             {verify.isPending || retrying
-              ? 'Verifying…'
+              ? 'Проверитьing…'
               : failedAttempts > 0
                 ? 'Retry verify'
-                : 'Verify'}
+                : 'Проверить'}
           </Button>
         ) : null}
         {isActive && isInstanceAdmin ? (
@@ -1142,8 +1141,8 @@ function OrgHostnameRow({
           type="button"
           variant="ghost"
           size="sm"
-          aria-label={`Remove ${hostname.hostname}`}
-          onClick={() => setConfirmOpen(true)}
+          aria-label={`Удалить ${hostname.hostname}`}
+          onClick={() => setПодтвердитьOpen(true)}
           disabled={del.isPending}
           className="text-[var(--text-muted)] hover:text-[var(--danger)]"
         >
@@ -1168,7 +1167,7 @@ function OrgHostnameRow({
       {!isActive ? (
         <div className="flex flex-col gap-[var(--space-3)] rounded-[var(--radius-sm)] border border-[var(--border-subtle)] bg-[var(--surface-2)] p-[var(--space-3)]">
           <span className="text-[length:var(--text-xs)] uppercase tracking-wider text-[var(--text-muted)] font-[family-name:var(--font-sans)]">
-            Add these DNS records, then verify
+            Добавьте эти DNS-записи, затем проверьте
           </span>
           <DnsRecord
             kind="TXT"
@@ -1183,10 +1182,10 @@ function OrgHostnameRow({
         </div>
       ) : null}
 
-      <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+      <Dialog open={confirmOpen} onOpenChange={setПодтвердитьOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Remove "{hostname.hostname}"?</DialogTitle>
+            <DialogTitle>Удалить "{hostname.hostname}"?</DialogTitle>
             <DialogDescription>
               Its white-labeled login screen stops working. You can re-add it
               later, but DNS verification will need to run again.
@@ -1195,7 +1194,7 @@ function OrgHostnameRow({
           <DialogFooter>
             <DialogClose asChild>
               <Button type="button" variant="ghost">
-                Cancel
+                Отмена
               </Button>
             </DialogClose>
             <Button
@@ -1203,11 +1202,11 @@ function OrgHostnameRow({
               variant="danger"
               onClick={() => {
                 void del.mutateAsync(hostname.hostname)
-                setConfirmOpen(false)
+                setПодтвердитьOpen(false)
               }}
               disabled={del.isPending}
             >
-              {del.isPending ? 'Removing…' : 'Remove'}
+              {del.isPending ? 'Удаление…' : 'Удалить'}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1249,8 +1248,8 @@ function DnsRecord({
           </span>
         </span>
         <Button type="button" variant="ghost" size="sm" onClick={() => void copy()}>
-          <Copy width={13} height={13} />
-          <span>{copied ? 'Copied!' : 'Copy'}</span>
+          <Скопировать width={13} height={13} />
+          <span>{copied ? 'Скопировано!' : 'Скопировать'}</span>
         </Button>
       </div>
       <pre className="m-0 overflow-x-auto rounded-[var(--radius-sm)] border border-[var(--border-subtle)] bg-[var(--surface-1)] px-[var(--space-3)] py-[var(--space-2)] text-[length:var(--text-xs)] text-[var(--text-primary)] font-[family-name:var(--font-mono)] leading-[var(--leading-relaxed)] whitespace-pre-wrap break-all">
@@ -1302,23 +1301,23 @@ function HealthChips({
   )
 }
 
-// Branding overrides for the org's custom-domain login screen (and, via
+// Брендинг overrides for the org's custom-domain login screen (and, via
 // host-context, the whole UI on that domain): a logo URL and an accent color.
 // Both optional — empty clears the override. Surfaces the backend's 400
 // validation (https-only logo; hex/oklch()/rgb() accent). The accent input
 // shows a live swatch using the entered value as an inline background — that's
 // runtime user data, not a hardcoded token.
-function BrandingSection({ orgId }: { orgId: number }) {
-  const branding = useOrgBranding(orgId)
-  const put = usePutOrgBranding(orgId)
+function БрендингSection({ orgId }: { orgId: number }) {
+  const branding = useOrgБрендинг(orgId)
+  const put = usePutOrgБрендинг(orgId)
   const uploadLogo = useUploadOrgLogo(orgId)
-  const deleteLogo = useDeleteOrgLogo(orgId)
+  const deleteLogo = useУдалитьOrgLogo(orgId)
   const fileRef = useRef<HTMLInputElement>(null)
   const [accent, setAccent] = useState('')
   const [importUrl, setImportUrl] = useState('')
   const [showImport, setShowImport] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [saved, setSaved] = useState(false)
+  const [saved, setСохранитьd] = useState(false)
   // Prefill the editable color/style fields from the loaded branding once.
   const [hydratedFor, setHydratedFor] = useState<number | null>(null)
   if (branding.data && hydratedFor !== orgId) {
@@ -1334,10 +1333,10 @@ function BrandingSection({ orgId }: { orgId: number }) {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setError(null)
-    setSaved(false)
+    setСохранитьd(false)
     try {
       await put.mutateAsync({ accent: accent.trim() })
-      setSaved(true)
+      setСохранитьd(true)
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Failed to save branding.')
     }
@@ -1380,7 +1379,7 @@ function BrandingSection({ orgId }: { orgId: number }) {
     <div className="flex flex-col gap-[var(--space-5)] max-w-[40rem]">
       <p className="m-0 text-[length:var(--text-sm)] text-[var(--text-muted)] leading-[var(--leading-relaxed)]">
         Your logo and accent color theme your custom-domain sign-in screen and are
-        applied automatically to slide decks created in this org's spaces. Branding
+        applied automatically to slide decks created in this org's spaces. Брендинг
         is the logo and color, not the style — each deck's variant stays a deliberate
         per-deck choice. Leave a field blank to use the tela default.
       </p>
@@ -1425,7 +1424,7 @@ function BrandingSection({ orgId }: { orgId: number }) {
             </Button>
             {hasLogo ? (
               <Button type="button" variant="ghost" size="sm" disabled={deleteLogo.isPending} onClick={removeLogo}>
-                <Trash2 width={14} height={14} /> Remove
+                <Trash2 width={14} height={14} /> Удалить
               </Button>
             ) : null}
           </div>
@@ -1487,12 +1486,12 @@ function BrandingSection({ orgId }: { orgId: number }) {
             {error}
           </p>
         ) : saved ? (
-          <p className="m-0 text-[length:var(--text-xs)] text-[var(--text-muted)]">Saved.</p>
+          <p className="m-0 text-[length:var(--text-xs)] text-[var(--text-muted)]">Сохранитьd.</p>
         ) : null}
 
         <div>
           <Button type="submit" variant="secondary" size="sm" disabled={put.isPending}>
-            {put.isPending ? 'Saving…' : 'Save'}
+            {put.isPending ? 'Сохранение…' : 'Сохранить'}
           </Button>
         </div>
       </form>
@@ -1585,7 +1584,7 @@ function LoginMethodsSection({ orgId }: { orgId: number }) {
           Login methods
         </h2>
         <p className="m-0 text-[length:var(--text-sm)] text-[var(--text-muted)]">
-          {settings.isError ? "Couldn't load login methods." : 'Loading login methods…'}
+          {settings.isError ? "Не удалось загрузить способы входа." : 'Загрузка способов входа…'}
         </p>
       </section>
     )
@@ -1653,7 +1652,7 @@ function LoginMethodsSection({ orgId }: { orgId: number }) {
 // Org-scoped access history — who added whom, what was shared, which domains
 // were mapped — for THIS org only. Backed by the org-admin-gated
 // /api/orgs/{id}/audit; reuses AuditRow from the instance-wide audit tab.
-function OrgActivityPanel({ orgId }: { orgId: number }) {
+function OrgАктивностьPanel({ orgId }: { orgId: number }) {
   const audit = useOrgAudit(orgId)
   // The audit log is Enterprise-gated; the backend returns 402 upgrade_required
   // for a non-Enterprise org. Show that as an upgrade nudge, not a hard error.
@@ -1671,7 +1670,7 @@ function OrgActivityPanel({ orgId }: { orgId: number }) {
         </p>
       ) : audit.isError ? (
         <p role="alert" className="m-0 text-[length:var(--text-sm)] text-[var(--danger)]">
-          Couldn't load activity.
+          Не удалось загрузить активность.
         </p>
       ) : audit.data && audit.data.length > 0 ? (
         <ul className="m-0 p-0 list-none flex flex-col gap-[var(--space-1)]">
@@ -1681,7 +1680,7 @@ function OrgActivityPanel({ orgId }: { orgId: number }) {
         </ul>
       ) : (
         <p className="m-0 text-[length:var(--text-sm)] text-[var(--text-muted)]">
-          No changes recorded yet.
+          Пока нет записей об изменениях.
         </p>
       )}
     </div>
@@ -1694,17 +1693,17 @@ function DangerZone({ org }: { org: Org }) {
     <section className="flex flex-col gap-[var(--space-3)] rounded-[var(--radius-md)] border border-[var(--border-strong)] p-[var(--space-4)]">
       <header className="flex flex-col gap-[var(--space-1)]">
         <h2 className="m-0 font-[family-name:var(--font-sans)] text-[length:var(--text-base)] text-[var(--text-primary)]">
-          Danger zone
+          Опасная зона
         </h2>
         <p className="m-0 text-[length:var(--text-sm)] text-[var(--text-muted)] leading-[var(--leading-relaxed)]">
           Deleting an org removes the space access its members had through it.
-          Spaces and direct members are untouched.
+          пространства и прямые участники не затрагиваются.
         </p>
       </header>
       <div>
         <Button type="button" variant="danger" size="sm" onClick={() => setOpen(true)}>
           <Trash2 width={14} height={14} />
-          <span>Delete organization</span>
+          <span>Удалить организацию</span>
         </Button>
       </div>
       <DeleteOrgDialog org={org} open={open} onOpenChange={setOpen} />
@@ -1729,14 +1728,14 @@ function DeleteOrgDialog({
     onOpenChange(next)
   }
 
-  async function handleConfirm() {
+  async function handleПодтвердить() {
     setError(null)
     try {
       await deleteOrg.mutateAsync(org.id)
       // Land back on the org list; this org no longer exists.
       window.location.assign('/settings?tab=orgs')
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Failed to delete org.')
+      setError(err instanceof ApiError ? err.message : 'Не удалось удалить организацию.')
     }
   }
 
@@ -1744,10 +1743,10 @@ function DeleteOrgDialog({
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Delete "{org.name}"?</DialogTitle>
+          <DialogTitle>Удалить "{org.name}"?</DialogTitle>
           <DialogDescription>
-            Members lose any space access they had through this org. Spaces and
-            direct members are untouched. This can't be undone.
+            Members lose any space access they had through this org. Пространства and
+            direct members are untouched. Это действие нельзя отменить.
           </DialogDescription>
         </DialogHeader>
         {error ? (
@@ -1758,16 +1757,16 @@ function DeleteOrgDialog({
         <DialogFooter>
           <DialogClose asChild>
             <Button type="button" variant="ghost">
-              Cancel
+              Отмена
             </Button>
           </DialogClose>
           <Button
             type="button"
             variant="danger"
-            onClick={() => void handleConfirm()}
+            onClick={() => void handleПодтвердить()}
             disabled={deleteOrg.isPending}
           >
-            {deleteOrg.isPending ? 'Deleting…' : 'Delete org'}
+            {deleteOrg.isPending ? 'Deleting…' : 'Удалить org'}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -1778,7 +1777,7 @@ function DeleteOrgDialog({
 function orgMemberErrorMessage(err: unknown): string {
   if (err instanceof ApiError) {
     if (err.code === 'last_admin') {
-      return "Can't remove the last admin — promote someone else first."
+      return "Нельзя удалить последнего администратора — сначала повысьте кого-то в должности."
     }
     return err.message
   }

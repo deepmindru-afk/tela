@@ -125,7 +125,7 @@ export function EmojiPicker({ anchor, onSelect, onClose }: EmojiPickerProps) {
     <div
       ref={rootRef}
       role="dialog"
-      aria-label="Insert emoji"
+      aria-label="Вставить эмодзи"
       className="tela-emoji-picker"
       data-show="true"
     >
@@ -133,17 +133,17 @@ export function EmojiPicker({ anchor, onSelect, onClose }: EmojiPickerProps) {
         <Input
           autoFocus
           size="sm"
-          placeholder="Search emoji…"
+          placeholder="Поиск эмодзи…"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
         />
       </div>
       <div className="tela-emoji-picker-body">
         {!ready ? (
-          <p className="tela-emoji-picker-empty">Loading…</p>
+          <p className="tela-emoji-picker-empty">Загрузка…</p>
         ) : hits ? (
           hits.length === 0 ? (
-            <p className="tela-emoji-picker-empty">No emoji found.</p>
+            <p className="tela-emoji-picker-empty">Эмодзи не найдены.</p>
           ) : (
             <div className="tela-emoji-picker-grid">
               {hits.map((h) =>

@@ -59,19 +59,19 @@ const PREFIX_TO_MODE: Record<string, CommandMode> = {
 }
 
 const MODE_LABEL: Record<CommandMode, string> = {
-  pages: 'Pages',
-  commands: 'Commands',
-  help: 'Help',
-  mentions: 'Mentions',
-  tags: 'Tags',
+  pages: 'Страницы',
+  commands: 'Команды',
+  help: 'Справка',
+  mentions: 'Упоминания',
+  tags: 'Теги',
 }
 
 const MODE_PLACEHOLDER: Record<CommandMode, string> = {
-  pages: 'Search pages…',
-  commands: 'Run a command…',
-  help: 'Keyboard shortcuts',
-  mentions: 'Mention a user…',
-  tags: 'Find by tag…',
+  pages: 'Поиск страниц…',
+  commands: 'Выполнить команду…',
+  help: 'Горячие клавиши',
+  mentions: 'Упомянуть пользователя…',
+  tags: 'Найти по тегу…',
 }
 
 function prefixForMode(mode: CommandMode): string {
@@ -102,10 +102,10 @@ const SHIFT_LABEL = IS_MAC ? '⇧' : 'Shift'
 // hint. Kept here (not in CommandShell) because the footer stays visible across
 // every mode, including sub-pickers — it's a chrome element of the palette.
 const FOOTER_PREFIXES: Array<{ key: string; label: string }> = [
-  { key: '>', label: 'Commands' },
-  { key: '?', label: 'Help' },
-  { key: '@', label: 'Mentions' },
-  { key: '#', label: 'Tags' },
+  { key: '>', label: 'Команды' },
+  { key: '?', label: 'Справка' },
+  { key: '@', label: 'Упоминания' },
+  { key: '#', label: 'Теги' },
 ]
 
 function CommandPaletteFooter() {
@@ -117,22 +117,22 @@ function CommandPaletteFooter() {
           <span>{label}</span>
         </span>
       ))}
-      <span className="tela-command-footer-hint">type to search pages</span>
+      <span className="tela-command-footer-hint">введите, чтобы искать по страницам</span>
     </div>
   )
 }
 
 const KEYBOARD_HELP: Array<{ keys: string[]; description: string }> = [
-  { description: 'Open command palette', keys: [MOD_LABEL, 'K'] },
-  { description: 'Open commands', keys: [MOD_LABEL, SHIFT_LABEL, 'P'] },
-  { description: 'Create new page', keys: ['c'] },
-  { description: 'Navigate items', keys: ['↑', '↓'] },
-  { description: 'Select item', keys: ['↵'] },
-  { description: 'Close or step back', keys: ['Esc'] },
-  { description: 'Switch to commands', keys: ['>'] },
-  { description: 'Show this help', keys: ['?'] },
-  { description: 'Mention a user (coming soon)', keys: ['@'] },
-  { description: 'Find by tag (coming soon)', keys: ['#'] },
+  { description: 'Открыть палитру команд', keys: [MOD_LABEL, 'K'] },
+  { description: 'Открыть список команд', keys: [MOD_LABEL, SHIFT_LABEL, 'P'] },
+  { description: 'Создать новую страницу', keys: ['c'] },
+  { description: 'Переход по пунктам', keys: ['↑', '↓'] },
+  { description: 'Выбрать пункт', keys: ['↵'] },
+  { description: 'Закрыть или вернуться', keys: ['Esc'] },
+  { description: 'Перейти к командам', keys: ['>'] },
+  { description: 'Показать эту справку', keys: ['?'] },
+  { description: 'Упомянуть пользователя (скоро)', keys: ['@'] },
+  { description: 'Найти по тегу (скоро)', keys: ['#'] },
 ]
 
 function ModeBadge({ mode }: { mode: CommandMode }) {
@@ -188,7 +188,7 @@ function commandItemClass(item: CommandItem): string {
 
 function HelpModeBody() {
   return (
-    <div className="tela-command-help" role="list" aria-label="Keyboard shortcuts">
+    <div className="tela-command-help" role="list" aria-label="Горячие клавиши">
       {KEYBOARD_HELP.map(({ keys, description }, i) => (
         <div key={i} className="tela-command-help-row" role="listitem">
           <span className="tela-command-help-desc">{description}</span>
@@ -296,7 +296,7 @@ function CommandShell({
   const effectiveEmpty =
     mode === 'pages' && pagesEmptyMessage
       ? pagesEmptyMessage
-      : (emptyMessage ?? 'No results.')
+      : (emptyMessage ?? 'Ничего не найдено.')
 
   // cmdk's built-in fuzzy filter beats us in commands/mentions/tags/help, but
   // for pages-mode-with-host the host has authoritative BM25 ranking and we
@@ -306,7 +306,7 @@ function CommandShell({
 
   return (
     <CmdkRoot
-      label={`Command palette — ${MODE_LABEL[mode]}`}
+      label={`Палитра команд — ${MODE_LABEL[mode]}`}
       shouldFilter={filterEnabled}
       className="tela-command-root"
     >
@@ -520,15 +520,15 @@ export function CommandPalette({
         <DialogPrimitive.Overlay className="tela-dialog-overlay" />
         <DialogPrimitive.Content
           className="tela-command-content"
-          aria-label="Command palette"
+          aria-label="Палитра команд"
         >
           <DialogPrimitive.Title className="tela-sr-only">
-            {subPicker ? subPicker.label : 'Command palette'}
+            {subPicker ? subPicker.label : 'Палитра команд'}
           </DialogPrimitive.Title>
           <DialogPrimitive.Description className="tela-sr-only">
             {subPicker
               ? subPicker.placeholder
-              : 'Type to search pages, run commands, or get help.'}
+              : 'Введите текст, чтобы искать по страницам, выполнять команды или открыть справку.'}
           </DialogPrimitive.Description>
           {subPicker && subPickerItems ? (
             <CommandInlinePicker
@@ -586,9 +586,9 @@ export const CommandInlinePicker = forwardRef<
 >(function CommandInlinePicker(
   {
     items,
-    placeholder = 'Search…',
-    emptyMessage = 'No matches.',
-    label = 'Picker',
+    placeholder = 'Поиск…',
+    emptyMessage = 'Ничего не найдено.',
+    label = 'Выбор',
     className,
     autoFocus = true,
     value,

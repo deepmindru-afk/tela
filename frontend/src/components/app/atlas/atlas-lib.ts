@@ -3,6 +3,7 @@
 // run's SSE event stream into per-stage state, timing, and time-remaining
 // estimates. Kept framework-light so every Atlas screen reads the same.
 import { useMemo } from 'react'
+import { ruPlural, ruPluralAgo } from '../../../lib/ru-plural'
 import type { StatusBadgeProps } from '../../ui/status-badge'
 import type {
   AtlasRun,
@@ -23,18 +24,18 @@ export interface StageDef {
   weight: number
 }
 export const ATLAS_STAGES: StageDef[] = [
-  { key: 'acquire', label: 'Acquire', desc: 'Clone & pin the source at a commit', weight: 0.03 },
-  { key: 'inventory', label: 'Inventory', desc: 'Discover & classify in-scope files', weight: 0.01 },
-  { key: 'spine', label: 'Spine', desc: 'Extract the deterministic surface', weight: 0.01 },
-  { key: 'chunk', label: 'Chunk', desc: 'Symbol-aware chunks with line ranges', weight: 0.04 },
-  { key: 'embed', label: 'Embed', desc: 'Vector-embed every chunk', weight: 0.18 },
-  { key: 'index', label: 'Index', desc: 'Build the hybrid retriever', weight: 0.01 },
-  { key: 'outline', label: 'Outline', desc: 'Plan the wiki pages', weight: 0.08 },
-  { key: 'draft', label: 'Draft', desc: 'Generate grounded, cited pages', weight: 0.45 },
-  { key: 'refine', label: 'Refine', desc: 'Multi-pass critique & expand', weight: 0.12 },
-  { key: 'validate', label: 'Validate', desc: 'Audit coverage, citations, diagrams', weight: 0.02 },
-  { key: 'repair', label: 'Repair', desc: 'Regenerate gaps to threshold', weight: 0.04 },
-  { key: 'publish', label: 'Publish', desc: 'Write the docs into the space', weight: 0.01 },
+  { key: 'acquire', label: 'Загрузка', desc: 'Клонирование источника и фиксация коммита', weight: 0.03 },
+  { key: 'inventory', label: 'Инвентаризация', desc: 'Поиск и классификация файлов в области', weight: 0.01 },
+  { key: 'spine', label: 'Каркас', desc: 'Извлечение детерминированной поверхности', weight: 0.01 },
+  { key: 'chunk', label: 'Нарезка', desc: 'Нарезка на фрагменты по символам с диапазонами строк', weight: 0.04 },
+  { key: 'embed', label: 'Векторизация', desc: 'Векторное представление каждого фрагмента', weight: 0.18 },
+  { key: 'index', label: 'Индексация', desc: 'Построение гибридного поиска', weight: 0.01 },
+  { key: 'outline', label: 'План', desc: 'Планирование страниц вики', weight: 0.08 },
+  { key: 'draft', label: 'Черновик', desc: 'Генерация документации со ссылками на код', weight: 0.45 },
+  { key: 'refine', label: 'Уточнение', desc: 'Многоходовая проверка и расширение', weight: 0.12 },
+  { key: 'validate', label: 'Проверка', desc: 'Аудит покрытия, ссылок и диаграмм', weight: 0.02 },
+  { key: 'repair', label: 'Исправление', desc: 'Догенерация пробелов до порога', weight: 0.04 },
+  { key: 'publish', label: 'Публикация', desc: 'Запись документации в пространство', weight: 0.01 },
 ]
 const STAGE_INDEX: Record<string, number> = Object.fromEntries(
   ATLAS_STAGES.map((s, i) => [s.key, i]),
@@ -60,8 +61,19 @@ export function runTone(s?: AtlasRunStatus | null): Tone {
 export function runLabel(s?: AtlasRunStatus | null): string {
   // A 'pending' run is waiting on the global run-slot queue — call it "Queued"
   // so a not-yet-started run reads as deliberately waiting, not stuck.
-  if (s === 'pending') return 'Queued'
-  return s ? s[0].toUpperCase() + s.slice(1) : 'Queued'
+  if (s === 'pending') return 'В очереди'
+  switch (s) {
+    case 'running':
+      return 'Генерируется'
+    case 'done':
+      return 'Готово'
+    case 'failed':
+      return 'Ошибка'
+    case 'canceled':
+      return 'Отменён'
+    default:
+      return 'В очереди'
+  }
 }
 
 // Freshness of a project, from its last run + schedule — the home/console hero
@@ -90,21 +102,21 @@ export function freshnessTone(f: Freshness): Tone {
 export function fmtDuration(sec: number): string {
   if (!isFinite(sec) || sec < 0) return '—'
   const s = Math.round(sec)
-  if (s < 60) return `${s}s`
+  if (s < 60) return `${s} с`
   const m = Math.floor(s / 60)
-  if (m < 60) return `${m}m ${s % 60}s`
+  if (m < 60) return `${m} мин ${s % 60} с`
   const h = Math.floor(m / 60)
-  return `${h}h ${m % 60}m`
+  return `${h} ч ${m % 60} мин`
 }
 
 // Compact "time remaining" — coarser than fmtDuration (no seconds past a minute).
 export function fmtEta(sec: number): string {
-  if (!isFinite(sec) || sec <= 0) return 'almost done'
-  if (sec < 60) return `~${Math.round(sec)}s left`
+  if (!isFinite(sec) || sec <= 0) return 'почти готово'
+  if (sec < 60) return `≈ ${Math.round(sec)} с`
   const m = Math.round(sec / 60)
-  if (m < 60) return `~${m}m left`
+  if (m < 60) return `≈ ${m} мин`
   const h = Math.floor(m / 60)
-  return `~${h}h ${m % 60}m left`
+  return `≈ ${h} ч ${m % 60} мин`
 }
 
 export function fmtNum(n?: number | null): string {
@@ -127,12 +139,12 @@ export function fmtRelative(ts?: string | null, now = Date.now()): string {
   if (isNaN(t)) return '—'
   const diff = Math.max(0, now - t)
   const m = Math.floor(diff / 60000)
-  if (m < 1) return 'just now'
-  if (m < 60) return `${m}m ago`
+  if (m < 1) return 'только что'
+  if (m < 60) return ruPluralAgo(m, 'минуту', 'минуты', 'минут')
   const h = Math.floor(m / 60)
-  if (h < 24) return `${h}h ago`
+  if (h < 24) return ruPluralAgo(h, 'час', 'часа', 'часов')
   const d = Math.floor(h / 24)
-  return `${d}d ago`
+  return ruPluralAgo(d, 'день', 'дня', 'дней')
 }
 
 // "next in 3h" style, from an ISO/SQL next-due timestamp.
@@ -140,12 +152,13 @@ export function fmtUntil(ts?: string | null, now = Date.now()): string {
   const t = parseTs(ts)
   if (isNaN(t)) return ''
   const diff = t - now
-  if (diff <= 0) return 'due now'
+  if (diff <= 0) return 'прямо сейчас'
   const m = Math.floor(diff / 60000)
-  if (m < 60) return `in ${m}m`
+  if (m < 60) return `через ${m} ${ruPlural(m, 'минуту', 'минуты', 'минут')}`
   const h = Math.floor(m / 60)
-  if (h < 24) return `in ${h}h`
-  return `in ${Math.floor(h / 24)}d`
+  if (h < 24) return `через ${h} ${ruPlural(h, 'час', 'часа', 'часов')}`
+  const d = Math.floor(h / 24)
+  return `через ${d} ${ruPlural(d, 'день', 'дня', 'дней')}`
 }
 
 // Run duration in seconds from started/finished (or now for a live run).

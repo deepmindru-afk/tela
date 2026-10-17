@@ -75,7 +75,7 @@ export function WikilinkPreviewCard({
           : { top: rect.bottom + 8 }),
       }}
     >
-      <p className="tela-wikilink-preview-title">{title || 'Untitled'}</p>
+      <p className="tela-wikilink-preview-title">{title || 'Без названия'}</p>
       {loading ? (
         <div className="tela-wikilink-preview-skel" aria-hidden>
           <span />
@@ -84,7 +84,7 @@ export function WikilinkPreviewCard({
       ) : excerpt ? (
         <p className="tela-wikilink-preview-excerpt">{excerpt}</p>
       ) : (
-        <p className="tela-wikilink-preview-empty">Empty page</p>
+        <p className="tela-wikilink-preview-empty">Пустая страница</p>
       )}
     </div>
   )

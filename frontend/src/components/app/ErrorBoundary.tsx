@@ -45,14 +45,14 @@ export class ErrorBoundary extends Component<Props, State> {
       >
         <div className="flex flex-col gap-[var(--space-2)]">
           <h1 className="m-0 text-[length:var(--text-xl)] font-semibold">
-            Something went wrong
+            Что-то пошло не так
           </h1>
           <p className="m-0 max-w-[28rem] text-[length:var(--text-sm)] text-[var(--text-muted)] leading-[var(--leading-relaxed)]">
-            This part of the app hit an unexpected error. It's been reported.
-            Reloading usually fixes it.
+            В этой части приложения произошла непредвиденная ошибка. Сообщение о ней отправлено.
+            Обычно помогает перезагрузка.
           </p>
         </div>
-        <Button onClick={() => window.location.reload()}>Reload</Button>
+        <Button onClick={() => window.location.reload()}>Перезагрузить</Button>
       </div>
     )
   }

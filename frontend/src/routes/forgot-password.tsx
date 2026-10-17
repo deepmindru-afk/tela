@@ -36,11 +36,11 @@ export function ForgotPasswordPage() {
         <Card className="tela-auth-card w-full bg-[var(--surface-1)] shadow-[var(--shadow-lg)]">
           <CardHeader>
             <CardTitle className="text-[length:var(--text-2xl)]">
-              Check your email
+              Проверьте почту
             </CardTitle>
             <CardDescription>
-              If an account exists for that address, we've sent a link to reset
-              your password.
+              Если аккаунт с таким адресом существует, мы отправили ссылку для
+              сброса пароля.
             </CardDescription>
           </CardHeader>
           <CardBody>
@@ -49,7 +49,7 @@ export function ForgotPasswordPage() {
                 to="/login"
                 className="text-[var(--accent)] no-underline hover:underline"
               >
-                Back to sign in
+                Назад ко входу
               </Link>
             </AuthFooterLink>
           </CardBody>
@@ -63,10 +63,11 @@ export function ForgotPasswordPage() {
       <Card className="tela-auth-card w-full bg-[var(--surface-1)] shadow-[var(--shadow-lg)]">
         <CardHeader>
           <CardTitle className="text-[length:var(--text-2xl)]">
-            Reset your password
+            Сброс пароля
           </CardTitle>
           <CardDescription>
-            Enter your account email and we'll send a reset link.
+            Укажите электронную почту аккаунта, и мы отправим ссылку для сброса
+            пароля.
           </CardDescription>
         </CardHeader>
         <CardBody>
@@ -75,7 +76,7 @@ export function ForgotPasswordPage() {
             className="flex flex-col gap-[var(--space-4)]"
             noValidate
           >
-            <AuthField id="forgot-email" label="Email">
+            <AuthField id="forgot-email" label="Электронная почта">
               <Input
                 id="forgot-email"
                 type="email"
@@ -91,16 +92,16 @@ export function ForgotPasswordPage() {
               size="lg"
               disabled={request.isPending}
             >
-              {request.isPending ? 'Sending…' : 'Send reset link'}
+              {request.isPending ? 'Отправка…' : 'Отправить ссылку для сброса'}
             </Button>
           </form>
           <AuthFooterLink>
-            Remembered it?{' '}
+            Вспомнили его?{' '}
             <Link
               to="/login"
               className="text-[var(--accent)] no-underline hover:underline"
             >
-              Sign in
+              Войти
             </Link>
           </AuthFooterLink>
         </CardBody>

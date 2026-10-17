@@ -14,20 +14,20 @@ export function SettingsFollowingTab() {
   return (
     <section aria-labelledby="settings-following" className="flex flex-col gap-[var(--space-4)]">
       <p className="m-0 text-[length:var(--text-sm)] text-[var(--text-muted)] leading-[var(--leading-relaxed)]">
-        Pages and spaces you follow. You’re notified of changes to these (and new
-        pages in followed spaces). Use the bell in any page or space header to
-        follow more.
+        Страницы и пространства, на которые вы подписаны. Вы получаете уведомления
+        об изменениях в них (и о новых страницах в отслеживаемых пространствах).
+        Чтобы подписаться на что-то ещё, используйте колокольчик в заголовке любой страницы или пространства.
       </p>
 
       {subs.isLoading ? (
-        <p className="m-0 text-[length:var(--text-sm)] text-[var(--text-muted)]">Loading…</p>
+        <p className="m-0 text-[length:var(--text-sm)] text-[var(--text-muted)]">Загрузка…</p>
       ) : subs.isError ? (
         <p role="alert" className="m-0 text-[length:var(--text-sm)] text-[var(--danger)]">
-          Couldn’t load what you’re following.
+          Не удалось загрузить список подписок.
         </p>
       ) : !subs.data || subs.data.length === 0 ? (
         <p className="m-0 text-[length:var(--text-sm)] text-[var(--text-muted)]">
-          You’re not following anything yet.
+          Вы пока ни на что не подписаны.
         </p>
       ) : (
         <ul className="m-0 flex list-none flex-col rounded-[var(--radius-md)] border border-[var(--border-subtle)] p-0 overflow-hidden">
@@ -45,8 +45,8 @@ export function SettingsFollowingTab() {
                 variant="ghost"
                 size="sm"
                 disabled={unfollow.isPending}
-                aria-label={`Unfollow ${s.title}`}
-                title="Unfollow"
+                aria-label={`Отписаться от ${s.title}`}
+                title="Отписаться"
                 onClick={() => unfollow.mutate({ kind: s.kind, id: s.id })}
                 className="h-[var(--space-8)] w-[var(--space-8)] shrink-0 p-0"
               >

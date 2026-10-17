@@ -86,7 +86,7 @@ export function ShareReaderView({
            client-routing into an authed/app surface. */
         <a
           href={telaHome}
-          aria-label="tela home"
+          aria-label="Главная tela"
           // shrink-0 so a narrow bar truncates the title beside it rather than
           // squeezing the wordmark's text out of its own box (see PublicReader).
           className="inline-block shrink-0 rounded-[var(--radius-xs)] font-[family-name:var(--font-sans)] text-[length:var(--text-base)] font-medium text-[var(--text-primary)] no-underline transition-opacity duration-[var(--duration-fast)] hover:opacity-70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
@@ -104,7 +104,7 @@ export function ShareReaderView({
               is intentional so the post-login app boots cleanly outside the
               share-mode shell. */}
           <Button asChild variant="ghost" size="sm">
-            <a href="/login">Sign in</a>
+            <a href="/login">Войти</a>
           </Button>
         </>
       }

@@ -39,12 +39,12 @@ export function PlanTierSelect({
             plan_key: e.target.value,
           })
         }
-        aria-label="Set plan tier"
+        aria-label="Назначить тариф"
       >
         {options.map((p) => (
           <option key={p.key} value={p.key}>
             {p.name}
-            {p.listed ? '' : ' (internal)'}
+            {p.listed ? '' : ' (внутренний)'}
           </option>
         ))}
       </Select>

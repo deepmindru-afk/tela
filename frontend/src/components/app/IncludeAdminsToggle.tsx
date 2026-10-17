@@ -17,7 +17,7 @@ export function IncludeAdminsToggle({
         checked={checked}
         onCheckedChange={(next) => onChange(next === true)}
       />
-      <span>Include admins</span>
+      <span>Включить администраторов</span>
     </label>
   )
 }

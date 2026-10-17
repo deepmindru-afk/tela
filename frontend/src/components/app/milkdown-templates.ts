@@ -18,52 +18,52 @@ export interface TemplateDef {
 export const TEMPLATES: TemplateDef[] = [
   {
     id: 'tpl-meeting',
-    label: 'Meeting notes',
+    label: 'Заметки о встрече',
     keywords: ['template', 'meeting', 'notes', 'agenda'],
-    markdown: `## Meeting notes
+    markdown: `## Заметки о встрече
 
-**Date:**
-**Attendees:**
+**Дата:**
+**Участники:**
 
-### Agenda
+### Повестка
 -
 
-### Notes
+### Заметки
 -
 
-### Action items
+### Пункты к действию
 - [ ]
 `,
   },
   {
     id: 'tpl-decision',
-    label: 'Decision record',
+    label: 'Запись о решении',
     keywords: ['template', 'decision', 'adr', 'record'],
-    markdown: `## Decision
+    markdown: `## Решение
 
-**Status:** Proposed
-**Date:**
+**Статус:** Предложено
+**Дата:**
 
-### Context
+### Контекст
 
-### Decision
+### Решение
 
-### Consequences
+### Последствия
 `,
   },
   {
     id: 'tpl-weekly',
-    label: 'Weekly review',
+    label: 'Итоги недели',
     keywords: ['template', 'weekly', 'review', 'retro'],
-    markdown: `## Weekly review
+    markdown: `## Итоги недели
 
-### Done this week
+### Готово на этой неделе
 - [ ]
 
-### Next week
+### Следующая неделя
 - [ ]
 
-### Blockers
+### Блокеры
 -
 `,
   },

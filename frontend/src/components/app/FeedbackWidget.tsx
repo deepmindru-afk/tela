@@ -11,9 +11,9 @@ import { router } from '../../routes/router'
 import type { FeedbackKind } from '../../lib/types'
 
 const KINDS: { value: FeedbackKind; label: string }[] = [
-  { value: 'idea', label: 'Idea' },
-  { value: 'bug', label: 'Bug' },
-  { value: 'other', label: 'Other' },
+  { value: 'idea', label: 'Идея' },
+  { value: 'bug', label: 'Ошибка' },
+  { value: 'other', label: 'Другое' },
 ]
 
 const BODY_MAX = 8000
@@ -112,7 +112,7 @@ export function FeedbackWidget() {
         <Button
           variant="ghost"
           size="sm"
-          aria-label="Send feedback"
+          aria-label="Отправить отзыв"
           className="h-[var(--space-8)] w-[var(--space-8)] p-0"
         >
           <MessageSquarePlus width={16} height={16} aria-hidden />
@@ -141,7 +141,7 @@ export function FeedbackWidget() {
               <Check width={18} height={18} aria-hidden />
             </span>
             <p className="m-0 text-[length:var(--text-sm)] font-medium text-[var(--text-primary)]">
-              Thanks — we read every message.
+              Спасибо — мы читаем каждое сообщение.
             </p>
           </div>
         ) : (
@@ -154,14 +154,14 @@ export function FeedbackWidget() {
           >
             <div className="flex items-center justify-between">
               <p className="m-0 text-[length:var(--text-sm)] font-semibold text-[var(--text-primary)]">
-                Send feedback
+                Отправить отзыв
               </p>
               <span className="text-[length:var(--text-xs)] text-[var(--text-muted)]">
-                to the tela team
+                команде tela
               </span>
             </div>
 
-            <div role="group" aria-label="Type" className="flex gap-[var(--space-2)]">
+            <div role="group" aria-label="Тип" className="flex gap-[var(--space-2)]">
               {KINDS.map((k) => {
                 const selected = kind === k.value
                 return (
@@ -202,25 +202,25 @@ export function FeedbackWidget() {
               }}
               maxLength={BODY_MAX}
               rows={4}
-              placeholder="Share an idea, a bug, or anything on your mind…"
-              aria-label="Your feedback"
+              placeholder="Поделитесь идеей, ошибкой или всем, что у вас на уме…"
+              aria-label="Ваш отзыв"
               className="resize-none"
             />
 
             {status === 'error' ? (
               <p role="alert" className="m-0 text-[length:var(--text-xs)] text-[var(--danger)]">
-                Couldn't send — please try again.
+                Не удалось отправить — попробуйте ещё раз.
               </p>
             ) : null}
 
             <div className="flex items-center justify-between">
               <span className="text-[length:var(--text-xs)] text-[var(--text-muted)]">
                 {remaining < 500
-                  ? `${remaining} left`
-                  : '⌘↵ to send'}
+                  ? `${remaining} осталось`
+                  : '⌘↵ — отправить'}
               </span>
               <Button type="submit" size="sm" disabled={!canSend}>
-                {status === 'sending' ? 'Sending…' : 'Send'}
+                {status === 'sending' ? 'Отправка…' : 'Отправить'}
               </Button>
             </div>
           </form>

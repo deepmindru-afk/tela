@@ -43,13 +43,13 @@ export function UserPicker({
   value,
   onChange,
   id,
-  placeholder = 'Search by username or email…',
+  placeholder = 'Поиск по имени пользователя или почте…',
   disabled,
   invalid,
   excludeIds,
   restrictToIds,
   onInviteEmail,
-  inviteHint = 'Send an email invitation',
+  inviteHint = 'Отправить приглашение по электронной почте',
   emailValue,
 }: UserPickerProps) {
   const [open, setOpen] = useState(false)
@@ -166,14 +166,14 @@ export function UserPicker({
         className="p-0 w-[var(--radix-popover-trigger-width)] min-w-[16rem]"
       >
         <CommandInlinePicker
-          label="Users"
+          label="Пользователи"
           placeholder={placeholder}
           emptyMessage={
             isLoading
-              ? 'Loading users…'
+              ? 'Загрузка пользователей…'
               : onInviteEmail
-                ? 'No match — type a full email address to invite.'
-                : 'No matching users.'
+                ? 'Ничего не найдено — введите полный адрес электронной почты, чтобы пригласить.'
+                : 'Подходящие пользователи не найдены.'
           }
           items={items}
           search={search}

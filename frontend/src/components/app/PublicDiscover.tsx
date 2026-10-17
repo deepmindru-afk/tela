@@ -37,8 +37,8 @@ export function PublicDiscover({
   const hasPrev = offset > 0
 
   useHeadMeta({
-    title: 'Discover — tela',
-    description: 'Browse public spaces published on tela.',
+    title: 'Обзор — tela',
+    description: 'Просматривайте публичные пространства, опубликованные в tela.',
     canonicalPath: '/discover',
     ogType: 'website',
   })
@@ -46,9 +46,9 @@ export function PublicDiscover({
   return (
     <PublicPageShell>
       <PublicMasthead
-        title="Discover"
+        title="Обзор"
         avatarSeed="discover"
-        standfirst="Public spaces published on tela — browse the network."
+        standfirst="Публичные пространства, опубликованные в tela — просматривайте всю сеть."
         meta={<SortToggle sort={sort} onSort={onSort} disabled={query.isLoading} />}
       />
 
@@ -58,28 +58,28 @@ export function PublicDiscover({
                 role="status"
                 className="text-[length:var(--text-sm)] text-[var(--text-muted)]"
               >
-                Loading…
+                Загрузка…
               </p>
             ) : query.error ? (
               <EmptyState
                 icon={FrownIcon}
                 tone="danger"
-                title="Couldn’t load spaces"
-                description="Something went wrong fetching the directory. Try again in a moment."
+                title="Не удалось загрузить пространства"
+                description="Не удалось получить каталог. Попробуйте ещё раз через минуту."
                 actions={
                   <Button variant="secondary" onClick={() => void query.refetch()}>
-                    Retry
+                    Повторить
                   </Button>
                 }
               />
             ) : spaces.length === 0 ? (
               <EmptyState
                 icon={Compass}
-                title={offset > 0 ? 'No more spaces' : 'Nothing published yet'}
+                title={offset > 0 ? 'Больше нет пространств' : 'Пока ничего не опубликовано'}
                 description={
                   offset > 0
-                    ? 'You’ve reached the end of the directory.'
-                    : 'When people publish public spaces, they’ll show up here.'
+                    ? 'Вы дошли до конца каталога.'
+                    : 'Когда люди опубликуют публичные пространства, они появятся здесь.'
                 }
                 actions={
                   offset > 0 ? (
@@ -87,7 +87,7 @@ export function PublicDiscover({
                       variant="secondary"
                       onClick={() => onOffset(Math.max(0, offset - DISCOVER_PAGE_SIZE))}
                     >
-                      Back
+                      Назад
                     </Button>
                   ) : undefined
                 }
@@ -104,7 +104,7 @@ export function PublicDiscover({
 
                 {(hasPrev || hasNext) && (
                   <nav
-                    aria-label="Pagination"
+                    aria-label="Постраничная навигация"
                     className="mt-[var(--space-7)] flex items-center justify-between"
                   >
                     <Button
@@ -113,10 +113,10 @@ export function PublicDiscover({
                       disabled={!hasPrev}
                       onClick={() => onOffset(Math.max(0, offset - DISCOVER_PAGE_SIZE))}
                     >
-                      Previous
+                      Назад
                     </Button>
                     <span className="text-[length:var(--text-sm)] text-[var(--text-muted)]">
-                      Page {page}
+                      Страница {page}
                     </span>
                     <Button
                       variant="secondary"
@@ -124,7 +124,7 @@ export function PublicDiscover({
                       disabled={!hasNext}
                       onClick={() => onOffset(offset + DISCOVER_PAGE_SIZE)}
                     >
-                      Next
+                      Далее
                     </Button>
                   </nav>
                 )}
@@ -147,11 +147,11 @@ function SortToggle({
   disabled?: boolean
 }) {
   const opts: { value: DiscoverSort; label: string }[] = [
-    { value: 'recent', label: 'Recent' },
-    { value: 'popular', label: 'Popular' },
+    { value: 'recent', label: 'Новые' },
+    { value: 'popular', label: 'Популярные' },
   ]
   return (
-    <div role="group" aria-label="Sort" className="flex items-center gap-[var(--space-2)]">
+    <div role="group" aria-label="Сортировка" className="flex items-center gap-[var(--space-2)]">
       {opts.map((o) => (
         <button
           key={o.value}

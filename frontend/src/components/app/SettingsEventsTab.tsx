@@ -112,18 +112,18 @@ export function SettingsEventsTab() {
       className="flex flex-col gap-[var(--space-4)] min-h-0"
     >
       <p className="m-0 text-[length:var(--text-sm)] text-[var(--text-muted)] leading-[var(--leading-relaxed)]">
-        Everything happening on this instance — sign-ins, page views and edits,
-        access changes, asks, and API requests. Most recent first.
+        Всё, что происходит в этом инстансе — входы, просмотр и
+        редактирование страниц, изменения доступа, вопросы и запросы API. Сначала самые новые.
       </p>
 
       {pinnedUser ? (
         <div className="flex items-center gap-[var(--space-2)] rounded-[var(--radius-sm)] border border-[var(--accent)] bg-[var(--surface-2)] px-[var(--space-3)] py-[var(--space-2)] text-[length:var(--text-sm)]">
           <span className="text-[var(--text-primary)]">
-            Showing one person's activity
+            Показана активность одного человека
             {search$.etypes ? ` · ${search$.etypes.split(',').join(', ')}` : ''}
           </span>
           <Button type="button" variant="ghost" size="sm" onClick={clearPin}>
-            Show everyone
+            Показать всех
           </Button>
         </div>
       ) : null}
@@ -145,13 +145,13 @@ export function SettingsEventsTab() {
         <div className="flex flex-wrap items-center gap-[var(--space-3)]">
           <Input
             type="search"
-            placeholder="Search actor, page, detail…"
+            placeholder="Поиск по участнику, странице, подробностям…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="max-w-[18rem]"
           />
           <label className="flex items-center gap-[var(--space-2)] text-[length:var(--text-sm)] text-[var(--text-muted)] font-[family-name:var(--font-sans)]">
-            Since
+            С
             <Input
               type="date"
               value={since}
@@ -174,7 +174,7 @@ export function SettingsEventsTab() {
                 setIncludeAdmins(false)
               }}
             >
-              Clear
+              Сбросить
             </Button>
           ) : null}
         </div>
@@ -183,11 +183,11 @@ export function SettingsEventsTab() {
       {/* Feed */}
       {isLoading ? (
         <p className="m-0 text-[length:var(--text-sm)] text-[var(--text-muted)]">
-          Loading events…
+          Загрузка событий…
         </p>
       ) : isError ? (
         <p role="alert" className="m-0 text-[length:var(--text-sm)] text-[var(--danger)]">
-          Couldn't load events.
+          Не удалось загрузить события.
         </p>
       ) : events.length > 0 ? (
         <>
@@ -208,12 +208,12 @@ export function SettingsEventsTab() {
               !isFetchingNextPage && 'invisible',
             )}
           >
-            Loading more…
+            Загрузка ещё…
           </p>
         </>
       ) : (
         <p className="m-0 text-[length:var(--text-sm)] text-[var(--text-muted)]">
-          {hasFilters ? 'No events match these filters.' : 'No events recorded yet.'}
+          {hasFilters ? 'Нет событий по этим фильтрам.' : 'Событий пока нет.'}
         </p>
       )}
     </section>

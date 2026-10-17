@@ -36,11 +36,11 @@ export function SettingsFeedbackTab() {
   return (
     <section aria-labelledby="settings-feedback" className="flex flex-col gap-[var(--space-4)]">
       <p className="m-0 text-[length:var(--text-sm)] text-[var(--text-muted)] leading-[var(--leading-relaxed)]">
-        Feedback your users sent about tela — from the in-app widget, an agent's
-        submit_feedback tool, or the API. Most recent first.
+        Отзывы пользователей о tela — из виджета в приложении, инструмента
+        submit_feedback агента или через API. Сначала самые новые.
       </p>
 
-      <div role="group" aria-label="Filter by status" className="flex gap-[var(--space-1)]">
+      <div role="group" aria-label="Фильтр по статусу" className="flex gap-[var(--space-1)]">
         {FILTERS.map((f) => (
           <Button
             key={f.label}
@@ -56,10 +56,10 @@ export function SettingsFeedbackTab() {
       </div>
 
       {fb.isLoading ? (
-        <p className="m-0 text-[length:var(--text-sm)] text-[var(--text-muted)]">Loading feedback…</p>
+        <p className="m-0 text-[length:var(--text-sm)] text-[var(--text-muted)]">Загрузка отзывов…</p>
       ) : fb.isError ? (
         <p role="alert" className="m-0 text-[length:var(--text-sm)] text-[var(--danger)]">
-          Couldn't load feedback.
+          Не удалось загрузить отзывы.
         </p>
       ) : fb.data && fb.data.length > 0 ? (
         <ul className="m-0 p-0 list-none flex flex-col gap-[var(--space-2)]">
@@ -69,7 +69,7 @@ export function SettingsFeedbackTab() {
         </ul>
       ) : (
         <p className="m-0 text-[length:var(--text-sm)] text-[var(--text-muted)]">
-          {filter === 'open' ? 'Nothing open — all caught up.' : 'No feedback yet.'}
+          {filter === 'open' ? 'Открытых нет — всё обработано.' : 'Отзывов пока нет.'}
         </p>
       )}
     </section>
@@ -77,10 +77,10 @@ export function SettingsFeedbackTab() {
 }
 
 const FILTERS: ReadonlyArray<{ label: string; value: FeedbackStatus | undefined }> = [
-  { label: 'Open', value: 'open' },
-  { label: 'Done', value: 'done' },
-  { label: "Won't fix", value: 'wontfix' },
-  { label: 'All', value: undefined },
+  { label: 'Открытые', value: 'open' },
+  { label: 'Выполненные', value: 'done' },
+  { label: 'Не будем исправлять', value: 'wontfix' },
+  { label: 'Все', value: undefined },
 ]
 
 const KIND_VARIANT: Record<FeedbackKind, 'danger' | 'accent' | 'muted'> = {
@@ -91,7 +91,7 @@ const KIND_VARIANT: Record<FeedbackKind, 'danger' | 'accent' | 'muted'> = {
 
 // Friendly origin label; 'web' is the common case and stays unlabelled to cut noise.
 function sourceLabel(source: string): string | null {
-  if (source === 'mcp') return 'agent'
+  if (source === 'mcp') return 'агент'
   if (source === 'api') return 'API'
   return null
 }
@@ -124,7 +124,7 @@ function describeUA(ua?: string): string | null {
 }
 
 function FeedbackRow({ entry }: { entry: FeedbackEntry }) {
-  const who = entry.username ?? (entry.user_id ? `user #${entry.user_id}` : 'unknown')
+  const who = entry.username ?? (entry.user_id ? `пользователь #${entry.user_id}` : 'неизвестно')
   const source = sourceLabel(entry.source)
   const { mutate: setStatus, isPending } = useSetFeedbackStatus()
   const open = entry.status === 'open'
@@ -148,7 +148,7 @@ function FeedbackRow({ entry }: { entry: FeedbackEntry }) {
           ) : null}
           {source ? <Badge variant="muted">{source}</Badge> : null}
           {!open ? (
-            <Badge variant="muted">{entry.status === 'done' ? 'Done' : "Won't fix"}</Badge>
+            <Badge variant="muted">{entry.status === 'done' ? 'Выполнено' : 'Не будем исправлять'}</Badge>
           ) : null}
         </div>
       </div>
@@ -164,7 +164,7 @@ function FeedbackRow({ entry }: { entry: FeedbackEntry }) {
         <span className="text-[length:var(--text-xs)] text-[var(--text-muted)] font-[family-name:var(--font-sans)]">
           {who} · {localDateFromSqlite(entry.created_at)}
           {entry.resolved_at
-            ? ` · resolved ${localDateFromSqlite(entry.resolved_at)}`
+            ? ` · закрыто ${localDateFromSqlite(entry.resolved_at)}`
             : null}
         </span>
         <div className="flex gap-[var(--space-1)]">
@@ -177,7 +177,7 @@ function FeedbackRow({ entry }: { entry: FeedbackEntry }) {
                 disabled={isPending}
                 onClick={() => setStatus({ id: entry.id, status: 'done' })}
               >
-                Mark done
+                Отметить выполненным
               </Button>
               <Button
                 type="button"
@@ -186,7 +186,7 @@ function FeedbackRow({ entry }: { entry: FeedbackEntry }) {
                 disabled={isPending}
                 onClick={() => setStatus({ id: entry.id, status: 'wontfix' })}
               >
-                Won't fix
+                Не будем исправлять
               </Button>
             </>
           ) : (
@@ -197,7 +197,7 @@ function FeedbackRow({ entry }: { entry: FeedbackEntry }) {
               disabled={isPending}
               onClick={() => setStatus({ id: entry.id, status: 'open' })}
             >
-              Reopen
+              Вернуть в работу
             </Button>
           )}
         </div>
@@ -230,7 +230,7 @@ function FeedbackMeta({ context }: { context: FeedbackContext | null }) {
             params={{ spaceId: context.space_id!, pageId: context.page_id!, slug: undefined }}
             className="text-[var(--accent)] no-underline hover:underline truncate max-w-[16rem]"
           >
-            {context.page_title ? `“${context.page_title}”` : `page #${context.page_id}`}
+            {context.page_title ? `“${context.page_title}”` : `страница #${context.page_id}`}
           </Link>
           {bits.length > 0 ? <span aria-hidden>·</span> : null}
         </>

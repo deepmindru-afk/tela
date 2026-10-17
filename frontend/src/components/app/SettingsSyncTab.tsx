@@ -44,7 +44,7 @@ export function SettingsSyncTab() {
     >
       <header className="flex flex-col gap-[var(--space-1)]" id="settings-sync">
         <p className="m-0 text-[length:var(--text-sm)] text-[var(--text-muted)] leading-[var(--leading-relaxed)]">
-          Mount your spaces as a local folder with{' '}
+          Подключите свои пространства как локальную папку с помощью{' '}
           <a
             href="https://rclone.org"
             target="_blank"
@@ -53,9 +53,10 @@ export function SettingsSyncTab() {
           >
             rclone
           </a>{' '}
-          and edit them as plain markdown in any app. Connect a vault below — it
-          mints a sync token and walks you through the setup. Edits merge on the
-          server, so editing in the app and on disk at once is safe.
+          и редактируйте их как обычный markdown в любом приложении. Подключите
+          хранилище ниже — оно создаст токен синхронизации и проведёт вас по настройке.
+          Правки объединяются на сервере, поэтому редактировать в приложении и на диске
+          одновременно безопасно.
         </p>
         <p className="m-0 text-[length:var(--text-xs)] text-[var(--text-muted)]">
           <a
@@ -64,7 +65,7 @@ export function SettingsSyncTab() {
             rel="noreferrer"
             className="text-[var(--accent)] underline underline-offset-2"
           >
-            WebDAV &amp; rclone setup guide →
+            Руководство по настройке WebDAV и rclone →
           </a>
         </p>
       </header>
@@ -110,11 +111,11 @@ function ConnectForm({ onCreated }: ConnectFormProps) {
     e.preventDefault()
     const trimmed = name.trim()
     if (!trimmed) {
-      setError('Give this connection a name (e.g. the device).')
+      setError('Укажите название подключения (например, устройства).')
       return
     }
     if (trimmed.length > NAME_MAX_LEN) {
-      setError(`Name must be at most ${NAME_MAX_LEN} characters.`)
+      setError(`Название — не более ${NAME_MAX_LEN} символов.`)
       return
     }
     setError(null)
@@ -131,13 +132,13 @@ function ConnectForm({ onCreated }: ConnectFormProps) {
         setError(err.message)
         return
       }
-      setError('Failed to connect. Try again.')
+      setError('Не удалось подключиться. Попробуйте ещё раз.')
     }
   }
 
   return (
     <section
-      aria-label="Connect a vault"
+      aria-label="Подключение хранилища"
       className={cn(
         'rounded-[var(--radius-md)] border border-[var(--border-subtle)]',
         'bg-[var(--surface-1)]',
@@ -145,35 +146,35 @@ function ConnectForm({ onCreated }: ConnectFormProps) {
       )}
     >
       <h2 className="m-0 mb-[var(--space-3)] font-[family-name:var(--font-sans)] text-[length:var(--text-base)] leading-[var(--leading-tight)] text-[var(--text-primary)]">
-        Connect a vault
+        Подключить хранилище
       </h2>
       <form
         onSubmit={handleSubmit}
         className="flex flex-col gap-[var(--space-4)]"
         noValidate
       >
-        <Field label="Connection name" htmlFor="sync-name">
+        <Field label="Название подключения" htmlFor="sync-name">
           <Input
             id="sync-name"
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder="e.g. laptop, work-desktop"
+            placeholder="например, ноутбук, рабочий компьютер"
             maxLength={NAME_MAX_LEN}
             autoComplete="off"
           />
         </Field>
 
-        <Field label="What to sync" htmlFor="sync-space">
+        <Field label="Что синхронизировать" htmlFor="sync-space">
           {spaces.isLoading ? (
             <p className="m-0 text-[length:var(--text-sm)] text-[var(--text-muted)]">
-              Loading spaces…
+              Загрузка пространств…
             </p>
           ) : spaces.isError || !spaces.data ? (
             <p
               role="alert"
               className="m-0 text-[length:var(--text-sm)] text-[var(--danger)]"
             >
-              Couldn't load spaces.
+              Не удалось загрузить пространства.
             </p>
           ) : (
             <Select
@@ -182,7 +183,7 @@ function ConnectForm({ onCreated }: ConnectFormProps) {
               onChange={(e) => setSpaceValue(e.target.value)}
             >
               <option value={ALL_SPACES_VALUE}>
-                Whole workspace (all spaces)
+                Всё рабочее пространство (все пространства)
               </option>
               {spaces.data.map((s) => (
                 <option key={s.id} value={s.id}>
@@ -193,22 +194,22 @@ function ConnectForm({ onCreated }: ConnectFormProps) {
           )}
         </Field>
 
-        <Field label="Direction">
+        <Field label="Направление">
           <ToggleGroup
             type="single"
             value={mode}
             onValueChange={(next) => {
               if (next === 'two-way' || next === 'read-only') setMode(next)
             }}
-            aria-label="Sync direction"
+            aria-label="Направление синхронизации"
           >
-            <ToggleGroupItem value="two-way">Two-way</ToggleGroupItem>
-            <ToggleGroupItem value="read-only">Read-only</ToggleGroupItem>
+            <ToggleGroupItem value="two-way">Двусторонняя</ToggleGroupItem>
+            <ToggleGroupItem value="read-only">Только чтение</ToggleGroupItem>
           </ToggleGroup>
           <p className="m-0 text-[length:var(--text-xs)] text-[var(--text-muted)] font-[family-name:var(--font-sans)]">
             {mode === 'two-way'
-              ? 'Edit on disk and in the app; changes merge both ways.'
-              : 'Pull a local mirror only — local edits are not pushed back.'}
+              ? 'Правьте на диске и в приложении; изменения объединяются в обе стороны.'
+              : 'Только локальная копия — локальные правки не отправляются обратно.'}
           </p>
         </Field>
 
@@ -224,7 +225,7 @@ function ConnectForm({ onCreated }: ConnectFormProps) {
         <div className="flex">
           <Button type="submit" variant="primary" disabled={create.isPending}>
             <Link2 width={14} height={14} />
-            <span>{create.isPending ? 'Connecting…' : 'Connect'}</span>
+            <span>{create.isPending ? 'Подключение…' : 'Подключить'}</span>
           </Button>
         </div>
       </form>
@@ -242,7 +243,7 @@ function ConnectionsList({ connections, loading, isError }: ConnectionsListProps
   if (loading) {
     return (
       <p className="m-0 text-[length:var(--text-sm)] text-[var(--text-muted)]">
-        Loading connections…
+        Загрузка подключений…
       </p>
     )
   }
@@ -252,7 +253,7 @@ function ConnectionsList({ connections, loading, isError }: ConnectionsListProps
         role="alert"
         className="m-0 text-[length:var(--text-sm)] text-[var(--danger)]"
       >
-        Couldn't load connections.
+        Не удалось загрузить подключения.
       </p>
     )
   }
@@ -267,7 +268,7 @@ function ConnectionsList({ connections, loading, isError }: ConnectionsListProps
           'text-center',
         )}
       >
-        No connected vaults yet. Connect one above.
+        Подключённых хранилищ пока нет. Подключите одно выше.
       </p>
     )
   }
@@ -288,18 +289,18 @@ function ConnectionRow({ row }: { row: ApiKeyRow }) {
 
   const spaceLabel =
     row.space_id == null
-      ? 'Whole workspace'
+      ? 'Всё рабочее пространство'
       : (spaces.data?.find((s) => s.id === row.space_id)?.name ??
-        `Space #${row.space_id}`)
+        `Пространство #${row.space_id}`)
   const lastUsedLabel =
-    row.last_used_at != null ? relativeTimeFromSqlite(row.last_used_at) : 'never'
+    row.last_used_at != null ? relativeTimeFromSqlite(row.last_used_at) : 'никогда'
 
   async function handleRevoke() {
     setError(null)
     try {
       await revoke.mutateAsync(row.id)
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Failed to disconnect.')
+      setError(err instanceof ApiError ? err.message : 'Не удалось отключить.')
       setConfirming(false)
     }
   }
@@ -319,12 +320,12 @@ function ConnectionRow({ row }: { row: ApiKeyRow }) {
               {row.name}
             </span>
             <Badge variant="muted">
-              {row.scope === 'read' ? 'Read-only' : 'Two-way'}
+              {row.scope === 'read' ? 'Только чтение' : 'Двусторонняя'}
             </Badge>
             <Badge variant="muted">{spaceLabel}</Badge>
           </div>
           <span className="text-[length:var(--text-xs)] text-[var(--text-muted)] font-[family-name:var(--font-sans)]">
-            Last synced {lastUsedLabel} · Connected{' '}
+            Последняя синхронизация: {lastUsedLabel} · Подключено{' '}
             {localDateFromSqlite(row.created_at)}
           </span>
         </div>
@@ -337,10 +338,10 @@ function ConnectionRow({ row }: { row: ApiKeyRow }) {
               setError(null)
               setConfirming(true)
             }}
-            aria-label={`Disconnect ${row.name}`}
+            aria-label={`Отключить ${row.name}`}
             disabled={revoke.isPending}
           >
-            Disconnect
+            Отключить
           </Button>
         ) : null}
       </div>
@@ -354,8 +355,8 @@ function ConnectionRow({ row }: { row: ApiKeyRow }) {
           )}
         >
           <span className="text-[length:var(--text-xs)] text-[var(--text-muted)] font-[family-name:var(--font-sans)]">
-            Disconnect <strong>{row.name}</strong>? Its token stops working
-            immediately; your local files stay put.
+            Отключить <strong>{row.name}</strong>? Токен перестанет работать
+            немедленно; локальные файлы останутся на месте.
           </span>
           <div className="flex items-center gap-[var(--space-1)] shrink-0">
             <Button
@@ -365,7 +366,7 @@ function ConnectionRow({ row }: { row: ApiKeyRow }) {
               onClick={() => setConfirming(false)}
               disabled={revoke.isPending}
             >
-              Cancel
+              Отмена
             </Button>
             <Button
               type="button"
@@ -374,7 +375,7 @@ function ConnectionRow({ row }: { row: ApiKeyRow }) {
               onClick={() => void handleRevoke()}
               disabled={revoke.isPending}
             >
-              {revoke.isPending ? 'Disconnecting…' : 'Disconnect'}
+              {revoke.isPending ? 'Отключение…' : 'Отключить'}
             </Button>
           </div>
         </div>
@@ -411,15 +412,16 @@ function MountSteps({
 }) {
   return (
     <>
-      <Step n={2} title="Mount it (try it now)">
+      <Step n={2} title="Смонтируйте папку (попробуйте прямо сейчас)">
         <p className="m-0 text-[length:var(--text-xs)] text-[var(--text-muted)] font-[family-name:var(--font-sans)] leading-[var(--leading-relaxed)]">
-          Your vault shows up at{' '}
+          Ваше хранилище появится в{' '}
           <code className="font-[family-name:var(--font-mono)]">
             {rclone.local_dir}
           </code>
-          . Edit files with any app — changes sync both ways
-          {rclone.read_only ? ' (read-only)' : ''}. Press Ctrl-C to unmount.
-          {macos ? ' No macFUSE needed — this mounts over NFS.' : ''}
+          . Редактируйте файлы любым приложением — изменения синхронизируются
+          в обе стороны
+          {rclone.read_only ? ' (только чтение)' : ''}. Нажмите Ctrl-C, чтобы отмонтировать.
+          {macos ? ' macFUSE не нужен — монтирование выполняется через NFS.' : ''}
         </p>
         <CommandBlock
           command={macos ? rclone.mount_command_macos : rclone.mount_command}
@@ -430,12 +432,13 @@ function MountSteps({
         n={3}
         title={
           macos
-            ? 'Keep it mounted (macOS · launchd)'
-            : 'Keep it mounted (Linux · systemd)'
+            ? 'Поддерживайте монтирование (macOS · launchd)'
+            : 'Поддерживайте монтирование (Linux · systemd)'
         }
       >
         <p className="m-0 text-[length:var(--text-xs)] text-[var(--text-muted)] font-[family-name:var(--font-sans)] leading-[var(--leading-relaxed)]">
-          So the vault mounts on login and restarts if it drops. Save this as{' '}
+          Чтобы хранилище монтировалось при входе и перезапускалось при сбое.
+          Сохраните это как{' '}
           <code className="font-[family-name:var(--font-mono)]">
             {macos
               ? `~/Library/LaunchAgents/${rclone.launchd_label}.plist`
@@ -447,7 +450,7 @@ function MountSteps({
           command={macos ? rclone.launchd_plist : rclone.systemd_unit}
         />
         <p className="m-0 text-[length:var(--text-xs)] text-[var(--text-muted)] font-[family-name:var(--font-sans)]">
-          Then turn it on:
+          Затем включите его:
         </p>
         <CommandBlock
           command={macos ? rclone.launchd_install : rclone.systemd_install}
@@ -455,7 +458,7 @@ function MountSteps({
         <p className="m-0 text-[length:var(--text-xs)] text-[var(--text-muted)] font-[family-name:var(--font-sans)] leading-[var(--leading-relaxed)]">
           {macos ? (
             <>
-              Check it with{' '}
+              Проверьте командой{' '}
               <code className="font-[family-name:var(--font-mono)]">
                 launchctl print gui/$(id -u)/{rclone.launchd_label}
               </code>
@@ -463,15 +466,15 @@ function MountSteps({
             </>
           ) : (
             <>
-              Check it with{' '}
+              Проверьте командой{' '}
               <code className="font-[family-name:var(--font-mono)]">
                 systemctl --user status {rclone.service_name}
               </code>
               .
             </>
           )}{' '}
-          On Windows, or to keep real local files instead of a live mount, see
-          the sync docs.
+          В Windows или если нужны настоящие локальные файлы вместо живого
+          монтирования, смотрите документацию по синхронизации.
         </p>
       </Step>
     </>
@@ -489,11 +492,11 @@ function SetupDialog({ created, onOpenChange }: SetupDialogProps) {
     <Dialog open={created != null} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Vault connected — mount it as a folder</DialogTitle>
+          <DialogTitle>Хранилище подключено — смонтируйте его как папку</DialogTitle>
           <DialogDescription>
-            rclone presents tela as a normal folder you open with any app; edits
-            sync automatically. Paste each command into a terminal, in order.
-            (You'll need rclone installed.)
+            rclone показывает tela как обычную папку, которую можно открыть любым
+            приложением; правки синхронизируются автоматически. Вставьте команды в
+            терминал по порядку. (Понадобится установленный rclone.)
           </DialogDescription>
         </DialogHeader>
         {rclone ? (
@@ -512,17 +515,17 @@ function SetupDialog({ created, onOpenChange }: SetupDialogProps) {
                 className="shrink-0 text-[var(--text-muted)]"
               />
               <span className="text-[length:var(--text-xs)] text-[var(--text-primary)] font-[family-name:var(--font-sans)]">
-                Your vault appears at{' '}
+                Ваше хранилище появится в{' '}
                 <code className="font-[family-name:var(--font-mono)]">
                   {rclone.local_dir}
                 </code>{' '}
-                — open it with any editor.
+                — откройте его любым редактором.
               </span>
             </div>
 
-            <Step n={1} title="Link tela to rclone">
+            <Step n={1} title="Связать tela с rclone">
               <p className="m-0 text-[length:var(--text-xs)] text-[var(--text-muted)] font-[family-name:var(--font-sans)]">
-                Run once on this device — creates the connection.
+                Выполните один раз на этом устройстве — это создаст подключение.
               </p>
               <CommandBlock command={rclone.config_create_command} />
               <div
@@ -539,14 +542,14 @@ function SetupDialog({ created, onOpenChange }: SetupDialogProps) {
                   className="mt-[2px] shrink-0 text-[var(--accent)]"
                 />
                 <span className="text-[length:var(--text-xs)] text-[var(--text-muted)] font-[family-name:var(--font-sans)] leading-[var(--leading-relaxed)]">
-                  This line contains your access token — treat it like a
-                  password.
+                  В этой строке содержится ваш токен доступа — относитесь к нему
+                  как к паролю.
                 </span>
               </div>
               <p className="m-0 text-[length:var(--text-xs)] text-[var(--text-muted)] font-[family-name:var(--font-sans)] leading-[var(--leading-relaxed)]">
-                Connected a vault on another machine before September 2026? Run
-                this there too — older setups used a client profile that can't
-                report file times, so rclone silently skipped your edits:
+                Подключали хранилище на другой машине до сентября 2026 года? Выполните
+                команду и там: в старых настройках использовался профиль клиента, который
+                не передаёт время изменения файлов, поэтому rclone молча пропускал ваши правки:
               </p>
               <CommandBlock command={rclone.fix_vendor_command} />
             </Step>
@@ -580,7 +583,7 @@ function SetupDialog({ created, onOpenChange }: SetupDialogProps) {
                 variant="primary"
                 onClick={() => onOpenChange(false)}
               >
-                Done
+                Готово
               </Button>
             </DialogFooter>
           </div>
@@ -648,7 +651,7 @@ function CommandBlock({ command, label }: { command: string; label?: string }) {
         )}
         <Button type="button" variant="ghost" size="sm" onClick={() => void copy()}>
           <Copy width={13} height={13} />
-          <span>{copied ? 'Copied!' : 'Copy'}</span>
+          <span>{copied ? 'Скопировано!' : 'Копировать'}</span>
         </Button>
       </div>
       <pre className="m-0 overflow-x-auto rounded-[var(--radius-sm)] border border-[var(--border-subtle)] bg-[var(--surface-2)] px-[var(--space-3)] py-[var(--space-2)] text-[length:var(--text-xs)] text-[var(--text-primary)] font-[family-name:var(--font-mono)] leading-[var(--leading-relaxed)] whitespace-pre-wrap break-all">

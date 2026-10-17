@@ -31,14 +31,14 @@ export function FileRoute() {
     return (
       <PublicShell>
         <p role="status" className="m-0 text-[length:var(--text-sm)] text-[var(--text-muted)]">
-          Loading…
+          Загрузка…
         </p>
       </PublicShell>
     )
   }
   const file = query.data?.file
   if (query.error || !file) {
-    return <PublicUnavailable message="This file isn’t available." />
+    return <PublicUnavailable message="Этот файл недоступен." />
   }
 
   const isImage = file.mime.startsWith('image/')
@@ -63,7 +63,7 @@ export function FileRoute() {
               {file.kind} · {prettySize(file.byte_size)}
               {file.page ? (
                 <>
-                  {' · attached to '}
+                  {' · прикреплён к '}
                   {/* Server-computed canonical path (public_handles.go) —
                       never re-derived client-side, so it stays an <a>. */}
                   <a href={file.page.path} className="underline underline-offset-2">
@@ -80,12 +80,12 @@ export function FileRoute() {
               ) : (
                 <Link2 width={15} height={15} aria-hidden />
               )}
-              {copied ? 'Copied' : 'Copy link'}
+              {copied ? 'Скопировано' : 'Копировать ссылку'}
             </Button>
             <Button asChild variant="secondary" size="sm">
               <a href={file.url} download={file.name}>
                 <Download width={15} height={15} aria-hidden />
-                Download
+                Скачать
               </a>
             </Button>
           </div>
@@ -100,7 +100,7 @@ export function FileRoute() {
               fallback={
                 <div className="tela-pdf-status">
                   <Loader2 className="tela-pdf-spin" width={18} height={18} aria-hidden />
-                  <span>Loading viewer…</span>
+                  <span>Загрузка просмотрщика…</span>
                 </div>
               }
             >
@@ -116,7 +116,7 @@ export function FileRoute() {
         ) : (
           <div className="rounded-[var(--radius-md)] border border-[var(--border-subtle)] bg-[var(--surface-2)] p-[var(--space-7)] text-center">
             <p className="m-0 text-[length:var(--text-sm)] text-[var(--text-muted)]">
-              No preview for {file.kind} files.
+              Нет предпросмотра для файлов типа {file.kind}.
             </p>
             <a
               href={file.url}
@@ -125,7 +125,7 @@ export function FileRoute() {
               className="mt-[var(--space-3)] inline-flex items-center gap-[var(--space-2)] text-[length:var(--text-sm)] underline underline-offset-2"
             >
               <ExternalLink width={14} height={14} aria-hidden />
-              Open the file
+              Открыть файл
             </a>
           </div>
         )}

@@ -34,9 +34,9 @@ export function LocalGraphPanel({
         onInteractOutside={(e) => e.preventDefault()}
       >
         <SheetHeader>
-          <SheetTitle>Graph</SheetTitle>
+          <SheetTitle>Граф</SheetTitle>
           <SheetDescription>
-            This page and the pages it connects to.
+            Эта страница и страницы, с которыми она связана.
           </SheetDescription>
         </SheetHeader>
         <SheetBody className="flex flex-1 flex-col">

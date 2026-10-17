@@ -175,9 +175,9 @@ export const excalidrawSchema = $nodeSchema('excalidraw', (ctx) => ({
         type: 'button',
         class: 'tela-excalidraw-edit-btn',
         contenteditable: 'false',
-        'aria-label': 'Edit diagram',
+        'aria-label': 'Редактировать диаграмму',
       },
-      'Edit',
+      'Редактировать',
     ]
     if (!sceneHash) {
       // Newly-inserted atom (slash menu) with no PNG yet. Placeholder chrome
@@ -191,7 +191,7 @@ export const excalidrawSchema = $nodeSchema('excalidraw', (ctx) => ({
           'data-scene-json': sceneJSON,
           'data-diagram-id': diagramId,
         },
-        ['span', { class: 'tela-excalidraw-empty-label' }, '[Empty diagram — click to draw]'],
+        ['span', { class: 'tela-excalidraw-empty-label' }, '[Пустая диаграмма — нажмите, чтобы нарисовать]'],
         editBtn,
       ]
     }
@@ -208,7 +208,7 @@ export const excalidrawSchema = $nodeSchema('excalidraw', (ctx) => ({
         'img',
         {
           src: `/api/diagrams/${pageId}/${sceneHash}.png`,
-          alt: altText || 'Drawing',
+          alt: altText || 'Рисунок',
           loading: 'lazy',
         },
       ],

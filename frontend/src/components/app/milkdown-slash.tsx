@@ -107,7 +107,7 @@ const ALL_COMMANDS: SlashCommand[] = [
     (t): SlashCommand => ({
       id: t.id,
       label: t.label,
-      hint: 'Template',
+      hint: 'Шаблон',
       keywords: t.keywords,
       run: (ctx) => insertTemplate(ctx, t.markdown),
     }),
@@ -312,11 +312,11 @@ export function SlashView() {
     <div
       ref={ref}
       role="listbox"
-      aria-label="Insert block"
+      aria-label="Вставить блок"
       className="tela-slash-menu"
     >
       {items.length === 0 ? (
-        <div className="tela-slash-empty">No matches</div>
+        <div className="tela-slash-empty">Ничего не найдено</div>
       ) : (
         items.map((cmd, idx) => (
           <button

@@ -8,7 +8,9 @@ import { IncludeAdminsToggle } from './IncludeAdminsToggle'
 import { relativeTimeFromSqlite } from '../../lib/relativeTime'
 import { Badge } from '../ui/badge'
 import { cn } from '../../lib/utils'
+import { ruPlural } from '../../lib/ru-plural'
 
+// Russian plural for counted nouns: 1 пользователь, 2 пользователя, 5 пользователей.
 // Instance-admin "Issues" view over browser error reports — client.error events
 // grouped by fingerprint so a recurring crash is one row with a count, not a
 // flood in the raw Events feed. Expand a row for its stack + recent occurrences.
@@ -20,17 +22,17 @@ export function SettingsErrorsTab() {
     <section aria-labelledby="settings-errors" className="flex flex-col gap-[var(--space-4)]">
       <div className="flex items-start justify-between gap-[var(--space-3)]">
         <p className="m-0 text-[length:var(--text-sm)] text-[var(--text-muted)] leading-[var(--leading-relaxed)]">
-          Errors reported from users' browsers — uncaught exceptions, failed
-          requests, broken assets — grouped by signature. Most recently seen first.
+          Ошибки из браузеров пользователей — неперехваченные исключения,
+          неудачные запросы, сломанные ресурсы, — сгруппированы по сигнатуре. Сначала самые новые.
         </p>
         <IncludeAdminsToggle checked={includeAdmins} onChange={setIncludeAdmins} />
       </div>
 
       {groups.isLoading ? (
-        <p className="m-0 text-[length:var(--text-sm)] text-[var(--text-muted)]">Loading errors…</p>
+        <p className="m-0 text-[length:var(--text-sm)] text-[var(--text-muted)]">Загрузка ошибок…</p>
       ) : groups.isError ? (
         <p role="alert" className="m-0 text-[length:var(--text-sm)] text-[var(--danger)]">
-          Couldn't load errors.
+          Не удалось загрузить ошибки.
         </p>
       ) : groups.data && groups.data.length > 0 ? (
         <ul className="m-0 p-0 list-none flex flex-col gap-[var(--space-2)]">
@@ -40,7 +42,7 @@ export function SettingsErrorsTab() {
         </ul>
       ) : (
         <p className="m-0 text-[length:var(--text-sm)] text-[var(--text-muted)]">
-          No client errors reported. 🎉
+          Клиентских ошибок не зарегистрировано. 🎉
         </p>
       )}
     </section>
@@ -77,7 +79,7 @@ function ErrorGroupRow({
           {group.message}
         </span>
         <span className="shrink-0 text-[length:var(--text-xs)] text-[var(--text-muted)]">
-          {group.count}× · {group.users} user{group.users === 1 ? '' : 's'} ·{' '}
+          {group.count}× · {group.users} {ruPlural(group.users, 'пользователь', 'пользователя', 'пользователей')} ·{' '}
           {relativeTimeFromSqlite(group.last_seen)}
         </span>
       </button>
@@ -89,10 +91,10 @@ function ErrorGroupRow({
           </pre>
           <div className="flex flex-col gap-[var(--space-1)]">
             <span className="text-[length:var(--text-xs)] font-medium uppercase tracking-wide text-[var(--text-muted)]">
-              Recent occurrences
+              Последние случаи
             </span>
             {occ.isLoading ? (
-              <span className="text-[length:var(--text-xs)] text-[var(--text-muted)]">Loading…</span>
+              <span className="text-[length:var(--text-xs)] text-[var(--text-muted)]">Загрузка…</span>
             ) : occ.data && occ.data.length > 0 ? (
               <ul className="m-0 p-0 list-none flex flex-col gap-[1px]">
                 {occ.data.map((o) => (
@@ -101,7 +103,7 @@ function ErrorGroupRow({
                     className="flex items-baseline gap-[var(--space-2)] text-[length:var(--text-xs)] text-[var(--text-muted)]"
                   >
                     <span className="font-medium text-[var(--text-primary)]">
-                      {o.actor_label || 'anonymous'}
+                      {o.actor_label || 'аноним'}
                     </span>
                     <span>{relativeTimeFromSqlite(o.created_at)}</span>
                     {o.ip ? <span>· {o.ip}</span> : null}
@@ -109,7 +111,7 @@ function ErrorGroupRow({
                 ))}
               </ul>
             ) : (
-              <span className="text-[length:var(--text-xs)] text-[var(--text-muted)]">None.</span>
+              <span className="text-[length:var(--text-xs)] text-[var(--text-muted)]">Нет.</span>
             )}
           </div>
         </div>

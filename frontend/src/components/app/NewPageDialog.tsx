@@ -39,7 +39,7 @@ function flattenPages(roots: PageTreeNode[]): FlatPage[] {
   const out: FlatPage[] = []
   function walk(nodes: PageTreeNode[], trail: string[]) {
     for (const n of nodes) {
-      const title = n.title || 'Untitled'
+      const title = n.title || 'Без названия'
       out.push({
         id: n.id,
         title,
@@ -175,8 +175,8 @@ export function NewPageDialog({
     const rootChosen = parentId == null
     items.push({
       id: ROOT_ID,
-      title: '(top of space)',
-      subtitle: 'No parent — sits at the space root',
+      title: '(вверху пространства)',
+      subtitle: 'Без родителя — в корне пространства',
       icon: rootChosen ? (
         <Check width={14} height={14} />
       ) : (
@@ -236,7 +236,7 @@ export function NewPageDialog({
       setImportName(file.name)
       if (title.trim().length === 0 && name) setTitle(name)
     } catch {
-      setError("Couldn't read that file — use a .csv or .xlsx export.")
+      setError("Не удалось прочитать файл — используйте экспорт в .csv или .xlsx.")
       setImportedBody(null)
       setImportName(null)
     } finally {
@@ -248,11 +248,11 @@ export function NewPageDialog({
     e.preventDefault()
     const trimmed = title.trim()
     if (!trimmed) {
-      setError('Title is required.')
+      setError('Обязательно укажите заголовок.')
       return
     }
     if (spaceId == null) {
-      setError('No space available. Create a space first.')
+      setError('Нет доступных пространств. Сначала создайте пространство.')
       return
     }
     setError(null)
@@ -274,7 +274,7 @@ export function NewPageDialog({
         params: { spaceId: created.space_id, pageId: created.id, slug: undefined },
       })
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Failed to create page.')
+      setError(err instanceof ApiError ? err.message : 'Не удалось создать страницу.')
     }
   }
 
@@ -286,16 +286,17 @@ export function NewPageDialog({
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Create a new page</DialogTitle>
+          <DialogTitle>Создать новую страницу</DialogTitle>
           <DialogDescription>
-            Pick a parent page and a space. The new page opens in the editor
-            once it's created.
+            Выберите родительскую страницу и пространство. Новая страница
+            откроется в редакторе после создания.
           </DialogDescription>
         </DialogHeader>
 
         {noSpaces ? (
           <p className="m-0 text-[length:var(--text-sm)] text-[var(--text-muted)]">
-            You don't have any spaces yet. Create a space before adding pages.
+            У вас пока нет пространств. Создайте пространство, прежде чем добавлять
+            страницы.
           </p>
         ) : (
           <form
@@ -304,16 +305,16 @@ export function NewPageDialog({
           >
             <div className="flex flex-col gap-[var(--space-2)]">
               <span className="text-[length:var(--text-sm)] text-[var(--text-muted)]">
-                Type
+                Тип
               </span>
-              <div className="flex gap-[var(--space-2)]" role="group" aria-label="Page type">
+              <div className="flex gap-[var(--space-2)]" role="group" aria-label="Тип страницы">
                 <Button
                   type="button"
                   variant={docType === 'doc' ? 'secondary' : 'ghost'}
                   aria-pressed={docType === 'doc'}
                   onClick={() => setDocType('doc')}
                 >
-                  <FileText width={14} height={14} /> Doc
+                  <FileText width={14} height={14} /> Документ
                 </Button>
                 <Button
                   type="button"
@@ -321,7 +322,7 @@ export function NewPageDialog({
                   aria-pressed={docType === 'sheet'}
                   onClick={() => setDocType('sheet')}
                 >
-                  <Table2 width={14} height={14} /> Sheet
+                  <Table2 width={14} height={14} /> Таблица
                 </Button>
               </div>
               {docType === 'sheet' ? (
@@ -342,10 +343,10 @@ export function NewPageDialog({
                   >
                     <Upload width={14} height={14} />
                     {importing
-                      ? 'Reading…'
+                      ? 'Чтение…'
                       : importName
-                        ? 'Replace file'
-                        : 'Import CSV / XLSX'}
+                        ? 'Заменить файл'
+                        : 'Импорт CSV / XLSX'}
                   </Button>
                   {importName ? (
                     <span className="flex min-w-0 items-center gap-[var(--space-1)] text-[length:var(--text-sm)] text-[var(--text-muted)]">
@@ -358,12 +359,12 @@ export function NewPageDialog({
                           setImportName(null)
                         }}
                       >
-                        clear
+                        очистить
                       </button>
                     </span>
                   ) : (
                     <span className="truncate text-[length:var(--text-sm)] text-[var(--text-muted)]">
-                      optional — start from an existing spreadsheet
+                      необязательно — начните с готовой таблицы
                     </span>
                   )}
                 </div>
@@ -375,14 +376,14 @@ export function NewPageDialog({
                 htmlFor="new-page-title"
                 className="text-[length:var(--text-sm)] text-[var(--text-muted)]"
               >
-                Title
+                Заголовок
               </label>
               <Input
                 id="new-page-title"
                 autoFocus
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                placeholder="e.g. Architecture overview"
+                placeholder="например, Обзор архитектуры"
                 aria-invalid={error != null && title.trim().length === 0}
               />
             </div>
@@ -392,15 +393,15 @@ export function NewPageDialog({
                 htmlFor="new-page-parent"
                 className="text-[length:var(--text-sm)] text-[var(--text-muted)]"
               >
-                Parent page
+                Родительская страница
               </label>
               <CommandInlinePicker
                 items={pickerItems}
-                placeholder="Search pages in this space…"
+                placeholder="Поиск страниц в этом пространстве…"
                 emptyMessage={
-                  pagesQuery.isLoading ? 'Loading pages…' : 'No matches.'
+                  pagesQuery.isLoading ? 'Загрузка страниц…' : 'Ничего не найдено.'
                 }
-                label="Parent page"
+                label="Родительская страница"
                 autoFocus={false}
                 value={pickerValue}
                 onValueChange={setPickerValue}
@@ -412,7 +413,7 @@ export function NewPageDialog({
                 htmlFor="new-page-space"
                 className="text-[length:var(--text-sm)] text-[var(--text-muted)]"
               >
-                Space
+                Пространство
               </label>
               <Select
                 id="new-page-space"
@@ -422,7 +423,7 @@ export function NewPageDialog({
               >
                 {spaces.map((space) => (
                   <option key={space.id} value={String(space.id)}>
-                    {space.name || 'Untitled space'}
+                    {space.name || 'Пространство без названия'}
                   </option>
                 ))}
               </Select>
@@ -437,15 +438,15 @@ export function NewPageDialog({
             <DialogFooter>
               <DialogClose asChild>
                 <Button type="button" variant="ghost">
-                  Cancel
+                  Отмена
                 </Button>
               </DialogClose>
               <Button type="submit" disabled={submitDisabled}>
                 {createPage.isPending
-                  ? 'Creating…'
+                  ? 'Создание…'
                   : docType === 'sheet'
-                    ? 'Create sheet'
-                    : 'Create page'}
+                    ? 'Создать таблицу'
+                    : 'Создать страницу'}
               </Button>
             </DialogFooter>
           </form>

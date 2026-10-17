@@ -14,8 +14,8 @@ import { Plugin } from '@milkdown/kit/prose/state'
 // (info-string tail) on parse/serialize, so a filename label would silently
 // lose data on save. That needs a code_block schema override; deferred.
 
-const COPY_LABEL = 'Copy'
-const COPIED_LABEL = 'Copied'
+const COPY_LABEL = 'Копировать'
+const COPIED_LABEL = 'Скопировано'
 
 export const codeBlockNodeView = $prose(
   () =>
@@ -46,7 +46,7 @@ export const codeBlockNodeView = $prose(
             const copyBtn = document.createElement('button')
             copyBtn.type = 'button'
             copyBtn.className = 'tela-codeblock-copy'
-            copyBtn.setAttribute('aria-label', 'Copy code')
+            copyBtn.setAttribute('aria-label', 'Копировать код')
             copyBtn.textContent = COPY_LABEL
             let resetTimer = 0
             // Keep the editor selection put when the button is pressed.

@@ -21,7 +21,7 @@ import {
 import { Field } from '../ui/field'
 import { Select } from '../ui/select'
 
-const UNTITLED_TITLE = 'Untitled'
+const UNTITLED_TITLE = 'Без названия'
 
 // Synthetic option id for the "(top of space)" row. Maps back to parent_id: null
 // when calling /move. Mirrors NEW_PAGE_ROOT_ID in NewPageDialog so both pickers
@@ -150,8 +150,8 @@ export function MovePageDialog({
     const rootChosen = parentId == null
     items.push({
       id: ROOT_ID,
-      title: '(top of space)',
-      subtitle: 'No parent — sits at the space root',
+      title: '(верх пространства)',
+      subtitle: 'Без родителя — находится в корне пространства',
       icon: rootChosen ? (
         <Check width={14} height={14} />
       ) : (
@@ -222,18 +222,18 @@ export function MovePageDialog({
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Move "{title}" to:</DialogTitle>
+          <DialogTitle>Переместить «{title}» в:</DialogTitle>
           <DialogDescription>
-            Pick a destination space, then a new parent — or "(top of space)" to
-            make it a root page. Moving across spaces takes the whole subtree
-            along.
+            Выберите пространство назначения, затем нового родителя — или "(верх пространства)", чтобы
+            сделать её корневой страницей. При перемещении между пространствами переносится всё
+            поддерево.
           </DialogDescription>
         </DialogHeader>
         <form
           onSubmit={handleSubmit}
           className="flex flex-col gap-[var(--space-4)]"
         >
-          <Field label="Destination space" htmlFor={spaceSelectId}>
+          <Field label="Пространство назначения" htmlFor={spaceSelectId}>
             <Select
               id={spaceSelectId}
               value={String(targetSpaceId)}
@@ -242,7 +242,7 @@ export function MovePageDialog({
               {spaceList.map((s) => (
                 <option key={s.id} value={String(s.id)}>
                   {s.name}
-                  {s.id === spaceId ? ' (current)' : ''}
+                  {s.id === spaceId ? ' (текущее)' : ''}
                 </option>
               ))}
             </Select>
@@ -252,13 +252,13 @@ export function MovePageDialog({
             items={pickerItems}
             placeholder={
               loadingTargets
-                ? 'Loading pages…'
+                ? 'Загрузка страниц…'
                 : crossSpace
-                  ? 'Search pages in the destination space…'
-                  : 'Search pages in this space…'
+                  ? 'Поиск страниц в пространстве назначения…'
+                  : 'Поиск страниц в этом пространстве…'
             }
-            emptyMessage={loadingTargets ? 'Loading…' : 'No matches.'}
-            label="Parent page"
+            emptyMessage={loadingTargets ? 'Загрузка…' : 'Ничего не найдено.'}
+            label="Родительская страница"
             value={pickerValue}
             onValueChange={setPickerValue}
           />
@@ -272,11 +272,11 @@ export function MovePageDialog({
           <DialogFooter>
             <DialogClose asChild>
               <Button type="button" variant="ghost">
-                Cancel
+                Отмена
               </Button>
             </DialogClose>
             <Button type="submit" disabled={submitDisabled}>
-              {movePage.isPending ? 'Moving…' : 'Move'}
+              {movePage.isPending ? 'Перемещение…' : 'Переместить'}
             </Button>
           </DialogFooter>
         </form>

@@ -67,9 +67,10 @@ export function KeyCheatsheet({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-[40rem]">
         <DialogHeader>
-          <DialogTitle>Keyboard shortcuts</DialogTitle>
+          <DialogTitle>Горячие клавиши</DialogTitle>
           <DialogDescription>
-            Press a key from anywhere — the editor and form fields are exempt.
+            Нажмите клавишу где угодно — в редакторе и полях форм эти сочетания
+            не срабатывают.
           </DialogDescription>
         </DialogHeader>
         <div className="mt-[var(--space-4)] grid grid-cols-1 gap-x-[var(--space-7)] gap-y-[var(--space-5)] sm:grid-cols-2">

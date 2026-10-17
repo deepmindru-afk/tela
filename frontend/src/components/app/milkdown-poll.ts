@@ -100,11 +100,14 @@ export function insertPoll(ctx: Ctx) {
   const pollId = `poll-${Date.now().toString(36)}`
   const heading = headingType.create(
     { level: 3 },
-    schema.text('Your question?'),
+    schema.text('Ваш вопрос?'),
   )
   const option = (label: string) =>
     itemType.create(null, paraType.create(null, schema.text(label)))
-  const list = listType.create(null, [option('Option 1'), option('Option 2')])
+  const list = listType.create(null, [
+    option('Вариант 1'),
+    option('Вариант 2'),
+  ])
   const node = pollType.create({ pollId }, [heading, list])
   insertBlock(view, node, { caret: 'none' })
 }
