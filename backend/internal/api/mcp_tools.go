@@ -1,6 +1,7 @@
 package api
 
 import (
+	"cmp"
 	"context"
 	"encoding/base64"
 	"errors"
@@ -13,6 +14,7 @@ import (
 
 	"github.com/zcag/tela/backend/internal/models"
 	"github.com/zcag/tela/backend/internal/rag"
+	"github.com/zcag/tela/backend/internal/sheetproj"
 )
 
 // retrievalGuideMarkdown is the "how to find things" preamble carried in the
@@ -44,21 +46,21 @@ func (s *Server) registerMCPTools(server *mcp.Server) {
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "list_spaces",
 		Title:       "List spaces",
-		Description: "List every space the API key can access (id, name, slug).",
+		Description: "List every space the API key can access (id, name, slug). Read-only. Start here to discover a `space_id` for list_pages / search / create_page when you don't already have one; for a single space you already know, use get_space instead.",
 		Annotations: readOnly,
 	}, s.mcpListSpaces)
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "get_space",
 		Title:       "Get space",
-		Description: "Fetch a single space's metadata (id, name, slug) by id.",
+		Description: "Fetch one space's metadata (id, name, slug) by id. Read-only. Use when you already hold a space_id and just need its name/slug; to discover spaces use list_spaces, to list its pages use list_pages.",
 		Annotations: readOnly,
 	}, s.mcpGetSpace)
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "list_pages",
 		Title:       "List pages",
-		Description: "Flat page listing in a space. Optional parent_id for direct children (omit for top-level pages).",
+		Description: "Flat page listing in a space (read-only). Pass parent_id for the direct children of one page; omit for top-level pages. Use to browse a space's structure or find a page_id; to find pages by keyword use `search`, and to read a page's body use get_page.",
 		Annotations: readOnly,
 	}, s.mcpListPages)
 
@@ -73,9 +75,23 @@ func (s *Server) registerMCPTools(server *mcp.Server) {
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "list_backlinks",
 		Title:       "List backlinks",
-		Description: "Pages that link to the given page via [[wikilink]] / tela://page/{id}.",
+		Description: "List the pages that link TO the given page via [[wikilink]] / tela://page/{id} — its incoming references (read-only). Use to see what depends on a page before you edit or delete it, or to walk the explicit link graph; for semantically similar pages that don't link it, use related_pages.",
 		Annotations: readOnly,
 	}, s.mcpListBacklinks)
+
+	mcp.AddTool(server, &mcp.Tool{
+		Name:        "list_page_revisions",
+		Title:       "List page revisions",
+		Description: "A page's revision history, newest first (read-only, editor+ on its space). A revision is snapshotted on every title/body change, by a person, an agent, sync or Atlas. Returns `page` (with `deleted_at` set when the page is in the trash, and `current_revision_id`) and `revisions` (metadata only: id, created_at, author, source, byte_size, `is_current`). Works for trashed pages too, so you can recover what a removed page said. Page back with `cursor` = `next_cursor`. Read one revision's full text with get_page_revision.",
+		Annotations: readOnly,
+	}, s.mcpListPageRevisions)
+
+	mcp.AddTool(server, &mcp.Tool{
+		Name:        "get_page_revision",
+		Title:       "Get page revision",
+		Description: "One historical revision of a page: its title, full markdown body and properties as they were at that point (read-only, editor+ on its space). Take `revision_id` from list_page_revisions. Works for trashed pages. For the page as it is now use get_page.",
+		Annotations: readOnly,
+	}, s.mcpGetPageRevision)
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "search",
@@ -89,7 +105,8 @@ func (s *Server) registerMCPTools(server *mcp.Server) {
 		Name:  "research",
 		Title: "Research the wiki",
 		Description: "Answer a question — or gather everything relevant on a topic — from the wiki by MEANING. One call assembles answer-ready grounding: the full bodies of the pages that matter (not isolated fragments), pulled from pages AND attached files (PDFs, docs), plus any flagged disagreements among the sources and a low_confidence signal. " +
-			"Returns `context` (a numbered [n] excerpt block to ground your answer), `sources` (the cited hits aligned to [n], each with page_id/chunk_id for drill-in and a download_url for file sources), `disagreements` (conflicts to surface, [n]-keyed), and `low_confidence`. " +
+			"Returns `context` (a numbered [n] excerpt block to ground your answer), `sources` (the cited hits aligned to [n], each with page_id/chunk_id for drill-in and, for file sources, a download_url for the bytes plus a share_url to show the person), `disagreements` (conflicts to surface, [n]-keyed), `low_confidence`, and `considered`/`truncated`. " +
+			"`truncated: true` means retrieval found MORE relevant sources than it returned (`considered` says how many) — the corpus did not run out, the per-call cap did; re-ask with a bigger `limit` before concluding anything is missing. " +
 			"YOU write the answer from `context` and cite sources by their [n]. To read one section deeper use `read_chunk` (chunk_id from a source) or `get_page` (full page). For exact-name/term lookup use `search`. Requires a configured embedder (503 otherwise).",
 		Annotations: readOnly,
 	}, s.mcpResearch)
@@ -97,14 +114,14 @@ func (s *Server) registerMCPTools(server *mcp.Server) {
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "read_chunk",
 		Title:       "Read chunk",
-		Description: "Fetch one chunk's full section text by chunk_id (from a `research` source), for a page OR a file chunk. Middle granularity between a research excerpt and get_page; a file chunk cites the file (file_name + parent page_id + download_url).",
+		Description: "Fetch one chunk's full section text by chunk_id (from a `research` source), for a page OR a file chunk (read-only). Middle granularity — use it to expand a single cited section; for the whole page use get_page. A file chunk cites its file (file_name + parent page_id + download_url for the bytes + share_url, the previewable link to show a person).",
 		Annotations: readOnly,
 	}, s.mcpReadChunk)
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "related_pages",
 		Title:       "Related pages",
-		Description: "Pages semantically related to a given page (\"see also\"), ranked by similarity. Discovery beyond explicit [[wikilinks]]/backlinks. Works without a live embedder (uses stored vectors).",
+		Description: "Pages semantically related to a given page (\"see also\"), ranked by similarity — discovery beyond explicit links (read-only). Use for topically similar pages; for pages that explicitly link this one, use list_backlinks. Works without a live embedder (uses stored vectors).",
 		Annotations: readOnly,
 	}, s.mcpRelatedPages)
 
@@ -125,7 +142,7 @@ func (s *Server) registerMCPTools(server *mcp.Server) {
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "knowledge_gaps",
 		Title:       "Knowledge gaps",
-		Description: "The most-asked \"ask your docs\" questions the corpus could NOT answer — a content roadmap. Instance-admin only (exposes users' questions). Optional since_days window.",
+		Description: "The most-asked \"ask your docs\" questions the corpus could NOT answer — a content roadmap: write these pages next. Covers your own asks plus asks in spaces you're a member of. Optional space_id and since_days window.",
 		Annotations: readOnly,
 	}, s.mcpKnowledgeGaps)
 
@@ -135,7 +152,7 @@ func (s *Server) registerMCPTools(server *mcp.Server) {
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "fetch",
 		Title:       "Fetch document",
-		Description: "Fetch a tela page's full text by id (id comes from a search result). The ChatGPT Deep Research 'fetch' tool.",
+		Description: "Fetch a tela page's full text by id (the id comes from a search result) — the fixed-shape companion to `search`. Read-only. Prefer get_page for normal use (same body plus richer metadata and trust signals); reach for `fetch` only when the host requires the fixed search/fetch contract.",
 		Annotations: readOnly,
 	}, s.mcpFetch)
 
@@ -147,14 +164,14 @@ func (s *Server) registerMCPTools(server *mcp.Server) {
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "create_page",
 		Title:       "Create page",
-		Description: "Create a page in a space (editor+). Body is markdown; tela://page/{id} links and [[Page Title]] wikilinks (resolved by title within the space) are indexed as backlinks. " + authoringToolHint() + deckAuthoringToolHint(),
+		Description: "Create a page in a space (editor+). Body is markdown; tela://page/{id} links and [[Page Title]] wikilinks (resolved by title within the space) are indexed as backlinks. " + authoringToolHint() + deckAuthoringToolHint() + sheetAuthoringToolHint(),
 		Annotations: &mcp.ToolAnnotations{ReadOnlyHint: &no, DestructiveHint: &no, OpenWorldHint: &no},
 	}, s.mcpCreatePage)
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "update_page",
 		Title:       "Update page",
-		Description: "Patch a page's title and/or body (editor+). A body change auto-snapshots a revision. " + authoringToolHint() + deckAuthoringToolHint(),
+		Description: "Patch a page's title, body, props and/or draft status (editor+). A body change auto-snapshots a revision. Pass base_version (from get_page) to refuse the write if someone edited the page since you read it. " + authoringToolHint() + deckAuthoringToolHint() + sheetAuthoringToolHint(),
 		Annotations: &mcp.ToolAnnotations{ReadOnlyHint: &no, IdempotentHint: true, DestructiveHint: &no, OpenWorldHint: &no},
 	}, s.mcpUpdatePage)
 
@@ -164,6 +181,34 @@ func (s *Server) registerMCPTools(server *mcp.Server) {
 		Description: "Return the full tela deck authoring guide as markdown — every tahta layout with its required/optional fields, the components, and the style variants. Read this FIRST when creating or editing a deck (a deck=true page) so you don't guess at layouts/fields. The guide lists optional capability modules (e.g. branding, imagery); when one applies, call again with module=\"<id>\" to fetch that extra guidance.",
 		Annotations: readOnly,
 	}, s.mcpDeckAuthoringGuide)
+
+	mcp.AddTool(server, &mcp.Tool{
+		Name:        "sheet_authoring_guide",
+		Title:       "Sheet authoring guide",
+		Description: "Return the full tela spreadsheet (sheet) authoring guide as markdown — the Defter text format, coordinates, the formula functions, and the ```defter-style styling/format/chart syntax. Read this FIRST when creating or editing a sheet (a sheet=true page) so you write valid, well-formatted Defter markdown instead of guessing.",
+		Annotations: readOnly,
+	}, s.mcpSheetAuthoringGuide)
+
+	mcp.AddTool(server, &mcp.Tool{
+		Name:        "import_guide",
+		Title:       "Import an existing folder of files",
+		Description: "Return the guide for BULK-importing an existing folder of documents (Word docs, spreadsheets, PDFs, notes) into a space as a page tree — rather than hand-creating pages one at a time. Read this FIRST for any 'import', 'migrate my docs', 'bring in this folder', or 'load these files' request. Covers converting Office files locally (docx → pages, spreadsheets → live sheets), attaching PDFs/images, and the import endpoint's dry-run → confirm → commit contract.",
+		Annotations: readOnly,
+	}, s.mcpImportGuide)
+
+	mcp.AddTool(server, &mcp.Tool{
+		Name:  "edit_sheet",
+		Title: "Edit sheet (structured)",
+		Description: "Make a STRUCTURED edit to a sheet (a sheet=true page), editor+. Prefer this over update_page for sheets: you pass a typed operation and tela rewrites the Defter markdown correctly — inserting a row shifts every formula below it, deleting a column re-references the rest, so you never corrupt the grid by hand-editing text. " +
+			"Pass one `op` (or a batch via `ops`, applied atomically). Each op is `{kind, ...}` where kind is one of: " +
+			"setCells {cells:[{ref:\"B2\",text:\"=A2*1.2\"}]} — write literals/formulas by A1 ref; " +
+			"insertRows/deleteRows {at:<1-based row>, count?}; insertCols/deleteCols {at:<col letter or 1-based index>, count?}; " +
+			"setStyle {target:\"A1:C1\"|\"B\"|\"2\", attrs:{...}} — bold/align/fill/number-format a range/col/row; " +
+			"setFreeze {rows?, cols?} — freeze N header rows / M leading cols (0 clears); " +
+			"addSheet {name, after?}; renameSheet {sheet, name}; deleteSheet {sheet}. " +
+			"Ops that target a specific tab take an optional `sheet` (name or 0-based index; defaults to the first). A bad ref/range/sheet is rejected with a fixable error. Call sheet_authoring_guide for the full op reference, cell/style syntax, and formula functions. Returns the updated sheet with formulas computed.",
+		Annotations: &mcp.ToolAnnotations{ReadOnlyHint: &no, DestructiveHint: &no, OpenWorldHint: &no},
+	}, s.mcpEditSheet)
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "lint_deck",
@@ -178,6 +223,20 @@ func (s *Server) registerMCPTools(server *mcp.Server) {
 		Description: "Render a deck page to slide images and return them, so you can SEE how the deck looks (don't author blind). Pass `slides` to preview specific 1-based frames; omit for the first few. Renders are cached.",
 		Annotations: readOnly,
 	}, s.mcpPreviewDeck)
+
+	mcp.AddTool(server, &mcp.Tool{
+		Name:        "lint_page",
+		Title:       "Lint page",
+		Description: "Check a page for places where the READER renders something different from what the markdown says — an unknown `:::block` or `[!CALLOUT]` that silently unwraps, raw HTML the reader drops, a collapsible whose blank lines are missing so its body vanishes, a `[[wikilink]]` that matches no page, a broken link or attachment, a ragged table, a table so wide the page column shows only part of it. These are invisible when you re-read your own source, which is why re-reading it is not a substitute for calling this. Run it after writing or editing a page.",
+		Annotations: readOnly,
+	}, s.mcpLintPage)
+
+	mcp.AddTool(server, &mcp.Tool{
+		Name:        "preview_page",
+		Title:       "Preview page",
+		Description: "Render a page and read it back as the reader actually shows it — the same render the PDF export uses, so callouts, tables, math, mermaid and diagrams are all resolved. Use it to check that what you wrote is what appears (text you can diff against your intent), and after any edit whose result you can't be sure of from the markdown alone. `format`: \"text\" (default), \"image\" for a screenshot, \"both\". For a deck page, call preview_deck instead.",
+		Annotations: readOnly,
+	}, s.mcpPreviewPage)
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "patch_page",
@@ -224,23 +283,44 @@ func (s *Server) registerMCPTools(server *mcp.Server) {
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "add_comment",
 		Title:       "Add comment",
-		Description: "Attach a root comment to a page, anchored by a {prefix, exact, suffix} text triplet (editor+).",
+		Description: "Comment on a page (editor+). Omit parent_id for a ROOT comment: it needs an `anchor`, a {prefix, exact, suffix} text triplet that pins it to a passage so it survives edits to the page. Pass parent_id to REPLY inside an existing thread (no anchor; replying to a reply is rejected) — that is how you answer a person's comment, rather than posting a second root beside theirs. ANCHOR TEXT IS THE PAGE'S PLAIN TEXT, NOT ITS MARKDOWN: inline markers are stripped (`**ship it**` is anchored as `ship it`), blocks are joined by single newlines, and prefix/suffix hold at most 32 characters of surrounding context. Quote the passage as a reader sees it, not as get_page returns it. Pass idempotency_key to make retries safe (a repeat returns the original comment instead of posting a duplicate). Use for feedback ON page content; to report problems with tela itself use submit_feedback.",
 		Annotations: &mcp.ToolAnnotations{ReadOnlyHint: &no, DestructiveHint: &no, OpenWorldHint: &no},
 	}, s.mcpAddComment)
 
 	mcp.AddTool(server, &mcp.Tool{
+		Name:        "list_comments",
+		Title:       "List comments",
+		Description: "Read comments (editor+). Pass page_id for one page's full threads (each root with its replies), or space_id for an inbox of threads across a whole space (roots only, each with reply_count and page_title — drill into the page for the replies). `status` is open (default), resolved, or all. TO POLL FOR WHAT HUMANS WROTE: keep the `cursor` this returns and pass it back as `since` next time — you then get only threads with new or edited activity, including threads someone replied to, and each comes back with its full context. Anchors are the page's PLAIN TEXT, not its markdown (inline markers stripped, blocks joined by single newlines), so match anchor_exact loosely against a get_page body rather than searching for it verbatim. Answer a thread with add_comment(parent_id=…) and close it with update_comment(resolved=true).",
+		Annotations: &mcp.ToolAnnotations{ReadOnlyHint: &yes, DestructiveHint: &no, OpenWorldHint: &no},
+	}, s.mcpListComments)
+
+	mcp.AddTool(server, &mcp.Tool{
+		Name:        "update_comment",
+		Title:       "Update comment",
+		Description: "Edit or resolve an existing comment (editor+); pass exactly one of body / resolved. {resolved: true} closes a thread once you have acted on it, {resolved: false} reopens one — idempotent, so re-resolving an already-resolved comment succeeds instead of erroring. Resolve applies to ROOT comments only. {body: ...} rewrites the text and is author-only: it works on comments this key wrote, and is refused on a person's comment. To answer someone rather than close them out, use add_comment with parent_id.",
+		Annotations: &mcp.ToolAnnotations{ReadOnlyHint: &no, IdempotentHint: true, DestructiveHint: &no, OpenWorldHint: &no},
+	}, s.mcpUpdateComment)
+
+	mcp.AddTool(server, &mcp.Tool{
 		Name:        "create_space",
 		Title:       "Create space",
-		Description: "Create a space. The caller becomes its owner. slug is derived from name when omitted.",
+		Description: "Create a space; the caller becomes its owner (write scope). `slug` is derived from `name` when omitted. Use to start a new top-level container of pages; to add a page inside an existing space use create_page, and to rename a space use update_space.",
 		Annotations: &mcp.ToolAnnotations{ReadOnlyHint: &no, DestructiveHint: &no, OpenWorldHint: &no},
 	}, s.mcpCreateSpace)
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "update_space",
 		Title:       "Update space",
-		Description: "Patch a space's name and/or slug (editor+).",
+		Description: "Patch a space's name and/or slug (editor+); idempotent — pass only the field(s) you want to change. Changing the slug updates the space's URL path (existing page ids and links still resolve). To create a space use create_space, to read it use get_space, to remove it use delete_space.",
 		Annotations: &mcp.ToolAnnotations{ReadOnlyHint: &no, IdempotentHint: true, DestructiveHint: &no, OpenWorldHint: &no},
 	}, s.mcpUpdateSpace)
+
+	mcp.AddTool(server, &mcp.Tool{
+		Name:        "invite_to_space",
+		Title:       "Invite to space (by email)",
+		Description: "Give a person access to a space by EMAIL ADDRESS — space owner only, write scope. Two outcomes, and the response tells you which happened: if a tela account already uses that address they are added right away and returns `{member}`; if nobody has that address yet, tela SENDS THEM AN EMAIL INVITATION (an outward action reaching a third party) and returns `{invite}` — they get the space automatically when they sign up with that address. Role is owner|editor|viewer (default viewer). Use this to onboard someone who has no tela account; to add an existing user you already know by username, or to change/remove access, use the app's space sharing UI.",
+		Annotations: &mcp.ToolAnnotations{ReadOnlyHint: &no, DestructiveHint: &no, OpenWorldHint: &no},
+	}, s.mcpInviteToSpace)
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "delete_space",
@@ -261,14 +341,21 @@ func (s *Server) registerMCPTools(server *mcp.Server) {
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "list_attachments",
 		Title:       "List attachments",
-		Description: "List the files attached to a page (uploads AND rclone-synced files): name, mime, byte size, a stable serve URL, an absolute download_url, and a ready-to-embed `markdown` snippet. `embedded` tells you the page body already references the file.",
+		Description: "List the files attached to a page (uploads AND rclone-synced files): name, mime, byte size, a stable serve URL, an absolute download_url (fetch the bytes), a `share_url` (give THIS to a person — it opens a page that previews the file and unfurls as a card in chat, where download_url just downloads), and a ready-to-embed `markdown` snippet. `embedded` tells you the page body already references the file.",
 		Annotations: readOnly,
 	}, s.mcpListAttachments)
 
 	mcp.AddTool(server, &mcp.Tool{
+		Name:        "list_space_files",
+		Title:       "List a space's files",
+		Description: "List every file stored in a space, including the ones parented to the space ROOT rather than to a page — those are invisible to list_attachments (which is per-page), so this is the only way to discover a file that was synced or imported beside the page tree. Each entry carries the same links: `download_url` for the bytes, `share_url` to give a person, plus `parent_page_id`/`parent_title` (absent = the space root). Filter with parent_page_id: a page id for that page's files, \"root\" for the root only. Read-only; any space role. Capped at 500 files (`truncated` says so).",
+		Annotations: readOnly,
+	}, s.mcpListSpaceFiles)
+
+	mcp.AddTool(server, &mcp.Tool{
 		Name:        "upload_attachment",
 		Title:       "Upload attachment",
-		Description: "Upload a file (base64) and attach it to a page (editor+) — an image, PDF, dataset, etc. Returns the serve URL plus a ready-to-paste `markdown` snippet; then call update_page or patch_page to place it in the body (images render inline as ![](…), other files as a download card). The payload is inline base64 and rides through the model's context, so it is capped at 5 MB — keep it to small files (screenshots, charts, short PDFs). For larger files use request_attachment_upload (a direct PUT URL, bytes off-context), or the tela editor (drag-drop).",
+		Description: "Upload a file (base64) and attach it to a page (editor+) — an image, PDF, dataset, etc. Returns the serve URL plus a ready-to-paste `markdown` snippet; then call update_page or patch_page to place it in the body (images render inline as ![](…), other files as a download card). It also returns `share_url` — the link to give a PERSON who asks for the file, since it previews it and unfurls as a card, unlike the raw download_url. The payload is inline base64 and rides through the model's context, so it is capped at 5 MB — keep it to small files (screenshots, charts, short PDFs). For larger files use request_attachment_upload (a direct PUT URL, bytes off-context), or the tela editor (drag-drop).",
 		Annotations: &mcp.ToolAnnotations{ReadOnlyHint: &no, DestructiveHint: &no, OpenWorldHint: &no},
 	}, s.mcpUploadAttachment)
 
@@ -296,7 +383,7 @@ func (s *Server) registerMCPTools(server *mcp.Server) {
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "request_attachment_upload",
 		Title:       "Request a direct upload URL",
-		Description: "Get a short-lived signed PUT URL to upload a file WITHOUT sending its bytes through the model context — for files over upload_attachment's 5 MB inline cap, or to avoid context bloat. Flow: call this → the host PUTs the raw bytes to the returned `put_url` over HTTP → then either read that PUT response or call confirm_attachment_upload to get the embed snippet, and place it with update_page/patch_page. Editor+. Only works on hosts that can make an outbound HTTP PUT; otherwise use upload_attachment.",
+		Description: "Get a short-lived signed PUT URL to upload a file WITHOUT sending its bytes through the model context — for files over upload_attachment's 5 MB inline cap, or to avoid context bloat. Flow: call this → the host PUTs the raw bytes to the returned `put_url` over HTTP → then either read that PUT response or call confirm_attachment_upload to get the embed snippet (and `share_url`, the link for a person), and place it with update_page/patch_page. Editor+. Only works on hosts that can make an outbound HTTP PUT; otherwise use upload_attachment.",
 		Annotations: &mcp.ToolAnnotations{ReadOnlyHint: &no, DestructiveHint: &no, OpenWorldHint: &no},
 	}, s.mcpRequestAttachmentUpload)
 
@@ -485,6 +572,7 @@ func (s *Server) mcpGetSpace(ctx context.Context, req *mcp.CallToolRequest, in g
 type listPagesIn struct {
 	SpaceID  int64  `json:"space_id" jsonschema:"id of the space to list pages in"`
 	ParentID *int64 `json:"parent_id,omitempty" jsonschema:"optional parent page id; omit for top-level pages"`
+	Status   string `json:"status,omitempty" jsonschema:"optional: 'draft' or 'published' to list only pages in that state; omit for all"`
 }
 
 type mcpPageListItem struct {
@@ -493,6 +581,7 @@ type mcpPageListItem struct {
 	ParentID *int64 `json:"parent_id"`
 	Title    string `json:"title"`
 	Position int64  `json:"position"`
+	Status   string `json:"status"`
 	URL      string `json:"url"`
 }
 
@@ -511,16 +600,20 @@ func (s *Server) mcpListPages(ctx context.Context, req *mcp.CallToolRequest, in 
 	}
 	// All pages share in.SpaceID — resolve the origin once (org domain or canonical).
 	origin := s.mcpOrigin(ctx, in.SpaceID)
-	out := listPagesOut{Pages: make([]mcpPageListItem, len(pages))}
-	for i, p := range pages {
-		out.Pages[i] = mcpPageListItem{
+	out := listPagesOut{Pages: []mcpPageListItem{}}
+	for _, p := range pages {
+		if in.Status != "" && p.Status != in.Status {
+			continue
+		}
+		out.Pages = append(out.Pages, mcpPageListItem{
 			ID:       p.ID,
 			SpaceID:  p.SpaceID,
 			ParentID: p.ParentID,
 			Title:    p.Title,
 			Position: p.Position,
+			Status:   p.Status,
 			URL:      origin + pageAppPath(p.SpaceID, p.ID, p.Title),
-		}
+		})
 	}
 	return nil, out, nil
 }
@@ -529,7 +622,7 @@ func (s *Server) mcpListPages(ctx context.Context, req *mcp.CallToolRequest, in 
 
 type getPageIn struct {
 	ID     int64  `json:"id" jsonschema:"numeric page id"`
-	Format string `json:"format,omitempty" jsonschema:"'full' (default) returns the markdown body; 'map' returns just the heading outline (section levels + paths) and no body — cheap to read, and each path is a target for patch_page"`
+	Format string `json:"format,omitempty" jsonschema:"'full' (default) returns the markdown body; 'map' returns just the heading outline (section levels + paths) and no body — cheap to read, and each path is a target for patch_page; 'values' — for a SHEET page (sheet=true), returns the computed spreadsheet as self-describing prose (formulas materialized to their numbers, styling stripped) so you read the answers, not the raw =formulas (no effect on non-sheet pages)"`
 }
 
 type getPageOut struct {
@@ -549,11 +642,22 @@ type createdPage struct {
 	Props     map[string]any `json:"props,omitempty"`
 	CreatedAt string         `json:"created_at"`
 	UpdatedAt string         `json:"updated_at"`
+	Version   int64          `json:"version"`
+	Status    string         `json:"status"`
 	URL       string         `json:"url"`
 }
 
 type createPageOut struct {
 	Page createdPage `json:"page"`
+	Lint string      `json:"lint,omitempty"`
+}
+
+// writePageOut is update_page's result: get_page's envelope plus the same
+// advisory. update_page can't just return getPageOut any more, because the
+// lint has to ride along on the WRITE and not on every read.
+type writePageOut struct {
+	Page mcpPage `json:"page"`
+	Lint string  `json:"lint,omitempty"`
 }
 
 func (s *Server) newCreatedPage(ctx context.Context, p models.Page) createdPage {
@@ -566,6 +670,8 @@ func (s *Server) newCreatedPage(ctx context.Context, p models.Page) createdPage 
 		Props:     p.Props,
 		CreatedAt: p.CreatedAt,
 		UpdatedAt: p.UpdatedAt,
+		Version:   p.Version,
+		Status:    p.Status,
 		URL:       s.mcpPageURL(ctx, p),
 	}
 }
@@ -585,6 +691,13 @@ func (s *Server) mcpGetPage(ctx context.Context, req *mcp.CallToolRequest, in ge
 		p.Body = ""
 		mp := mcpPage{Page: p, URL: s.mcpPageURL(ctx, p), Epistemic: epi, Sections: sections}
 		return nil, getPageOut{Page: mp}, nil
+	}
+	// A sheet's raw body is Defter markdown (formulas, not answers). 'values' mode
+	// returns the computed projection so an agent reads the numbers directly.
+	if in.Format == "values" && isSheetBag(p.Props) {
+		p.Body = sheetproj.Project(ctx, p.Body)
+		out := getPageOut{Page: mcpPage{Page: p, URL: s.mcpPageURL(ctx, p), Epistemic: epi}}
+		return nil, out, nil
 	}
 	body, whole := mcpCapBody(p.Body)
 	p.Body = body
@@ -612,6 +725,73 @@ func (s *Server) mcpListBacklinks(ctx context.Context, req *mcp.CallToolRequest,
 		return mcpErr(ae), listBacklinksOut{}, nil
 	}
 	return nil, listBacklinksOut{Backlinks: hits}, nil
+}
+
+// ---- page revisions ------------------------------------------------------
+
+type listPageRevisionsIn struct {
+	PageID int64 `json:"page_id" jsonschema:"page whose history to list (may be in the trash)"`
+	Cursor int64 `json:"cursor,omitempty" jsonschema:"next_cursor from a previous call; omit for the newest"`
+	Limit  int64 `json:"limit,omitempty" jsonschema:"max revisions (default 50, max 200)"`
+}
+
+type mcpRevision struct {
+	models.PageRevision
+	IsCurrent bool `json:"is_current"`
+}
+
+type listPageRevisionsOut struct {
+	Page       revisionPage  `json:"page"`
+	Revisions  []mcpRevision `json:"revisions"`
+	NextCursor *int64        `json:"next_cursor,omitempty"`
+}
+
+// isCurrentRevision: the newest snapshot of a live page is its current state
+// (every title/body write snapshots). A trashed page has no current state.
+func isCurrentRevision(p revisionPage, revID int64) bool {
+	return p.DeletedAt == nil && p.CurrentRevisionID != nil && *p.CurrentRevisionID == revID
+}
+
+func (s *Server) mcpListPageRevisions(ctx context.Context, req *mcp.CallToolRequest, in listPageRevisionsIn) (*mcp.CallToolResult, listPageRevisionsOut, error) {
+	u, k := mcpIdentity(req)
+	if u == nil {
+		return mcpUnauthErr(), listPageRevisionsOut{}, nil
+	}
+	page, revs, ae := s.listPageRevisionsCore(ctx, u, k, in.PageID, in.Cursor, in.Limit)
+	if ae != nil {
+		return mcpErr(ae), listPageRevisionsOut{}, nil
+	}
+	out := listPageRevisionsOut{Page: page, Revisions: make([]mcpRevision, len(revs))}
+	for i, r := range revs {
+		out.Revisions[i] = mcpRevision{PageRevision: r, IsCurrent: isCurrentRevision(page, r.ID)}
+	}
+	// A full page may have more behind it; the last id is the next cursor.
+	if n := len(revs); n > 0 && int64(n) == revisionLimit(in.Limit) {
+		out.NextCursor = &revs[n-1].ID
+	}
+	return nil, out, nil
+}
+
+type getPageRevisionIn struct {
+	PageID     int64 `json:"page_id" jsonschema:"page the revision belongs to"`
+	RevisionID int64 `json:"revision_id" jsonschema:"revision id from list_page_revisions"`
+}
+
+type getPageRevisionOut struct {
+	Page     revisionPage `json:"page"`
+	Revision mcpRevision  `json:"revision"`
+}
+
+func (s *Server) mcpGetPageRevision(ctx context.Context, req *mcp.CallToolRequest, in getPageRevisionIn) (*mcp.CallToolResult, getPageRevisionOut, error) {
+	u, k := mcpIdentity(req)
+	if u == nil {
+		return mcpUnauthErr(), getPageRevisionOut{}, nil
+	}
+	page, rev, ae := s.getPageRevisionCore(ctx, u, k, in.PageID, in.RevisionID)
+	if ae != nil {
+		return mcpErr(ae), getPageRevisionOut{}, nil
+	}
+	return nil, getPageRevisionOut{Page: page, Revision: mcpRevision{PageRevision: rev, IsCurrent: isCurrentRevision(page, rev.ID)}}, nil
 }
 
 // ---- search --------------------------------------------------------------
@@ -653,7 +833,7 @@ func (s *Server) mcpSearch(ctx context.Context, req *mcp.CallToolRequest, in sea
 type researchIn struct {
 	Question string `json:"question" jsonschema:"the question to answer, or topic to gather context on"`
 	SpaceID  *int64 `json:"space_id,omitempty" jsonschema:"optional space id to restrict retrieval to"`
-	Limit    int    `json:"limit,omitempty" jsonschema:"optional retrieval depth override (default service-defined)"`
+	Limit    int    `json:"limit,omitempty" jsonschema:"max sources to return (default 12, max 40) — raise it when a result comes back truncated"`
 }
 
 type researchOut struct {
@@ -661,6 +841,8 @@ type researchOut struct {
 	Sources       []rag.Hit `json:"sources"`                 // cited sources aligned to the [n] numbering; chunk_id/page_id for drill-in, download_url on file sources
 	Disagreements string    `json:"disagreements,omitempty"` // known conflicts among the sources, [n]-keyed (empty when none)
 	LowConfidence bool      `json:"low_confidence"`          // retrieval found nothing strongly relevant — answer is best-effort, verify it
+	Considered    int       `json:"considered"`              // distinct sources retrieval found, before the per-call source cap
+	Truncated     bool      `json:"truncated"`               // considered > len(sources): there is more — re-ask with a bigger limit
 }
 
 func (s *Server) mcpResearch(ctx context.Context, req *mcp.CallToolRequest, in researchIn) (*mcp.CallToolResult, researchOut, error) {
@@ -674,27 +856,33 @@ func (s *Server) mcpResearch(ctx context.Context, req *mcp.CallToolRequest, in r
 	if strings.TrimSpace(in.Question) == "" {
 		return mcpErr(&apiErr{400, "bad_request", "question is required"}), researchOut{}, nil
 	}
+	if ae := s.embedRateErr(account{Kind: accountUser, ID: u.ID}); ae != nil {
+		return mcpErr(ae), researchOut{}, nil
+	}
 	// A space-pinned bearer key may only ever see its one space.
 	spaceID := in.SpaceID
 	if k != nil && k.SpaceID != nil {
 		spaceID = k.SpaceID
 	}
-	excerpts, hits, top, err := s.askContext(ctx, u.ID, in.Question, spaceID, in.Limit)
+	res, err := s.askContext(ctx, u.ID, in.Question, spaceID, in.Limit)
 	if err != nil {
 		return mcpErr(&apiErr{500, "internal", "retrieval failed"}), researchOut{}, nil
 	}
+	hits := res.Hits
 	// Log every research call with its retrieval confidence — feeds the
 	// knowledge-gaps roadmap, including the zero-hit case (a clear gap). Best-effort.
-	_ = s.rag.LogAsk(ctx, u.ID, spaceID, in.Question, len(hits), top)
+	_ = s.rag.LogAsk(ctx, u.ID, spaceID, in.Question, len(hits), res.Top)
 	if len(hits) == 0 {
 		return nil, researchOut{Sources: []rag.Hit{}}, nil
 	}
 	enrichFileCitations(hits)
 	out := researchOut{
-		Context:       excerpts,
+		Context:       res.Context,
 		Sources:       hits,
 		Disagreements: s.askConflictNote(ctx, hits),
-		LowConfidence: lowConfidence(s.rag.RerankEnabled(), top),
+		LowConfidence: lowConfidence(s.rag.RerankEnabled(), res.Top),
+		Considered:    res.Considered,
+		Truncated:     res.Truncated(),
 	}
 	return nil, out, nil
 }
@@ -783,6 +971,9 @@ func (s *Server) mcpSuggestLinks(ctx context.Context, req *mcp.CallToolRequest, 
 	if !s.aiEnabled() {
 		return mcpErr(&apiErr{503, "rag_disabled", "semantic features are not configured"}), suggestLinksOut{}, nil
 	}
+	if ae := s.embedRateErr(account{Kind: accountUser, ID: u.ID}); ae != nil {
+		return mcpErr(ae), suggestLinksOut{}, nil
+	}
 	spaceID := in.SpaceID
 	if k != nil && k.SpaceID != nil {
 		spaceID = k.SpaceID
@@ -822,11 +1013,12 @@ func (s *Server) mcpFindOverlaps(ctx context.Context, req *mcp.CallToolRequest, 
 	return nil, findOverlapsOut{Overlaps: pairs}, nil
 }
 
-// ---- knowledge_gaps (admin) ----------------------------------------------
+// ---- knowledge_gaps -------------------------------------------------------
 
 type knowledgeGapsIn struct {
-	SinceDays int `json:"since_days,omitempty" jsonschema:"only count asks in the last N days (0 = all time)"`
-	Limit     int `json:"limit,omitempty" jsonschema:"max gaps (default 50)"`
+	SpaceID   *int64 `json:"space_id,omitempty" jsonschema:"optional space id to restrict the gaps to"`
+	SinceDays int    `json:"since_days,omitempty" jsonschema:"only count asks in the last N days (0 = all time)"`
+	Limit     int    `json:"limit,omitempty" jsonschema:"max gaps (default 50)"`
 }
 
 type knowledgeGapsOut struct {
@@ -834,14 +1026,18 @@ type knowledgeGapsOut struct {
 }
 
 func (s *Server) mcpKnowledgeGaps(ctx context.Context, req *mcp.CallToolRequest, in knowledgeGapsIn) (*mcp.CallToolResult, knowledgeGapsOut, error) {
-	u, _ := mcpIdentity(req)
+	u, k := mcpIdentity(req)
 	if u == nil {
 		return mcpUnauthErr(), knowledgeGapsOut{}, nil
 	}
-	if !u.IsInstanceAdmin {
-		return mcpErr(&apiErr{403, "forbidden", "knowledge_gaps is instance-admin only"}), knowledgeGapsOut{}, nil
+	// A space-pinned bearer key may only ever see its one space.
+	spaceID := in.SpaceID
+	if k != nil && k.SpaceID != nil {
+		spaceID = k.SpaceID
 	}
-	gaps, err := s.rag.KnowledgeGaps(ctx, in.SinceDays, in.Limit)
+	// No admin gate: rag.GapScope narrows the log to the caller's own asks plus
+	// the spaces they're a member of, which is what makes this safe for everyone.
+	gaps, err := s.rag.KnowledgeGaps(ctx, rag.GapScope{UserID: u.ID, SpaceID: spaceID, Instance: u.IsInstanceAdmin}, in.SinceDays, in.Limit)
 	if err != nil {
 		return mcpErr(&apiErr{500, "internal", "gaps query failed"}), knowledgeGapsOut{}, nil
 	}
@@ -898,6 +1094,7 @@ type createPageIn struct {
 	Title          string         `json:"title" jsonschema:"page title"`
 	Body           string         `json:"body" jsonschema:"markdown body"`
 	Props          map[string]any `json:"props,omitempty" jsonschema:"optional page properties (frontmatter); free-form keys, reserved keys like id/title/slug/created are ignored"`
+	Status         string         `json:"status,omitempty" jsonschema:"optional: 'draft' (work in progress: labelled in the app and kept off public spaces and share links) or 'published' (the default)"`
 	IdempotencyKey string         `json:"idempotency_key,omitempty" jsonschema:"optional client-generated key; a retry with the same key returns the original result instead of creating a duplicate page (safe retries after a dropped connection)"`
 }
 
@@ -916,38 +1113,41 @@ func (s *Server) mcpCreatePage(ctx context.Context, req *mcp.CallToolRequest, in
 			Title:    in.Title,
 			Body:     in.Body,
 			Props:    in.Props,
+			Status:   in.Status,
 		}, true)
 		if ae != nil {
 			return mcpErr(ae), createPageOut{}, nil
 		}
-		return nil, createPageOut{Page: s.newCreatedPage(ctx, p)}, nil
+		return nil, createPageOut{Page: s.newCreatedPage(ctx, p), Lint: s.writeAdvisory(ctx, p)}, nil
 	})
 }
 
 // ---- update_page ---------------------------------------------------------
 
 type updatePageIn struct {
-	ID    int64          `json:"id" jsonschema:"page id to patch"`
-	Title *string        `json:"title,omitempty" jsonschema:"new title (omit to leave unchanged)"`
-	Body  *string        `json:"body,omitempty" jsonschema:"new markdown body (omit to leave unchanged)"`
-	Props map[string]any `json:"props,omitempty" jsonschema:"replace the whole properties bag (omit to leave unchanged); reserved keys are ignored"`
+	ID          int64          `json:"id" jsonschema:"page id to patch"`
+	Title       *string        `json:"title,omitempty" jsonschema:"new title (omit to leave unchanged)"`
+	Body        *string        `json:"body,omitempty" jsonschema:"new markdown body (omit to leave unchanged)"`
+	Props       map[string]any `json:"props,omitempty" jsonschema:"replace the whole properties bag (omit to leave unchanged); reserved keys are ignored"`
+	Status      *string        `json:"status,omitempty" jsonschema:"'draft' or 'published' (omit to leave unchanged). Publishing a draft makes it eligible for public spaces and share links"`
+	BaseVersion *int64         `json:"base_version,omitempty" jsonschema:"optional: the page version you last read (get_page returns it). If the page has changed since, the write is refused with version_conflict instead of overwriting that edit; re-read and reapply. Omit for last-write-wins"`
 }
 
-func (s *Server) mcpUpdatePage(ctx context.Context, req *mcp.CallToolRequest, in updatePageIn) (*mcp.CallToolResult, getPageOut, error) {
+func (s *Server) mcpUpdatePage(ctx context.Context, req *mcp.CallToolRequest, in updatePageIn) (*mcp.CallToolResult, writePageOut, error) {
 	u, k := mcpIdentity(req)
 	if u == nil {
-		return mcpUnauthErr(), getPageOut{}, nil
+		return mcpUnauthErr(), writePageOut{}, nil
 	}
 	if ae := mcpRequireWrite(k); ae != nil {
-		return mcpErr(ae), getPageOut{}, nil
+		return mcpErr(ae), writePageOut{}, nil
 	}
 	// agentWrite=true: an agent rewriting the body must invalidate the Yjs collab
 	// overlay so live/next editors see it instead of stale CRDT state.
-	p, ae := s.updatePageCore(ctx, u, k, in.ID, pageUpdateRequest{Title: in.Title, Body: in.Body, Props: in.Props}, true)
+	p, ae := s.updatePageCore(ctx, u, k, in.ID, pageUpdateRequest{Title: in.Title, Body: in.Body, Props: in.Props, Status: in.Status, BaseVersion: in.BaseVersion}, true)
 	if ae != nil {
-		return mcpErr(ae), getPageOut{}, nil
+		return mcpErr(ae), writePageOut{}, nil
 	}
-	out := getPageOut{Page: mcpPage{Page: p, URL: s.mcpPageURL(ctx, p)}}
+	out := writePageOut{Page: mcpPage{Page: p, URL: s.mcpPageURL(ctx, p)}, Lint: s.writeAdvisory(ctx, p)}
 	return nil, out, nil
 }
 
@@ -956,38 +1156,64 @@ func (s *Server) mcpUpdatePage(ctx context.Context, req *mcp.CallToolRequest, in
 type patchPageIn struct {
 	ID             int64  `json:"id" jsonschema:"page id to patch"`
 	Target         string `json:"target" jsonschema:"the section to edit, by its heading path from get_page format:\"map\" (e.g. 'Setup' or 'Deploy > Production'); the bare heading text also resolves"`
-	Operation      string `json:"operation" jsonschema:"append (add to the end of the section's body), prepend (add right under the heading), replace (swap the section's body, heading kept), or delete (remove the heading and its body)"`
+	Operation      string `json:"operation" jsonschema:"append (add to the end of the section's body), prepend (add right under the heading), replace (swap the section's body, heading kept), or delete (remove the heading and its body). A section means the heading AND EVERYTHING NESTED UNDER IT until the next same-or-higher heading — so replace/delete on a '##' also removes its '###' sub-sections (they come back in the response as removed_subsections), and append lands after the last of them. To edit only the prose under a heading that has sub-sections, target the sub-section instead."`
 	Content        string `json:"content,omitempty" jsonschema:"markdown to insert; omit for delete"`
 	IdempotencyKey string `json:"idempotency_key,omitempty" jsonschema:"optional client-generated key; a retry with the same key returns the original result instead of re-applying the patch"`
+	BaseVersion    *int64 `json:"base_version,omitempty" jsonschema:"optional: the page version you last read. If the page has changed since, the patch is refused with version_conflict; re-read and reapply. Even without it, a patch never overwrites an edit made while it was being applied"`
 }
 
-func (s *Server) mcpPatchPage(ctx context.Context, req *mcp.CallToolRequest, in patchPageIn) (*mcp.CallToolResult, getPageOut, error) {
+// patchPageOut is get_page's envelope plus the accounting for what the patch
+// took with it: a section spans its subtree, so replace/delete can drop nested
+// sub-sections the caller never named. Reporting them is what lets an agent (or
+// the human reading its transcript) notice the loss while it's still cheap to
+// undo — silence was the actual bug, more than the span semantics.
+type patchPageOut struct {
+	Page               mcpPage  `json:"page"`
+	RemovedSubsections []string `json:"removed_subsections,omitempty"`
+	Warning            string   `json:"warning,omitempty"`
+}
+
+func (s *Server) mcpPatchPage(ctx context.Context, req *mcp.CallToolRequest, in patchPageIn) (*mcp.CallToolResult, patchPageOut, error) {
 	u, k := mcpIdentity(req)
 	if u == nil {
-		return mcpUnauthErr(), getPageOut{}, nil
+		return mcpUnauthErr(), patchPageOut{}, nil
 	}
 	if ae := mcpRequireWrite(k); ae != nil {
-		return mcpErr(ae), getPageOut{}, nil
+		return mcpErr(ae), patchPageOut{}, nil
 	}
-	return mcpIdempotent(ctx, s.DB, u.ID, in.IdempotencyKey, "patch_page", func() (*mcp.CallToolResult, getPageOut, error) {
+	return mcpIdempotent(ctx, s.DB, u.ID, in.IdempotencyKey, "patch_page", func() (*mcp.CallToolResult, patchPageOut, error) {
 		p, ae := s.getPageCore(ctx, u, k, in.ID)
 		if ae != nil {
-			return mcpErr(ae), getPageOut{}, nil
+			return mcpErr(ae), patchPageOut{}, nil
 		}
-		newBody, _, err := applyPatch(p.Body, in.Target, in.Operation, in.Content)
+		if in.BaseVersion != nil && *in.BaseVersion != p.Version {
+			return mcpErr(&apiErr{Status: 409, Code: "version_conflict", Message: fmt.Sprintf(
+				"page changed since version %d (it is now version %d); read it again and reapply your change", *in.BaseVersion, p.Version)}), patchPageOut{}, nil
+		}
+		patch, err := applyPatch(p.Body, in.Target, in.Operation, in.Content)
 		if err != nil {
-			return mcpErr(&apiErr{Status: 400, Code: "bad_request", Message: err.Error()}), getPageOut{}, nil
+			return mcpErr(&apiErr{Status: 400, Code: "bad_request", Message: err.Error()}), patchPageOut{}, nil
 		}
 		// Write through the normal update path (agentWrite=true) so the revision,
 		// reindex, agreement and provenance all fire exactly as for any edit.
-		up, ae := s.updatePageCore(ctx, u, k, in.ID, pageUpdateRequest{Body: &newBody}, true)
+		// Always against the version the patch was computed on: an edit landing
+		// between that read and this write is refused, never silently undone.
+		up, ae := s.updatePageCore(ctx, u, k, in.ID, pageUpdateRequest{Body: &patch.Body, BaseVersion: &p.Version}, true)
 		if ae != nil {
-			return mcpErr(ae), getPageOut{}, nil
+			return mcpErr(ae), patchPageOut{}, nil
 		}
 		epi := s.pageEpistemic(ctx, up)
 		body, whole := mcpCapBody(up.Body)
 		up.Body = body
-		return nil, getPageOut{Page: mcpPage{Page: up, URL: s.mcpPageURL(ctx, up), Truncated: !whole, Epistemic: epi}}, nil
+		out := patchPageOut{
+			Page:               mcpPage{Page: up, URL: s.mcpPageURL(ctx, up), Truncated: !whole, Epistemic: epi},
+			RemovedSubsections: patch.Removed,
+		}
+		if len(patch.Removed) > 0 {
+			out.Warning = fmt.Sprintf("%s on %q also removed %d nested sub-section(s): %s — restore from revisions if that wasn't intended.",
+				in.Operation, patch.Section.Path, len(patch.Removed), strings.Join(patch.Removed, ", "))
+		}
+		return nil, out, nil
 	})
 }
 
@@ -1009,7 +1235,7 @@ func (s *Server) mcpDeletePage(ctx context.Context, req *mcp.CallToolRequest, in
 	if ae := mcpRequireWrite(k); ae != nil {
 		return mcpErr(ae), okOut{}, nil
 	}
-	if ae := s.deletePageCore(ctx, u, k, in.ID); ae != nil {
+	if ae := s.deletePageCore(ctx, u, k, in.ID, deleteViaAgent); ae != nil {
 		return mcpErr(ae), okOut{}, nil
 	}
 	return nil, okOut{OK: true}, nil
@@ -1147,36 +1373,99 @@ type addCommentAnchor struct {
 }
 
 type addCommentIn struct {
-	PageID         int64            `json:"page_id" jsonschema:"page to comment on"`
-	Anchor         addCommentAnchor `json:"anchor" jsonschema:"text-quote anchor locating the comment in the body"`
-	Body           string           `json:"body" jsonschema:"comment text (1-10000 chars)"`
-	IdempotencyKey string           `json:"idempotency_key,omitempty" jsonschema:"optional client-generated key; a retry with the same key returns the original result instead of posting a duplicate comment (safe retries after a dropped connection)"`
+	PageID         int64             `json:"page_id" jsonschema:"page to comment on"`
+	Anchor         *addCommentAnchor `json:"anchor,omitempty" jsonschema:"text-quote anchor locating the comment in the page's PLAIN TEXT (markdown markers stripped); required for a root comment, omit when replying"`
+	ParentID       *int64            `json:"parent_id,omitempty" jsonschema:"id of the root comment to reply to; omit to start a new thread"`
+	Body           string            `json:"body" jsonschema:"comment text (1-10000 chars)"`
+	IdempotencyKey string            `json:"idempotency_key,omitempty" jsonschema:"optional client-generated key; a retry with the same key returns the original result instead of posting a duplicate comment (safe retries after a dropped connection)"`
 }
 
-type addCommentOut struct {
+// commentOut is the shared {comment} envelope for the row-returning comment
+// tools (add_comment, update_comment).
+type commentOut struct {
 	Comment models.Comment `json:"comment"`
 }
 
-func (s *Server) mcpAddComment(ctx context.Context, req *mcp.CallToolRequest, in addCommentIn) (*mcp.CallToolResult, addCommentOut, error) {
+func (s *Server) mcpAddComment(ctx context.Context, req *mcp.CallToolRequest, in addCommentIn) (*mcp.CallToolResult, commentOut, error) {
 	u, k := mcpIdentity(req)
 	if u == nil {
-		return mcpUnauthErr(), addCommentOut{}, nil
+		return mcpUnauthErr(), commentOut{}, nil
 	}
 	if ae := mcpRequireWrite(k); ae != nil {
-		return mcpErr(ae), addCommentOut{}, nil
+		return mcpErr(ae), commentOut{}, nil
 	}
-	return mcpIdempotent(ctx, s.DB, u.ID, in.IdempotencyKey, "add_comment", func() (*mcp.CallToolResult, addCommentOut, error) {
-		c, ae := s.createCommentCore(ctx, u, k, in.PageID, commentCreateRequest{
-			Body:         in.Body,
-			AnchorPrefix: &in.Anchor.Prefix,
-			AnchorExact:  &in.Anchor.Exact,
-			AnchorSuffix: &in.Anchor.Suffix,
-		})
-		if ae != nil {
-			return mcpErr(ae), addCommentOut{}, nil
+	return mcpIdempotent(ctx, s.DB, u.ID, in.IdempotencyKey, "add_comment", func() (*mcp.CallToolResult, commentOut, error) {
+		cr := commentCreateRequest{Body: in.Body, ParentID: in.ParentID}
+		if in.Anchor != nil {
+			cr.AnchorPrefix = &in.Anchor.Prefix
+			cr.AnchorExact = &in.Anchor.Exact
+			cr.AnchorSuffix = &in.Anchor.Suffix
 		}
-		return nil, addCommentOut{Comment: c}, nil
+		c, ae := s.createCommentCore(ctx, u, k, in.PageID, cr)
+		if ae != nil {
+			return mcpErr(ae), commentOut{}, nil
+		}
+		return nil, commentOut{Comment: c}, nil
 	})
+}
+
+// ---- list_comments / update_comment --------------------------------------
+
+type listCommentsIn struct {
+	PageID  int64  `json:"page_id,omitempty" jsonschema:"page whose threads to read (root + replies); give this or space_id, not both"`
+	SpaceID int64  `json:"space_id,omitempty" jsonschema:"space whose open threads to read as an inbox (roots only, with reply_count and page_title); give this or page_id, not both"`
+	Status  string `json:"status,omitempty" jsonschema:"open (default) | resolved | all"`
+	Since   string `json:"since,omitempty" jsonschema:"opaque cursor from a previous call; returns only threads with new or edited activity since then"`
+	Limit   int    `json:"limit,omitempty" jsonschema:"max threads (default 50, max 200)"`
+}
+
+type listCommentsOut struct {
+	Threads []commentThread `json:"threads"`
+	Cursor  string          `json:"cursor,omitempty" jsonschema:"pass back as since on the next call to see only what changed"`
+}
+
+func (s *Server) mcpListComments(ctx context.Context, req *mcp.CallToolRequest, in listCommentsIn) (*mcp.CallToolResult, listCommentsOut, error) {
+	u, k := mcpIdentity(req)
+	if u == nil {
+		return mcpUnauthErr(), listCommentsOut{}, nil
+	}
+	threads, cursor, ae := s.listCommentsCore(ctx, u, k, commentListOpts{
+		PageID: in.PageID, SpaceID: in.SpaceID, Status: in.Status, Since: in.Since, Limit: in.Limit,
+	})
+	if ae != nil {
+		return mcpErr(ae), listCommentsOut{}, nil
+	}
+	return nil, listCommentsOut{Threads: threads, Cursor: cursor}, nil
+}
+
+type updateCommentIn struct {
+	CommentID int64   `json:"comment_id" jsonschema:"id of the comment to update"`
+	Body      *string `json:"body,omitempty" jsonschema:"new comment text (author-only; refused on someone else's comment)"`
+	Resolved  *bool   `json:"resolved,omitempty" jsonschema:"true closes a root thread, false reopens it"`
+}
+
+func (s *Server) mcpUpdateComment(ctx context.Context, req *mcp.CallToolRequest, in updateCommentIn) (*mcp.CallToolResult, commentOut, error) {
+	u, k := mcpIdentity(req)
+	if u == nil {
+		return mcpUnauthErr(), commentOut{}, nil
+	}
+	if ae := mcpRequireWrite(k); ae != nil {
+		return mcpErr(ae), commentOut{}, nil
+	}
+	c, ae := s.patchCommentCore(ctx, u, k, in.CommentID, commentPatchRequest{Body: in.Body, Resolved: in.Resolved})
+	// Resolving something already in the requested state is a 409 for the UI,
+	// where it means "someone beat you to it". For an agent it is just a retry
+	// landing twice, so honour the declared IdempotentHint and report the
+	// comment as it stands instead of failing the call.
+	if ae != nil && ae.Code == "comment_already_resolved" {
+		if cur, err := selectCommentByID(ctx, s.DB, in.CommentID); err == nil {
+			return nil, commentOut{Comment: cur}, nil
+		}
+	}
+	if ae != nil {
+		return mcpErr(ae), commentOut{}, nil
+	}
+	return nil, commentOut{Comment: c}, nil
 }
 
 // ---- create_space / update_space / delete_space --------------------------
@@ -1248,6 +1537,42 @@ func (s *Server) mcpDeleteSpace(ctx context.Context, req *mcp.CallToolRequest, i
 	return nil, okOut{OK: true}, nil
 }
 
+// ---- invite_to_space -----------------------------------------------------
+
+type inviteToSpaceIn struct {
+	SpaceID int64  `json:"space_id" jsonschema:"space to share (caller must be its owner)"`
+	Email   string `json:"email" jsonschema:"the person's email address"`
+	Role    string `json:"role,omitempty" jsonschema:"owner | editor | viewer (default viewer)"`
+}
+
+// inviteToSpaceOut carries exactly one of member (access granted immediately)
+// or invite (an invitation email was sent), so the calling agent can tell the
+// two branches apart without guessing.
+type inviteToSpaceOut struct {
+	Member *spaceMemberDTO `json:"member,omitempty"`
+	Invite *spaceInviteDTO `json:"invite,omitempty"`
+}
+
+func (s *Server) mcpInviteToSpace(ctx context.Context, req *mcp.CallToolRequest, in inviteToSpaceIn) (*mcp.CallToolResult, inviteToSpaceOut, error) {
+	u, k := mcpIdentity(req)
+	if u == nil {
+		return mcpUnauthErr(), inviteToSpaceOut{}, nil
+	}
+	if ae := mcpRequireWrite(k); ae != nil {
+		return mcpErr(ae), inviteToSpaceOut{}, nil
+	}
+	// Same core as POST /api/spaces/{id}/invites — owner gate, both branches, the
+	// mail and the audit rows are identical. The invite link is space-derived
+	// (the owning org's custom domain when it has one) since there is no request
+	// host to follow here.
+	origin := cmp.Or(s.shareOrigin(ctx, in.SpaceID), devBaseURL)
+	res, ae := s.shareSpaceByEmailCore(ctx, u, k, in.SpaceID, in.Email, in.Role, origin)
+	if ae != nil {
+		return mcpErr(ae), inviteToSpaceOut{}, nil
+	}
+	return nil, inviteToSpaceOut{Member: res.Member, Invite: res.Invite}, nil
+}
+
 // ---- submit_feedback (any scope, no mcpRequireWrite) ---------------------
 
 type submitFeedbackIn struct {
@@ -1274,12 +1599,19 @@ func (s *Server) mcpSubmitFeedback(ctx context.Context, req *mcp.CallToolRequest
 
 // ---- attachments (list_attachments / upload_attachment / delete_attachment) ----
 
-// mcpAttachment is an attachmentOut plus two agent conveniences: an absolute
+// mcpAttachment is an attachmentOut plus three agent conveniences: an absolute
 // download_url (the embedded `url` is relative, for the body; this one is
-// fetchable over HTTP directly) and a ready-to-paste `markdown` embed snippet.
+// fetchable over HTTP directly), an absolute share_url — the file PAGE, which is
+// what to hand a person — and a ready-to-paste `markdown` embed snippet.
+//
+// The three are not interchangeable and the difference is the whole point:
+// `url` goes in a page body, `download_url` is for the agent to fetch bytes, and
+// `share_url` is the only one a human should ever be given (the blob downloads
+// on click and unfurls as nothing; the file page previews it and makes a card).
 type mcpAttachment struct {
 	attachmentOut
 	DownloadURL string `json:"download_url"`
+	ShareURL    string `json:"share_url"`
 	Markdown    string `json:"markdown"`
 }
 
@@ -1287,6 +1619,7 @@ func newMCPAttachment(a attachmentOut) mcpAttachment {
 	return mcpAttachment{
 		attachmentOut: a,
 		DownloadURL:   canonicalBaseURL() + a.URL,
+		ShareURL:      canonicalBaseURL() + a.SharePath,
 		Markdown:      attachmentEmbedMarkdown(a),
 	}
 }
@@ -1319,6 +1652,58 @@ func decodeMCPBase64(s string) ([]byte, error) {
 		}
 	}
 	return base64.StdEncoding.DecodeString(s)
+}
+
+type listSpaceFilesIn struct {
+	SpaceID      int64  `json:"space_id" jsonschema:"space whose files to list"`
+	ParentPageID string `json:"parent_page_id,omitempty" jsonschema:"optional filter: a page id for that page's files, or \"root\" for files parented to the space root; omit for every file in the space"`
+}
+
+type listSpaceFilesOut struct {
+	Files     []mcpSpaceFile `json:"files"`
+	Truncated bool           `json:"truncated,omitempty"` // more than the cap; narrow with parent_page_id
+}
+
+// mcpSpaceFile is a spaceFileOut with the agent link conveniences, same as
+// mcpAttachment (which it embeds through the shared attachmentOut).
+type mcpSpaceFile struct {
+	spaceFileOut
+	DownloadURL string `json:"download_url"`
+	ShareURL    string `json:"share_url"`
+	Markdown    string `json:"markdown"`
+}
+
+func (s *Server) mcpListSpaceFiles(ctx context.Context, req *mcp.CallToolRequest, in listSpaceFilesIn) (*mcp.CallToolResult, listSpaceFilesOut, error) {
+	u, k := mcpIdentity(req)
+	if u == nil {
+		return mcpUnauthErr(), listSpaceFilesOut{}, nil
+	}
+	var parent int64
+	switch p := strings.TrimSpace(in.ParentPageID); p {
+	case "":
+	case "root":
+		parent = -1
+	default:
+		n, err := strconv.ParseInt(p, 10, 64)
+		if err != nil || n <= 0 {
+			return mcpErr(&apiErr{400, "bad_request", `parent_page_id must be a page id or "root"`}), listSpaceFilesOut{}, nil
+		}
+		parent = n
+	}
+	files, truncated, ae := s.listSpaceFilesCore(ctx, u, k, in.SpaceID, parent)
+	if ae != nil {
+		return mcpErr(ae), listSpaceFilesOut{}, nil
+	}
+	out := listSpaceFilesOut{Files: make([]mcpSpaceFile, len(files)), Truncated: truncated}
+	for i, f := range files {
+		out.Files[i] = mcpSpaceFile{
+			spaceFileOut: f,
+			DownloadURL:  canonicalBaseURL() + f.URL,
+			ShareURL:     canonicalBaseURL() + f.SharePath,
+			Markdown:     attachmentEmbedMarkdown(f.attachmentOut),
+		}
+	}
+	return nil, out, nil
 }
 
 type listAttachmentsIn struct {

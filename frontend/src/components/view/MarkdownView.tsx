@@ -12,6 +12,7 @@ import {
 import katex from 'katex'
 import { refractor } from 'refractor/core'
 import { parsePageMarkdown } from '../../lib/markdown/remark-stack'
+import { stampHeadingIds } from '../../lib/markdown/heading-anchors'
 import { configureRefractor } from '../../lib/milkdown/refractor-config'
 import {
   CALLOUT_LABELS,
@@ -24,13 +25,24 @@ import {
   CALENDAR_EVENT_RE,
 } from '../../lib/blocks/calendar-grid'
 import { accentForValue, statLineClass } from '../../lib/blocks/stat-trend'
+import { enhanceTables } from '../../lib/blocks/table-enhance'
 import { wikilinkSlug } from '../../lib/markdown/transforms/wikilink'
+import { isExternalUrl } from '../../lib/markdown/link-target'
 import { isSafeUrl } from '../../lib/markdown/remark-safe-links'
 import { embedIframeSrc } from '../../lib/markdown/embed'
 import { isPdf, PdfPreviewDialog } from '../ui/pdf-viewer'
 import type { CommentThread } from '../../lib/comments/use-comments'
 import { useCommentHighlights } from '../../lib/comments/useCommentHighlights'
 import { cn } from '../../lib/utils'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { api } from '../../lib/api'
+import { useMe } from '../../lib/queries/auth'
+import { pageKeys } from '../../lib/queries/pages'
+import {
+  PollWidget,
+  type PollData,
+  type PollOption,
+} from '../app/PollWidget'
 
 // Context for renderers that need page-scoped data (excalidraw PNG URL, wikilink
 // resolution; comments later). Provided by MarkdownView.
@@ -46,6 +58,10 @@ interface ViewContextValue {
   // app default — the page is missing) or 'plain' (neutral, for read/share
   // surfaces where out-of-scope links shouldn't shout "broken").
   wikilinkUnresolved?: 'broken' | 'plain'
+  // Whether the current surface allows casting a poll vote (app read view =
+  // true; public/share = false, read-only results). The backend is still the
+  // authority — this only decides whether the vote affordance is shown.
+  canVote?: boolean
 }
 const ViewContext = createContext<ViewContextValue>({})
 
@@ -543,6 +559,129 @@ function CalendarView({ node }: { node: MdNode }) {
   )
 }
 
+// --- Poll ------------------------------------------------------------------
+// A `:::poll{id}` block. Its definition (question + options) AND its votes both
+// live in the body: options are top-level list items; each voter is a nested
+// `- @handle` under the option they chose (see backend internal/pollmd). This
+// view parses that, resolves handles → names, and renders the interactive
+// PollWidget. Casting posts a structured body edit (churn-free) and refetches.
+
+interface ParsedPollOption {
+  label: string
+  handles: string[]
+}
+
+function parsePoll(node: MdNode): {
+  question: string
+  options: ParsedPollOption[]
+} {
+  let question = ''
+  const options: ParsedPollOption[] = []
+  for (const child of node.children ?? []) {
+    if (child.type === 'heading' && !question) {
+      question = mdText(child).trim()
+    } else if (child.type === 'list') {
+      for (const li of child.children ?? []) {
+        if (li.type !== 'listItem') continue
+        const para = (li.children ?? []).find((c) => c.type === 'paragraph')
+        const label = para ? mdText(para).trim() : ''
+        if (!label) continue
+        const sub = (li.children ?? []).find((c) => c.type === 'list')
+        const handles: string[] = []
+        for (const vli of sub?.children ?? []) {
+          const t = mdText(vli).trim()
+          if (t.startsWith('@')) handles.push(t.slice(1).split(/\s+/)[0])
+        }
+        options.push({ label, handles })
+      }
+    }
+  }
+  return { question, options }
+}
+
+// Stable synthetic id for an unresolved handle so avatar tones don't jump once
+// /resolve returns.
+function handleFallbackId(handle: string): number {
+  let h = 0
+  for (let i = 0; i < handle.length; i++) h = (h * 31 + handle.charCodeAt(i)) | 0
+  return Math.abs(h) || 1
+}
+
+function PollBlockView({ node }: { node: MdNode }) {
+  const { pageId, canVote } = useContext(ViewContext)
+  const me = useMe()
+  const qc = useQueryClient()
+  const parsed = useMemo(() => parsePoll(node), [node])
+  const attrs = directiveAttrs(node)
+  const pollId = attrs.id ?? ''
+  const closed = 'closed' in attrs
+  const username = me.data?.username
+
+  const handles = useMemo(
+    () => Array.from(new Set(parsed.options.flatMap((o) => o.handles))),
+    [parsed],
+  )
+
+  // Resolve voter handles → display names on authed surfaces; public/share fall
+  // back to showing the raw handle (the resolve endpoint requires a session).
+  const resolved = useQuery({
+    queryKey: ['users', 'resolve', [...handles].sort().join(',')],
+    enabled: !!username && handles.length > 0,
+    staleTime: 5 * 60_000,
+    queryFn: () =>
+      api<{ users: { id: number; handle: string; name: string }[] }>(
+        '/api/users/resolve',
+        { method: 'POST', body: JSON.stringify({ handles }) },
+      ),
+  })
+  const nameByHandle = useMemo(() => {
+    const m = new Map<string, { id: number; name: string }>()
+    for (const u of resolved.data?.users ?? []) {
+      m.set(u.handle, { id: u.id, name: u.name })
+    }
+    return m
+  }, [resolved.data])
+
+  const vote = useMutation({
+    mutationFn: (choice: string) =>
+      api(`/api/pages/${pageId}/polls/${encodeURIComponent(pollId)}/vote`, {
+        method: 'POST',
+        body: JSON.stringify({ choice }),
+      }),
+    onSuccess: () => {
+      if (pageId != null) {
+        void qc.invalidateQueries({ queryKey: pageKeys.detail(pageId) })
+      }
+    },
+  })
+
+  const options: PollOption[] = parsed.options.map((o) => ({
+    id: o.label,
+    label: o.label,
+    count: o.handles.length,
+    voters: o.handles.map((h) => {
+      const r = nameByHandle.get(h)
+      return { id: r?.id ?? handleFallbackId(h), name: r?.name ?? h, handle: h }
+    }),
+  }))
+  const myChoice =
+    username != null
+      ? (parsed.options.find((o) => o.handles.includes(username))?.label ?? null)
+      : null
+
+  const poll: PollData = {
+    id: pollId,
+    question: parsed.question || 'Poll',
+    options,
+    myChoice,
+    closed,
+    allowChange: true,
+    canVote: !!canVote && !!username && !closed && pageId != null,
+  }
+
+  return <PollWidget poll={poll} onVote={(choice) => vote.mutate(choice)} />
+}
+
 function renderChildren(node: MdNode): ReactNode[] {
   return (node.children ?? []).map((child, i) => renderNode(child, i))
 }
@@ -571,16 +710,24 @@ function renderNode(node: MdNode, key: number | string): ReactNode {
       return <hr key={key} />
     case 'blockquote':
       return <blockquote key={key}>{renderChildren(node)}</blockquote>
-    case 'link':
+    case 'link': {
+      const raw = String(node.url ?? '')
+      const href = isSafeUrl(raw) ? raw : '#'
+      // External links open in a new tab so following a citation doesn't cost
+      // the reader their place; internal ones stay in the tab (see
+      // lib/markdown/link-target). noopener/noreferrer is required with _blank.
+      const external = isExternalUrl(href)
       return (
         <a
           key={key}
-          href={isSafeUrl(String(node.url ?? '')) ? String(node.url ?? '') : '#'}
+          href={href}
           title={node.title ? String(node.title) : undefined}
+          {...(external ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
         >
           {renderChildren(node)}
         </a>
       )
+    }
     case 'image':
       return (
         <img
@@ -737,6 +884,7 @@ function renderNode(node: MdNode, key: number | string): ReactNode {
       if (name === 'kanban') return <KanbanView key={key} node={node} />
       if (name === 'stats') return <StatGridView key={key} node={node} />
       if (name === 'calendar') return <CalendarView key={key} node={node} />
+      if (name === 'poll') return <PollBlockView key={key} node={node} />
       // Unknown directive — render its children so no content is lost. A
       // Fragment avoids wrapping (possibly block) content in an invalid element.
       return node.children ? (
@@ -787,6 +935,7 @@ export function MarkdownView({
   commentThreads,
   onCommentClick,
   onReady,
+  canVote,
   className,
 }: {
   body: string
@@ -805,17 +954,27 @@ export function MarkdownView({
   /** Fires with the rendered content element after each render — lets a host
    *  (the reader) run DOM post-processing (TOC, footnotes, scroll-spy). */
   onReady?: (el: HTMLElement) => void
+  /** Show the poll vote affordance (app read view). Omit on public/share. */
+  canVote?: boolean
   className?: string
 }) {
   const tree = useMemo(() => parsePageMarkdown(body), [body])
   const ctx = useMemo<ViewContextValue>(
-    () => ({ pageId, resolveWikilink, pageHref, wikilinkUnresolved }),
-    [pageId, resolveWikilink, pageHref, wikilinkUnresolved],
+    () => ({ pageId, resolveWikilink, pageHref, wikilinkUnresolved, canVote }),
+    [pageId, resolveWikilink, pageHref, wikilinkUnresolved, canVote],
   )
   const contentRef = useRef<HTMLDivElement>(null)
   useCommentHighlights(contentRef, commentThreads, onCommentClick)
   useEffect(() => {
-    if (contentRef.current) onReady?.(contentRef.current)
+    if (!contentRef.current) return
+    // Anchor ids first, so a host's onReady (TOC, deep-link scroll) sees them.
+    stampHeadingIds(contentRef.current)
+    // Sort headers + a filter box on large tables. Self-gated at ≥8 rows and
+    // idempotent. This is where every read surface gets it: the editor plugin
+    // that used to apply it only runs inside Milkdown, which no longer renders
+    // any of them.
+    enhanceTables(contentRef.current)
+    onReady?.(contentRef.current)
   }, [body, onReady])
   return (
     <ViewContext.Provider value={ctx}>

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from '@tanstack/react-router'
 import { Menu, Play } from 'lucide-react'
 import { applyPdfThemeParam } from '../../lib/theme'
@@ -25,6 +25,12 @@ import { DownloadPdfButton } from './DownloadPdfButton'
 import { ReaderShell } from './ReaderShell'
 import { pageSummary } from './SummaryHint'
 import { useTelaHomeHref } from '../../lib/queries/host-context'
+
+// Read-only spreadsheet grid for public sheet pages. Lazy — pulls in @defterjs/*
+// only when a public sheet is actually viewed.
+const GridEditor = lazy(() =>
+  import('./grid-editor').then((m) => ({ default: m.GridEditor })),
+)
 
 interface PublicReaderViewProps {
   space: PublicSpacePayload
@@ -66,6 +72,7 @@ export function PublicReaderView({
   // are the public, visibility-gated deck routes (cover = first slide, present =
   // live SPA). Branch is taken below, AFTER all hooks, to keep hook order stable.
   const isDeck = pageProps?.deck === true
+  const isSheet = pageProps?.sheet === true
   const metaDescription = useMemo(
     () => summary ?? bodyExcerpt(pageBody, '', 90).trim(),
     [summary, pageBody],
@@ -89,15 +96,29 @@ export function PublicReaderView({
     [tree.data, pages],
   )
 
+  // Every in-reader link goes through the canonical /{handle}/{space-slug}/…
+  // form when the space has an owning handle. Without this, clicking through the
+  // reader (prev/next, sidebar, wikilinks, back-to-index) silently flips the
+  // address bar back to the id form the page canonicalizes away from.
+  const handle = space.owner_handle
+  const spaceSlug = space.slug
+
   const onNavigateWikilink = useCallback(
     (targetPageId: number) => {
       if (!inScopePageIds.has(targetPageId)) return
+      if (handle && spaceSlug) {
+        void navigate({
+          to: '/$handle/$spaceSlug/$pageId/{-$slug}',
+          params: { handle, spaceSlug, pageId: targetPageId, slug: undefined },
+        })
+        return
+      }
       void navigate({
         to: '/public/spaces/$spaceId/pages/$pageId/{-$slug}',
         params: { spaceId: space.id, pageId: targetPageId, slug: undefined },
       })
     },
-    [navigate, space.id, inScopePageIds],
+    [navigate, space.id, inScopePageIds, handle, spaceSlug],
   )
 
   const showSidebar = pages.length > 1
@@ -116,8 +137,8 @@ export function PublicReaderView({
   // to the space owner for legacy pages with no recorded author.
   const authorLink = (name: string) => (
     <Link
-      to="/u/$username"
-      params={{ username: name }}
+      to="/$handle"
+      params={{ handle: name }}
       className="reader-meta-link"
     >
       {name}
@@ -159,16 +180,16 @@ export function PublicReaderView({
   const articleFooter =
     childPosts.length > 0 || hasPostNav ? (
       <>
-        <ChildGallery spaceId={space.id} posts={childPosts} />
+        <ChildGallery spaceId={space.id} handle={handle} spaceSlug={spaceSlug} posts={childPosts} />
         {hasPostNav ? (
           <nav className="reader-postnav" aria-label="More posts">
             {postNav!.older ? (
-              <PostNavLink spaceId={space.id} post={postNav!.older} dir="older" />
+              <PostNavLink spaceId={space.id} handle={handle} spaceSlug={spaceSlug} post={postNav!.older} dir="older" />
             ) : (
               <span />
             )}
             {postNav!.newer ? (
-              <PostNavLink spaceId={space.id} post={postNav!.newer} dir="newer" />
+              <PostNavLink spaceId={space.id} handle={handle} spaceSlug={spaceSlug} post={postNav!.newer} dir="newer" />
             ) : (
               <span />
             )}
@@ -181,6 +202,8 @@ export function PublicReaderView({
     return (
       <PublicDeckView
         spaceId={space.id}
+        handle={handle}
+        spaceSlug={spaceSlug}
         spaceName={space.name}
         pageId={pageId}
         pageTitle={pageTitle}
@@ -190,12 +213,26 @@ export function PublicReaderView({
     )
   }
 
+  const sheetSlot = isSheet ? (
+    <Suspense fallback={null}>
+      <GridEditor
+        defaultValue={pageBody}
+        onChange={() => {}}
+        collabPageId={null}
+        readOnly
+        pageId={pageId}
+        ariaLabel="Spreadsheet (read-only)"
+      />
+    </Suspense>
+  ) : undefined
+
   return (
     <ReaderShell
       pageId={pageId}
       title={pageTitle}
       summary={summary}
       body={pageBody}
+      bodySlot={sheetSlot}
       updatedAt={updatedAt}
       wikilinkMode="share"
       aliveWikilinkIds={inScopePageIds}
@@ -207,7 +244,10 @@ export function PublicReaderView({
       articleFooter={articleFooter}
       headMeta={{
         description: metaDescription,
-        canonicalPath: window.location.pathname,
+        canonicalPath:
+          handle && spaceSlug
+            ? `/${handle}/${spaceSlug}/${pageId}${pageSlug(pageTitle) ? `/${pageSlug(pageTitle)}` : ''}`
+            : window.location.pathname,
         image: `/p/${pageId}/og.png`,
         feedHref: `/api/public/spaces/${space.id}/feed.xml`,
       }}
@@ -215,6 +255,8 @@ export function PublicReaderView({
         showSidebar ? (
           <PublicSpaceNav
             spaceId={space.id}
+            handle={handle}
+            spaceSlug={spaceSlug}
             spaceName={space.name}
             pages={pages}
             activePageId={pageId}
@@ -228,6 +270,8 @@ export function PublicReaderView({
           {showSidebar ? (
             <PublicSpaceNavSheet
               spaceId={space.id}
+              handle={handle}
+              spaceSlug={spaceSlug}
               spaceName={space.name}
               pages={pages}
               activePageId={pageId}
@@ -236,17 +280,22 @@ export function PublicReaderView({
           <a
             href={telaHome}
             aria-label="tela home"
-            className="inline-block rounded-[var(--radius-xs)] font-[family-name:var(--font-sans)] text-[length:var(--text-base)] font-medium text-[var(--text-primary)] no-underline transition-opacity duration-[var(--duration-fast)] hover:opacity-70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+            // shrink-0: a flex child shrinks below its content by default, so on
+            // a phone the wordmark was squeezed until its text spilled out of its
+            // own box and collided with the trailing controls. The space name
+            // (truncate, below) is what should absorb the shrink instead.
+            className="inline-block shrink-0 rounded-[var(--radius-xs)] font-[family-name:var(--font-sans)] text-[length:var(--text-base)] font-medium text-[var(--text-primary)] no-underline transition-opacity duration-[var(--duration-fast)] hover:opacity-70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
           >
             tela
           </a>
-          <span aria-hidden className="text-[var(--text-muted)]">
+          <span aria-hidden className="shrink-0 text-[var(--text-muted)]">
             /
           </span>
           {/* Back to the space's front page (its blog index). */}
           <Link
-            to="/public/spaces/$spaceId"
-            params={{ spaceId: space.id }}
+            {...(handle && spaceSlug
+              ? ({ to: '/$handle/$spaceSlug', params: { handle, spaceSlug } } as const)
+              : ({ to: '/public/spaces/$spaceId', params: { spaceId: space.id } } as const))}
             className="truncate rounded-[var(--radius-xs)] font-[family-name:var(--font-sans)] text-[length:var(--text-sm)] text-[var(--text-muted)] no-underline transition-colors duration-[var(--duration-fast)] hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
           >
             {space.name}
@@ -256,7 +305,7 @@ export function PublicReaderView({
       sourceLabel={space.name}
       topbarTrailing={
         <>
-          <DownloadPdfButton url={`${window.location.pathname}.pdf`} themed />
+          <DownloadPdfButton url={`${window.location.pathname}.pdf`} themed compact />
           <Button asChild variant="ghost" size="sm">
             <a href="/login">Sign in</a>
           </Button>
@@ -273,6 +322,8 @@ export function PublicReaderView({
 // slide), so this view is purely for humans.
 function PublicDeckView({
   spaceId,
+  handle,
+  spaceSlug,
   spaceName,
   pageId,
   pageTitle,
@@ -280,6 +331,8 @@ function PublicDeckView({
   telaHome,
 }: {
   spaceId: number
+  handle?: string
+  spaceSlug?: string
   spaceName: string
   pageId: number
   pageTitle: string
@@ -310,8 +363,9 @@ function PublicDeckView({
             /
           </span>
           <Link
-            to="/public/spaces/$spaceId"
-            params={{ spaceId }}
+            {...(handle && spaceSlug
+              ? ({ to: '/$handle/$spaceSlug', params: { handle, spaceSlug } } as const)
+              : ({ to: '/public/spaces/$spaceId', params: { spaceId } } as const))}
             className="truncate text-[length:var(--text-sm)] text-[var(--text-muted)] no-underline hover:text-[var(--text-primary)]"
           >
             {spaceName}
@@ -361,17 +415,31 @@ function PublicDeckView({
 // One end of the previous/next post navigation under an article.
 function PostNavLink({
   spaceId,
+  handle,
+  spaceSlug,
   post,
   dir,
 }: {
   spaceId: number
+  handle?: string
+  spaceSlug?: string
   post: PublicPageNode
   dir: 'older' | 'newer'
 }) {
+  const slug = pageSlug(post.title) || undefined
+  const linkProps =
+    handle && spaceSlug
+      ? ({
+          to: '/$handle/$spaceSlug/$pageId/{-$slug}',
+          params: { handle, spaceSlug, pageId: post.id, slug },
+        } as const)
+      : ({
+          to: '/public/spaces/$spaceId/pages/$pageId/{-$slug}',
+          params: { spaceId, pageId: post.id, slug },
+        } as const)
   return (
     <Link
-      to="/public/spaces/$spaceId/pages/$pageId/{-$slug}"
-      params={{ spaceId, pageId: post.id, slug: pageSlug(post.title) || undefined }}
+      {...linkProps}
       className={`reader-postnav-link reader-postnav-${dir}`}
     >
       <span className="reader-postnav-dir">
@@ -388,11 +456,15 @@ function PostNavLink({
 // is bounded in reader.css; long titles truncate rather than ballooning the rail.
 function PublicSpaceNav({
   spaceId,
+  handle,
+  spaceSlug,
   spaceName,
   pages,
   activePageId,
 }: {
   spaceId: number
+  handle?: string
+  spaceSlug?: string
   spaceName: string
   pages: PublicPageNode[]
   activePageId: number
@@ -403,6 +475,8 @@ function PublicSpaceNav({
       <p className="reader-spacenav-title">{spaceName}</p>
       <PublicSpaceNavList
         spaceId={spaceId}
+        handle={handle}
+        spaceSlug={spaceSlug}
         nodes={tree}
         activePageId={activePageId}
       />
@@ -412,12 +486,16 @@ function PublicSpaceNav({
 
 function PublicSpaceNavList({
   spaceId,
+  handle,
+  spaceSlug,
   nodes,
   activePageId,
   onNavigate,
   sub = false,
 }: {
   spaceId: number
+  handle?: string
+  spaceSlug?: string
   nodes: TreeNode<PublicPageNode>[]
   activePageId: number
   /** Fired on a link click — lets the mobile sheet close itself on navigation. */
@@ -429,12 +507,24 @@ function PublicSpaceNavList({
       {nodes.map((node) => (
         <li key={node.id}>
           <Link
-            to="/public/spaces/$spaceId/pages/$pageId/{-$slug}"
-            params={{
-              spaceId,
-              pageId: node.id,
-              slug: pageSlug(node.title) || undefined,
-            }}
+            {...(handle && spaceSlug
+              ? ({
+                  to: '/$handle/$spaceSlug/$pageId/{-$slug}',
+                  params: {
+                    handle,
+                    spaceSlug,
+                    pageId: node.id,
+                    slug: pageSlug(node.title) || undefined,
+                  },
+                } as const)
+              : ({
+                  to: '/public/spaces/$spaceId/pages/$pageId/{-$slug}',
+                  params: {
+                    spaceId,
+                    pageId: node.id,
+                    slug: pageSlug(node.title) || undefined,
+                  },
+                } as const))}
             className="reader-spacenav-link"
             data-active={node.id === activePageId}
             aria-current={node.id === activePageId ? 'page' : undefined}
@@ -446,6 +536,8 @@ function PublicSpaceNavList({
           {node.children.length > 0 ? (
             <PublicSpaceNavList
               spaceId={spaceId}
+              handle={handle}
+              spaceSlug={spaceSlug}
               nodes={node.children}
               activePageId={activePageId}
               onNavigate={onNavigate}
@@ -463,11 +555,15 @@ function PublicSpaceNavList({
 // navigation.
 function PublicSpaceNavSheet({
   spaceId,
+  handle,
+  spaceSlug,
   spaceName,
   pages,
   activePageId,
 }: {
   spaceId: number
+  handle?: string
+  spaceSlug?: string
   spaceName: string
   pages: PublicPageNode[]
   activePageId: number
@@ -494,6 +590,8 @@ function PublicSpaceNavSheet({
           <nav aria-label={`${spaceName} pages`}>
             <PublicSpaceNavList
               spaceId={spaceId}
+              handle={handle}
+              spaceSlug={spaceSlug}
               nodes={tree}
               activePageId={activePageId}
               onNavigate={() => setOpen(false)}

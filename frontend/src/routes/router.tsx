@@ -11,7 +11,8 @@ import {
   useNavigate,
   useParams,
 } from '@tanstack/react-router'
-import { FilePlus, FileQuestion, Menu } from 'lucide-react'
+import { FilePlus, FileQuestion, Menu, PanelLeft } from 'lucide-react'
+import { subscribeToToggleSidebar } from '../lib/sidebarEvent'
 import { AppCommandHost } from '../components/app/AppCommandHost'
 import { SpaceView } from '../components/app/SpaceView'
 import { KeymapHost } from '../components/app/KeymapHost'
@@ -37,6 +38,7 @@ import {
 } from '../components/ui/card'
 import { queryClient } from '../lib/queryClient'
 import { useOrgAccent } from '../lib/useOrgAccent'
+import { useNoindex } from '../lib/useHeadMeta'
 import {
   authKeys,
   fetchMe,
@@ -92,6 +94,7 @@ const rootRoute = createRootRoute({
     )
   },
   notFoundComponent: function NotFound() {
+    useNoindex()
     return (
       <EmptyState
         fullScreen
@@ -129,6 +132,16 @@ const appLayoutRoute = createRoute({
   },
   component: function AppLayout() {
     const [sidebarOpen, setSidebarOpen] = useState(false)
+    // Desktop show/hide for the whole left nav — independent of the mobile
+    // drawer (sidebarOpen). Persisted so it sticks across navigation + reloads;
+    // toggled by the header button and the `\` keybinding (via sidebarEvent).
+    const [collapsed, setCollapsed] = useState(
+      () => localStorage.getItem('tela:sidebar-collapsed') === '1',
+    )
+    useEffect(() => {
+      localStorage.setItem('tela:sidebar-collapsed', collapsed ? '1' : '0')
+    }, [collapsed])
+    useEffect(() => subscribeToToggleSidebar(() => setCollapsed((c) => !c)), [])
     const { pathname } = useLocation()
     // Close the mobile drawer on navigation (e.g. tapping a page link).
     useEffect(() => {
@@ -143,9 +156,14 @@ const appLayoutRoute = createRoute({
       document.addEventListener('keydown', onKey)
       return () => document.removeEventListener('keydown', onKey)
     }, [sidebarOpen])
+    // Desktop: fixed-height shell, chrome pinned, content scrolls an inner
+    // frame. Touch (pointer:coarse): release to natural document scroll so a
+    // pinch-zoomed page can be panned left/right with one finger — Firefox/
+    // Chrome Android won't visual-viewport-pan over an inner scroll frame, only
+    // over the document. See index.css / reader.css coarse overrides.
     return (
-      <div className="h-dvh flex bg-[var(--surface-1)] text-[var(--text-primary)] overflow-hidden">
-        <Sidebar open={sidebarOpen} />
+      <div className="h-dvh flex bg-[var(--surface-1)] text-[var(--text-primary)] overflow-hidden pointer-coarse:h-auto pointer-coarse:min-h-dvh pointer-coarse:overflow-visible">
+        <Sidebar open={sidebarOpen} collapsed={collapsed} />
         {sidebarOpen ? (
           <button
             type="button"
@@ -165,6 +183,17 @@ const appLayoutRoute = createRoute({
               >
                 <Menu size="1.1em" aria-hidden />
               </button>
+              {/* Desktop show/hide of the whole left nav (also `\`). */}
+              <button
+                type="button"
+                aria-label={collapsed ? 'Show sidebar' : 'Hide sidebar'}
+                aria-pressed={collapsed}
+                title={collapsed ? 'Show sidebar (\\)' : 'Hide sidebar (\\)'}
+                className="hidden md:inline-flex items-center justify-center rounded-[var(--radius-xs)] p-[var(--space-1)] text-[var(--text-muted)] hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+                onClick={() => setCollapsed((c) => !c)}
+              >
+                <PanelLeft size="1.1em" aria-hidden />
+              </button>
               <Link
                 to="/"
                 aria-label="tela home"
@@ -183,7 +212,7 @@ const appLayoutRoute = createRoute({
           <TrialBanner />
           <main
             data-page-scroll
-            className="flex-1 flex flex-col overflow-y-auto overscroll-contain min-h-0"
+            className="flex-1 flex flex-col overflow-y-auto overscroll-contain min-h-0 pointer-coarse:overflow-visible"
           >
             <Outlet />
           </main>
@@ -305,13 +334,51 @@ const indexRoute = createRoute({
   ),
 })
 
+// Search state for /settings: the tab, plus the People table's view and the
+// Events tab's deep-link filters (see validateSearch below).
+export interface SettingsSearch {
+  tab?: string
+  window?: string
+  seg?: string
+  by?: string
+  q?: string
+  sort?: string
+  dir?: 'asc' | 'desc'
+  user?: number
+  etypes?: string
+  admins?: 1
+}
+
 const settingsRoute = createRoute({
   getParentRoute: () => appLayoutRoute,
   path: '/settings',
   // `?tab=` deep-links a section so the per-org page can send "← Organizations"
   // back to the right tab. SettingsPage reads it for the initial selection.
-  validateSearch: (search: Record<string, unknown>): { tab?: string } =>
-    typeof search.tab === 'string' ? { tab: search.tab } : {},
+  //
+  // The rest is the People table's view state (window / segment / search / sort)
+  // and the Events tab's deep-link filters (user / etypes / admins). Both live
+  // in the URL so a filtered, sorted finding can be bookmarked and sent to
+  // someone — and so clicking a number in one tab can land you in the other,
+  // already narrowed.
+  validateSearch: (search: Record<string, unknown>): SettingsSearch => {
+    const str = (v: unknown) => (typeof v === 'string' && v !== '' ? v : undefined)
+    const num = (v: unknown) => {
+      const n = typeof v === 'number' ? v : Number(v)
+      return Number.isFinite(n) && n > 0 ? n : undefined
+    }
+    return {
+      tab: str(search.tab),
+      window: str(search.window),
+      seg: str(search.seg),
+      by: str(search.by),
+      q: str(search.q),
+      sort: str(search.sort),
+      dir: search.dir === 'asc' || search.dir === 'desc' ? search.dir : undefined,
+      user: num(search.user),
+      etypes: str(search.etypes),
+      admins: search.admins === 1 || search.admins === '1' ? 1 : undefined,
+    }
+  },
   component: lazyRouteComponent(() => import('./settings'), 'SettingsPage'),
 })
 
@@ -750,6 +817,18 @@ const publicReaderRoute = createRoute({
   component: lazyRouteComponent(() => import('./public'), 'PublicReaderRoute'),
 })
 
+// The shareable file page: /f/{hash}[/{name}]. Child of rootRoute (NO ensureMe
+// gate) — the blob behind it is public-by-URL, so the page around it is too. One
+// route matches both shapes via the optional name, which is decorative: the hash
+// prefix resolves the file, so a renamed/re-shared copy still lands. Registered
+// BEFORE the handle routes so /f never looks like a handle. Lazy — it pulls in
+// pdf.js on demand.
+const fileRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/f/$hash/{-$name}',
+  component: lazyRouteComponent(() => import('./file'), 'FileRoute'),
+})
+
 // Unified GitHub-style handle routes. Children of rootRoute (NO ensureMe gate —
 // a handle's public spaces are readable logged-out). These are the catch-all-ish
 // root routes: a single `/$handle` segment and `/$handle/$spaceSlug`. They MUST
@@ -768,6 +847,31 @@ const publicHandleSpaceRoute = createRoute({
   component: lazyRouteComponent(
     () => import('./public'),
     'PublicHandleSpaceRoute',
+  ),
+})
+
+// A page inside a public space: /{handle}/{space-slug}/{pageId}[/{slug}]. The
+// numeric pageId resolves the page; the slug is decorative (regenerated from the
+// current title), so a link shared before a retitle still lands correctly — the
+// same guarantee /p/{id}/{slug} and the id-form reader already give.
+const publicHandlePageRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/$handle/$spaceSlug/$pageId/{-$slug}',
+  parseParams: (raw) => ({
+    handle: raw.handle,
+    spaceSlug: raw.spaceSlug,
+    pageId: Number(raw.pageId),
+    slug: raw.slug,
+  }),
+  stringifyParams: (params) => ({
+    handle: params.handle,
+    spaceSlug: params.spaceSlug,
+    pageId: String(params.pageId),
+    slug: params.slug,
+  }),
+  component: lazyRouteComponent(
+    () => import('./public'),
+    'PublicHandlePageRoute',
   ),
 })
 
@@ -796,10 +900,12 @@ const routeTree = rootRoute.addChildren([
   publicSpaceIndexRoute,
   publicReaderRoute,
   printRoute,
+  fileRoute,
   // Registered AFTER every explicit route so a static path (/login, /discover,
-  // /share, /public, …) always out-matches the single-segment handle route.
+  // /share, /public, /f, …) always out-matches the single-segment handle route.
   publicHandleRoute,
   publicHandleSpaceRoute,
+  publicHandlePageRoute,
   appLayoutRoute.addChildren([
     indexRoute,
     quickNotesRoute,

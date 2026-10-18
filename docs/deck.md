@@ -46,8 +46,30 @@ Page-scoped, **membership-gated** (`requirePageRead`): not in `IsPublicPath`.
 GET  /api/pages/{id}/deck/spa/{path...}   live SPA (Present) — proxies sidecar /spa
 GET  /api/pages/{id}/deck/outline         structure only (editor outline) — /parse
 POST /api/pages/{id}/deck/parse           parse a draft (editor outline)
+POST /api/pages/{id}/deck/lint            validate a draft (editor advisory)
 GET  /api/pages/{id}/deck.pdf | .pptx     export (Chromium)
+GET  /api/pages/{id}/deck.md              raw Slidev source (verbatim body)
 ```
+
+`/deck/lint` is the **human** half of the validation story. Agent writes are
+*gated* (`deckWriteGate` rejects a deck with lint errors — an agent ships and
+walks away), but a human autosaves keystroke-by-keystroke through transiently
+broken states, so their saves are deliberately never blocked. That left them with
+no signal at all: a structural error stayed invisible until Present failed to
+build, a long way from the keystroke that caused it. This route runs the same
+tahta-lint report over the live editor buffer and `DeckEditorOutline` shows the
+issues beside the slide list — advisory, never blocking, and silently absent if
+the sidecar is down.
+
+`deck.md` (`ExportPageDeckMarkdown`) hands back the deck **body verbatim** — the
+real Slidev source, headmatter and all, asset URLs absolutized so images resolve
+off-origin — for running in a standalone Slidev (the reader supplies the
+`slidev-theme-tahta` look itself). It's deliberately *not* the generic `/md`
+export, which prepends a tela frontmatter block (id/title/link/…) for round-trip
+and would give a deck two headmatter blocks. Bundling a runnable project
+(package.json pinning slidev + tahta, theme baked into headmatter) is a
+considered non-goal — it would fork tahta's themeConfig schema into tela; if
+built, it belongs behind a tahta sidecar endpoint so the schema stays in tahta.
 
 The **generic page-export routes are deck-aware**: `GET /api/pages/{id}/pdf` and
 the share-link `GET /api/share/{token}/pdf` (`pdf_export.go`) detect a deck

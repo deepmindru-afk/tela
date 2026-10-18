@@ -2,9 +2,11 @@ package api
 
 import (
 	"context"
+	"crypto/ed25519"
 	"database/sql"
 	"log/slog"
 	"os"
+	"strings"
 	"sync/atomic"
 
 	"github.com/zcag/tela/backend/internal/agreement"
@@ -14,6 +16,7 @@ import (
 	"github.com/zcag/tela/backend/internal/llm"
 	"github.com/zcag/tela/backend/internal/mailer"
 	"github.com/zcag/tela/backend/internal/rag"
+	"github.com/zcag/tela/backend/internal/secretbox"
 	"github.com/zcag/tela/backend/internal/settings"
 	"github.com/zcag/tela/backend/internal/summarize"
 )
@@ -56,6 +59,14 @@ type Server struct {
 	// ask-your-docs) per ACCOUNT so a single entitled PAT can't hammer paid
 	// LLM/embedder compute into an unbounded bill or DoS the shared clients.
 	cloudLimiter *authRateLimiter
+
+	// embedLimiter throttles the semantic-retrieval embed paths (research /
+	// semantic search / suggest-links) per ACCOUNT. The shared embedder is the
+	// scarcest resource on a single-box instance and these paths are otherwise
+	// ungated; a separate budget from cloudLimiter so the two don't collide.
+	embedLimiter *authRateLimiter
+	// apiKeyLimiter bounds every bearer request per PAT (auth.Middleware).
+	apiKeyLimiter *authRateLimiter
 
 	// clientErrorLimiter throttles the browser error-report beacon
 	// (/api/client-errors) per user so a tab stuck in an error loop can't flood
@@ -149,6 +160,18 @@ type Server struct {
 	// entitled() and mutated at runtime by the admin License API, so it's atomic.
 	license atomic.Pointer[ee.License]
 
+	// licenseSigner is the vendor's ed25519 PRIVATE key (TELA_LICENSE_SIGNING_KEY),
+	// set only on the managed-cloud issuer so it can MINT self-host Enterprise keys
+	// on purchase (selfhost_license.go). nil everywhere else — a self-hosted
+	// instance verifies keys, it never signs them. Guard every use on it being set.
+	licenseSigner ed25519.PrivateKey
+
+	// selfHostProductID is the Polar product UUID for the self-serve self-host
+	// Enterprise license (TELA_POLAR_SELFHOST_PRODUCT). Kept OUT of the plan
+	// product map so the plan reconciler ignores it; the webhook routes its events
+	// to reconcileSelfHostLicense instead. "" → self-host license sales disabled.
+	selfHostProductID string
+
 	// managedCloud marks THIS instance as the managed cloud (Polar billing on, or
 	// TELA_CLOUD=1). On the cloud the account's plan flag is an authoritative
 	// entitlement; on self-host it is NOT (plan_key is freely admin-assignable),
@@ -160,6 +183,9 @@ type Server struct {
 	// appending to a replayable event log, the SSE handler tails it, and a
 	// reconnect re-attaches by id. Never nil — built in New(). See ask_job.go.
 	askJobs *askStore
+
+	// updates holds the last self-host update check (update_check.go).
+	updates updateChecker
 }
 
 func New(db *sql.DB) *Server {
@@ -178,6 +204,17 @@ func New(db *sql.DB) *Server {
 		slog.Error("settings: init api-key secret", "err", err)
 		os.Exit(1)
 	}
+	// Resolve the credential encryption key the same way (env → persisted →
+	// generated-and-persisted). Must run before any handler seals or opens a
+	// stored credential; see internal/secretbox.
+	if err := secretbox.Init(ctx, st); err != nil {
+		// Boot-fatal: without a stable key, stored credentials are unreadable.
+		slog.Error("settings: init credential key", "err", err)
+		os.Exit(1)
+	}
+	// Seed the self-registration default from env on first boot (packaged
+	// deploys like Umbrel ship it closed); a later admin toggle overrides it.
+	seedRegistrationDefault(ctx, st)
 	s := &Server{
 		DB:                 db,
 		settings:           st,
@@ -185,11 +222,13 @@ func New(db *sql.DB) *Server {
 		shareSecret:        resolveShareSecret(ctx, st),
 		shareLimiter:       newShareRateLimiter(),
 		auditWriter:        auth.NewAuditWriter(db),
-		Mailer:             mailer.FromEnv(),
+		Mailer:             meteredMailer{inner: mailer.FromEnv()},
 		authLimiter:        newAuthRateLimiter(authRateWindow, authRateLimit),
 		loginLimiter:       newAuthRateLimiter(loginRateWindow, loginRateLimit),
 		unfurlLimiter:      newAuthRateLimiter(unfurlRateWindow, unfurlRateLimit),
 		cloudLimiter:       newAuthRateLimiter(cloudRateWindow, cloudRateLimit),
+		embedLimiter:       newAuthRateLimiter(embedRateWindow, resolveEmbedRateLimit()),
+		apiKeyLimiter:      newAuthRateLimiter(apiKeyRateWindow, resolveRateLimit("TELA_API_KEY_RATE_LIMIT", apiKeyRateLimitDefault)),
 		clientErrorLimiter: newAuthRateLimiter(clientErrorRateWindow, clientErrorRateLimit),
 		davDeletes:         newDavDeleteGuard(),
 		rag:                rag.NewService(db, rag.ConfigFromEnv()),
@@ -206,6 +245,7 @@ func New(db *sql.DB) *Server {
 	s.llm.SetUsageRecorder(func(model string, in, out int) {
 		s.recordAIUsage("chat", model, in, out, 0)
 	})
+	s.llm.SetSpillRecorder(func() { aiForegroundSpills.Inc() })
 	s.rag.SetUsageRecorder(func(model string, in int) {
 		s.recordAIUsage("embed", model, in, 0, 0)
 	})
@@ -220,6 +260,21 @@ func New(db *sql.DB) *Server {
 	// nil on the cloud + unlicensed self-host. See license.go.
 	s.loadLicense(ctx)
 	s.warnSelfHostSSO(ctx)
+	s.warnSelfHostSeats(ctx)
+	// Self-host only: auto-pull a renewed Enterprise key from the cloud so it
+	// doesn't lapse without a manual re-paste. No-op on cloud / without a key.
+	if !s.managedCloud {
+		go s.licenseRefreshLoop(context.Background())
+	}
+	// Self-host only: daily check for a newer tela release (sends only the version).
+	if s.updateCheckApplies() {
+		go s.updateCheckLoop(context.Background())
+	}
+	// Managed-cloud issuer config: the private signing key + the self-host license
+	// Polar product. Set only on the cloud; nil/"" elsewhere (self-serve issuance
+	// then no-ops). See selfhost_license.go.
+	s.loadLicenseSigner()
+	s.selfHostProductID = strings.TrimSpace(os.Getenv("TELA_POLAR_SELFHOST_PRODUCT"))
 
 	// Guard against a Polar reprice silently diverging from the plans table (we'd
 	// charge a price the UI never shows). Background — a few API calls, advisory
@@ -242,8 +297,16 @@ func New(db *sql.DB) *Server {
 	go s.loginLimiter.sweepLoop(context.Background())
 	go s.unfurlLimiter.sweepLoop(context.Background())
 	go s.cloudLimiter.sweepLoop(context.Background())
+	go s.embedLimiter.sweepLoop(context.Background())
+	go s.apiKeyLimiter.sweepLoop(context.Background())
 	go s.clientErrorLimiter.sweepLoop(context.Background())
 	go s.davDeletes.sweepLoop(context.Background())
+	// Weekly digest sender — daily tick, per-user 7-day cadence. No-op until a
+	// user opts in (digest_frequency defaults to 'off').
+	go s.digestLoop(context.Background())
+	// Trial lifecycle observer — records the ending/expiry moments that are
+	// otherwise derived and therefore invisible (billing_trial_sweep.go).
+	go s.startTrialSweep(context.Background())
 	// Admin AI kill-switch (ai.disabled): pause EVERY background AI worker so a
 	// maintenance window on the AI backend isn't hammered by indexing, summaries,
 	// or agreement. Each worker leaves its queue intact and resumes (+ stale-sweep

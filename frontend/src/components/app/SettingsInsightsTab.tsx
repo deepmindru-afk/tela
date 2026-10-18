@@ -1,10 +1,14 @@
+import { useState } from 'react'
 import { ArrowDownRight, ArrowUpRight, ExternalLink, Info } from 'lucide-react'
 import { navigateToPage } from '../../lib/pageHitItem'
+import { IncludeAdminsToggle } from './IncludeAdminsToggle'
 import { useAIUsage } from '../../lib/queries/ai-usage'
-import { useAIEndpoints, type AIEndpointHealth } from '../../lib/queries/ai-endpoints'
+import { useAIEndpoints, type AIEndpointHealth, type AIGate } from '../../lib/queries/ai-endpoints'
 import {
   useAdminStats,
+  type AdminStats,
   type StatsSignup,
+  type StatsSignupSource,
   type StatsTopPage,
   type StatsTopPerson,
   type StatsTopSpace,
@@ -13,6 +17,7 @@ import {
 import { Avatar, type AvatarTone } from '../ui/avatar'
 import { Card, CardBody, CardDescription, CardHeader, CardTitle } from '../ui/card'
 import { CoverageGauge } from '../ui/coverage-gauge'
+import { DayBars } from '../ui/day-bars'
 import { Sparkline } from '../ui/sparkline'
 import { StatusBadge } from '../ui/status-badge'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../ui/tooltip'
@@ -34,28 +39,41 @@ const newInWeek = (cum: number[]) =>
   cum.length >= 8 ? cum[cum.length - 1] - cum[cum.length - 8] : (cum[cum.length - 1] ?? 0) - (cum[0] ?? 0)
 
 export function SettingsInsightsTab() {
-  const q = useAdminStats()
-
-  if (q.isLoading) return <InsightsSkeleton />
-  if (q.isError || !q.data) {
-    return (
-      <p role="alert" className="m-0 text-[length:var(--text-sm)] text-[var(--danger)]">
-        Couldn't load insights.
-      </p>
-    )
-  }
-  const s = q.data
-  const answerRate = s.asks_30 > 0 ? s.asks_answered_30 / s.asks_30 : 0
-  const activation = s.users > 0 ? s.activated / s.users : 0
+  // Admin activity is excluded from the aggregates by default — the operator's own
+  // views/edits/asks otherwise drown the real signal. The toggle re-includes it.
+  const [includeAdmins, setIncludeAdmins] = useState(false)
+  const q = useAdminStats(includeAdmins)
 
   return (
     <TooltipProvider delayDuration={150}>
       <section aria-labelledby="settings-insights" className="flex flex-col gap-[var(--space-6)]">
-        <p className="m-0 text-[length:var(--text-sm)] text-[var(--text-muted)] leading-[var(--leading-relaxed)]">
-          A live read on the instance. Trends are daily over the last 30 days; deltas
-          compare the last 7 days with the 7 before.
-        </p>
+        <div className="flex items-start justify-between gap-[var(--space-3)]">
+          <p className="m-0 text-[length:var(--text-sm)] text-[var(--text-muted)] leading-[var(--leading-relaxed)]">
+            A live read on the instance. Trends are daily over the last 30 days; deltas
+            compare the last 7 days with the 7 before.
+          </p>
+          <IncludeAdminsToggle checked={includeAdmins} onChange={setIncludeAdmins} />
+        </div>
+        {q.isLoading ? (
+          <InsightsSkeleton />
+        ) : q.isError || !q.data ? (
+          <p role="alert" className="m-0 text-[length:var(--text-sm)] text-[var(--danger)]">
+            Couldn't load insights.
+          </p>
+        ) : (
+          <InsightsBody s={q.data} />
+        )}
+      </section>
+    </TooltipProvider>
+  )
+}
 
+function InsightsBody({ s }: { s: AdminStats }) {
+  const answerRate = s.asks_30 > 0 ? s.asks_answered_30 / s.asks_30 : 0
+  const activation = s.users > 0 ? s.activated / s.users : 0
+
+  return (
+    <>
         {/* At a glance */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-[var(--space-3)]">
           <Kpi
@@ -113,6 +131,47 @@ export function SettingsInsightsTab() {
             <Panel title="Recent signups" empty="No signups yet.">
               {s.recent_signups.map((u) => (
                 <SignupRow key={u.user_id} u={u} />
+              ))}
+            </Panel>
+          </div>
+          {/* When they joined, beside where they came from. Per day, not
+              cumulative: "how many joined on the 4th" is a count, and the growth
+              curve only implies it. */}
+          <div className="mt-[var(--space-5)] grid gap-[var(--space-4)] lg:grid-cols-[2fr_1fr] items-start">
+            <div className="flex flex-col gap-[var(--space-2)]">
+              <div className="flex items-baseline justify-between gap-[var(--space-3)]">
+                <span className="text-[length:var(--text-xs)] text-[var(--text-muted)]">
+                  New accounts per day · last 30 days
+                </span>
+                <span className="text-[length:var(--text-xs)] text-[var(--text-muted)] tabular-nums">
+                  busiest day {nf(Math.max(0, ...s.signups))} · {nf(sum(s.signups))} total
+                </span>
+              </div>
+              <span className="block w-full text-[var(--accent)]">
+                <DayBars
+                  values={s.signups}
+                  labels={s.days}
+                  height={56}
+                  ariaLabel="New accounts per day over the last 30 days"
+                  format={(v, d) => `${d}: ${v} ${v === 1 ? 'signup' : 'signups'}`}
+                />
+              </span>
+            </div>
+            {/* Where those accounts came from. Attribution is first-touch, read
+                off the landing cookie at signup, so it only exists for accounts
+                created since it shipped — the caption says how many of the
+                cohort it covers rather than letting the rest read as 'direct'. */}
+            <Panel
+              title="Signup sources · 30d"
+              empty="No attributed signups yet."
+              note={
+                s.signup_sources_known > 0
+                  ? `${nf(s.signup_sources_known)} of ${nf(s.new_users_30)} new accounts attributed`
+                  : undefined
+              }
+            >
+              {s.signup_sources.map((src, i) => (
+                <SignupSourceRow key={src.source} s={src} rank={i + 1} />
               ))}
             </Panel>
           </div>
@@ -203,8 +262,7 @@ export function SettingsInsightsTab() {
             <Health label="Contradictions" value={s.contradictions} sub="pages that disagree" warn={s.contradictions > 0} />
           </div>
         </Section>
-      </section>
-    </TooltipProvider>
+    </>
   )
 }
 
@@ -329,12 +387,17 @@ function Hint({ text }: { text: string }) {
   )
 }
 
-function Panel({ title, empty, children }: { title: string; empty: string; children: React.ReactNode[] }) {
+// `note` is an optional caption under the title — for a panel whose numbers
+// need a denominator to be read honestly.
+function Panel({ title, empty, note, children }: { title: string; empty: string; note?: string; children: React.ReactNode[] }) {
   return (
     <div className="flex flex-col gap-[var(--space-2)] rounded-[var(--radius-md)] border border-[var(--border-subtle)] bg-[var(--surface-1)] p-[var(--space-3)]">
       <span className="text-[length:var(--text-xs)] font-medium uppercase tracking-wide text-[var(--text-muted)]">
         {title}
       </span>
+      {note ? (
+        <span className="text-[length:var(--text-xs)] text-[var(--text-muted)]">{note}</span>
+      ) : null}
       {children.length > 0 ? (
         <ul className="m-0 p-0 list-none flex flex-col gap-[var(--space-2)]">{children}</ul>
       ) : (
@@ -417,6 +480,16 @@ function SpaceRow({ s, rank }: { s: StatsTopSpace; rank: number }) {
   )
 }
 
+function SignupSourceRow({ s, rank }: { s: StatsSignupSource; rank: number }) {
+  return (
+    <li className="flex items-center gap-[var(--space-2)] text-[length:var(--text-sm)]">
+      <Rank n={rank} />
+      <span className="min-w-0 flex-1 truncate text-[var(--text-primary)]" title={s.source}>{s.source}</span>
+      <Count>{nf(s.count)}</Count>
+    </li>
+  )
+}
+
 function SignupRow({ u }: { u: StatsSignup }) {
   const name = u.display_name || u.username
   return (
@@ -477,6 +550,7 @@ function AIReliabilitySection() {
           <EndpointCard key={s.service} s={s} probed={d.probed} relief={d.relief_proxy} />
         ))}
       </div>
+      {d.gate ? <GateStrip g={d.gate} /> : null}
       {d.grafana_url ? (
         <a
           href={d.grafana_url}
@@ -526,6 +600,33 @@ function EndpointCard({ s, probed, relief }: { s: AIEndpointHealth; probed: bool
       {probed && !s.healthy && s.reason ? (
         <p className="m-0 text-[length:var(--text-xs)] text-[var(--danger)] break-words">{s.reason}</p>
       ) : null}
+    </div>
+  )
+}
+
+// GateStrip — the foreground (ask/assist) concurrency gate: the cap before an
+// overloaded primary spills to the relief layer, the live in-flight count, and
+// how often it has spilled. Down-failover volume is NOT here (LiteLLM owns that —
+// see the Grafana link); this is purely the overload gate.
+function GateStrip({ g }: { g: AIGate }) {
+  return (
+    <div className="mt-[var(--space-3)] flex flex-col gap-[var(--space-2)] rounded-[var(--radius-md)] border border-[var(--border-subtle)] bg-[var(--surface-1)] p-[var(--space-3)]">
+      <span className="text-[length:var(--text-sm)] font-medium text-[var(--text-primary)]">
+        Foreground concurrency gate
+      </span>
+      <dl className="m-0 grid grid-cols-3 gap-x-[var(--space-3)] gap-y-[var(--space-1)]">
+        <EndpointField label="Limit" value={String(g.limit)} />
+        <EndpointField label="In flight" value={String(g.in_flight)} />
+        <EndpointField
+          label="Spilled to relief"
+          value={g.overflow ? g.spills.toLocaleString() : 'no target'}
+        />
+      </dl>
+      <p className="m-0 text-[length:var(--text-xs)] text-[var(--text-muted)]">
+        {g.overflow
+          ? 'Ask/assist cap on the primary; the surplus spills to the relief layer when saturated.'
+          : 'Ask/assist cap on the primary; with no spill target a full gate queues rather than failing over.'}
+      </p>
     </div>
   )
 }

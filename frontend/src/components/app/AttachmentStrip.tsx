@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
-import { Download, FileText, Paperclip, Trash2, CornerLeftUp } from 'lucide-react'
+import { Check, Download, FileText, Link2, Paperclip, Trash2, CornerLeftUp } from 'lucide-react'
 import { cn } from '../../lib/utils'
 import { isPdf, PdfPreviewDialog } from '../ui/pdf-viewer'
 import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip'
@@ -148,7 +148,17 @@ function AttachmentChip({
   const image = isImageMime(a.mime)
   const pdf = isPdf(a.name, a.mime)
   const [preview, setPreview] = useState(false)
+  const [copied, setCopied] = useState(false)
   const summary = a.summary?.trim()
+  // Copy the FILE PAGE link, not the blob URL: /api/files/… downloads on click
+  // and unfurls as nothing wherever it's pasted. The path is server-computed
+  // (share_path) so a custom domain shares as itself.
+  const copyLink = async () => {
+    if (!navigator.clipboard?.writeText) return
+    await navigator.clipboard.writeText(window.location.origin + a.share_path)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 1500)
+  }
   const inner = (
     <>
       {image ? (
@@ -210,6 +220,19 @@ function AttachmentChip({
           onOpenChange={setPreview}
         />
       ) : null}
+      <button
+        type="button"
+        onClick={() => void copyLink()}
+        aria-label={`Copy a link to ${a.name}`}
+        title="Copy link"
+        className="shrink-0 text-[var(--text-muted)] hover:text-[var(--text-primary)]"
+      >
+        {copied ? (
+          <Check width={13} height={13} aria-hidden />
+        ) : (
+          <Link2 width={13} height={13} aria-hidden />
+        )}
+      </button>
       {a.embedded ? (
         <CornerLeftUp
           aria-label="Embedded in page"

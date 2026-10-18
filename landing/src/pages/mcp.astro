@@ -1,7 +1,7 @@
 ---
 import Prose from '../layouts/Prose.astro';
 
-// Tool roster mirrors backend/internal/api/mcp_tools.go (39 tools). Keep in sync
+// Tool roster mirrors backend/internal/api/mcp_tools.go (43 tools). Keep in sync
 // when the tool surface changes. Note: the meaning/answer tool is `research`
 // (semantic, cited) and `search` is keyword full-text — there is no
 // `semantic_search`/`search_bodies` tool.
@@ -11,10 +11,13 @@ const readTools = [
   ['list_pages', 'List pages in a space, as a tree.'],
   ['get_page', 'Read a page (canonical markdown).'],
   ['list_backlinks', 'Pages that link to a given page.'],
+  ['list_page_revisions', 'A page\'s revision history, trashed pages included.'],
+  ['get_page_revision', 'Read one past revision of a page.'],
   ['read_chunk', 'Read a specific section of a page.'],
   ['search', 'Keyword full-text search across pages (no embedder needed).'],
   ['research', 'Semantic, answer-oriented retrieval with cited sources.'],
-  ['fetch', 'Fetch a document by id (Deep Research).'],
+  ['fetch', 'Fetch a page\'s full text by id; companion to search.'],
+  ['import_guide', 'The guide for bulk-importing a folder of documents into a space.'],
 ];
 const writeTools = [
   ['create_space', 'Create a new space.'],
@@ -26,6 +29,7 @@ const writeTools = [
   ['move_page', 'Re-parent or reorder a page.'],
   ['delete_page', 'Delete a page.'],
   ['add_comment', 'Comment on a page.'],
+  ['invite_to_space', 'Give someone access to a space by email — grants it if they have an account, otherwise sends an invitation.'],
   ['submit_feedback', 'Send feedback to the maintainers.'],
 ];
 const knowledgeTools = [
@@ -38,6 +42,10 @@ const atlasTools = [
   ['atlas_list_projects', 'List Atlas projects you can manage or view.'],
   ['atlas_run', 'Trigger an Atlas run — generate or refresh a source.'],
   ['atlas_run_status', 'Check a run — stage, status, and coverage.'],
+];
+const sheetTools = [
+  ['edit_sheet', 'Edit a spreadsheet — set cells, add rows, apply formulas.'],
+  ['sheet_authoring_guide', 'The guide for authoring tela spreadsheets — the table format, formulas, and styling.'],
 ];
 const deckTools = [
   ['preview_deck', 'Render a deck to preview its slides.'],
@@ -122,9 +130,18 @@ const shareTools = [
 
   <h3>ChatGPT</h3>
   <p>
-    In ChatGPT's connector / Developer Mode settings, add a connector with the
-    endpoint URL above and complete the OAuth sign-in. tela also exposes the
+    tela is listed in ChatGPT's plugin directory — open
+    <a href="https://chatgpt.com/plugins/plugin_asdk_app_6a22ce5f60dc8191a56bf3f66890b1cf"
+       target="_blank" rel="noopener">Tela</a>
+    and click <strong>Install plugin</strong>, then sign in with your tela
+    account. Nothing to paste, and no Developer Mode. tela also exposes the
     <code>search</code> + <code>fetch</code> pair used by Deep Research.
+  </p>
+  <p>
+    The directory plugin connects to the hosted service. To point ChatGPT at a
+    <strong>self-hosted</strong> instance, add a custom connector in ChatGPT's
+    Developer Mode settings with your own <code>/api/mcp</code> URL and complete
+    the OAuth sign-in.
   </p>
 
   <h3>Any MCP client (npm proxy)</h3>
@@ -147,6 +164,89 @@ const shareTools = [
   <p>
     Modern hosts that speak Streamable HTTP can skip the proxy and connect to
     <code>/api/mcp</code> directly.
+  </p>
+
+  <h2>Install</h2>
+
+  <h3>One-click</h3>
+  <p>
+    Add the HTTP endpoint to an editor in one click — OAuth handles sign-in on
+    first use, so no token goes in the link:
+  </p>
+  <div class="install-buttons" role="group" aria-label="One-click MCP install">
+    <a
+      class="install-btn"
+      href="cursor://anysphere.cursor-deeplink/mcp/install?name=tela&config=eyJ1cmwiOiJodHRwczovL3RlbGF3aWtpLmNvbS9hcGkvbWNwIn0="
+      >Add to Cursor</a
+    >
+    <a
+      class="install-btn"
+      href="https://insiders.vscode.dev/redirect/mcp/install?name=tela&config=%7B%22type%22%3A%22http%22%2C%22url%22%3A%22https%3A%2F%2Ftelawiki.com%2Fapi%2Fmcp%22%7D"
+      >Add to VS Code</a
+    >
+  </div>
+
+  <h3>Per-client setup</h3>
+  <p>
+    HTTP-transport hosts connect to the endpoint directly and sign in via OAuth;
+    stdio-only hosts use the <code>tela-mcp</code> proxy with a PAT
+    (<code>TELA_BASE_URL</code> + <code>TELA_API_KEY</code>).
+  </p>
+
+  <h4>Claude Code (CLI, HTTP)</h4>
+  <pre tabindex="0" aria-label="Claude Code install command"><code>{`claude mcp add --transport http tela https://telawiki.com/api/mcp`}</code></pre>
+
+  <h4>Cursor (HTTP)</h4>
+  <p>Use the button above, or add to <code>~/.cursor/mcp.json</code>:</p>
+  <pre tabindex="0" aria-label="Cursor configuration"><code>{`{ "mcpServers": { "tela": { "url": "https://telawiki.com/api/mcp" } } }`}</code></pre>
+
+  <h4>VS Code (HTTP)</h4>
+  <p>Use the button above, or from the command line:</p>
+  <pre tabindex="0" aria-label="VS Code install command"><code>{`code --add-mcp '{"name":"tela","type":"http","url":"https://telawiki.com/api/mcp"}'`}</code></pre>
+
+  <h4>ChatGPT (plugin directory)</h4>
+  <p>
+    Install
+    <a href="https://chatgpt.com/plugins/plugin_asdk_app_6a22ce5f60dc8191a56bf3f66890b1cf"
+       target="_blank" rel="noopener">Tela</a>
+    from the directory and sign in — no URL to paste.
+  </p>
+
+  <h4>Claude.ai / self-hosted ChatGPT (OAuth connector)</h4>
+  <p>Add a custom connector, paste the URL, and complete the sign-in:</p>
+  <pre tabindex="0" aria-label="OAuth connector URL"><code>{`https://telawiki.com/api/mcp`}</code></pre>
+
+  <h4>Claude Desktop (stdio proxy)</h4>
+  <p>In <code>claude_desktop_config.json</code>:</p>
+  <pre tabindex="0" aria-label="Claude Desktop configuration"><code>{`{
+  "mcpServers": {
+    "tela": {
+      "command": "npx",
+      "args": ["-y", "tela-mcp"],
+      "env": {
+        "TELA_BASE_URL": "https://telawiki.com",
+        "TELA_API_KEY": "<your personal access token>"
+      }
+    }
+  }
+}`}</code></pre>
+
+  <h4>Windsurf (stdio proxy)</h4>
+  <p>
+    In <code>~/.codeium/windsurf/mcp_config.json</code>, using the same
+    <code>mcpServers</code> shape as Claude Desktop above.
+  </p>
+
+  <h4>Codex (stdio proxy)</h4>
+  <p>In <code>~/.codex/config.toml</code>:</p>
+  <pre tabindex="0" aria-label="Codex configuration"><code>{`[mcp_servers.tela]
+command = "npx"
+args = ["-y", "tela-mcp"]
+env = { TELA_BASE_URL = "https://telawiki.com", TELA_API_KEY = "<your personal access token>" }`}</code></pre>
+
+  <p>
+    A machine-discovery manifest is published at
+    <a href="/.well-known/mcp.json"><code>/.well-known/mcp.json</code></a>.
   </p>
 
   <h2>Tools</h2>
@@ -183,6 +283,13 @@ const shareTools = [
   <h3>Atlas</h3>
   <ul class="tool-grid">
     {atlasTools.map(([name, desc]) => (
+      <li><code>{name}</code><span class="desc">{desc}</span></li>
+    ))}
+  </ul>
+
+  <h3>Sheets</h3>
+  <ul class="tool-grid">
+    {sheetTools.map(([name, desc]) => (
       <li><code>{name}</code><span class="desc">{desc}</span></li>
     ))}
   </ul>
@@ -262,5 +369,11 @@ const shareTools = [
     Report security vulnerabilities privately to
     <a href="mailto:tela@telawiki.com">tela@telawiki.com</a> — please don't open a
     public issue for security reports.
+  </p>
+
+  <h2>See also</h2>
+  <p>
+    New to tela? See <a href="/">how tela works</a>, or
+    <a href="/compare/">compare tela with Notion, Confluence, Docmost and other wikis</a>.
   </p>
 </Prose>

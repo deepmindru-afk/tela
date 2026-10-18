@@ -112,11 +112,25 @@ func main() {
 		case "set-plan":
 			runSetPlan(d, os.Args[2:])
 			return
+		case "grant":
+			runGrant(d, os.Args[2:])
+			return
+		case "credits":
+			runCredits(d, os.Args[2:])
+			return
+		case "rewrap-credentials":
+			// Seal credentials still stored as plaintext (rows predating
+			// internal/secretbox). Idempotent; safe to re-run.
+			runRewrapCredentials(d)
+			return
 		case "list-users":
 			runListUsers(d)
 			return
+		case "digest":
+			runDigest(d, os.Args[2:])
+			return
 		default:
-			fatal("unknown subcommand (known: reindex-all, summarize-all, rag-eval, ask-eval, create-admin, set-plan, list-users)", "subcommand", os.Args[1])
+			fatal("unknown subcommand (known: reindex-all, summarize-all, rag-eval, ask-eval, create-admin, set-plan, grant, credits, list-users, digest, rewrap-credentials)", "subcommand", os.Args[1])
 		}
 	}
 
@@ -156,6 +170,8 @@ func main() {
 	auth.StartAuditGC(rootCtx, d)
 	// Unified events-feed retention GC (TELA_EVENTS_RETENTION_DAYS, default 180d).
 	api.StartEventsGC(rootCtx, d)
+	// Trash retention sweep — OFF unless TELA_TRASH_RETENTION_DAYS is set.
+	api.StartTrashGC(rootCtx, d)
 	// Background AI-health prober: pings the embedder + chat model on a timer so
 	// host-context's ai_available reflects real reachability and the "AI
 	// unavailable" header appears automatically during an outage. No-op (cheap
@@ -280,6 +296,76 @@ func runSummarizeAll(d *sql.DB, args []string) {
 	}
 	if sum.Failed > 0 {
 		slog.Warn("summarize-all: completed with failures", "failed_pages", sum.Failed)
+	}
+}
+
+// runDigest drives the weekly-digest CLI:
+//
+//	tela digest preview <username|id> [--out file]   render one user's digest HTML
+//	tela digest run [--dry-run]                       run the due-send job now
+//	tela digest enable|disable <username|id>          set a user's frequency
+func runDigest(d *sql.DB, args []string) {
+	if len(args) == 0 {
+		fatal("usage: tela digest preview <user> [--out f] | run [--dry-run] | enable|disable <user>")
+	}
+	srv := api.New(d)
+	ctx := context.Background()
+	switch args[0] {
+	case "preview":
+		if len(args) < 2 {
+			fatal("usage: tela digest preview <username|id> [--out file]")
+		}
+		out := ""
+		for i := 2; i < len(args); i++ {
+			if args[i] == "--out" && i+1 < len(args) {
+				out = args[i+1]
+				i++
+			}
+		}
+		html, err := srv.RenderDigestForUser(ctx, args[1])
+		if err != nil {
+			fatal("digest preview", "err", err)
+		}
+		if out != "" {
+			if err := os.WriteFile(out, []byte(html), 0o644); err != nil {
+				fatal("digest preview: write", "err", err)
+			}
+			slog.Info("digest preview written", "user", args[1], "file", out)
+		} else {
+			fmt.Print(html)
+		}
+	case "run":
+		dry := false
+		for _, a := range args[1:] {
+			if a == "--dry-run" {
+				dry = true
+			}
+		}
+		n, err := srv.SendDueDigests(ctx, dry)
+		if err != nil {
+			fatal("digest run", "err", err)
+		}
+		slog.Info("digest run complete", "sent", n, "dry_run", dry)
+	case "enable", "disable":
+		if len(args) < 2 {
+			fatal("usage: tela digest " + args[0] + " <username|id>")
+		}
+		freq := "weekly"
+		if args[0] == "disable" {
+			freq = "off"
+		}
+		res, err := d.ExecContext(ctx,
+			`UPDATE users SET digest_frequency = $1 WHERE username = $2 OR CAST(id AS TEXT) = $2`,
+			freq, args[1])
+		if err != nil {
+			fatal("digest "+args[0], "err", err)
+		}
+		if n, _ := res.RowsAffected(); n == 0 {
+			fatal("digest " + args[0] + ": no such user")
+		}
+		slog.Info("digest frequency set", "user", args[1], "frequency", freq)
+	default:
+		fatal("digest: unknown action (preview|run|enable|disable)", "action", args[0])
 	}
 }
 

@@ -80,9 +80,10 @@ DEPLOY_IMAGE_ENV   = TELA_BACKEND_IMAGE=$(TELA_REGISTRY)/tela-backend:$(TELA_COM
 
 .PHONY: up down logs build clean dev be-dev fe-dev storybook help test-mcp-integration \
         test dev-db dev-db-clean setup backup restore blocks-gen blocks-gate \
+        skills-gen skills-gate \
         landing-dev landing-build landing-gate landing-clean \
         deploy deploy-backend deploy-frontend deploy-landing deploy-offline registry-up _push \
-        release-mcp reset-prod-db health-gate
+        release release-mcp reset-prod-db health-gate plugin-validate plugin-publish
 
 # setup: first-run convenience. Copies deploy/.env.example → deploy/.env and
 # fills the three load-bearing secrets with `openssl rand -hex 32` so a
@@ -129,7 +130,10 @@ help:
 	@echo "  make deploy-offline   # fallback: no registry, full-image 'docker save | ssh load'"
 	@echo "  make registry-up      # ensure the on-box image registry is running (deploy does this)"
 	@echo "  make reset-prod-db    # DESTROY + recreate the prod Postgres volume (requires FORCE=1)"
+	@echo "  make release VERSION=v0.11.0  # bump one-click template pins, tag, push (GHCR images build on the tag)"
 	@echo "  make release-mcp      # publish tela-mcp to npm (BUMP=patch|minor|major, default patch)"
+	@echo "  make plugin-validate  # validate the Claude Code plugin manifests in plugin/"
+	@echo "  make plugin-publish   # mirror plugin/ to the public tela-claude-plugin repo"
 
 # `up` builds the marketing landing first so the proxy's /srv/landing mount is
 # populated (Caddy serves it at the apex). All images — including the proxy,
@@ -214,8 +218,9 @@ be-dev: dev-db
 
 # Backend unit/integration tests against a real Postgres (the testdb harness
 # clones a fresh throwaway database per test). Boots dev-db first. Runs the
-# blocks-manifest gate first so a stale agent guide / uncovered block fails CI.
-test: blocks-gate dev-db
+# blocks-manifest gate first so a stale agent guide / uncovered block fails CI,
+# and skills-gate so a published skill's content digest can't go stale.
+test: blocks-gate skills-gate dev-db
 	cd backend && TELA_TEST_DATABASE_URL="$(TEST_DATABASE_URL)" go test ./...
 
 # ── Block authoring manifest (editor slash menu + agent guide source) ───────
@@ -228,6 +233,24 @@ blocks-gen:
 
 blocks-gate:
 	node scripts/blocks-manifest.mjs --check
+
+# ── Published agent skills (/.well-known/agent-skills/) ─────────────────────
+# Source of truth: plugin/plugins/tela/skills/*/SKILL.md. skills-gen copies each
+# into the landing's public tree and rewrites the discovery index; skills-gate
+# fails when either is stale. The index carries a sha256 of the skill body and
+# clients verify it, so drift is a hard install failure, not a stale doc.
+skills-gen:
+	node scripts/agent-skills.mjs --write
+
+skills-gate:
+	node scripts/agent-skills.mjs --check
+
+# Vendor defter's agent authoring contract (AGENTS.md) into the backend so the
+# sheet_authoring_guide MCP surface can go:embed it (go:embed can't reach into
+# frontend/node_modules). Single source of truth is the published @defterjs/core
+# package — re-run after bumping the @defterjs dep.
+sheets-gen:
+	cp frontend/node_modules/@defterjs/core/AGENTS.md backend/internal/api/sheet_authoring.md
 
 # Stop + remove the local dev/test Postgres (and its data).
 dev-db-clean:
@@ -252,7 +275,11 @@ landing-dev:
 landing-build:
 	cd landing && PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 npm ci && npm run build
 
-landing-gate:
+# Depends on landing-build: the gate's Lighthouse pass runs against `astro preview`,
+# which serves dist/ and never rebuilds. Without this, the gate silently grades a
+# STALE build — it can pass on output that predates your edit, or keep failing on a
+# defect you already fixed.
+landing-gate: landing-build
 	cd landing && npm run gate
 
 landing-clean:
@@ -476,6 +503,28 @@ else
 	@exit 1
 endif
 
+# ── App release (GHCR images) ───────────────────────────────────────────────
+# Pushing a v* tag makes .github/workflows/release.yml build and publish the
+# multi-arch ghcr.io/zcag/tela-* images. The one-click templates (render.yaml,
+# .do/deploy.template.yaml) pin an exact image tag, so the release bumps them in
+# the same commit the tag points at; tagging by hand left them on 0.7.0 for
+# three releases. Then: wait for the workflow, write the GitHub Release notes
+# (gh release create VERSION --latest), including upgrade notes for self-hosters.
+RELEASE_PINNED := render.yaml .do/deploy.template.yaml
+release:
+	@set -eu; \
+	case "$(VERSION)" in v[0-9]*.[0-9]*.[0-9]*) ;; *) echo "usage: make release VERSION=v0.11.0" >&2; exit 1;; esac; \
+	v="$(VERSION)"; n="$${v#v}"; \
+	test -z "$$(git status --porcelain)" || { echo "x working tree not clean" >&2; exit 1; }; \
+	test "$$(git rev-parse --abbrev-ref HEAD)" = main || { echo "x not on main" >&2; exit 1; }; \
+	! git rev-parse -q --verify "refs/tags/$$v" >/dev/null || { echo "x tag $$v exists" >&2; exit 1; }; \
+	sed -i -E "s#(ghcr\.io/zcag/tela-[a-z]+:)[0-9]+\.[0-9]+\.[0-9]+#\1$$n#; s#(tag: \")[0-9]+\.[0-9]+\.[0-9]+(\")#\1$$n\2#" $(RELEASE_PINNED); \
+	git add $(RELEASE_PINNED); \
+	git diff --cached --quiet || git commit -qm "chore(release): $$v"; \
+	git tag -a "$$v" -m "$$v"; \
+	git push -q origin main "$$v"; \
+	echo "tagged $$v; images build in about 9 min: gh run list --workflow release.yml"
+
 # ── MCP npm release (ships to npm, NOT to the deploy host) ──────────────────
 # Publishes the tela-mcp package. BUMP selects the semver bump (default patch):
 #   make release-mcp BUMP=minor
@@ -506,3 +555,56 @@ release-mcp:
 	npm publish --access public; \
 	cd .. && git push --follow-tags; \
 	echo "✓ published $$new — verify CDN with: npm view tela-mcp versions --json"
+
+# ── Claude Code plugin (the marketplace wrapper) ────────────────────────────
+# `plugin/` is the SOURCE of the tela Claude Code plugin; the published article
+# is a separate repo ($(PLUGIN_REPO)) because Anthropic's directory scan clones
+# the ENTIRE plugin repo to the installing user's disk — pointing it at tela
+# proper would ship backend, frontend, landing and deploy config to every user.
+# So: author here (one source of truth, under this repo's conventions), mirror
+# there. `plugin-publish` syncs plugin/ + LICENSE into a shallow clone of the
+# wrapper repo and pushes ONE squashed commit — the wrapper keeps a clean,
+# tiny history rather than inheriting tela's.
+#
+# Two distribution routes, in order of what actually works:
+#   (1) direct  — `/plugin marketplace add zcag/tela-claude-plugin`, live the
+#                 moment the repo is public. No queue, no review, ours to fix.
+#   (2) directory — platform.claude.com/plugins/submit → the `claude-community`
+#                 marketplace. Opt-in shelf, no SLA. Upside, not the plan.
+# Design + the submission payload: docs/mcp-directory-submission.md.
+PLUGIN_REPO ?= git@github.com:zcag/tela-claude-plugin.git
+
+# Fails on a bad manifest, and on the version drift the validator only warns
+# about (plugin.json vs the marketplace entry) — a mismatch silently pins users
+# to the wrong version, so we treat it as an error here.
+plugin-validate:
+	@set -eu; \
+	pv=$$(jq -r .version plugin/plugins/tela/.claude-plugin/plugin.json); \
+	mv=$$(jq -r '.plugins[0].version' plugin/.claude-plugin/marketplace.json); \
+	if [ "$$pv" != "$$mv" ]; then \
+	  echo "✗ version drift: plugin.json=$$pv marketplace.json=$$mv" >&2; exit 1; \
+	fi; \
+	claude plugin validate plugin --strict; \
+	claude plugin validate plugin/plugins/tela --strict; \
+	echo "✓ plugin manifests valid (v$$pv)"
+
+plugin-publish: plugin-validate
+	@set -eu; \
+	sha=$$(git rev-parse --short HEAD); \
+	tmp=$$(mktemp -d); trap 'rm -rf "$$tmp"' EXIT; \
+	echo "[plugin-publish] cloning $(PLUGIN_REPO)…"; \
+	git clone --depth 1 "$(PLUGIN_REPO)" "$$tmp/wrapper" 2>/dev/null || { \
+	  echo "✗ can't clone $(PLUGIN_REPO) — create it first:" >&2; \
+	  echo "    gh repo create zcag/tela-claude-plugin --public -d 'tela for Claude Code'" >&2; \
+	  exit 1; }; \
+	rsync -a --delete --exclude .git plugin/ "$$tmp/wrapper/"; \
+	cp LICENSE "$$tmp/wrapper/LICENSE"; \
+	cd "$$tmp/wrapper"; \
+	if git diff --quiet && git diff --cached --quiet && [ -z "$$(git status --porcelain)" ]; then \
+	  echo "✓ wrapper already matches plugin/ — nothing to publish"; exit 0; \
+	fi; \
+	git add -A; \
+	git commit -q -m "sync from tela@$$sha"; \
+	git push -q origin HEAD; \
+	echo "✓ published tela@$$sha → $(PLUGIN_REPO)"; \
+	echo "  install: /plugin marketplace add zcag/tela-claude-plugin && /plugin install tela@telawiki"

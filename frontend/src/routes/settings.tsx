@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react'
-import { useSearch } from '@tanstack/react-router'
+import { useMemo } from 'react'
+import { useNavigate, useSearch } from '@tanstack/react-router'
 import { ImportSection } from '../components/app/ImportSection'
 import { SettingsApiKeysTab } from '../components/app/SettingsApiKeysTab'
 import { SettingsBillingTab } from '../components/app/SettingsBillingTab'
@@ -15,6 +15,7 @@ import { SettingsOrgsTab } from '../components/app/SettingsOrgsTab'
 import { SettingsProfileTab } from '../components/app/SettingsProfileTab'
 import { SettingsInstanceTab } from '../components/app/SettingsInstanceTab'
 import { SettingsLicenseTab } from '../components/app/SettingsLicenseTab'
+import { SettingsLicensesTab } from '../components/app/SettingsLicensesTab'
 import { SettingsSearchIndexTab } from '../components/app/SettingsSearchIndexTab'
 import { SettingsSummariesTab } from '../components/app/SettingsSummariesTab'
 import { SettingsSyncTab } from '../components/app/SettingsSyncTab'
@@ -22,6 +23,7 @@ import { SettingsUsersTab } from '../components/app/SettingsUsersTab'
 import { Badge } from '../components/ui/badge'
 import { Button } from '../components/ui/button'
 import { useMe } from '../lib/queries/auth'
+import { useMyLicenses } from '../lib/queries/billing'
 import { useOrgs } from '../lib/queries/orgs'
 import { cn } from '../lib/utils'
 
@@ -33,6 +35,9 @@ interface SettingsTab {
   // surfaced elsewhere (e.g. the unseen-feedback dot on the account menu) points
   // at the tab it actually belongs to instead of going cold at /settings.
   badge?: number
+  // Opt out of the 48rem reading measure. Settings is prose-width by default —
+  // right for forms and copy, too narrow for a data table with a dozen columns.
+  wide?: boolean
 }
 
 // A labeled cluster of tabs in the left nav — the label says why you can see them.
@@ -74,6 +79,7 @@ const API_KEYS_TAB: SettingsTab = {
 const USERS_TAB: SettingsTab = {
   id: 'users',
   label: 'Users',
+  wide: true,
   render: () => <SettingsUsersTab />,
 }
 
@@ -183,6 +189,14 @@ const LICENSE_TAB: SettingsTab = {
   render: () => <SettingsLicenseTab />,
 }
 
+// Buyer-facing self-host license purchase/retrieval (managed cloud). Only shown
+// where this instance can sell them, or when the user already owns a key.
+const LICENSES_TAB: SettingsTab = {
+  id: 'licenses',
+  label: 'Self-host licenses',
+  render: () => <SettingsLicensesTab />,
+}
+
 export function SettingsPage() {
   const me = useMe()
   const orgs = useOrgs()
@@ -201,8 +215,14 @@ export function SettingsPage() {
   // Grouped so it's clear WHY each section is visible: "Account" is everyone's,
   // "Organization" appears because you administer an org, "Instance admin" because
   // you're an instance admin.
+  // The buyer-facing Self-host licenses tab appears only where the instance can
+  // sell them (managed cloud, wired) or the user already owns a key — so it stays
+  // invisible on a plain self-hosted instance.
+  const licenses = useMyLicenses()
+  const showLicenses = (licenses.data?.sales_enabled ?? false) || (licenses.data?.licenses.length ?? 0) > 0
   const groups = useMemo<SettingsGroup[]>(() => {
     const account = [PROFILE_TAB, NOTIFICATIONS_TAB, FOLLOWING_TAB, BILLING_TAB, API_KEYS_TAB, IMPORT_TAB, SEARCH_INDEX_TAB, SUMMARIES_TAB, SYNC_TAB]
+    if (showLicenses) account.splice(4, 0, LICENSES_TAB) // after Plan & Usage
     if (me.data?.is_instance_admin) {
       return [
         { label: 'Account', tabs: account },
@@ -216,13 +236,20 @@ export function SettingsPage() {
       ]
     }
     return [{ label: 'Account', tabs: account }]
-  }, [me.data?.is_instance_admin, isOrgAdmin, feedbackUnseen])
+  }, [me.data?.is_instance_admin, isOrgAdmin, feedbackUnseen, showLicenses])
   const tabs = useMemo<SettingsTab[]>(() => groups.flatMap((g) => g.tabs), [groups])
-  // `?tab=` (set by the per-org page's back link) picks the initial section;
-  // once a tab actually exists for it, the `active` lookup resolves it.
-  const { tab: initialTab } = useSearch({ from: '/_app/settings' })
-  const [activeId, setActiveId] = useState(initialTab ?? tabs[0].id)
-  const active = tabs.find((t) => t.id === activeId) ?? tabs[0]
+  // The active section lives in the URL (`?tab=`), not local state, so a refresh
+  // or a shared link lands on the same tab instead of resetting to Profile. When
+  // the param is absent (or names a tab this user can't see) it falls back to the
+  // first tab — and once `me` loads and gates in the admin tabs, an admin-tab
+  // param resolves on the next render.
+  const navigate = useNavigate()
+  const { tab: tabParam } = useSearch({ from: '/_app/settings' })
+  const active = tabs.find((t) => t.id === tabParam) ?? tabs[0]
+  // Replace (not push) so switching tabs doesn't stack history entries — Back
+  // leaves Settings rather than walking back through every tab visited.
+  const selectTab = (id: string) =>
+    void navigate({ to: '/settings', search: { tab: id }, replace: true })
 
   return (
     <div className="flex-1 flex min-h-0">
@@ -249,7 +276,7 @@ export function SettingsPage() {
                       'bg-[var(--surface-3)] text-[var(--text-primary)] font-medium',
                   )}
                   aria-current={isActive ? 'page' : undefined}
-                  onClick={() => setActiveId(tab.id)}
+                  onClick={() => selectTab(tab.id)}
                 >
                   <span className="flex-1 text-left truncate">{tab.label}</span>
                   {tab.badge ? (
@@ -264,7 +291,12 @@ export function SettingsPage() {
         ))}
       </nav>
       <div className="flex-1 overflow-y-auto">
-        <div className="max-w-[48rem] w-full mx-auto p-[var(--space-7)] flex flex-col gap-[var(--space-6)]">
+        <div
+          className={cn(
+            'w-full mx-auto p-[var(--space-7)] flex flex-col gap-[var(--space-6)]',
+            active.wide ? 'max-w-[84rem]' : 'max-w-[48rem]',
+          )}
+        >
           <header className="flex flex-col gap-[var(--space-1)]">
             <h1 className="m-0 font-[family-name:var(--font-sans)] text-[length:var(--text-2xl)] leading-[var(--leading-tight)] text-[var(--text-primary)]">
               {active.label}

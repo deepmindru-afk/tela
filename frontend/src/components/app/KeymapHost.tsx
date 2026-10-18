@@ -2,7 +2,8 @@ import { useMemo, useState } from 'react'
 import { router } from '../../routes/router'
 import { emitOpenPalette } from '../../lib/paletteEvent'
 import { emitOpenNewPage } from '../../lib/newPageEvent'
-import { getTheme, setTheme, THEMES } from '../../lib/theme'
+import { emitToggleSidebar } from '../../lib/sidebarEvent'
+import { cycleTheme } from '../../lib/theme'
 import { useKeymap, type KeymapActions } from '../../lib/keys/useKeymap'
 import { KeyCheatsheet } from '../ui/key-cheatsheet'
 // Side-effect import: the bindings self-register on load. Keep it here so the
@@ -27,11 +28,8 @@ export function KeymapHost() {
       navigate: (to) => void router.navigate({ to: to as never }),
       openPalette: () => emitOpenPalette('pages'),
       openNewPage: () => emitOpenNewPage(),
-      toggleTheme: () => {
-        const cur = getTheme()
-        const i = THEMES.indexOf(cur)
-        setTheme(THEMES[(i + 1) % THEMES.length])
-      },
+      toggleTheme: () => cycleTheme(),
+      toggleSidebar: () => emitToggleSidebar(),
       openCheatsheet: () => setCheatsheetOpen(true),
     }),
     [],

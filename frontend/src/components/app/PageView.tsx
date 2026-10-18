@@ -8,17 +8,28 @@ import {
   useRef,
   useState,
 } from 'react'
-import { Link, useNavigate, useParams, useSearch } from '@tanstack/react-router'
+import {
+  Link,
+  useLocation,
+  useNavigate,
+  useParams,
+  useSearch,
+} from '@tanstack/react-router'
 import { useQueryClient } from '@tanstack/react-query'
 import {
   BookOpen,
+  ChevronLeft,
   ChevronRight,
+  FileCheck,
+  FileCode,
   FileDown,
+  FilePen,
   FileQuestion,
   FileText,
   Hash,
   History,
   Link2,
+  Lock,
   MessageSquare,
   MoreHorizontal,
   Pencil,
@@ -27,15 +38,18 @@ import {
   Share2,
   Trash2,
   TriangleAlert,
+  Users,
 } from 'lucide-react'
 import type { EditorView } from '@milkdown/kit/prose/view'
 import { ApiError } from '../../lib/api'
+import { reportClientError } from '../../lib/client-errors'
 import { pushRecentPage } from '../../lib/recentPages'
 import { recordPageView } from '../../lib/recordPageView'
 import { buildWikilinkResolveIndex, pageSlug } from '../../lib/slug'
 import type { TelaProvider } from '../../lib/collab/tela-provider'
 import { captureAnchor, type CommentAnchor } from '../../lib/comments/anchor'
 import { scrollAndFlashPanelThread } from '../../lib/comments/coordination'
+import { useReaderCommentAnchor } from '../../lib/comments/useReaderCommentAnchor'
 import { useComments } from '../../lib/comments/use-comments'
 import { useMe } from '../../lib/queries/auth'
 import { useRevision } from '../../lib/queries/page-revisions'
@@ -71,10 +85,22 @@ const openDeckPresent = (pageId: number) =>
 const DeckOverview = lazy(() =>
   import('./DeckOverview').then((m) => ({ default: m.DeckOverview })),
 )
+// The sheet grid pulls in @defterjs/* (grid + formula engine) — lazy so it only
+// loads for sheet pages, never on the common doc path.
+const GridEditor = lazy(() =>
+  import('./grid-editor').then((m) => ({ default: m.GridEditor })),
+)
+// A read-only grid never emits body changes; a stable no-op keeps GridEditor's
+// onChange required (edit paths always pass a real handler).
+const noopBodyChange = () => {}
 const DeckEditorOutline = lazy(() =>
   import('./DeckEditorOutline').then((m) => ({ default: m.DeckEditorOutline })),
 )
+const PageLintNotice = lazy(() =>
+  import('./PageLintNotice').then((m) => ({ default: m.PageLintNotice })),
+)
 import {
+  fetchFreshPage,
   prefetchPage,
   useAllPages,
   useCreatePage,
@@ -84,7 +110,7 @@ import {
   useUpdatePage,
 } from '../../lib/queries/pages'
 import { useSpace, useSpaceRole } from '../../lib/queries/spaces'
-import type { Page, PageTreeNode } from '../../lib/types'
+import type { Page, PageTreeNode, UpdatePageInput } from '../../lib/types'
 import { Button } from '../ui/button'
 import { EmptyState } from '../ui/empty-state'
 import {
@@ -104,6 +130,7 @@ import {
   DialogTitle,
 } from '../ui/dialog'
 import { SaveIndicator, type SaveStatus } from '../ui/save-indicator'
+import { Badge } from '../ui/badge'
 import { VisibilityBadge } from '../ui/visibility-badge'
 import {
   DropdownMenu,
@@ -117,6 +144,9 @@ import { BacklinksSection } from './BacklinksSection'
 import { RelatedPagesSection } from './RelatedPagesSection'
 import { PageTrustStrip } from './PageTrustStrip'
 import { MarkdownView } from '../view/MarkdownView'
+import { internalRoutePath } from '../../lib/markdown/link-target'
+import { scrollToHashIn } from '../../lib/markdown/heading-anchors'
+import { SheetExportMenu } from './sheet-export-menu'
 import { prefetchMilkdownEditor } from '../../lib/prefetchEditor'
 import { useFileDownload } from './use-file-download'
 import { toast, updateToast } from '../ui/toast'
@@ -129,7 +159,28 @@ const MilkdownEditor = lazy(() =>
   import('./milkdown-editor').then((m) => ({ default: m.MilkdownEditor })),
 )
 
+// CodeMirror: only decks and the prose editor's markdown source mode load it.
+const MarkdownSourceEditor = lazy(() => import('../ui/markdown-source-editor'))
+
 const EDITOR_MIN_H = 'min-h-[calc(var(--space-8)*8)]'
+
+// Shared by the read and edit headers so the two stay pixel-identical across
+// the edit toggle. `sticky` is load-bearing on touch: the app shell releases to
+// document scroll on coarse pointers (see router.tsx), so an ordinary header
+// scrolls away and takes Edit / Done with it — unreachable without scrolling
+// all the way back up. On desktop the flex shell already pins it and sticky is
+// a no-op. The opaque background is what makes it safe to overlap content.
+const PAGE_HEADER_CLASS = cn(
+  'sticky top-0 z-20 shrink-0 flex items-center justify-between',
+  'gap-[var(--space-2)] md:gap-[var(--space-4)]',
+  'px-[var(--space-4)] md:px-[var(--space-6)] py-[var(--space-2)] md:py-[var(--space-3)]',
+  'border-b border-[var(--border-subtle)] bg-[var(--surface-1)]',
+)
+
+// The reading column's own gutter. 2rem a side is 16% of a 390px phone, so it
+// tightens to 1rem below sm and the prose gets its measure back.
+const PAGE_CONTENT_CLASS =
+  'flex flex-col gap-[var(--space-4)] p-[var(--space-4)] sm:p-[var(--space-7)] max-w-[56rem] w-full mx-auto'
 
 function EditorFallback() {
   return (
@@ -164,6 +215,9 @@ interface PageViewProps {
 export function PageView({ spaceId, pageId }: PageViewProps) {
   const page = usePage(pageId)
   const navigate = useNavigate()
+  // Cache read (the shell already fetched it) — only used to name the signed-in
+  // account in the no-access state, where "wrong account" is the usual cause.
+  const me = useMe()
   // M9.3 — soft-draft mode is opted into via `?draft=$revId`. The param is
   // typed by the route's validateSearch in router.tsx.
   const { draft: draftRevId, edit: editParam, view } = useSearch({
@@ -216,10 +270,81 @@ export function PageView({ spaceId, pageId }: PageViewProps) {
     }).catch(() => {})
   }, [deckWarmId])
 
-  // 404 / wrong-space handling
+  // Shared scroll offset so toggling view↔edit lands you where you were rather
+  // than jumping to the top. PageView doesn't remount on the toggle (only the
+  // ?edit param flips), so a ref here survives the PageViewer↔PageEditor swap.
+  // Both the view and the editor scroll an inner column with the header as a
+  // fixed sibling above it (identical geometry), so the offset is interchangeable
+  // — one ref suffices. The stored pageId lets the consumers ignore a stale offset
+  // after navigating to a different page (fresh page always opens at the top).
+  const scrollRef = useRef({ pageId, top: 0 })
+
+  // Drop the stored offset when we leave for a different page. PageView owns
+  // the ref and does NOT remount on navigation, so the offset outlived the swap
+  // it was written for: a page you once hit Edit on halfway down then reopened
+  // halfway down every later time you clicked it in the sidebar. Keyed on
+  // pageId — the edit↔read toggle doesn't change it, so the handoff survives,
+  // and clearing is idempotent (unlike consuming it on read, which StrictMode's
+  // double-invoked effects would swallow before the other view could read it).
+  useEffect(() => {
+    return () => {
+      scrollRef.current = { pageId: -1, top: 0 }
+    }
+  }, [pageId])
+
+  // A denial on PUBLISHED content isn't a denial at all — the backend hands
+  // back where the same page reads without an account (code=forbidden_public),
+  // so follow it instead of walling the user off. `replace` keeps Back going to
+  // wherever they came from rather than bouncing through the dead URL again.
+  // Covers every way an authed link travels: a pasted address-bar URL, an old
+  // link, a semantic-search hit — none of which know the space is public.
+  // MUST stay above the early returns (hook-count stability, React #310).
+  const pageError = page.error instanceof ApiError ? page.error : null
+  // Navigated as the server's path verbatim — the canonical public URL shape is
+  // the backend's to decide (it alone knows the owning handle), and it HAS
+  // changed: this used to parse /public/spaces/{id}/pages/{id} into typed route
+  // params, which silently stopped matching the day the canonical form became
+  // /{handle}/{space-slug}/{id}/{slug} and quietly restored the 403 wall. Only
+  // a same-origin absolute path is followed, so the value can't become an
+  // off-site redirect if the field is ever wrong.
+  const publicPath =
+    pageError?.publicPath?.startsWith('/') &&
+    !pageError.publicPath.startsWith('//')
+      ? pageError.publicPath
+      : null
+  useEffect(() => {
+    if (publicPath) void navigate({ to: publicPath, replace: true })
+  }, [publicPath, navigate])
+
+  // queryClient's reporting policy drops every non-401 4xx as "handled by the
+  // UI" — right in general, but a 403 here is NOT handled: it's a dead end the
+  // user can't act on, and it stayed invisible while a real user sat on it.
+  // Reported from the one place that knows it terminated in an error state.
+  // The server fingerprint normalizes digits, so every page folds into one issue.
+  // forbidden_public is excluded — it self-heals into a redirect, so reporting
+  // it would file a bug on the fix working.
+  const forbiddenPageId =
+    page.isError && pageError?.status === 403 && !publicPath ? pageId : null
+  useEffect(() => {
+    if (forbiddenPageId == null) return
+    reportClientError({
+      kind: 'query',
+      message: `403 forbidden reading page ${forbiddenPageId}`,
+      component: 'PageView',
+      pageId: forbiddenPageId,
+    })
+  }, [forbiddenPageId])
+
+  // 403 / 404 / wrong-space handling
   if (page.isError) {
-    const status = page.error instanceof ApiError ? page.error.status : null
+    const status = pageError?.status ?? null
     if (status === 404) return <PageNotFound spaceId={spaceId} />
+    // Redirect to the public reader is in flight — don't flash the wall.
+    if (publicPath) return <PageLoading />
+    // A permission denial is not a server failure: saying "something went wrong,
+    // try again" sent a locked-out user chasing a non-existent outage, and Retry
+    // can never succeed.
+    if (status === 403) return <PageForbidden username={me.data?.username} />
     return <PageError onRetry={() => void page.refetch()} />
   }
 
@@ -240,6 +365,11 @@ export function PageView({ spaceId, pageId }: PageViewProps) {
   // deck-specific view is PRESENT: ?view=read renders the body as full-screen
   // slides (via the deck sidecar) instead of the prose reader.
   const isDeck = page.data.props?.deck === true
+  // A sheet (props.sheet) is a doc whose body is Defter markdown, rendered as a
+  // live spreadsheet grid: read view shows it read-only, edit mounts the collab
+  // GridEditor (see PageEditor/PageViewer isSheet branches). Like a deck it never
+  // uses the prose reader overlay.
+  const isSheet = page.data.props?.sheet === true
 
   // Confluence-style: read view is the default; the editor mounts only on an
   // explicit Edit (?edit=1) or when restoring a draft. This is what keeps
@@ -257,6 +387,8 @@ export function PageView({ spaceId, pageId }: PageViewProps) {
         draftRevId={draftRevId ?? null}
         onDeleted={onDeleted}
         isDeck={isDeck}
+        isSheet={isSheet}
+        scrollRef={scrollRef}
       />
     )
   }
@@ -264,9 +396,12 @@ export function PageView({ spaceId, pageId }: PageViewProps) {
   // shell (which stays mounted underneath, so closing is instant). Docs only:
   // a deck Presents as the live Slidev SPA in a new tab (see Present button), so
   // it never uses this overlay.
-  if (view === 'read' && !isDeck) {
+  if (view === 'read' && !isDeck && !isSheet) {
     return (
-      <div className="fixed inset-0 z-50 bg-[var(--surface-1)]">
+      // A fixed overlay can't hand its overflow to the document, so on touch —
+      // where the reader releases its own inner scroll frame (reader.css) — this
+      // box has to be the scroller or nothing scrolls at all.
+      <div className="fixed inset-0 z-50 bg-[var(--surface-1)] pointer-coarse:overflow-y-auto pointer-coarse:overflow-x-clip pointer-coarse:overscroll-contain">
         <Suspense fallback={null}>
           <PageReader spaceId={spaceId} pageId={page.data.id} />
         </Suspense>
@@ -280,6 +415,8 @@ export function PageView({ spaceId, pageId }: PageViewProps) {
       spaceId={spaceId}
       onDeleted={onDeleted}
       isDeck={isDeck}
+      isSheet={isSheet}
+      scrollRef={scrollRef}
     />
   )
 }
@@ -294,11 +431,15 @@ function PageViewer({
   spaceId,
   onDeleted,
   isDeck,
+  isSheet,
+  scrollRef,
 }: {
   page: Page
   spaceId: number
   onDeleted: () => void
   isDeck: boolean
+  isSheet: boolean
+  scrollRef: React.MutableRefObject<{ pageId: number; top: number }>
 }) {
   const navigate = useNavigate()
   const me = useMe()
@@ -307,20 +448,76 @@ function PageViewer({
 
   const [graphOpen, setGraphOpen] = useState(false)
   const [deleteOpen, setDeleteOpen] = useState(false)
+  // Active sheet index (lifted from the grid) so a sheet export can scope to it.
+  const [activeSheet, setActiveSheet] = useState(0)
   const [commentsOpen, setCommentsOpen] = useState(false)
   const [showResolvedComments, setShowResolvedComments] = useState(false)
   const contentRef = useRef<HTMLDivElement>(null)
 
-  // Comments are read + reply in view (new-comment-from-selection is edit-only
-  // for now). The panel + inline highlights are gated to non-viewers, matching
-  // the editor.
+  // Read + reply + new-comment-from-selection all work in view now, matching the
+  // editor. The panel, inline highlights, and selection bridge are gated to
+  // non-viewers, same as the editor.
   const commentsEnabled = roleResolved && !isViewer
+  // Rendered-content root (from MarkdownView.onReady) that the selection bridge
+  // watches, and the snapshot of the reader's current passage to anchor to.
+  const [readerContentEl, setReaderContentEl] = useState<HTMLElement | null>(null)
+  const { selection: readerSelection, clear: clearReaderSelection } =
+    useReaderCommentAnchor(readerContentEl, commentsEnabled)
+  // Deep-link hash (`#some-section`). The browser tries to jump on load, before
+  // MarkdownView has rendered a thing, finds no target and never retries — so
+  // the jump has to happen here, once the body is on screen. The hash comes
+  // from the ROUTER, not `window.location`: on a fresh load the router
+  // normalizes the URL after the first render, so reading the window at
+  // onReady time sees an empty hash and the jump silently never happens.
+  const locationHash = useLocation({ select: (l) => l.hash })
+  const [viewContentEl, setViewContentEl] = useState<HTMLElement | null>(null)
+  const handleViewReady = useCallback(
+    (el: HTMLElement) => {
+      setViewContentEl(el)
+      if (commentsEnabled) setReaderContentEl(el)
+    },
+    [commentsEnabled],
+  )
+  useEffect(() => {
+    if (viewContentEl && locationHash) scrollToHashIn(viewContentEl, locationHash)
+  }, [viewContentEl, locationHash])
+  const handleCommentsOpenChange = useCallback(
+    (next: boolean) => {
+      setCommentsOpen(next)
+      // Drop the snapshot on close so the next session starts from a fresh
+      // selection instead of a stale "Commenting on …" preview.
+      if (!next) clearReaderSelection()
+    },
+    [clearReaderSelection],
+  )
   const commentsQuery = useComments({ pageId: page.id, enabled: commentsEnabled })
   const openThreadCount = useMemo(
     () => commentsQuery.data?.filter((t) => !t.root.resolved).length ?? null,
     [commentsQuery.data],
   )
   const commentThreads = commentsQuery.data ?? null
+
+  // The two side panels are mutually exclusive. Named so the header bar and the
+  // compact "•••" menu can share one handler instead of duplicating the pairing.
+  const openComments = useCallback(() => {
+    setGraphOpen(false)
+    setCommentsOpen(true)
+  }, [])
+  const openGraph = useCallback(() => {
+    handleCommentsOpenChange(false)
+    setGraphOpen(true)
+  }, [handleCommentsOpenChange])
+  const openReadMode = useCallback(() => {
+    if (isDeck) {
+      openDeckPresent(page.id)
+      return
+    }
+    void navigate({
+      to: '/spaces/$spaceId/pages/$pageId/{-$slug}',
+      params: { spaceId, pageId: page.id, slug: pageSlug(page.title) || undefined },
+      search: (prev) => ({ ...prev, view: 'read' }),
+    })
+  }, [isDeck, navigate, spaceId, page.id, page.title])
 
   // Wikilink resolution (slug → id), space-scoped, like the editor builds it.
   const allPagesQuery = useAllPages()
@@ -358,27 +555,51 @@ function PageViewer({
     })
   }, [spaceId, page.id, page.title])
 
+  // Restore the shared scroll offset on mount (0 on a fresh page, or the last
+  // edit-scroll position when returning from edit — a stale offset from a
+  // different page is ignored). MarkdownView renders synchronously, so the
+  // content height is available by layout time.
+  useLayoutEffect(() => {
+    const el = contentRef.current
+    if (el)
+      el.scrollTop =
+        scrollRef.current.pageId === page.id ? scrollRef.current.top : 0
+    // Once per mount — the scroller is fresh (keyed on page.id upstream).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   const enterEdit = useCallback(() => {
+    // Capture the read-scroll offset at click time (deterministic — before the
+    // PageViewer↔PageEditor swap) so the editor opens at the same spot. Doing
+    // this on the transition rather than via a continuous onScroll avoids a
+    // teardown scroll event clobbering the value to 0 mid-swap.
+    scrollRef.current = { pageId: page.id, top: contentRef.current?.scrollTop ?? 0 }
     void navigate({
       to: '/spaces/$spaceId/pages/$pageId/{-$slug}',
       params: { spaceId, pageId: page.id, slug: pageSlug(page.title) || undefined },
       search: (prev) => ({ ...prev, edit: true }),
     })
-  }, [navigate, spaceId, page.id, page.title])
+  }, [navigate, spaceId, page.id, page.title, scrollRef])
 
-  // SPA-navigate internal wikilink clicks (MarkdownView emits plain <a href>);
-  // without this they'd full-reload. External / non-page links fall through.
+  // SPA-navigate internal page links (MarkdownView emits plain <a href>);
+  // without this they'd full-reload the whole app. This covers wikilinks AND
+  // ordinary markdown links to another tela page — the latter used to reload,
+  // since only the tela:// wikilink form was ever intercepted.
+  //
+  // Everything else falls through to the browser on purpose: external links
+  // (which now carry target=_blank), #anchors, and server-owned paths like
+  // /api/ attachment downloads — see internalRoutePath. Modifier and middle
+  // clicks are left alone so "open in new tab" keeps working.
   const onContentClick = useCallback(
     (e: React.MouseEvent) => {
-      if (e.defaultPrevented || e.metaKey || e.ctrlKey || e.button !== 0) return
-      const a = (e.target as HTMLElement).closest(
-        'a.tela-wikilink[href]',
-      ) as HTMLAnchorElement | null
-      if (!a) return
-      const href = a.getAttribute('href') ?? ''
-      if (!href.startsWith('/spaces/')) return
+      if (e.defaultPrevented || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return
+      if (e.button !== 0) return
+      const a = (e.target as HTMLElement).closest('a[href]') as HTMLAnchorElement | null
+      if (!a || a.target === '_blank') return
+      const to = internalRoutePath(a.getAttribute('href') ?? '')
+      if (!to) return
       e.preventDefault()
-      void navigate({ to: href })
+      void navigate({ to })
     },
     [navigate],
   )
@@ -387,55 +608,64 @@ function PageViewer({
 
   return (
     <div className="flex-1 flex flex-col min-h-0">
-      <header className="flex items-center justify-between gap-[var(--space-4)] px-[var(--space-6)] py-[var(--space-3)] border-b border-[var(--border-subtle)] shrink-0">
+      <header className={PAGE_HEADER_CLASS}>
         <Breadcrumb spaceId={spaceId} pageId={page.id} />
-        <div className="flex items-center gap-[var(--space-3)]">
-          {roleResolved ? <FavoriteStar pageId={page.id} /> : null}
-          {roleResolved ? <FollowButton id={page.id} /> : null}
+        {/* Secondary actions live here on desktop and fold into the "•••" menu
+            below md — a phone can't show nine controls, and the old
+            overflow-x-auto row silently pushed Edit off-screen entirely. */}
+        <div className="flex items-center gap-[var(--space-1)] md:gap-[var(--space-3)] shrink-0">
+          {/* Properties stays on the bar at every width: it self-hides unless the
+              page actually has frontmatter, so it costs nothing on the pages
+              that don't have any, and it has no sensible menu-row form. */}
           <PageProperties props={page.props} />
-          {commentsEnabled ? (
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              aria-label="Comments"
-              onClick={() => {
-                setGraphOpen(false)
-                setCommentsOpen(true)
-              }}
-              className="h-[var(--space-8)] px-[var(--space-3)]"
-            >
-              <MessageSquare width={16} height={16} />
-              {openThreadCount != null ? (
-                <span>Comments ({openThreadCount})</span>
-              ) : (
-                <span>Comments</span>
-              )}
-            </Button>
+          <div className="hidden md:flex items-center gap-[var(--space-3)]">
+            {roleResolved ? <FavoriteStar pageId={page.id} /> : null}
+            {roleResolved ? <FollowButton id={page.id} /> : null}
+            {commentsEnabled ? (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                aria-label="Comments"
+                onClick={openComments}
+                className="h-[var(--space-8)] px-[var(--space-3)]"
+              >
+                <MessageSquare width={16} height={16} />
+                {openThreadCount != null ? (
+                  <span>Comments ({openThreadCount})</span>
+                ) : (
+                  <span>Comments</span>
+                )}
+              </Button>
+            ) : null}
+            {roleResolved ? (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                aria-label="Graph"
+                title="Graph — this page's connections"
+                onClick={openGraph}
+                className="h-[var(--space-8)] w-[var(--space-8)] p-0"
+              >
+                <Share2 width={16} height={16} />
+              </Button>
+            ) : null}
+            {roleResolved ? (
+              <VisibilityBadge
+                state={page.exposure?.state ?? 'private'}
+                inherited={page.exposure?.inherited ?? false}
+              />
+            ) : null}
+            {page.status === 'draft' ? <DraftBadge /> : null}
+          </div>
+          {/* Sheets have no read mode; their export menu stays on the bar. */}
+          {isSheet ? (
+            <SheetExportMenu body={page.body} title={page.title} activeSheet={activeSheet} />
           ) : null}
-          {roleResolved ? (
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              aria-label="Graph"
-              title="Graph — this page's connections"
-              onClick={() => {
-                setCommentsOpen(false)
-                setGraphOpen(true)
-              }}
-              className="h-[var(--space-8)] w-[var(--space-8)] p-0"
-            >
-              <Share2 width={16} height={16} />
-            </Button>
-          ) : null}
-          {roleResolved ? (
-            <VisibilityBadge
-              state={page.exposure?.state ?? 'private'}
-              inherited={page.exposure?.inherited ?? false}
-            />
-          ) : null}
-          {roleResolved ? (
+          {/* Sheets have no reading view (the ?view=read route excludes them), so
+              don't offer a button that lands back on the same screen. */}
+          {roleResolved && !isSheet ? (
             <Button
               type="button"
               variant={isDeck ? 'primary' : 'ghost'}
@@ -446,22 +676,15 @@ function PageViewer({
                   ? 'Present — full-screen slides'
                   : 'Read mode — distraction-free reading view'
               }
-              onClick={() => {
-                if (isDeck) {
-                  openDeckPresent(page.id)
-                  return
-                }
-                void navigate({
-                  to: '/spaces/$spaceId/pages/$pageId/{-$slug}',
-                  params: {
-                    spaceId,
-                    pageId: page.id,
-                    slug: pageSlug(page.title) || undefined,
-                  },
-                  search: (prev) => ({ ...prev, view: 'read' }),
-                })
-              }}
-              className="h-[var(--space-8)] px-[var(--space-3)]"
+              onClick={openReadMode}
+              // A phone bar should carry one labelled action, not two: an
+              // unlabelled book icon next to Edit is exactly the guesswork this
+              // sweep is removing, so Read mode drops into "•••" below md. A
+              // deck's Present is its primary action and stays, labelled.
+              className={cn(
+                'h-[var(--space-8)] px-[var(--space-3)]',
+                !isDeck && 'hidden md:inline-flex',
+              )}
             >
               {isDeck ? (
                 <Presentation width={16} height={16} />
@@ -492,21 +715,67 @@ function PageViewer({
               spaceId={spaceId}
               pageId={page.id}
               title={page.title}
+              shortPath={page.short_path}
+              status={page.status}
               isViewer={isViewer}
               onDelete={() => setDeleteOpen(true)}
+              compactActions={
+                <>
+                  {!isDeck && !isSheet ? (
+                    <DropdownMenuItem onSelect={openReadMode}>
+                      <BookOpen width={14} height={14} /> Read mode
+                    </DropdownMenuItem>
+                  ) : null}
+                  {commentsEnabled ? (
+                    <DropdownMenuItem onSelect={openComments}>
+                      <MessageSquare width={14} height={14} />
+                      {openThreadCount != null
+                        ? `Comments (${openThreadCount})`
+                        : 'Comments'}
+                    </DropdownMenuItem>
+                  ) : null}
+                  <DropdownMenuItem onSelect={openGraph}>
+                    <Share2 width={14} height={14} /> Page connections
+                  </DropdownMenuItem>
+                  <FavoriteStar pageId={page.id} asMenuItem />
+                  <FollowButton id={page.id} asMenuItem />
+                </>
+              }
             />
           ) : null}
         </div>
       </header>
 
-      {/* The scroller spans the full width (so wheel over the empty gutters
-          scrolls the page); the 48rem reading column is an inner wrapper. */}
+      {isSheet ? (
+        // First-class sheet surface: the grid owns the full width + height of the
+        // content area (no reading column, no doc furniture, no padding) and
+        // scrolls internally — a spreadsheet app, edge-to-edge, not a card. Title
+        // lives in the header breadcrumb. Edit flips to the collaborative grid.
+        <div className="flex-1 min-h-0 flex flex-col">
+          <Suspense fallback={<div className="flex-1" />}>
+            <GridEditor
+              defaultValue={page.body}
+              onChange={noopBodyChange}
+              collabPageId={null}
+              readOnly
+              pageId={page.id}
+              ariaLabel="Spreadsheet (read-only)"
+              onSheetChange={setActiveSheet}
+            />
+          </Suspense>
+        </div>
+      ) : (
+      /* The scroller spans the full width (so wheel over the empty gutters
+          scrolls the page); the 48rem reading column is an inner wrapper. */
       <div
         ref={contentRef}
         onClick={onContentClick}
-        className="flex-1 overflow-y-auto min-h-0"
+        /* overflow-x-clip keeps this a vertical-only scroller on desktop.
+           pointer-coarse:overflow-visible releases it to document scroll on
+           touch so a pinch-zoomed page pans; see the app shell in router.tsx. */
+        className="flex-1 overflow-y-auto overflow-x-clip min-h-0 pointer-coarse:overflow-visible"
       >
-        <div className="flex flex-col gap-[var(--space-4)] p-[var(--space-7)] max-w-[56rem] w-full mx-auto">
+        <div className={PAGE_CONTENT_CLASS}>
         <WikilinkHoverPreview containerRef={contentRef} />
         <SummaryTitle
           summary={summary}
@@ -542,6 +811,8 @@ function PageViewer({
           <MarkdownView
             body={page.body}
             pageId={page.id}
+            // Editors can cast poll votes here; viewers get read-only results.
+            canVote={canEdit}
             resolveWikilink={resolveWikilink}
             pageHref={pageHref}
             commentThreads={commentsEnabled ? commentThreads : null}
@@ -549,6 +820,10 @@ function PageViewer({
               setGraphOpen(false)
               setCommentsOpen(true)
             }}
+            // Hand the rendered root to the selection bridge so a passage the
+            // reader highlights can be anchored into a new comment, and honour
+            // a deep-link hash now that the headings exist.
+            onReady={handleViewReady}
             className={EDITOR_MIN_H}
           />
         )}
@@ -566,6 +841,7 @@ function PageViewer({
         <LocalGraphCard pageId={page.id} />
         </div>
       </div>
+      )}
 
       <DeletePageConfirmDialog
         page={page}
@@ -587,13 +863,13 @@ function PageViewer({
         <CommentsPanel
           pageId={page.id}
           open={commentsOpen}
-          onOpenChange={setCommentsOpen}
-          // New-comment-from-selection is edit-only for now; the view composer
-          // stays disabled (no selection) but reading + replying work.
-          hasSelection={false}
-          captureAnchor={() => null}
-          anchorPreview={null}
-          canCompose={false}
+          onOpenChange={handleCommentsOpenChange}
+          // Selecting a passage in the reader snapshots its anchor; the composer
+          // then works exactly like the editor's.
+          hasSelection={readerSelection != null}
+          captureAnchor={() => readerSelection?.anchor ?? null}
+          anchorPreview={readerSelection?.preview ?? null}
+          canCompose
           me={{ id: me.data.id, username: me.data.username }}
           isSpaceOwner={isSpaceOwner}
           orphanIds={EMPTY_ORPHAN_IDS}
@@ -607,26 +883,51 @@ function PageViewer({
 
 const EMPTY_ORPHAN_IDS: Set<number> = new Set()
 
+// DraftBadge marks a work-in-progress page: kept off public spaces and share
+// links until it's published (••• → Publish).
+function DraftBadge({ className }: { className?: string }) {
+  return (
+    <Badge
+      variant="warning"
+      className={className}
+      title="Draft: not shown on public spaces or share links until published"
+    >
+      Draft
+    </Badge>
+  )
+}
+
 // PageActionsMenu — the header "•••" overflow. Keeps the bar to its frequent
 // actions (Comments, Share) and tucks the rest here, Confluence-style. "Copy
 // link" is the primary, obvious action (pretty /p/{id}/{slug}); "Copy short
-// link" (bare /p/{id}) is present but deliberately demoted so people don't grab
+// link" (/p/{id}/{key}) is present but deliberately demoted so people don't grab
 // the opaque one by default. Links are built off window.location.origin and
 // resolve via the canonical id, surviving rename.
+// `compactActions` are header controls that don't fit below md — the caller
+// hands them in as menu items and they show only there, so the phone bar can
+// stay down to Edit + "•••" without any action becoming unreachable.
 function PageActionsMenu({
   spaceId,
   pageId,
   title,
+  shortPath,
+  status,
   isViewer,
   onDelete,
+  compactActions,
 }: {
   spaceId: number
   pageId: number
   title: string
+  shortPath?: string
+  status?: 'draft' | 'published'
   isViewer: boolean
   onDelete: () => void
+  compactActions?: React.ReactNode
 }) {
   const navigate = useNavigate()
+  const updatePage = useUpdatePage()
+  const isDraft = status === 'draft'
   // /pdf is page-type aware on the backend: a deck renders to a real per-slide
   // Slidev PDF, a doc to the gotenberg-rendered reader. So this one call is
   // correct for both.
@@ -638,8 +939,11 @@ function PageActionsMenu({
   })
   const origin = window.location.origin
   const slug = pageSlug(title)
-  const pretty = slug ? `${origin}/p/${pageId}/${slug}` : `${origin}/p/${pageId}`
-  const short = `${origin}/p/${pageId}`
+  // Both carry something that proves the sender could see the page (the title
+  // slug, or the page's short key): a private page's link preview shows its
+  // title only then, so a bare /p/{id} would unfurl as a generic card.
+  const short = `${origin}${shortPath ?? `/p/${pageId}`}`
+  const pretty = slug ? `${origin}/p/${pageId}/${slug}` : short
   const copy = (url: string) => {
     void navigator.clipboard?.writeText?.(url)
   }
@@ -684,6 +988,12 @@ function PageActionsMenu({
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="min-w-[12rem]">
+        {compactActions ? (
+          <div className="md:hidden">
+            {compactActions}
+            <DropdownMenuSeparator />
+          </div>
+        ) : null}
         <DropdownMenuItem onSelect={() => copy(pretty)}>
           <Link2 width={14} height={14} /> Copy link
         </DropdownMenuItem>
@@ -720,6 +1030,23 @@ function PageActionsMenu({
           </DropdownMenuItem>
         ) : null}
         {!isViewer ? (
+          <DropdownMenuItem
+            onSelect={() =>
+              updatePage.mutate({ id: pageId, status: isDraft ? 'published' : 'draft' })
+            }
+          >
+            {isDraft ? (
+              <>
+                <FileCheck width={14} height={14} /> Publish
+              </>
+            ) : (
+              <>
+                <FilePen width={14} height={14} /> Mark as draft
+              </>
+            )}
+          </DropdownMenuItem>
+        ) : null}
+        {!isViewer ? (
           <>
             <DropdownMenuSeparator />
             <DropdownMenuItem destructive onSelect={onDelete}>
@@ -738,13 +1065,18 @@ interface PageEditorProps {
   draftRevId: number | null
   onDeleted: () => void
   isDeck: boolean
+  isSheet: boolean
+  scrollRef: React.MutableRefObject<{ pageId: number; top: number }>
 }
 
-function PageEditor({ page, spaceId, draftRevId, onDeleted, isDeck }: PageEditorProps) {
+function PageEditor({ page, spaceId, draftRevId, onDeleted, isDeck, isSheet, scrollRef }: PageEditorProps) {
   const updatePage = useUpdatePage()
+  const qc = useQueryClient()
   const navigate = useNavigate()
   const [title, setTitle] = useState(page.title)
   const [body, setBody] = useState(page.body)
+  // Active sheet index (lifted from the grid) so a sheet export scopes to it.
+  const [activeSheet, setActiveSheet] = useState(0)
   // Title is a textarea (so long titles wrap instead of clipping); keep its
   // height pinned to its content so it reads like a heading, not a box.
   const titleRef = useRef<HTMLTextAreaElement>(null)
@@ -830,12 +1162,14 @@ function PageEditor({ page, spaceId, draftRevId, onDeleted, isDeck }: PageEditor
   // Exit edit mode (Confluence "Done") → drop ?edit and fall back to the read
   // view. Keeps the canonical slug; no `replace` so Back returns to edit.
   const exitEdit = useCallback(() => {
+    // Symmetric to enterEdit: carry the edit-scroll offset back to the read view.
+    scrollRef.current = { pageId: page.id, top: contentRef.current?.scrollTop ?? 0 }
     void navigate({
       to: '/spaces/$spaceId/pages/$pageId/{-$slug}',
       params: { spaceId, pageId: page.id, slug: pageSlug(page.title) || undefined },
       search: {},
     })
-  }, [navigate, spaceId, page.id, page.title])
+  }, [navigate, spaceId, page.id, page.title, scrollRef])
 
   // M8.3 — comments surface. The panel toggle, panel itself, and selection
   // bridge are all gated behind a non-viewer role; viewers don't see the
@@ -850,6 +1184,25 @@ function PageEditor({ page, spaceId, draftRevId, onDeleted, isDeck }: PageEditor
   const [selectionPreview, setSelectionPreview] = useState('')
   const handleViewReady = useCallback((view: EditorView | null) => {
     editorViewRef.current = view
+  }, [])
+  // The side panels are mutually exclusive; one handler each, shared by the
+  // header bar and the compact "•••" menu (mirrors PageViewer).
+  // Bumped by the bubble's Comment button so the composer takes focus; the
+  // header button resets it, opening the panel without moving focus.
+  const [composeFocus, setComposeFocus] = useState(0)
+  const openComments = useCallback(() => {
+    setGraphOpen(false)
+    setCommentsOpen(true)
+    setComposeFocus(0)
+  }, [])
+  const commentOnSelection = useCallback(() => {
+    setGraphOpen(false)
+    setCommentsOpen(true)
+    setComposeFocus((n) => n + 1)
+  }, [])
+  const openGraph = useCallback(() => {
+    setCommentsOpen(false)
+    setGraphOpen(true)
   }, [])
   const handleSelectionChange = useCallback(
     ({ isEmpty, text }: { isEmpty: boolean; text: string }) => {
@@ -987,14 +1340,48 @@ function PageEditor({ page, spaceId, draftRevId, onDeleted, isDeck }: PageEditor
     })
   }, [provider, me.data])
 
-  // Always open a page scrolled to the top. Without this, the content scroller
-  // can retain a previous scroll position on refresh / sidebar navigation, so
-  // the page title isn't visible on open. Runs once per page (PageEditor
-  // remounts on page.id via its key).
-  useEffect(() => {
-    document
-      .querySelector('[data-page-scroll]')
-      ?.scrollTo({ top: 0, left: 0 })
+  // The editor body scrolls its own inner column (contentRef), matching the
+  // read view — so the header stays put (main never scrolls). Restore the
+  // incoming offset on entry, re-pinning it every frame: the lazy editor grows
+  // after mount (so a deep target is briefly out of range), and — once collab
+  // syncs, which can take a beat on a live connection — its autofocus yanks the
+  // view to the cursor at the top. Keep re-applying the target until the user
+  // scrolls for real (wheel/touch/key → we never fight them) or a short safety
+  // budget elapses. A 0 target (fresh page) just pins the top.
+  useLayoutEffect(() => {
+    const scroller = contentRef.current
+    if (!scroller) return
+    const target =
+      scrollRef.current.pageId === page.id ? scrollRef.current.top : 0
+    if (target <= 0) {
+      scroller.scrollTop = 0
+      return
+    }
+    let raf = 0
+    let frames = 0
+    let done = false
+    const stop = () => {
+      if (done) return
+      done = true
+      cancelAnimationFrame(raf)
+      scroller.removeEventListener('wheel', stop)
+      scroller.removeEventListener('touchmove', stop)
+      scroller.removeEventListener('keydown', stop, true)
+    }
+    const apply = () => {
+      if (done) return
+      if (scroller.scrollTop !== target) scroller.scrollTop = target
+      // ~3s safety net — long enough to outlast a late post-sync autofocus.
+      if ((frames += 1) > 180) stop()
+      else raf = requestAnimationFrame(apply)
+    }
+    scroller.addEventListener('wheel', stop, { passive: true })
+    scroller.addEventListener('touchmove', stop, { passive: true })
+    scroller.addEventListener('keydown', stop, true)
+    raf = requestAnimationFrame(apply)
+    return stop
+    // Once per page entry — PageEditor remounts on page.id via its key.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [page.id])
 
   // Alive-page-ids snapshot powers M5.2d broken-wikilink rendering. `null` is
@@ -1077,8 +1464,18 @@ function PageEditor({ page, spaceId, draftRevId, onDeleted, isDeck }: PageEditor
     [],
   )
 
+  // Markdown source mode: the prose body edited as raw text instead of in
+  // Milkdown. It writes AROUND the collab session (Milkdown is unmounted), so it
+  // saves explicitly (blur / Mod-s / leaving the mode), never per keystroke:
+  // every save sends base_version (409 if anyone else saved meanwhile) and
+  // reset_collab, which reloads live editors onto the new body.
+  const [sourceMode, setSourceMode] = useState(false)
+  const [sourceConflict, setSourceConflict] = useState(false)
+  // Version of the last body this editor read or wrote; source saves send it.
+  const versionRef = useRef(page.version)
+
   const save = useCallback(
-    async (patch: { title?: string; body?: string }): Promise<boolean> => {
+    async (patch: Omit<UpdatePageInput, 'props' | 'status'>): Promise<boolean> => {
       // Any new save attempt supersedes a pending retry of an earlier payload.
       if (retryTimerRef.current != null) {
         window.clearTimeout(retryTimerRef.current)
@@ -1088,9 +1485,15 @@ function PageEditor({ page, spaceId, draftRevId, onDeleted, isDeck }: PageEditor
       try {
         const updated = await updatePage.mutateAsync({ id: page.id, ...patch })
         lastSavedRef.current = { title: updated.title, body: updated.body }
+        versionRef.current = updated.version
         setStatus('saved')
         return true
       } catch (err) {
+        if (err instanceof ApiError && err.code === 'version_conflict') {
+          setSourceConflict(true)
+          setStatus('error')
+          return false
+        }
         // 5xx → one automatic retry after a short delay. 4xx and network
         // errors (status === 0) go straight to 'error' — those won't
         // self-heal within the retry window.
@@ -1185,15 +1588,82 @@ function PageEditor({ page, spaceId, draftRevId, onDeleted, isDeck }: PageEditor
     stripDraftParam()
   }, [stripDraftParam])
 
+  // Start from the server's current body + version, not the local buffer: in a
+  // collab session another peer may be the one saving.
+  const loadSource = useCallback(async () => {
+    const fresh = await fetchFreshPage(qc, page.id)
+    bodyRef.current = fresh.body
+    setBody(fresh.body)
+    lastSavedRef.current = { title: lastSavedRef.current.title, body: fresh.body }
+    versionRef.current = fresh.version
+    setSourceConflict(false)
+    setStatus('idle')
+  }, [qc, page.id])
+
+  // Source saves are chained: blur, Mod-s and leaving the mode can fire
+  // together, and two in flight would both send the same base_version, the
+  // second 409ing against the first. While a conflict is open only the banner
+  // (overwrite) may save.
+  const sourceSaveRef = useRef<Promise<boolean>>(Promise.resolve(true))
+  const saveSource = useCallback(
+    (overwrite = false): Promise<boolean> => {
+      const run = async () => {
+        await sourceSaveRef.current
+        if (bodyRef.current === lastSavedRef.current.body) return true
+        if (sourceConflict && !overwrite) return false
+        const ok = await save({
+          body: bodyRef.current,
+          base_version: overwrite ? undefined : versionRef.current,
+          reset_collab: true,
+        })
+        if (ok) setSourceConflict(false)
+        return ok
+      }
+      sourceSaveRef.current = run()
+      return sourceSaveRef.current
+    },
+    [save, sourceConflict],
+  )
+
+  const enterSource = useCallback(async () => {
+    cancelPendingSave()
+    if (bodyRef.current !== lastSavedRef.current.body && !(await save({ body: bodyRef.current }))) return
+    await loadSource()
+    setProvider(null) // Milkdown unmounts and takes its collab session with it
+    setSourceMode(true)
+  }, [cancelPendingSave, save, loadSource])
+
+  const exitSource = useCallback(async () => {
+    if (await saveSource()) setSourceMode(false)
+  }, [saveSource])
+
+  // Unsaved source text is lost on unload (nothing autosaves it), so ask first.
+  // page.body is the last saved/loaded body: both paths write the query cache.
+  const sourceDirty = sourceMode && body !== page.body
+  useEffect(() => {
+    if (!sourceDirty) return
+    const warn = (e: BeforeUnloadEvent) => e.preventDefault()
+    window.addEventListener('beforeunload', warn)
+    return () => window.removeEventListener('beforeunload', warn)
+  }, [sourceDirty])
+
   // autoFocus rule: empty title → focus title; non-empty → focus body.
   const titleAutoFocus = page.title.length === 0
   const bodyAutoFocus = page.title.length > 0
 
   return (
     <div className="flex-1 flex flex-col min-h-0">
-      <header className="flex items-center justify-between gap-[var(--space-4)] px-[var(--space-6)] py-[var(--space-3)] border-b border-[var(--border-subtle)] shrink-0">
-        <Breadcrumb spaceId={spaceId} pageId={page.id} />
-        <div className="flex items-center gap-[var(--space-3)]">
+      <header className={PAGE_HEADER_CLASS}>
+        <Breadcrumb
+          spaceId={spaceId}
+          pageId={page.id}
+          titleEditor={
+            isSheet && !isViewer
+              ? { value: title, onChange: setTitle, onBlur: handleTitleBlur }
+              : undefined
+          }
+        />
+        <div className="flex items-center gap-[var(--space-1)] md:gap-[var(--space-3)] shrink-0">
           {isDraftMode ? (
             <>
               <Button
@@ -1220,16 +1690,34 @@ function PageEditor({ page, spaceId, draftRevId, onDeleted, isDeck }: PageEditor
             </>
           ) : (
             <>
+              {isSheet ? (
+                <SheetExportMenu body={body} title={title} activeSheet={activeSheet} />
+              ) : null}
               {/* Confluence "Done" — leave edit mode back to the read view. */}
               {roleResolved && !isViewer ? (
                 <Button
                   type="button"
                   variant="secondary"
                   size="sm"
-                  onClick={exitEdit}
+                  onClick={() => void (sourceMode ? saveSource() : Promise.resolve(true)).then((ok) => ok && exitEdit())}
                   className="h-[var(--space-8)] px-[var(--space-3)]"
                 >
                   Done
+                </Button>
+              ) : null}
+              {roleResolved && !isViewer && !isDeck && !isSheet ? (
+                <Button
+                  type="button"
+                  variant={sourceMode ? 'secondary' : 'ghost'}
+                  size="sm"
+                  aria-pressed={sourceMode}
+                  aria-label="Edit as Markdown"
+                  title={sourceMode ? 'Back to the rich editor' : 'Edit as Markdown'}
+                  onClick={() => void (sourceMode ? exitSource() : enterSource())}
+                  className="h-[var(--space-8)] px-[var(--space-2)]"
+                >
+                  <FileCode width={16} height={16} />
+                  <span className="hidden md:inline">Markdown</span>
                 </Button>
               ) : null}
               {isDeck && roleResolved ? (
@@ -1248,78 +1736,101 @@ function PageEditor({ page, spaceId, draftRevId, onDeleted, isDeck }: PageEditor
               ) : null}
               <PresenceAvatars awareness={provider?.awareness ?? null} />
               <SaveIndicator status={status} />
-              {roleResolved ? <FavoriteStar pageId={page.id} /> : null}
-              {roleResolved ? <FollowButton id={page.id} /> : null}
-              <PageProperties props={page.props} />
               {/* Frequent actions stay on the bar; the rest live in the "•••"
-                  menu (PageActionsMenu) to keep the header uncluttered. */}
-              {roleResolved && !isViewer ? (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  aria-label="Comments"
-                  onClick={() => {
-                    setGraphOpen(false)
-                    setCommentsOpen(true)
-                  }}
-                  className="h-[var(--space-8)] px-[var(--space-3)]"
-                >
-                  <MessageSquare width={16} height={16} />
-                  {openThreadCount != null ? (
-                    <span>Comments ({openThreadCount})</span>
-                  ) : (
-                    <span>Comments</span>
-                  )}
-                </Button>
-              ) : null}
-              {roleResolved ? (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  aria-label="Graph"
-                  title="Graph — this page's connections"
-                  onClick={() => {
-                    setCommentsOpen(false)
-                    setGraphOpen(true)
-                  }}
-                  className="h-[var(--space-8)] w-[var(--space-8)] p-0"
-                >
-                  <Share2 width={16} height={16} />
-                </Button>
-              ) : null}
-              {/* Visibility pill — ambient exposure indicator; editors click to
-                  manage sharing, viewers see a static status chip. */}
-              {roleResolved && !isViewer ? (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  aria-label="Manage sharing"
-                  onClick={() => setShareOpen(true)}
-                  className="h-[var(--space-8)] px-[var(--space-2)]"
-                >
+                  menu (PageActionsMenu) to keep the header uncluttered. Below md
+                  the whole strip folds into that menu — see the read header. */}
+              {/* Self-hides without frontmatter — see the read header. */}
+              <PageProperties props={page.props} />
+              <div className="hidden md:flex items-center gap-[var(--space-3)]">
+                {roleResolved ? <FavoriteStar pageId={page.id} /> : null}
+                {roleResolved ? <FollowButton id={page.id} /> : null}
+                {roleResolved && !isViewer ? (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    aria-label="Comments"
+                    onClick={openComments}
+                    className="h-[var(--space-8)] px-[var(--space-3)]"
+                  >
+                    <MessageSquare width={16} height={16} />
+                    {openThreadCount != null ? (
+                      <span>Comments ({openThreadCount})</span>
+                    ) : (
+                      <span>Comments</span>
+                    )}
+                  </Button>
+                ) : null}
+                {roleResolved ? (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    aria-label="Graph"
+                    title="Graph — this page's connections"
+                    onClick={openGraph}
+                    className="h-[var(--space-8)] w-[var(--space-8)] p-0"
+                  >
+                    <Share2 width={16} height={16} />
+                  </Button>
+                ) : null}
+                {/* Visibility pill — ambient exposure indicator; editors click to
+                    manage sharing, viewers see a static status chip. */}
+                {roleResolved && !isViewer ? (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    aria-label="Manage sharing"
+                    onClick={() => setShareOpen(true)}
+                    className="h-[var(--space-8)] px-[var(--space-2)]"
+                  >
+                    <VisibilityBadge
+                      state={page.exposure?.state ?? 'private'}
+                      inherited={page.exposure?.inherited ?? false}
+                    />
+                  </Button>
+                ) : null}
+                {roleResolved && isViewer ? (
                   <VisibilityBadge
                     state={page.exposure?.state ?? 'private'}
                     inherited={page.exposure?.inherited ?? false}
+                    className="ml-[var(--space-1)]"
                   />
-                </Button>
-              ) : null}
-              {roleResolved && isViewer ? (
-                <VisibilityBadge
-                  state={page.exposure?.state ?? 'private'}
-                  inherited={page.exposure?.inherited ?? false}
-                  className="ml-[var(--space-1)]"
-                />
-              ) : null}
+                ) : null}
+                {page.status === 'draft' ? <DraftBadge className="ml-[var(--space-1)]" /> : null}
+              </div>
               {roleResolved ? (
                 <PageActionsMenu
                   spaceId={spaceId}
                   pageId={page.id}
                   title={page.title}
+                  shortPath={page.short_path}
+                  status={page.status}
                   isViewer={isViewer}
                   onDelete={() => setDeleteOpen(true)}
+                  compactActions={
+                    <>
+                      {roleResolved && !isViewer ? (
+                        <DropdownMenuItem onSelect={openComments}>
+                          <MessageSquare width={14} height={14} />
+                          {openThreadCount != null
+                            ? `Comments (${openThreadCount})`
+                            : 'Comments'}
+                        </DropdownMenuItem>
+                      ) : null}
+                      <DropdownMenuItem onSelect={openGraph}>
+                        <Share2 width={14} height={14} /> Page connections
+                      </DropdownMenuItem>
+                      {!isViewer ? (
+                        <DropdownMenuItem onSelect={() => setShareOpen(true)}>
+                          <Users width={14} height={14} /> Sharing &amp; access
+                        </DropdownMenuItem>
+                      ) : null}
+                      <FavoriteStar pageId={page.id} asMenuItem />
+                      <FollowButton id={page.id} asMenuItem />
+                    </>
+                  }
                 />
               ) : null}
             </>
@@ -1327,10 +1838,41 @@ function PageEditor({ page, spaceId, draftRevId, onDeleted, isDeck }: PageEditor
         </div>
       </header>
 
+      {isSheet ? (
+        // First-class sheet edit surface: the collaborative grid fills the whole
+        // content area, edge-to-edge, identical geometry to the read view (no
+        // title row → no layout shift when toggling edit). Renaming is inline in
+        // the header breadcrumb (titleEditor below).
+        <div className="flex-1 min-h-0 flex flex-col">
+          <Suspense fallback={<EditorFallback />}>
+            <GridEditor
+              defaultValue={page.body}
+              onChange={handleBodyChange}
+              onBlur={handleBodyBlur}
+              collabPageId={isViewer ? null : page.id}
+              readOnly={isViewer}
+              autoFocus={bodyAutoFocus}
+              ariaLabel="Spreadsheet"
+              pageId={page.id}
+              onSheetChange={setActiveSheet}
+            />
+          </Suspense>
+        </div>
+      ) : (
+      /* Mirror the read view: a full-width inner scroller (so the header stays
+          put and wheel over the gutters scrolls) with the 56rem editing column
+          as an inner wrapper. `min-h-full` lets the deck's fill-height textarea
+          size against the column. data-page-scroll so the block handle hides on
+          this scroll (its .closest resolves to the nearest one — here, not main). */
       <div
         ref={contentRef}
-        className="flex-1 flex flex-col gap-[var(--space-4)] p-[var(--space-7)] max-w-[56rem] w-full self-center min-h-0"
+        data-page-scroll
+        /* overflow-x-clip: vertical-only scroller on desktop.
+           pointer-coarse:overflow-visible releases it to document scroll on
+           touch so a pinch-zoomed page pans. See the app shell in router.tsx. */
+        className="flex-1 overflow-y-auto overflow-x-clip min-h-0 pointer-coarse:overflow-visible"
       >
+        <div className={cn(PAGE_CONTENT_CLASS, 'min-h-full')}>
         <WikilinkHoverPreview containerRef={contentRef} />
         {isDraftMode ? (
           <div
@@ -1348,6 +1890,27 @@ function PageEditor({ page, spaceId, draftRevId, onDeleted, isDeck }: PageEditor
               Restoring Revision #{draftRevId} · review and press Save to
               commit, or Cancel to abandon.
             </span>
+          </div>
+        ) : null}
+        {sourceMode && sourceConflict ? (
+          <div
+            role="alert"
+            className={cn(
+              'flex flex-wrap items-center gap-[var(--space-2)]',
+              'bg-[var(--surface-2)] border border-[var(--border-subtle)]',
+              'rounded-[var(--radius-sm)]',
+              'px-[var(--space-3)] py-[var(--space-2)]',
+              'text-[length:var(--text-sm)] text-[var(--text-muted)]',
+            )}
+          >
+            <TriangleAlert aria-hidden width={14} height={14} className="text-[var(--warning)]" />
+            <span className="flex-1">Someone else saved this page while you were editing its Markdown.</span>
+            <Button type="button" variant="ghost" size="sm" onClick={() => void loadSource()}>
+              Discard mine, load theirs
+            </Button>
+            <Button type="button" variant="secondary" size="sm" onClick={() => void saveSource(true)}>
+              Overwrite with mine
+            </Button>
           </div>
         ) : null}
 
@@ -1390,21 +1953,18 @@ function PageEditor({ page, spaceId, draftRevId, onDeleted, isDeck }: PageEditor
           // A live outline (parsed from the unsaved buffer) sits alongside on
           // wide screens.
           <div className="flex min-h-0 flex-1 gap-[var(--space-4)]">
-            <textarea
-              value={body}
-              onChange={(e) => handleBodyChange(e.target.value)}
-              onBlur={handleBodyBlur}
-              autoFocus={bodyAutoFocus}
-              spellCheck={false}
-              aria-label="Deck markdown"
-              placeholder={'# Slide one\n\nWrite slides in Markdown.\n\n---\n\n# Slide two\n\n- Separate slides with ---'}
-              className={cn(
-                EDITOR_MIN_H,
-                'min-w-0 flex-1 resize-none bg-transparent outline-none',
-                'font-[family-name:var(--font-mono)] text-[length:var(--text-sm)]',
-                'leading-relaxed text-[var(--text-primary)] placeholder:text-[var(--text-muted)]',
-              )}
-            />
+            <Suspense fallback={<EditorFallback />}>
+              <MarkdownSourceEditor
+                value={body}
+                onChange={handleBodyChange}
+                onBlur={handleBodyBlur}
+                onSave={handleBodyBlur}
+                autoFocus={bodyAutoFocus}
+                ariaLabel="Deck markdown"
+                placeholder={'# Slide one\n\nWrite slides in Markdown.\n\n---\n\n# Slide two\n\n- Separate slides with ---'}
+                className={cn(EDITOR_MIN_H, 'flex-1')}
+              />
+            </Suspense>
             <Suspense fallback={null}>
               <DeckEditorOutline body={body} pageId={page.id} className="hidden w-[16rem] shrink-0 lg:flex" />
             </Suspense>
@@ -1449,6 +2009,21 @@ function PageEditor({ page, spaceId, draftRevId, onDeleted, isDeck }: PageEditor
               />
             </Suspense>
           )
+        ) : sourceMode ? (
+          <Suspense fallback={<EditorFallback />}>
+            <MarkdownSourceEditor
+              value={body}
+              onChange={(next) => {
+                bodyRef.current = next
+                setBody(next)
+              }}
+              onBlur={() => void saveSource()}
+              onSave={() => void saveSource()}
+              autoFocus
+              ariaLabel="Page markdown"
+              className={EDITOR_MIN_H}
+            />
+          </Suspense>
         ) : roleResolved ? (
           <Suspense fallback={<EditorFallback />}>
             <MilkdownEditor
@@ -1469,6 +2044,7 @@ function PageEditor({ page, spaceId, draftRevId, onDeleted, isDeck }: PageEditor
               commentThreads={commentThreadsForEditor}
               onAnchorClick={isViewer ? undefined : handleAnchorClick}
               onAnchorsResolved={isViewer ? undefined : handleAnchorsResolved}
+              onCommentSelection={isViewer ? undefined : commentOnSelection}
               showResolvedAnchors={showResolvedComments}
               pageId={page.id}
             />
@@ -1476,6 +2052,15 @@ function PageEditor({ page, spaceId, draftRevId, onDeleted, isDeck }: PageEditor
         ) : (
           <EditorFallback />
         )}
+
+        {/* Decks and sheets have their own validators (DeckEditorOutline / the
+            grid); this is for prose bodies, and stays invisible unless the
+            render would differ from what's written. */}
+        {!isDeck && !isSheet && !isViewer ? (
+          <Suspense fallback={null}>
+            <PageLintNotice body={body} pageId={page.id} />
+          </Suspense>
+        ) : null}
 
         <ChildPagesSection
           spaceId={spaceId}
@@ -1488,7 +2073,9 @@ function PageEditor({ page, spaceId, draftRevId, onDeleted, isDeck }: PageEditor
         <RelatedPagesSection pageId={page.id} spaceId={spaceId} />
 
         <LocalGraphCard pageId={page.id} />
+        </div>
       </div>
+      )}
 
       <DeletePageConfirmDialog
         page={page}
@@ -1514,6 +2101,7 @@ function PageEditor({ page, spaceId, draftRevId, onDeleted, isDeck }: PageEditor
           hasSelection={!selectionEmpty}
           captureAnchor={captureCurrentAnchor}
           anchorPreview={selectionEmpty ? null : selectionPreview}
+          composeFocusSignal={composeFocus}
           me={{ id: me.data.id, username: me.data.username }}
           isSpaceOwner={isSpaceOwner}
           orphanIds={orphanIds}
@@ -1526,6 +2114,7 @@ function PageEditor({ page, spaceId, draftRevId, onDeleted, isDeck }: PageEditor
         <Suspense fallback={null}>
           <ShareManagerSheet
             pageId={page.id}
+            isDraft={page.status === 'draft'}
             open={shareOpen}
             onOpenChange={setShareOpen}
           />
@@ -1679,17 +2268,77 @@ function ChildPagesSection({
   )
 }
 
-function Breadcrumb({ spaceId, pageId }: { spaceId: number; pageId: number }) {
+function Breadcrumb({
+  spaceId,
+  pageId,
+  // When set (sheet edit mode), the last crumb (the page title) renders as an
+  // inline input controlled by the editor — renaming happens here instead of a
+  // content title row, so entering edit never shifts/shrinks the grid.
+  titleEditor,
+}: {
+  spaceId: number
+  pageId: number
+  titleEditor?: { value: string; onChange: (v: string) => void; onBlur: () => void }
+}) {
   const space = useSpace(spaceId)
   const tree = usePages({ spaceId, tree: true })
   const nodes = (tree.data as PageTreeNode[] | undefined) ?? []
   const chain = findAncestorChain(nodes, pageId) ?? []
+  const current = chain[chain.length - 1]
+  const parent = chain[chain.length - 2]
 
   return (
     <nav
       aria-label="Breadcrumb"
       className="flex items-center min-w-0 text-[length:var(--text-sm)] text-[var(--text-muted)] font-[family-name:var(--font-sans)]"
     >
+      {/* Phone: the full chain never fits — it truncated to "P… › D…", which
+          named neither the space nor the page. One level up as a back
+          affordance plus this page's title instead; the title also keeps the
+          sticky header meaningful once the H1 has scrolled past. */}
+      <div className="flex md:hidden items-center min-w-0 gap-[var(--space-1)]">
+        {parent ? (
+          <Link
+            to="/spaces/$spaceId/pages/$pageId/{-$slug}"
+            params={{ spaceId, pageId: parent.id, slug: undefined }}
+            aria-label={`Up to ${parent.title || 'Untitled'}`}
+            className="shrink-0 -ml-[var(--space-2)] inline-flex h-[var(--space-8)] w-[var(--space-8)] items-center justify-center rounded-[var(--radius-xs)] hover:text-[var(--text-primary)]"
+          >
+            <ChevronLeft width={18} height={18} aria-hidden />
+          </Link>
+        ) : (
+          <Link
+            to="/spaces/$spaceId"
+            params={{ spaceId }}
+            aria-label={`Up to ${space.data?.name ?? 'space'}`}
+            className="shrink-0 -ml-[var(--space-2)] inline-flex h-[var(--space-8)] w-[var(--space-8)] items-center justify-center rounded-[var(--radius-xs)] hover:text-[var(--text-primary)]"
+          >
+            <ChevronLeft width={18} height={18} aria-hidden />
+          </Link>
+        )}
+        {titleEditor ? (
+          <input
+            value={titleEditor.value}
+            onChange={(e) => titleEditor.onChange(e.target.value)}
+            onBlur={titleEditor.onBlur}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault()
+                e.currentTarget.blur()
+              }
+            }}
+            placeholder="Untitled sheet"
+            aria-label="Sheet title"
+            className="min-w-0 flex-1 rounded-[var(--radius-sm)] border border-transparent bg-transparent px-[var(--space-1)] text-[var(--text-primary)] outline-none focus-visible:border-[var(--border-subtle)]"
+          />
+        ) : (
+          <span className="truncate font-medium text-[var(--text-primary)]">
+            {current?.title || space.data?.name || 'Untitled'}
+          </span>
+        )}
+      </div>
+
+      <span className="hidden md:flex items-center min-w-0">
       <Link
         to="/spaces/$spaceId"
         params={{ spaceId }}
@@ -1712,9 +2361,26 @@ function Breadcrumb({ spaceId, pageId }: { spaceId: number; pageId: number }) {
               className="mx-[var(--space-1)] shrink-0"
             />
             {isLast ? (
-              <span className="truncate text-[var(--text-primary)]">
-                {node.title || 'Untitled'}
-              </span>
+              titleEditor ? (
+                <input
+                  value={titleEditor.value}
+                  onChange={(e) => titleEditor.onChange(e.target.value)}
+                  onBlur={titleEditor.onBlur}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault()
+                      e.currentTarget.blur()
+                    }
+                  }}
+                  placeholder="Untitled sheet"
+                  aria-label="Sheet title"
+                  className="min-w-0 w-[min(28rem,50vw)] rounded-[var(--radius-sm)] border border-transparent bg-transparent px-[var(--space-1)] -mx-[var(--space-1)] text-[var(--text-primary)] outline-none hover:bg-[var(--surface-2)] focus-visible:border-[var(--border-subtle)]"
+                />
+              ) : (
+                <span className="truncate text-[var(--text-primary)]">
+                  {node.title || 'Untitled'}
+                </span>
+              )
             ) : (
               <Link
                 to="/spaces/$spaceId/pages/$pageId/{-$slug}"
@@ -1727,13 +2393,14 @@ function Breadcrumb({ spaceId, pageId }: { spaceId: number; pageId: number }) {
           </span>
         )
       })}
+      </span>
     </nav>
   )
 }
 
 function PageLoading() {
   return (
-    <div className="flex-1 flex flex-col gap-[var(--space-4)] p-[var(--space-7)] max-w-[56rem] w-full self-center">
+    <div className={cn(PAGE_CONTENT_CLASS, 'flex-1 self-center')}>
       <div className="h-[calc(var(--space-8)+var(--space-3))] w-2/3 rounded-[var(--radius-sm)] bg-[var(--surface-2)]" />
       <div className="flex-1 min-h-[calc(var(--space-8)*4)] rounded-[var(--radius-md)] bg-[var(--surface-2)]" />
     </div>
@@ -1750,6 +2417,30 @@ function PageError({ onRetry }: { onRetry: () => void }) {
       actions={
         <Button variant="secondary" onClick={onRetry}>
           Retry
+        </Button>
+      }
+    />
+  )
+}
+
+// The page exists but this account isn't a member of its space. Distinct from
+// both PageError (a real outage — retryable) and PageNotFound (nothing there):
+// the only thing that resolves it is someone granting access, so say so, and
+// name the signed-in account since arriving on the wrong one is the usual cause.
+// "Back to space" is deliberately absent — that space 403s too.
+function PageForbidden({ username }: { username?: string }) {
+  return (
+    <EmptyState
+      icon={Lock}
+      title="You don't have access to this page"
+      description={
+        username
+          ? `Ask an owner of this space to share it with you. You're signed in as ${username}.`
+          : 'Ask an owner of this space to share it with you.'
+      }
+      actions={
+        <Button asChild variant="secondary">
+          <Link to="/">Your spaces</Link>
         </Button>
       }
     />
@@ -1813,8 +2504,8 @@ function DeletePageConfirmDialog({
         <DialogHeader>
           <DialogTitle>Delete this page?</DialogTitle>
           <DialogDescription>
-            "{page.title || 'Untitled'}" and any child pages will be permanently
-            removed. This action cannot be undone.
+            "{page.title || 'Untitled'}" and any child pages move to this space's
+            Trash. You can put them back from there — the space's Trash tab.
           </DialogDescription>
         </DialogHeader>
         {error ? (

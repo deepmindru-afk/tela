@@ -3,6 +3,7 @@ import { useNavigate } from '@tanstack/react-router'
 import {
   ChevronDown,
   ChevronRight,
+  FilePen,
   MoreHorizontal,
   RotateCw,
 } from 'lucide-react'
@@ -15,6 +16,7 @@ import {
   usePages,
   useUpdatePage,
 } from '../../lib/queries/pages'
+import { useMe } from '../../lib/queries/auth'
 import { useSpaceFreshness } from '../../lib/queries/freshness'
 import { useSpaceSummaries } from '../../lib/queries/summaries'
 import { pageStaleLabel } from './staleness'
@@ -80,10 +82,13 @@ export function SpacePages({ spaceId, activePageId }: SpacePagesProps) {
   // reads behind — noise on an instance not running that subsystem). Failed
   // summaries are excluded (see staleness.ts) so the dot stays a "catching up"
   // signal. Map page id → composed tooltip; absent = nothing outstanding.
+  // Opt-out (Settings → Search index): when off, no dot is computed at all.
+  const showDot = useMe().data?.show_backfill_dot ?? true
   const freshness = useSpaceFreshness(spaceId)
   const summaries = useSpaceSummaries(spaceId)
   const staleLabels = useMemo(() => {
     const indexing = new Map<number, 'stale' | 'unindexed'>()
+    if (!showDot) return new Map<number, string>()
     if (freshness.data?.enabled) {
       for (const p of freshness.data.pages) {
         if (p.status === 'stale' || p.status === 'unindexed')
@@ -103,7 +108,7 @@ export function SpacePages({ spaceId, activePageId }: SpacePagesProps) {
       if (label) m.set(id, label)
     }
     return m
-  }, [freshness.data, summaries.data])
+  }, [freshness.data, summaries.data, showDot])
 
   // Auto-reveal the active page when navigation lands on it from outside the
   // sidebar (backlink click, command-palette result, [[wikilink]], direct URL,
@@ -301,11 +306,21 @@ function PageNode({
         </button>
 
         {/* Staleness marker — trailing, only when this page has background
-            backfill outstanding (indexing and/or summaries). Hides on row hover
-            to make room for the ⋯ menu. */}
+            backfill outstanding (indexing and/or summaries). Recedes on row
+            hover (see StalenessDot) so the ⋯ menu leads without hiding it. */}
         {staleLabels.has(node.id) ? (
-          <span className="shrink-0 inline-flex items-center group-hover:hidden">
-            <StalenessDot label={staleLabels.get(node.id)!} />
+          <StalenessDot label={staleLabels.get(node.id)!} />
+        ) : null}
+
+        {/* Draft marker: work in progress, kept off public spaces and share
+            links until published. Recedes on hover like the exposure marker. */}
+        {node.status === 'draft' ? (
+          <span
+            className="shrink-0 inline-flex items-center text-[var(--text-muted)] group-hover:hidden"
+            title="Draft"
+            aria-label="Draft"
+          >
+            <FilePen width={12} height={12} />
           </span>
         ) : null}
 
@@ -530,7 +545,8 @@ function DeletePageDialog({
                   childCount === 1 ? 'child page' : 'child pages'
                 }`
               : ''}{' '}
-            will be permanently removed. This action cannot be undone.
+            move to this space&apos;s Trash. You can put them back from there — the
+            space&apos;s Trash tab.
           </DialogDescription>
         </DialogHeader>
         {error ? (

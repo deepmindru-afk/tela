@@ -14,6 +14,8 @@ export interface EventFilters {
   q?: string
   // 'YYYY-MM-DD' lower bound on created_at.
   since?: string
+  // Include instance-admin activity (default: hidden as operator noise).
+  includeAdmins?: boolean
 }
 
 interface EventsPage {
@@ -35,6 +37,7 @@ export const EVENT_TYPE_GROUPS: { label: string; types: string[] }[] = [
   { label: 'Ask', types: ['ask'] },
   { label: 'API', types: ['api.request'] },
   { label: 'Errors', types: ['client.error'] },
+  { label: 'Billing', types: ['billing.'] },
 ]
 
 export function useInfiniteEvents(filters: EventFilters) {
@@ -49,6 +52,7 @@ export function useInfiniteEvents(filters: EventFilters) {
       if (filters.userId) params.set('user_id', String(filters.userId))
       if (filters.q && filters.q.trim()) params.set('q', filters.q.trim())
       if (filters.since) params.set('since', filters.since)
+      if (filters.includeAdmins) params.set('include_admins', '1')
       if (pageParam != null) params.set('before', String(pageParam))
       const qs = params.toString()
       return api<EventsPage>(`/api/admin/events${qs ? `?${qs}` : ''}`)

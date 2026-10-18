@@ -23,10 +23,17 @@ export interface RcloneSetup {
   // The concrete folder the vault is mounted at (e.g. ~/tela or ~/tela/<slug>).
   local_dir: string
   config_create_command: string // step 1, run once
-  mount_command: string // step 2: foreground mount to try it
-  service_name: string // the systemd unit name
-  systemd_unit: string // step 3: the .service file contents
-  systemd_install: string // step 3: enable + start it
+  mount_command: string // step 2: foreground mount to try it (Linux/Windows, FUSE)
+  mount_command_macos: string // step 2 on macOS: nfsmount, no FUSE kext needed
+  service_name: string // the systemd unit / launchd label stem
+  systemd_unit: string // step 3 (Linux): the .service file contents
+  systemd_install: string // step 3 (Linux): enable + start it
+  launchd_label: string // step 3 (macOS): the agent label / plist filename
+  launchd_plist: string // step 3 (macOS): the .plist contents
+  launchd_install: string // step 3 (macOS): load it
+  // Repairs a remote created before tela had modtime support (vendor=other),
+  // where rclone cannot tell an edited file from an unchanged one.
+  fix_vendor_command: string
   read_only: boolean
 }
 

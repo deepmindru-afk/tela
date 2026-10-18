@@ -32,6 +32,12 @@ export interface StatsSignup {
   created_at: string
   activated: boolean
 }
+// One row of the signup-source breakdown (30d). `source` is utm_source, else
+// the referring host, else 'direct'.
+export interface StatsSignupSource {
+  source: string
+  count: number
+}
 export interface StatsUnanswered {
   question: string
   who: string
@@ -45,6 +51,9 @@ export interface AdminStats {
   logins: number[]
   asks: number[]
   errors: number[]
+  // Accounts created that day, aligned to `days` — the per-day read of growth
+  // that `users_cum` only implies.
+  signups: number[]
   users_cum: number[]
   pages_cum: number[]
   dau: number
@@ -53,6 +62,10 @@ export interface AdminStats {
   users: number
   spaces: number
   pages: number
+  // Where the last 30 days of signups came from, best first. Counts only the
+  // accounts that carry attribution — signup_sources_known of new_users_30.
+  signup_sources: StatsSignupSource[]
+  signup_sources_known: number
   top_pages: StatsTopPage[]
   top_contributors: StatsTopPerson[]
   top_spaces: StatsTopSpace[]
@@ -76,13 +89,17 @@ export interface AdminStats {
   ai_reason?: string
 }
 
-export const adminStatsKeys = { stats: ['admin-stats'] as const }
+export const adminStatsKeys = {
+  stats: (includeAdmins: boolean) => ['admin-stats', { includeAdmins }] as const,
+}
 
-// GET /api/admin/stats — instance-admin only.
-export function useAdminStats() {
+// GET /api/admin/stats — instance-admin only. Admin activity is excluded from the
+// activity aggregates by default; includeAdmins re-includes it (?include_admins=1).
+export function useAdminStats(includeAdmins = false) {
   return useQuery({
-    queryKey: adminStatsKeys.stats,
-    queryFn: () => api<AdminStats>('/api/admin/stats'),
+    queryKey: adminStatsKeys.stats(includeAdmins),
+    queryFn: () =>
+      api<AdminStats>(`/api/admin/stats${includeAdmins ? '?include_admins=1' : ''}`),
     staleTime: 60_000,
   })
 }

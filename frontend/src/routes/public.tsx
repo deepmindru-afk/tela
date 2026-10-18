@@ -13,61 +13,12 @@ import { PublicDiscover } from '../components/app/PublicDiscover'
 import { PublicHandleHome } from '../components/app/PublicHandleHome'
 import { PublicReaderView } from '../components/app/PublicReader'
 import { PublicSpaceIndex } from '../components/app/PublicSpaceIndex'
-import { ThemeSwitcher } from '../components/ThemeSwitcher'
-import { BrandLogo } from '../components/BrandLogo'
-import { Card, CardDescription, CardHeader, CardTitle } from '../components/ui/card'
-import { useHostContext, useTelaHomeHref } from '../lib/queries/host-context'
+import { PublicShell, PublicUnavailable } from '../components/app/PublicShell'
 
 // Public-space reader route — child of `rootRoute` (NOT appLayoutRoute) because
 // it's unauthenticated: a logged-out reader views a public space here. Data
 // comes from the /api/public/ endpoints (raw fetch, never `api()`), so a miss
 // is a plain 404, not a bounce to /login.
-
-function PublicShell({ children }: { children: React.ReactNode }) {
-  const telaHome = useTelaHomeHref()
-  // On an org custom domain, BrandLogo white-labels the public reader to the
-  // org (logo / name) and the brand links to the org root; on the canonical
-  // host it's the tela wordmark → marketing landing.
-  const org = useHostContext().data?.org ?? null
-  const brandHref = org ? '/' : telaHome
-  const brandLabel = org ? `${org.name} home` : 'tela home'
-  return (
-    <div className="min-h-dvh flex flex-col bg-[var(--surface-1)] text-[var(--text-primary)]">
-      <header className="flex items-center justify-between px-[var(--space-6)] py-[var(--space-3)] border-b border-[var(--border-subtle)] shrink-0">
-        <h1 className="m-0 text-[length:var(--text-lg)] leading-[var(--leading-tight)] font-[family-name:var(--font-sans)]">
-          <a
-            href={brandHref}
-            aria-label={brandLabel}
-            className="inline-flex items-center rounded-[var(--radius-xs)] no-underline transition-opacity duration-[var(--duration-fast)] hover:opacity-70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
-          >
-            <BrandLogo size={20} />
-          </a>
-        </h1>
-        <ThemeSwitcher />
-      </header>
-      <main className="flex-1 flex items-center justify-center p-[var(--space-7)]">
-        {children}
-      </main>
-    </div>
-  )
-}
-
-function PublicUnavailable({
-  message = 'This page is not publicly available.',
-}: {
-  message?: string
-}) {
-  return (
-    <PublicShell>
-      <Card className="w-full max-w-[24rem]">
-        <CardHeader>
-          <CardTitle className="text-[length:var(--text-2xl)]">Not available</CardTitle>
-          <CardDescription>{message}</CardDescription>
-        </CardHeader>
-      </Card>
-    </PublicShell>
-  )
-}
 
 // The cross-tenant public-space directory: /discover. Sort + pagination live in
 // the URL (?sort=&offset=) so a view is shareable and back-button friendly.
@@ -211,6 +162,60 @@ export function PublicReaderRoute() {
     return <PublicUnavailable />
   }
 
+  return (
+    <PublicReaderView
+      space={spaceQuery.data.space}
+      pageId={pageQuery.data.page.id}
+      pageTitle={pageQuery.data.page.title}
+      pageBody={pageQuery.data.page.body}
+      pageProps={pageQuery.data.page.props}
+      createdAt={pageQuery.data.page.created_at}
+      updatedAt={pageQuery.data.page.updated_at}
+      author={pageQuery.data.page.author}
+      editor={pageQuery.data.page.editor}
+    />
+  )
+}
+
+// A page addressed by the pretty handle URL: /{handle}/{space-slug}/{id}/{slug}.
+// Resolves the space by handle+slug, then renders the SAME reader as the id
+// route. The id resolves the page, so a stale slug (shared before a retitle)
+// still lands on the right page — it is only canonicalised in the address bar.
+export function PublicHandlePageRoute() {
+  const { handle, spaceSlug, pageId } = useParams({
+    from: '/$handle/$spaceSlug/$pageId/{-$slug}',
+  })
+  const spaceQuery = usePublicByHandleSpace(handle, spaceSlug)
+  const spaceId = spaceQuery.data?.space.id
+  const pageQuery = usePublicSpacePage(spaceId ?? -1, pageId, spaceId != null)
+
+  const pageTitle = pageQuery.data?.page.title ?? ''
+  useEffect(() => {
+    if (!pageQuery.data) return
+    const slug = pageSlug(pageTitle)
+    const base = `/${handle}/${spaceSlug}/${pageId}`
+    const desired = slug ? `${base}/${slug}` : base
+    if (window.location.pathname !== desired) {
+      window.history.replaceState(
+        window.history.state,
+        '',
+        desired + window.location.search + window.location.hash,
+      )
+    }
+  }, [pageQuery.data, pageTitle, handle, spaceSlug, pageId])
+
+  if (spaceQuery.isLoading || (spaceId != null && pageQuery.isLoading)) {
+    return (
+      <PublicShell>
+        <p role="status" className="m-0 text-[length:var(--text-sm)] text-[var(--text-muted)]">
+          Loading…
+        </p>
+      </PublicShell>
+    )
+  }
+  if (spaceQuery.error || !spaceQuery.data || pageQuery.error || !pageQuery.data) {
+    return <PublicUnavailable />
+  }
   return (
     <PublicReaderView
       space={spaceQuery.data.space}

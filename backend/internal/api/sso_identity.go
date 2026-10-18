@@ -39,8 +39,9 @@ var errSSOEmailTaken = errors.New("sso: email already registered to another acco
 
 // signInSSO maps a resolved external identity onto a tela user and signs them
 // in: it reuses the exact provisioning chain the email-verify flow uses
-// (EnsurePersonalSpace → applyAutoJoin → CreateSession + cookie). Returns the
-// user id on success; writes nothing on success (the caller redirects).
+// (EnsurePersonalSpace → applyAutoJoin → applyPendingInvites → CreateSession +
+// cookie). Returns the user id on success; writes nothing on success (the
+// caller redirects).
 func (s *Server) signInSSO(w http.ResponseWriter, r *http.Request, id ssoIdentity) (int64, error) {
 	id.email = normalizeEmail(id.email)
 	ctx := r.Context()
@@ -51,7 +52,7 @@ func (s *Server) signInSSO(w http.ResponseWriter, r *http.Request, id ssoIdentit
 	}
 	defer tx.Rollback()
 
-	userID, username, err := resolveSSOUser(ctx, tx, id)
+	userID, username, created, err := resolveSSOUser(ctx, tx, id)
 	if err != nil {
 		return 0, err
 	}
@@ -61,11 +62,31 @@ func (s *Server) signInSSO(w http.ResponseWriter, r *http.Request, id ssoIdentit
 
 	// Post-commit, idempotent, best-effort — mirrors VerifyEmail. A hiccup here
 	// must not strand a freshly authenticated user, so failures are logged.
-	if _, err := EnsurePersonalSpace(ctx, s.DB, userID, username); err != nil {
+	if spaceID, err := EnsurePersonalSpace(ctx, s.DB, userID, username); err != nil {
 		slog.Error("sso: personal space provisioning", "user_id", userID, "username", username, "err", err)
+	} else {
+		s.seedPersonalWelcomePage(ctx, userID, username, spaceID)
 	}
 	if id.email != "" {
 		applyAutoJoin(ctx, s.DB, userID, id.email)
+		// An SSO signup arrives already email-verified, so it must redeem pending
+		// invites exactly like VerifyEmail does. Omitting this stranded someone
+		// invited to a space who then signed up with Google: the invite stayed
+		// pending, every read 403'd, and the UI called it a server error.
+		s.applyPendingInvites(ctx, userID, id.email)
+	}
+
+	// Tell the instance admins, but only when this login actually CREATED an
+	// account — the same "did it sign up or just sign in" question the trial
+	// asks, and the reason this call has to live out here rather than next to
+	// the insert: it must not fire until the tx that made the row commits.
+	// resolveSSOUser's other two outcomes are a returning user and an
+	// email-matched LINK onto an existing account; neither is a signup, and
+	// notifying on the link would announce accounts that registered by password
+	// months ago. See users_create.go for the rule.
+	if created {
+		// What was inserted: the IdP's trimmed name, and the normalized email.
+		s.notifyUserRegistered(ctx, userID, username, strings.TrimSpace(id.displayName), id.email)
 	}
 
 	sid, err := auth.CreateSession(ctx, s.DB, userID, r.UserAgent())
@@ -80,8 +101,10 @@ func (s *Server) signInSSO(w http.ResponseWriter, r *http.Request, id ssoIdentit
 // resolveSSOUser maps an identity to a user id within tx. Three outcomes, in
 // order: (1) the (provider, subject) is already linked → that user; (2) the
 // email is trusted and matches an existing account → link this identity to it;
-// (3) otherwise create a fresh account. Returns (userID, username).
-func resolveSSOUser(ctx context.Context, tx *sql.Tx, id ssoIdentity) (int64, string, error) {
+// (3) otherwise create a fresh account. Returns (userID, username, created),
+// where created is true only for outcome (3) — the caller needs to tell a
+// signup from a sign-in once the tx has committed.
+func resolveSSOUser(ctx context.Context, tx *sql.Tx, id ssoIdentity) (int64, string, bool, error) {
 	// (1) Known identity — the common returning-user path.
 	var (
 		userID   int64
@@ -102,14 +125,14 @@ func resolveSSOUser(ctx context.Context, tx *sql.Tx, id ssoIdentity) (int64, str
 			if name := strings.TrimSpace(id.displayName); name != "" {
 				if _, err := tx.ExecContext(ctx,
 					`UPDATE users SET display_name = $1 WHERE id = $2`, name, userID); err != nil {
-					return 0, "", err
+					return 0, "", false, err
 				}
 			}
 		}
-		return userID, username, nil
+		return userID, username, false, nil
 	}
 	if !errors.Is(err, sql.ErrNoRows) {
-		return 0, "", err
+		return 0, "", false, err
 	}
 
 	// (2) Trusted email matching an existing account — link, don't duplicate.
@@ -119,12 +142,12 @@ func resolveSSOUser(ctx context.Context, tx *sql.Tx, id ssoIdentity) (int64, str
 			Scan(&userID, &username)
 		if err == nil {
 			if err := linkSSOIdentity(ctx, tx, userID, id); err != nil {
-				return 0, "", err
+				return 0, "", false, err
 			}
-			return userID, username, nil
+			return userID, username, false, nil
 		}
 		if !errors.Is(err, sql.ErrNoRows) {
-			return 0, "", err
+			return 0, "", false, err
 		}
 	}
 
@@ -134,40 +157,49 @@ func resolveSSOUser(ctx context.Context, tx *sql.Tx, id ssoIdentity) (int64, str
 	// login (it has no password the user knows).
 	username, err = uniqueUsername(ctx, tx, id.displayName, id.email)
 	if err != nil {
-		return 0, "", err
+		return 0, "", false, err
 	}
 	hash, err := auth.HashPassword(randomSecret())
 	if err != nil {
-		return 0, "", err
+		return 0, "", false, err
 	}
 	// The IdP asserted this email, so store it pre-verified; a NULL email (no
-	// usable address) stays unverified. email_verified_at is set via a literal
-	// rather than a parameter so $2 isn't used in two type contexts (which
-	// defeats pgx's type inference).
-	email := sql.NullString{String: id.email, Valid: id.email != ""}
-	verifiedAt := "NULL"
-	if email.Valid {
-		verifiedAt = "tela_now()"
-	}
+	// usable address) stays unverified.
+	//
+	// Trial: a social signup created itself exactly like a password one, so it
+	// gets the same signup trial — omitting it here is the bug this rule exists
+	// to prevent. An org connection's users are provisioned by their employer
+	// and work inside the org's plan, so they don't. See users_create.go.
+	//
 	// Keep the IdP's original, properly-cased name as the display name — the
 	// username is just its slug. '' when the provider gave us nothing usable,
 	// which the UI falls back from to the username.
 	displayName = strings.TrimSpace(id.displayName)
-	err = tx.QueryRowContext(ctx, fmt.Sprintf(`
-		INSERT INTO users (username, display_name, email, email_verified_at, password_hash, is_instance_admin, is_active)
-		VALUES ($1, $2, $3, %s, $4, 0, 1)
-		RETURNING id`, verifiedAt), username, displayName, email, hash).Scan(&userID)
+	trial := !isOrgSSOProvider(id.provider)
+	userID, err = insertUser(ctx, tx, newUser{
+		Username:     username,
+		DisplayName:  displayName,
+		Email:        id.email,
+		Verified:     true,
+		PasswordHash: hash,
+		Trial:        trial,
+	})
 	if err != nil {
 		if isUniqueConstraintErr(err) {
 			// Email collided with an account we weren't allowed to link into.
-			return 0, "", errSSOEmailTaken
+			return 0, "", false, errSSOEmailTaken
 		}
-		return 0, "", err
+		return 0, "", false, err
 	}
 	if err := linkSSOIdentity(ctx, tx, userID, id); err != nil {
-		return 0, "", err
+		return 0, "", false, err
 	}
-	return userID, username, nil
+	if trial {
+		// Inside the tx on purpose: a signup that rolls back leaves no trial and
+		// must leave no record of one.
+		recordTrialStarted(ctx, tx, userID, username, signupTrialPlan, signupTrialDays)
+	}
+	return userID, username, true, nil
 }
 
 // linkSSOIdentity records the (provider, subject) → user mapping. A UNIQUE

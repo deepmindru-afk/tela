@@ -27,11 +27,11 @@ type adminUsageTotals struct {
 type adminAccountUsage struct {
 	Kind     string `json:"kind"` // "user" | "org"
 	ID       int64  `json:"id"`
-	Label    string `json:"label"`     // username or org name
+	Label    string `json:"label"` // username or org name
 	PlanKey  string `json:"plan_key"`
 	PlanName string `json:"plan_name"`
-	LLMCalls int64  `json:"llm_calls"`        // this month
-	LLMCap   *int64 `json:"llm_cap"`          // monthly cap (nil = unlimited)
+	LLMCalls int64  `json:"llm_calls"` // this month
+	LLMCap   *int64 `json:"llm_cap"`   // monthly cap (nil = unlimited)
 }
 
 type adminUsageOut struct {
@@ -116,7 +116,7 @@ func (s *Server) AdminUsage(w http.ResponseWriter, r *http.Request) {
 	// (queries ask_log directly, so it works even when the embedder is off).
 	out.Gaps = []rag.KnowledgeGap{}
 	if s.rag != nil {
-		if gaps, err := s.rag.KnowledgeGaps(ctx, 30, 10); err == nil {
+		if gaps, err := s.rag.KnowledgeGaps(ctx, rag.GapScope{Instance: true}, 30, 10); err == nil {
 			out.Gaps = gaps
 		}
 	}

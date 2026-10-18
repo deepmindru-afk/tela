@@ -137,13 +137,14 @@ func (s *Server) HandleOGImage(w http.ResponseWriter, r *http.Request) {
 		propsRaw   []byte
 		spaceID    int64
 		ownerOrgID int64 // NULL space.org_id scans as 0 via COALESCE
+		visibility string
 	)
 	err = s.DB.QueryRowContext(r.Context(),
-		`SELECT p.title, sp.name, p.updated_at, p.body, p.props, p.space_id, COALESCE(sp.org_id, 0)
+		`SELECT p.title, sp.name, p.updated_at, p.body, p.props, p.space_id, COALESCE(sp.org_id, 0), `+pageVisibilityExpr+`
 		   FROM pages p
 		   JOIN spaces sp ON sp.id = p.space_id
 		  WHERE p.id = $1 AND p.deleted_at IS NULL`, pageID,
-	).Scan(&title, &spaceName, &updatedAt, &body, &propsRaw, &spaceID, &ownerOrgID)
+	).Scan(&title, &spaceName, &updatedAt, &body, &propsRaw, &spaceID, &ownerOrgID, &visibility)
 	if errors.Is(err, sql.ErrNoRows) {
 		writeNotFoundHTML(w)
 		return
@@ -151,6 +152,23 @@ func (s *Server) HandleOGImage(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		slog.Error("og_image: load page", "page_id", pageID, "err", err)
 		writeInternalHTML(w)
+		return
+	}
+
+	// A private page's card carries its title (and a deck's first slide), so it
+	// needs the sig its OG envelope hands out (ogImageURL); fetched by id alone
+	// it's a generic card branded only by the request host, like the envelope.
+	if visibility != spaceVisibilityPublic && !s.validOGImageSig(pageID, r.URL.Query().Get("sig")) {
+		png, err := renderOGCardOpts(ogCardOpts{title: "A page on " + s.ogSiteName(r, 0), brand: s.resolveOGBrand(r, 0)})
+		if err != nil {
+			writeInternalHTML(w)
+			return
+		}
+		w.Header().Set("Content-Type", "image/png")
+		w.Header().Set("Cache-Control", "public, max-age=3600")
+		w.Header().Set("Content-Length", strconv.Itoa(len(png)))
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write(png)
 		return
 	}
 
@@ -164,7 +182,11 @@ func (s *Server) HandleOGImage(w http.ResponseWriter, r *http.Request) {
 	// Resolve the org brand (logo/accent/name) for this card. Folding its
 	// signature into the ETag busts caches when an org changes its branding.
 	brand := s.resolveOGBrand(r, ownerOrgID)
-	etag := fmt.Sprintf(`W/"og-%d-%d-%s"`, pageID, updatedUnix, brand.sig)
+	// Fold the build commit into the ETag: the card is rendered by this binary, so
+	// a deploy that changes the rendering (like blanking sheet data) must produce a
+	// new ETag — otherwise a revalidating cache (Cloudflare, social crawlers) gets a
+	// 304 on the unchanged page and serves the stale image forever.
+	etag := fmt.Sprintf(`W/"og-%d-%d-%s-%s"`, pageID, updatedUnix, brand.sig, Commit)
 
 	if r.Header.Get("If-None-Match") == etag {
 		w.Header().Set("ETag", etag)
@@ -174,7 +196,7 @@ func (s *Server) HandleOGImage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// A deck's share image is its first slide (its visual identity), for public
-	// AND private decks. Best-effort + time-bounded — fall back to the generic card
+	// decks and for private ones reached through a signed URL. Best-effort + time-bounded — fall back to the generic card
 	// if the cover render is slow or unavailable so crawlers always get something.
 	if isDeckBag(decodeProps(propsRaw)) {
 		if raw, ct, ok := s.deckCoverPNG(r.Context(), body, decodeProps(propsRaw), spaceID); ok {
@@ -185,6 +207,23 @@ func (s *Server) HandleOGImage(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("Content-Length", strconv.Itoa(len(img)))
 			w.WriteHeader(http.StatusOK)
 			_, _ = w.Write(img)
+			return
+		}
+	}
+
+	// A sheet's share image is a branded card with a generic spreadsheet visual
+	// (column letters, row numbers, placeholder cells) — enough to read as a
+	// spreadsheet at a glance WITHOUT exposing any of the sheet's actual cell
+	// contents (a public OG card must never leak page data). Fall back to the
+	// plain card if the render fails.
+	if isSheetBag(decodeProps(propsRaw)) {
+		if pngBytes, gerr := renderSheetOGCard(title, brand); gerr == nil {
+			w.Header().Set("Content-Type", "image/png")
+			w.Header().Set("Cache-Control", "public, max-age=3600")
+			w.Header().Set("ETag", etag)
+			w.Header().Set("Content-Length", strconv.Itoa(len(pngBytes)))
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write(pngBytes)
 			return
 		}
 	}
@@ -268,6 +307,7 @@ type ogCardOpts struct {
 	maxTitleLines int
 	chips         []string // pill labels along the bottom-left (hero cards)
 	accentLabel   string   // bottom-right accent text, e.g. the domain (hero cards)
+	sheetMock     bool     // when set (a sheet), draw a generic spreadsheet mock instead of the subtitle
 	brand         ogBrand
 }
 
@@ -387,7 +427,14 @@ func renderOGCardOpts(o ogCardOpts) ([]byte, error) {
 	}
 
 	subtitleY := titleY + (len(titleLines)-1)*ogTitleLineH + 24 + ogSubtitleSize
-	if o.subtitle != "" && subtitleY <= clearanceY-12 {
+	if o.sheetMock {
+		// A sheet: draw a generic spreadsheet mock in the space between the title
+		// and the footer band — reads as a spreadsheet without exposing any cells.
+		gridTop := titleY + (len(titleLines)-1)*ogTitleLineH + 30
+		if gridTop < clearanceY-90 {
+			drawSheetMock(img, gridTop, clearanceY-16)
+		}
+	} else if o.subtitle != "" && subtitleY <= clearanceY-12 {
 		sub := truncateToWidth(subtitleFace, o.subtitle, ogDrawableWidth)
 		subtitleDrawer := &font.Drawer{
 			Dst:  img,
@@ -403,6 +450,117 @@ func renderOGCardOpts(o ogCardOpts) ([]byte, error) {
 		return nil, err
 	}
 	return buf.Bytes(), nil
+}
+
+// renderSheetOGCard is the share card for a sheet: the branded card with a "sheet"
+// type label and a generic spreadsheet mock (drawn by drawSheetMock) in place of a
+// subtitle. It carries NO cell content — the card must not leak the page's data.
+func renderSheetOGCard(title string, brand ogBrand) ([]byte, error) {
+	return renderOGCardOpts(ogCardOpts{kicker: "sheet", title: title, sheetMock: true, brand: brand, maxTitleLines: 2})
+}
+
+// drawSheetMock paints a generic spreadsheet panel on the dark OG card between top
+// and bottom: a column-letter header (A, B, C…), a row-number gutter (1, 2, 3…),
+// grid hairlines, and neutral placeholder bars in the cells. It deliberately shows
+// NO real cell text — the sheet's identity is conveyed by the spreadsheet form
+// alone, so a public share card never exposes page contents.
+func drawSheetMock(img *image.RGBA, top, bottom int) {
+	x0, x1 := ogMargin, ogMargin+ogDrawableWidth
+	const gutter = 56 // row-number column width
+	const headerH = 44
+	const cols = 5
+	cellW := (x1 - x0 - gutter) / cols
+
+	// Fit as many data rows as the space allows (3–6), ~46px each.
+	rowH := 46
+	avail := bottom - top - headerH
+	rows := avail / rowH
+	if rows > 6 {
+		rows = 6
+	}
+	if rows < 3 {
+		rows = 3
+		if avail > rows {
+			rowH = avail / rows
+		}
+	}
+	if rowH < 28 {
+		rowH = 28
+	}
+	y0 := top
+	yHeader := y0 + headerH
+	y1 := yHeader + rows*rowH
+
+	panelBG := color.RGBA{R: 0xfa, G: 0xfa, B: 0xfc, A: 0xff}
+	headerBG := color.RGBA{R: 0xe7, G: 0xea, B: 0xf6, A: 0xff}
+	gutterBG := color.RGBA{R: 0xef, G: 0xf1, B: 0xf9, A: 0xff}
+	lineC := color.RGBA{R: 0xd8, G: 0xdb, B: 0xe4, A: 0xff}
+	headText := color.RGBA{R: 0x5b, G: 0x61, B: 0x82, A: 0xff}
+	barC := color.RGBA{R: 0xdd, G: 0xe0, B: 0xea, A: 0xff}
+
+	fillRoundRect(img, image.Rect(x0, y0, x1, y1), 14, panelBG)
+	draw.Draw(img, image.Rect(x0+1, y0+1, x1-1, yHeader), &image.Uniform{C: headerBG}, image.Point{}, draw.Src)
+	draw.Draw(img, image.Rect(x0+1, yHeader, x0+gutter, y1-1), &image.Uniform{C: gutterBG}, image.Point{}, draw.Src)
+
+	// Vertical hairlines (gutter edge + each column), horizontal hairlines (rows).
+	draw.Draw(img, image.Rect(x0+gutter, y0, x0+gutter+1, y1), &image.Uniform{C: lineC}, image.Point{}, draw.Src)
+	for c := 1; c < cols; c++ {
+		x := x0 + gutter + c*cellW
+		draw.Draw(img, image.Rect(x, y0, x+1, y1), &image.Uniform{C: lineC}, image.Point{}, draw.Src)
+	}
+	for r := 0; r <= rows; r++ {
+		y := yHeader + r*rowH
+		draw.Draw(img, image.Rect(x0, y, x1, y+1), &image.Uniform{C: lineC}, image.Point{}, draw.Src)
+	}
+
+	hf, err := opentype.NewFace(ogBoldFont, &opentype.FaceOptions{Size: 22, DPI: 72, Hinting: font.HintingFull})
+	if err != nil {
+		return
+	}
+	defer hf.Close()
+	hm := hf.Metrics()
+
+	// Column letters, centered in each header cell.
+	for c := 0; c < cols; c++ {
+		letter := string(rune('A' + c))
+		lw := font.MeasureString(hf, letter)
+		cx := fixed.I(x0+gutter+c*cellW) + (fixed.I(cellW)-lw)/2
+		cy := fixed.I(y0) + (fixed.I(headerH)+hm.Ascent-hm.Descent)/2
+		d := &font.Drawer{Dst: img, Src: &image.Uniform{C: headText}, Face: hf, Dot: fixed.Point26_6{X: cx, Y: cy}}
+		d.DrawString(letter)
+	}
+	// Row numbers, centered in the gutter.
+	for r := 0; r < rows; r++ {
+		num := strconv.Itoa(r + 1)
+		nw := font.MeasureString(hf, num)
+		nx := fixed.I(x0) + (fixed.I(gutter)-nw)/2
+		ny := fixed.I(yHeader+r*rowH) + (fixed.I(rowH)+hm.Ascent-hm.Descent)/2
+		d := &font.Drawer{Dst: img, Src: &image.Uniform{C: headText}, Face: hf, Dot: fixed.Point26_6{X: nx, Y: ny}}
+		d.DrawString(num)
+	}
+
+	// Neutral placeholder bars — a deterministic width/skip pattern per (row,col)
+	// so cells look populated without carrying any real value. Column A reads
+	// "label-like" (wider bars); some cells are left blank for an organic look.
+	const pad, barH = 16, 10
+	for r := 0; r < rows; r++ {
+		for c := 0; c < cols; c++ {
+			if (r+2*c)%3 == 2 {
+				continue
+			}
+			maxBar := cellW - 2*pad
+			w := maxBar * (5 + (r*7+c*3)%5) / 10
+			if c == 0 {
+				w = maxBar * (7 + r%3) / 10
+			}
+			if w < 12 {
+				continue
+			}
+			bx := x0 + gutter + c*cellW + pad
+			by := yHeader + r*rowH + (rowH-barH)/2
+			fillRoundRect(img, image.Rect(bx, by, bx+w, by+barH), barH/2, barC)
+		}
+	}
 }
 
 // brandName is the org name when branded, else "tela".
@@ -646,9 +804,14 @@ func drawLogoFit(dst *image.RGBA, logo image.Image, x, y, maxW, maxH int) int {
 
 // wrapLines greedily wraps text into at most maxLines lines that fit within
 // maxWidth pixels when drawn with face. The final line is suffixed with "…" if
-// remaining words would overflow. Whitespace-separated; existing newlines
-// inside the input are flattened to single spaces by the upstream caller (page
-// title is a single TEXT column with no newline convention).
+// remaining text would overflow. Whitespace-separated; existing newlines inside
+// the input are flattened to single spaces by the upstream caller (page title is
+// a single TEXT column with no newline convention).
+//
+// A word too long to fit is broken at a punctuation boundary (-, _, ., /) rather
+// than truncated on the spot — that is what a filename card ("attachment-sharing
+// -spec.pdf") or a URL needs, and those are exactly the titles with no spaces to
+// wrap at. Only when a word has no such boundary does it fall back to truncation.
 func wrapLines(face font.Face, text string, maxWidth, maxLines int) []string {
 	text = strings.TrimSpace(text)
 	if text == "" {
@@ -658,29 +821,29 @@ func wrapLines(face font.Face, text string, maxWidth, maxLines int) []string {
 		return nil
 	}
 
-	words := strings.Fields(text)
+	toks := wrapTokens(face, strings.Fields(text), maxWidth)
 	maxFixed := fixed.I(maxWidth)
 
 	lines := make([]string, 0, maxLines)
 	cur := ""
 	i := 0
-	for i < len(words) && len(lines) < maxLines {
+	for i < len(toks) && len(lines) < maxLines {
 		candidate := cur
 		if candidate == "" {
-			candidate = words[i]
+			candidate = toks[i].text
 		} else {
-			candidate = cur + " " + words[i]
+			candidate = cur + toks[i].sep() + toks[i].text
 		}
 		if font.MeasureString(face, candidate) <= maxFixed {
 			cur = candidate
 			i++
 			continue
 		}
-		// Adding this word overflowed.
+		// Adding this token overflowed.
 		if cur == "" {
-			// A single word longer than the line; force it onto its own line
-			// and truncate with ellipsis. Avoid getting stuck.
-			lines = append(lines, truncateToWidth(face, words[i], maxWidth))
+			// One token longer than the line even after boundary splitting;
+			// force it onto its own line, truncated. Avoid getting stuck.
+			lines = append(lines, truncateToWidth(face, toks[i].text, maxWidth))
 			i++
 			continue
 		}
@@ -692,18 +855,74 @@ func wrapLines(face font.Face, text string, maxWidth, maxLines int) []string {
 		cur = ""
 	}
 
-	// Words left over: the final line must collapse them with an ellipsis.
-	if i < len(words) {
+	// Tokens left over: the final line must collapse them with an ellipsis.
+	if i < len(toks) {
 		if len(lines) == 0 {
-			// maxLines was 0 or the very first word didn't fit even truncated.
-			return []string{truncateToWidth(face, strings.Join(words[i:], " "), maxWidth)}
+			// maxLines was 0 or the very first token didn't fit even truncated.
+			return []string{truncateToWidth(face, joinTokens(toks[i:]), maxWidth)}
 		}
 		last := lines[len(lines)-1]
-		remainder := last + " " + strings.Join(words[i:], " ")
+		remainder := last + toks[i].sep() + joinTokens(toks[i:])
 		lines[len(lines)-1] = truncateToWidth(face, remainder, maxWidth)
 	}
 
 	return lines
+}
+
+// wrapTok is one unit the wrapper may put on a line. `glued` tokens rejoin the
+// previous one with no space — the pieces a long word was broken into.
+type wrapTok struct {
+	text  string
+	glued bool
+}
+
+func (t wrapTok) sep() string {
+	if t.glued {
+		return ""
+	}
+	return " "
+}
+
+func joinTokens(toks []wrapTok) string {
+	var b strings.Builder
+	for i, t := range toks {
+		if i > 0 {
+			b.WriteString(t.sep())
+		}
+		b.WriteString(t.text)
+	}
+	return b.String()
+}
+
+// wrapBreakChars are where an over-long word may be broken. The break char stays
+// on the left piece, so "spec.pdf" reads as "spec." / "pdf" and never loses a
+// character across the line break.
+const wrapBreakChars = "-_./"
+
+// wrapTokens expands words that cannot fit on a line into glued pieces split at
+// wrapBreakChars. Words that fit (the overwhelming majority) pass through as one
+// token, so ordinary prose wraps exactly as before.
+func wrapTokens(face font.Face, words []string, maxWidth int) []wrapTok {
+	maxFixed := fixed.I(maxWidth)
+	out := make([]wrapTok, 0, len(words))
+	for _, w := range words {
+		if font.MeasureString(face, w) <= maxFixed {
+			out = append(out, wrapTok{text: w})
+			continue
+		}
+		start, first := 0, true
+		for i, r := range w {
+			if !strings.ContainsRune(wrapBreakChars, r) {
+				continue
+			}
+			out = append(out, wrapTok{text: w[start : i+1], glued: !first})
+			start, first = i+1, false
+		}
+		if start < len(w) {
+			out = append(out, wrapTok{text: w[start:], glued: !first})
+		}
+	}
+	return out
 }
 
 // truncateToWidth returns s if it fits within maxWidth, else the longest

@@ -46,20 +46,28 @@ const (
 	// chunk text. ~28k chars ≈ 7k tokens — full answers, bounded context.
 	askPageBodyCap  = 12000
 	askExpandBudget = 30000
-	// askMaxPages caps how many distinct pages we render at all (expanded or not).
+	// askMaxPages caps how many distinct sources we render at all (expanded or
+	// not). It is a DEFAULT, not a ceiling: a caller's `limit` raises it (bounded
+	// by askMaxSourceCap) — before that was wired, `limit` only deepened chunk
+	// retrieval and this cap silently clipped the result back to 12, which is why
+	// 79% of logged asks came back at exactly 12 hits.
 	askMaxPages = 12
+	// askMaxSourceCap bounds what `limit` can buy. Every source past the expand
+	// budget renders as chunk text (~1.4k chars), so the tail is cheap but not
+	// free; this keeps a large limit from blowing the model's context.
+	askMaxSourceCap = 40
 	// askHubProbe: how many top-by-density pages the rerank-independent hub probe
 	// returns (whole-page answers the reranker would bury).
 	askHubProbe = 8
-	// askLowConfidenceScore: when reranking is on, a top hit scoring below this
-	// cross-encoder logit means retrieval found nothing strongly relevant. The
-	// answer is still produced (best effort) but flagged low-confidence so the
-	// reader knows to verify. Calibrated on the live corpus: a strong query tops
-	// ~+3, an answerable aggregate ~-0.2, a genuinely out-of-scope question ~-6.6 —
-	// so -4 fires only on the last kind. The reranker score scale is the only one
-	// this threshold is valid for; with reranking off there's no comparable signal.
-	askLowConfidenceScore = -4.0
 )
+
+// askLowConfidenceScore: when reranking is on, a top hit scoring below this
+// cross-encoder logit means retrieval found nothing strongly relevant. The answer
+// is still produced (best effort) but flagged low-confidence so the reader knows
+// to verify. Defined in rag (with its calibration) because the SAME line decides
+// what counts as a knowledge gap — a question the answer told you not to trust is
+// exactly a question worth writing a page for. One constant, one judgement.
+const askLowConfidenceScore = rag.LowConfidenceTopScore
 
 // lowConfidenceNote prefixes an answer the system isn't confident in — rendered
 // as a tela CAUTION callout. Deterministic (not left to the model) so the
@@ -75,22 +83,44 @@ func lowConfidence(rerankOn bool, topScore float64) bool {
 	return rerankOn && topScore < askLowConfidenceScore
 }
 
+// askResult is one retrieval pass's grounding. Considered vs len(Hits) is the
+// honesty bit: retrieval routinely finds more distinct sources than the render
+// cap shows, and until this was reported a caller could not tell whether the
+// answer stopped because the corpus ran out or because we did.
+type askResult struct {
+	Context    string    // numbered [n] excerpt block
+	Hits       []rag.Hit // sources aligned to the [n] numbering
+	Top        float64   // best retrieval score (0 when nothing matched)
+	Considered int       // distinct sources retrieval found, before the render cap
+}
+
+// Truncated reports that retrieval found more sources than were rendered — the
+// caller can re-ask with a bigger `limit` to see them.
+func (r askResult) Truncated() bool { return r.Considered > len(r.Hits) }
+
 // askContext retrieves grounding for query and renders the numbered, cited
-// excerpt block that feeds every generative feature, plus the per-page hits (for
-// source citation, aligned to the [n] numbering) and the top fused score. It
-// dedups chunks to pages and expands topically-central pages to their full body
-// (see the knobs above). An empty hits slice means "nothing retrieved".
-func (s *Server) askContext(ctx context.Context, userID int64, query string, spaceID *int64, limit int) (string, []rag.Hit, float64, error) {
-	depth := askRetrieveDepth
-	if limit > depth {
-		depth = limit
+// excerpt block that feeds every generative feature, plus the per-source hits
+// (for citation, aligned to the [n] numbering), the top fused score, and how many
+// distinct sources were considered. It dedups chunks to sources and expands
+// topically-central pages to their full body (see the knobs above). An empty Hits
+// means "nothing retrieved".
+func (s *Server) askContext(ctx context.Context, userID int64, query string, spaceID *int64, limit int) (askResult, error) {
+	depth, maxSources := askRetrieveDepth, askMaxPages
+	if limit > 0 {
+		if limit > askMaxSourceCap {
+			limit = askMaxSourceCap
+		}
+		if limit > depth {
+			depth = limit
+		}
+		maxSources = limit
 	}
 	hits, err := s.rag.Search(ctx, userID, query, spaceID, depth, "hybrid")
 	if err != nil {
-		return "", nil, 0, err
+		return askResult{}, err
 	}
 	if len(hits) == 0 {
-		return "", nil, 0, nil
+		return askResult{}, nil
 	}
 	// Dedup to SOURCES, in rank order of first appearance. A source is a page or a
 	// file (a file hit's key is "f<id>", a page's "p<id>") so multiple root files
@@ -147,15 +177,15 @@ func (s *Server) askContext(ctx context.Context, userID int64, query string, spa
 	order = frontHubs(order, count, titleHubs, askDenseChunks)
 	bodies, err := s.rag.PageBodies(ctx, userID, pageIDs, spaceID)
 	if err != nil {
-		return "", nil, 0, err
+		return askResult{}, err
 	}
 	contents, err := s.rag.ChunkContents(ctx, userID, chunkIDs, spaceID)
 	if err != nil {
-		return "", nil, 0, err
+		return askResult{}, err
 	}
 	locations := s.sourceLocations(ctx, order, best)
-	block, pageHits := buildAskContext(order, best, count, bodies, contents, locations)
-	return block, pageHits, hits[0].Score, nil
+	block, pageHits := buildAskContext(order, best, count, bodies, contents, locations, maxSources)
+	return askResult{Context: block, Hits: pageHits, Top: hits[0].Score, Considered: len(order)}, nil
 }
 
 // askPathMaxSegments bounds a source's location label (Space › a › b › …) so a
@@ -245,13 +275,15 @@ func hitKey(h rag.Hit) string {
 // it's unit-testable. `bodies` is keyed by PAGE id; `contents` by chunk id;
 // `locations` (keyed by source key) prefixes each label with its "Space › path"
 // provenance so the model can tell projects apart — nil/missing → title only.
+// maxSources caps how many sources are rendered at all; the caller compares it
+// against len(order) to know whether the grounding was truncated.
 // Returns the block and the per-source hits aligned to the [n] numbering.
-func buildAskContext(order []string, best map[string]rag.Hit, count map[string]int, bodies, contents map[int64]string, locations map[string]string) (string, []rag.Hit) {
+func buildAskContext(order []string, best map[string]rag.Hit, count map[string]int, bodies, contents map[int64]string, locations map[string]string, maxSources int) (string, []rag.Hit) {
 	var b strings.Builder
 	pageHits := make([]rag.Hit, 0, len(order))
 	spent, n := 0, 0
 	for rank, key := range order {
-		if n >= askMaxPages {
+		if n >= maxSources {
 			break
 		}
 		h := best[key]
@@ -454,16 +486,18 @@ func parseLines(s string, max int) []string {
 	return out
 }
 
-// enrichFileCitations fills download_url on file-source hits — the rag layer
-// carries the file's space + name + hash but can't build an /api URL without
-// importing api, so the citation URL is composed here (same shape as
-// list_attachments). Page hits are untouched.
+// enrichFileCitations fills download_url + share_url on file-source hits — the
+// rag layer carries the file's space + name + hash but can't build a tela URL
+// without importing api, so the citation URLs are composed here (same shapes as
+// list_attachments). download_url fetches the bytes; share_url is the file page,
+// the one to put in an answer a person reads. Page hits are untouched.
 func enrichFileCitations(hits []rag.Hit) {
 	base := canonicalBaseURL()
 	for i := range hits {
 		h := &hits[i]
 		if h.SourceKind == "file" && h.FileName != "" && h.Hash != "" {
 			h.DownloadURL = base + spaceFileServeURL(h.SpaceID, h.FileName, h.Hash)
+			h.ShareURL = base + fileSharePath(h.Hash, h.FileName)
 		}
 	}
 }
@@ -472,6 +506,7 @@ func enrichFileCitations(hits []rag.Hit) {
 func enrichFileChunk(c *rag.ChunkRead) {
 	if c != nil && c.SourceKind == "file" && c.FileName != "" && c.Hash != "" {
 		c.DownloadURL = canonicalBaseURL() + spaceFileServeURL(c.SpaceID, c.FileName, c.Hash)
+		c.ShareURL = canonicalBaseURL() + fileSharePath(c.Hash, c.FileName)
 	}
 }
 
@@ -523,6 +558,9 @@ func (s *Server) RAGDraft(w http.ResponseWriter, r *http.Request) {
 	if !s.askGuards(w) {
 		return
 	}
+	if !s.embedRateOK(w, account{Kind: accountUser, ID: u.ID}) {
+		return
+	}
 	r.Body = http.MaxBytesReader(w, r.Body, cloudMaxRequestBytes)
 	var req draftRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || strings.TrimSpace(req.Topic) == "" {
@@ -533,11 +571,15 @@ func (s *Server) RAGDraft(w http.ResponseWriter, r *http.Request) {
 	if b := bearerSpace(r); b != nil {
 		spaceID = b
 	}
-	excerpts, hits, _, err := s.askContext(r.Context(), u.ID, req.Topic, spaceID, req.Limit)
+	res, err := s.askContext(r.Context(), u.ID, req.Topic, spaceID, req.Limit)
 	if err != nil {
+		if clientCanceled(w, r, err) {
+			return
+		}
 		writeError(w, http.StatusInternalServerError, "internal", "retrieval failed")
 		return
 	}
+	excerpts, hits := res.Context, res.Hits
 	const sys = "You draft documentation pages for a team wiki in clean markdown (headings, lists, short paragraphs). " +
 		"Ground the draft in the provided excerpts and cite them inline as [n] where used. " +
 		"If the excerpts are thin, produce a sensible starting outline instead of inventing facts."
@@ -570,6 +612,9 @@ func (s *Server) RAGAnswerToPage(w http.ResponseWriter, r *http.Request) {
 	if !s.askGuards(w) {
 		return
 	}
+	if !s.embedRateOK(w, account{Kind: accountUser, ID: u.ID}) {
+		return
+	}
 	k, _ := auth.APIKeyFromContext(r.Context())
 	r.Body = http.MaxBytesReader(w, r.Body, cloudMaxRequestBytes)
 	var req answerToPageRequest
@@ -577,11 +622,15 @@ func (s *Server) RAGAnswerToPage(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "bad_request", "question and space_id are required")
 		return
 	}
-	excerpts, hits, top, err := s.askContext(r.Context(), u.ID, req.Question, &req.SpaceID, 0)
+	res, err := s.askContext(r.Context(), u.ID, req.Question, &req.SpaceID, 0)
 	if err != nil {
+		if clientCanceled(w, r, err) {
+			return
+		}
 		writeError(w, http.StatusInternalServerError, "internal", "retrieval failed")
 		return
 	}
+	excerpts, hits, top := res.Context, res.Hits, res.Top
 	_ = s.rag.LogAsk(r.Context(), u.ID, &req.SpaceID, req.Question, len(hits), top)
 	if len(hits) == 0 {
 		writeError(w, http.StatusUnprocessableEntity, "no_answer", "couldn't find anything in the docs to answer that — nothing to save")

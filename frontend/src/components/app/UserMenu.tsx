@@ -1,6 +1,7 @@
 import { useNavigate } from '@tanstack/react-router'
 import {
   ChevronUp,
+  CircleArrowUp,
   CreditCard,
   Globe,
   Link2,
@@ -35,6 +36,8 @@ export function UserMenu() {
   const user = me.data ?? null
   const planName = usage.data?.plan.name
   const feedbackUnseen = user?.feedback_unseen ?? 0
+  // Self-host update check: a newer release, for instance admins only.
+  const update = user?.update_available
   // The only self-serve personal upgrade is Free → Personal (the top paid
   // personal tier; Unlimited is an internal comp tier). Show the prominent CTA
   // exactly then, so it converts the people it's for and stays out of the way
@@ -78,9 +81,11 @@ export function UserMenu() {
             aria-label={`Account menu for ${user.username}`}
           >
             <span className="flex-1 text-left truncate">{user.username}</span>
-            {feedbackUnseen > 0 ? (
+            {feedbackUnseen > 0 || update ? (
               <span
-                aria-label={`${feedbackUnseen} unread feedback`}
+                aria-label={
+                  feedbackUnseen > 0 ? `${feedbackUnseen} unread feedback` : `tela ${update} is available`
+                }
                 className="size-[var(--space-2)] shrink-0 rounded-full bg-[var(--accent)]"
               />
             ) : null}
@@ -93,6 +98,19 @@ export function UserMenu() {
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent side="top" align="start" className="min-w-[14rem]">
+          {update ? (
+            <>
+              <DropdownMenuItem
+                onSelect={() => void navigate({ to: '/settings', search: { tab: 'instance' } })}
+              >
+                <CircleArrowUp width={14} height={14} /> Update available
+                <Badge variant="accent" className="ml-auto">
+                  v{update}
+                </Badge>
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+            </>
+          ) : null}
           <DropdownMenuItem
             onSelect={(e) => {
               e.preventDefault()

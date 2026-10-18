@@ -1,6 +1,7 @@
 package api
 
 import (
+	"cmp"
 	"context"
 	"database/sql"
 	"encoding/json"
@@ -25,6 +26,8 @@ type pageCreateRequest struct {
 	Title    string         `json:"title"`
 	Body     string         `json:"body"`
 	Props    map[string]any `json:"props"`
+	// Status is 'published' (the default when empty) or 'draft'.
+	Status string `json:"status"`
 	// Filename pins the page's stable /dav/ on-disk name (sync-create only; the
 	// REST/MCP create paths leave it nil → name falls back to slugify(title)).
 	Filename *string `json:"-"`
@@ -34,10 +37,24 @@ type pageCreateRequest struct {
 // Props (including an explicit {}) replaces the whole bag (Replace/PUT semantics
 // — see docs/page-properties.md "Update semantics").
 type pageUpdateRequest struct {
-	Title *string        `json:"title"`
-	Body  *string        `json:"body"`
-	Props map[string]any `json:"props"`
+	Title  *string        `json:"title"`
+	Body   *string        `json:"body"`
+	Props  map[string]any `json:"props"`
+	Status *string        `json:"status"`
+	// BaseVersion is the page version the writer last read. Set, the write is
+	// refused (409 version_conflict) if the page has moved on since, instead
+	// of overwriting an edit the writer never saw. Nil keeps last-write-wins.
+	BaseVersion *int64 `json:"base_version"`
+	// ResetCollab marks a body write that did not go through the page's live
+	// collab session (the editor's markdown source mode). Like an agent write,
+	// it drops the Yjs overlay so live editors re-seed from the new body.
+	ResetCollab bool `json:"reset_collab"`
 }
+
+const (
+	pageStatusDraft     = "draft"
+	pageStatusPublished = "published"
+)
 
 // propsJSON marshals a props bag to a JSON string for binding into a JSONB
 // column (with a ::jsonb cast at the call site). Empty/nil → "{}".
@@ -145,12 +162,12 @@ func listPagesFlat(ctx context.Context, db *sql.DB, spaceID int64, parentID *int
 	var err error
 	if parentID == nil {
 		rows, err = db.QueryContext(ctx,
-			`SELECT id, space_id, parent_id, title, body, position, props, created_at, updated_at, filename
+			`SELECT `+pageCols+`
 			 FROM pages WHERE space_id = $1 AND parent_id IS NULL AND deleted_at IS NULL
 			 ORDER BY position ASC, id ASC`, spaceID)
 	} else {
 		rows, err = db.QueryContext(ctx,
-			`SELECT id, space_id, parent_id, title, body, position, props, created_at, updated_at, filename
+			`SELECT `+pageCols+`
 			 FROM pages WHERE space_id = $1 AND parent_id = $2 AND deleted_at IS NULL
 			 ORDER BY position ASC, id ASC`, spaceID, *parentID)
 	}
@@ -354,6 +371,23 @@ func pageIsDeckTx(ctx context.Context, tx *sql.Tx, id int64) bool {
 	return v.Valid && v.String == "true"
 }
 
+// isSheetBag reports whether a props bag marks a spreadsheet ("sheet"). A sheet's
+// body is Defter markdown (compact GFM tables + a fenced defter-style block), so —
+// exactly like a deck — it is a verbatim-body doc-type: nothing in the body is page
+// frontmatter and it must never be run through the prose strip/normalize path.
+func isSheetBag(props map[string]any) bool {
+	b, _ := props["sheet"].(bool)
+	return b
+}
+
+// pageIsSheetTx reads the stored sheet flag for a page (body-only updates that
+// don't carry props). props->>'sheet' is the text 'true'/'false'.
+func pageIsSheetTx(ctx context.Context, tx *sql.Tx, id int64) bool {
+	var v sql.NullString
+	_ = tx.QueryRowContext(ctx, `SELECT props->>'sheet' FROM pages WHERE id = $1`, id).Scan(&v)
+	return v.Valid && v.String == "true"
+}
+
 // notify controls the social create notifications (mentions + page_created):
 // true for interactive creates (REST / MCP / assist), false for bulk ingestion
 // (file sync, conflict-resolve, seeded pages) so a vault sync can't storm space
@@ -364,19 +398,32 @@ func (s *Server) createPageCore(ctx context.Context, u *auth.User, k *auth.APIKe
 	if title == "" {
 		return models.Page{}, &apiErr{http.StatusBadRequest, "invalid_title", "title is required"}
 	}
+	status := cmp.Or(req.Status, pageStatusPublished)
+	if status != pageStatusDraft && status != pageStatusPublished {
+		return models.Page{}, &apiErr{http.StatusBadRequest, "invalid_status", "status must be 'draft' or 'published'"}
+	}
 	// Body invariant: frontmatter never lives in pages.body, at any ingress —
-	// EXCEPT decks, whose body is Slidev markdown: its leading `---...---` is the
-	// deck headmatter / first slide, NOT page properties. For a normal page strip
-	// leading frontmatter into props; for a deck keep the body verbatim.
+	// EXCEPT the verbatim-body doc-types (deck, sheet). A deck's body is Slidev
+	// markdown (leading `---...---` is the deck headmatter / first slide); a sheet's
+	// body is Defter markdown (compact tables + a defter-style block). Neither is
+	// prose, so their bodies are stored byte-for-byte — never strip/normalize. For a
+	// normal page strip leading frontmatter into props.
 	props := pagemd.FilterReserved(req.Props)
 	stripped, _, bodyProps := pagemd.Decode(req.Body)
+	isDeck := isDeckBag(props) || isDeckBag(bodyProps)
+	isSheet := isSheetBag(props) || isSheetBag(bodyProps)
 	var body string
-	if isDeckBag(props) || isDeckBag(bodyProps) {
+	if isDeck || isSheet {
 		body = req.Body
 		if props == nil {
 			props = map[string]any{}
 		}
-		props["deck"] = true
+		if isDeck {
+			props["deck"] = true
+		}
+		if isSheet {
+			props["sheet"] = true
+		}
 	} else {
 		body = stripLeadingTitleH1(stripped, title)
 		if props == nil {
@@ -425,6 +472,14 @@ func (s *Server) createPageCore(ctx context.Context, u *auth.User, k *auth.APIKe
 			return models.Page{}, ae
 		}
 	}
+	// Agent-authored sheets are structurally lint-gated (in-process defterparse)
+	// so a broken Defter body can't be saved silently — the agent gets the issues
+	// back to fix. A sheet stores its body verbatim, so `body` is what persists.
+	if isAgentWrite(ctx) && isSheetBag(props) {
+		if ae := s.sheetWriteGate(body); ae != nil {
+			return models.Page{}, ae
+		}
+	}
 
 	if err := verifySpaceExistsTx(ctx, tx, req.SpaceID); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -470,8 +525,8 @@ func (s *Server) createPageCore(ctx context.Context, u *auth.User, k *auth.APIKe
 
 	var id int64
 	if err := tx.QueryRowContext(ctx,
-		`INSERT INTO pages(space_id, parent_id, title, body, position, props, filename) VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7) RETURNING id`,
-		req.SpaceID, nullableInt64(req.ParentID), title, body, position, propsJSON(props), nullableFilename(req.Filename)).Scan(&id); err != nil {
+		`INSERT INTO pages(space_id, parent_id, title, body, position, props, filename, status) VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7, $8) RETURNING id`,
+		req.SpaceID, nullableInt64(req.ParentID), title, body, position, propsJSON(props), nullableFilename(req.Filename), status).Scan(&id); err != nil {
 		return models.Page{}, &apiErr{http.StatusInternalServerError, "internal", "create page failed"}
 	}
 	if err := syncPageLinks(ctx, tx, id, body); err != nil {
@@ -538,6 +593,16 @@ func (s *Server) GetPage(w http.ResponseWriter, r *http.Request) {
 	k, _ := auth.APIKeyFromContext(r.Context())
 	p, ae := s.getPageCore(r.Context(), u, k, id)
 	if ae != nil {
+		// A denial on published content carries where to read it instead; the
+		// SPA (PageView) redirects there rather than showing a permission wall.
+		if path := s.publicReaderFallbackPath(r.Context(), ae, id); path != "" {
+			writeJSON(w, http.StatusForbidden, errorBody{
+				Error:      "not a member; this page is published and readable without an account",
+				Code:       "forbidden_public",
+				PublicPath: path,
+			})
+			return
+		}
 		writeError(w, ae.Status, ae.Code, ae.Message)
 		return
 	}
@@ -546,7 +611,7 @@ func (s *Server) GetPage(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "internal", "resolve exposure failed")
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"page": p, "exposure": exp})
+	writeJSON(w, http.StatusOK, map[string]any{"page": p, "exposure": exp, "short_path": s.pageShortPath(p.ID)})
 }
 
 // RecordPageView logs a logged-in page view into the unified Events feed —
@@ -595,6 +660,34 @@ func (s *Server) getPageCore(ctx context.Context, u *auth.User, k *auth.APIKey, 
 	return p, nil
 }
 
+// publicReaderFallbackPath returns the no-login reader route for pageID when a
+// membership denial should redirect rather than dead-end: the caller holds no
+// space_access, but the space is published public, so the identical content
+// reads without an account.
+//
+// Same rule /p/{id} applies (HandlePublicShare) — a public space's pages are
+// already world-readable, surfaced to non-members by ranked search
+// (searchAccessSQL) and indexed for SEO — so a 403 on the authed URL was an
+// inconsistency, not a boundary. Returns "" (caller keeps the plain denial) for
+// anything else: only a bare `forbidden` is eligible, since an
+// api_key_space_scope denial is a real ceiling. A missing page also yields ""
+// via selectPageByID, preserving getPageCore's deliberate collapse of
+// not-found into not-a-member (no cross-space id enumeration).
+func (s *Server) publicReaderFallbackPath(ctx context.Context, ae *apiErr, pageID int64) string {
+	if ae.Code != "forbidden" {
+		return ""
+	}
+	p, err := selectPageByID(ctx, s.DB, pageID)
+	if err != nil {
+		return ""
+	}
+	sp, err := selectSpaceByID(ctx, s.DB, p.SpaceID)
+	if err != nil || sp.Visibility != spaceVisibilityPublic {
+		return ""
+	}
+	return s.canonicalPagePath(ctx, p.SpaceID, p.ID, p.Title)
+}
+
 func (s *Server) UpdatePage(w http.ResponseWriter, r *http.Request) {
 	id, ok := parseIDParam(w, r, "id")
 	if !ok {
@@ -610,8 +703,8 @@ func (s *Server) UpdatePage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	k, _ := auth.APIKeyFromContext(r.Context())
-	// agentWrite=false: a REST save is the editor's own collab-synced write (or a
-	// generic client); it must NOT drop the Yjs overlay it is in sync with.
+	// agentWrite=false: a REST save is a person's edit. It keeps the Yjs overlay
+	// it is in sync with unless the client wrote around it (req.ResetCollab).
 	p, ae := s.updatePageCore(r.Context(), u, k, id, req, false)
 	if ae != nil {
 		writeError(w, ae.Status, ae.Code, ae.Message)
@@ -624,8 +717,11 @@ func (s *Server) UpdatePage(w http.ResponseWriter, r *http.Request) {
 // the cheap 400s (no_fields / invalid_title) surface before any tx or auth —
 // preserving error precedence across every caller of applyUpdateTx.
 func validateUpdateReq(req pageUpdateRequest) *apiErr {
-	if req.Title == nil && req.Body == nil && req.Props == nil {
-		return &apiErr{http.StatusBadRequest, "no_fields", "at least one of title, body, props must be provided"}
+	if req.Title == nil && req.Body == nil && req.Props == nil && req.Status == nil {
+		return &apiErr{http.StatusBadRequest, "no_fields", "at least one of title, body, props, status must be provided"}
+	}
+	if req.Status != nil && *req.Status != pageStatusDraft && *req.Status != pageStatusPublished {
+		return &apiErr{http.StatusBadRequest, "invalid_status", "status must be 'draft' or 'published'"}
 	}
 	if req.Title != nil {
 		title := strings.TrimSpace(*req.Title)
@@ -635,6 +731,22 @@ func validateUpdateReq(req pageUpdateRequest) *apiErr {
 		if len(title) > maxPageTitleLen {
 			return &apiErr{http.StatusBadRequest, "invalid_title", "title exceeds 500 characters"}
 		}
+	}
+	return nil
+}
+
+// checkBaseVersionTx refuses a write whose base version is stale. It locks the
+// row (FOR UPDATE) so a concurrent writer can't slip in between this check and
+// the UPDATE: the second of two writers from the same base always sees the
+// first one's bump and gets the conflict.
+func checkBaseVersionTx(ctx context.Context, tx *sql.Tx, id, base int64) *apiErr {
+	var cur int64
+	if err := tx.QueryRowContext(ctx, `SELECT version FROM pages WHERE id = $1 FOR UPDATE`, id).Scan(&cur); err != nil {
+		return &apiErr{http.StatusInternalServerError, "internal", "lookup page version failed"}
+	}
+	if cur != base {
+		return &apiErr{http.StatusConflict, "version_conflict", fmt.Sprintf(
+			"page changed since version %d (it is now version %d); read it again and reapply your change", base, cur)}
 	}
 	return nil
 }
@@ -675,21 +787,22 @@ func applyUpdateTx(ctx context.Context, tx *sql.Tx, id int64, req pageUpdateRequ
 		sets = append(sets, "title = $"+strconv.Itoa(len(args)))
 	}
 	// Body invariant: strip leading frontmatter into props (bodyStripped is what
-	// gets stored + link-synced) — EXCEPT decks, whose body is Slidev markdown
-	// (leading frontmatter is the deck headmatter / first slide) and must be kept
-	// verbatim. Deck-ness: an explicit props.deck wins; otherwise the stored page.
+	// gets stored + link-synced) — EXCEPT the verbatim-body doc-types (deck, sheet),
+	// whose bodies are Slidev / Defter markdown and must be kept byte-for-byte.
+	// Type: an explicit props flag wins; otherwise the stored page.
 	var bodyStripped string
 	var bodyProps map[string]any
 	if req.Body != nil {
-		deck := false
+		verbatim := false
 		if req.Props != nil {
-			deck = isDeckBag(pagemd.FilterReserved(req.Props))
+			fp := pagemd.FilterReserved(req.Props)
+			verbatim = isDeckBag(fp) || isSheetBag(fp)
 		} else {
-			deck = pageIsDeckTx(ctx, tx, id)
+			verbatim = pageIsDeckTx(ctx, tx, id) || pageIsSheetTx(ctx, tx, id)
 		}
 		stripped, _, bp := pagemd.Decode(*req.Body)
-		if deck || isDeckBag(bp) {
-			bodyStripped = *req.Body // verbatim — preserve the deck headmatter
+		if verbatim || isDeckBag(bp) || isSheetBag(bp) {
+			bodyStripped = *req.Body // verbatim — preserve deck headmatter / defter tables
 		} else {
 			bodyStripped = stripped
 			bodyProps = bp
@@ -705,6 +818,10 @@ func applyUpdateTx(ctx context.Context, tx *sql.Tx, id int64, req pageUpdateRequ
 	} else if bodyProps != nil {
 		args = append(args, propsJSON(bodyProps))
 		sets = append(sets, "props = $"+strconv.Itoa(len(args))+"::jsonb")
+	}
+	if req.Status != nil {
+		args = append(args, *req.Status)
+		sets = append(sets, "status = $"+strconv.Itoa(len(args)))
 	}
 	sets = append(sets, "updated_at = tela_now()")
 	args = append(args, id)
@@ -741,7 +858,7 @@ func applyUpdateTx(ctx context.Context, tx *sql.Tx, id int64, req pageUpdateRequ
 // out-of-band/agent writes) reset the live Yjs overlay so editors re-seed from
 // the new body. Runs after commit so a failure here can't roll the save back —
 // it logs and proceeds. Shared by updatePageCore and the sync ingress.
-func (s *Server) afterPageWrite(ctx context.Context, existing, p models.Page, bodyProvided, agentWrite bool, authorID int64, source string) {
+func (s *Server) afterPageWrite(ctx context.Context, existing, p models.Page, bodyProvided, outOfBand bool, authorID int64, source string) {
 	changed := p.Body != existing.Body || p.Title != existing.Title
 	if changed {
 		// Title is folded into each chunk's embed text and body is the source,
@@ -758,10 +875,11 @@ func (s *Server) afterPageWrite(ctx context.Context, existing, p models.Page, bo
 		s.summarize.Queue(p.ID)
 		s.agreement.Queue(p.ID)
 	}
-	// When the body is rewritten out-of-band (MCP agent, file sync), drop the Yjs
+	// When the body is rewritten out-of-band (MCP agent, file sync, the editor's
+	// markdown source mode), drop the Yjs
 	// collab overlay so live + next editors re-seed from the new body instead of
 	// masking it with stale CRDT state. DB-wins, per the agent-backend sync design.
-	if agentWrite && bodyProvided && p.Body != existing.Body {
+	if outOfBand && bodyProvided && p.Body != existing.Body {
 		if err := s.rooms.resetPage(ctx, s.DB, p.ID); err != nil {
 			slog.Error("page collab overlay reset failed", "page_id", p.ID, "err", err)
 		}
@@ -798,10 +916,23 @@ func (s *Server) updatePageCore(ctx context.Context, u *auth.User, k *auth.APIKe
 	if ae := s.requireEditTx(ctx, tx, u, k, existing.SpaceID); ae != nil {
 		return models.Page{}, ae
 	}
+	if req.BaseVersion != nil {
+		if ae := checkBaseVersionTx(ctx, tx, id, *req.BaseVersion); ae != nil {
+			return models.Page{}, ae
+		}
+	}
 	// Lint-gate agent rewrites of a deck body (see createPageCore). A deck stores
 	// its body verbatim, so *req.Body is exactly what would be persisted.
 	if agentWrite && req.Body != nil && (isDeckBag(existing.Props) || isDeckBag(req.Props)) {
 		if ae := s.deckWriteGate(ctx, *req.Body); ae != nil {
+			return models.Page{}, ae
+		}
+	}
+	// Lint-gate agent rewrites of a sheet body (see createPageCore). Verbatim body,
+	// so *req.Body is exactly what would persist. Sheet-ness: explicit props wins,
+	// else the stored page.
+	if agentWrite && req.Body != nil && (isSheetBag(existing.Props) || isSheetBag(req.Props)) {
+		if ae := s.sheetWriteGate(*req.Body); ae != nil {
 			return models.Page{}, ae
 		}
 	}
@@ -820,7 +951,7 @@ func (s *Server) updatePageCore(ctx context.Context, u *auth.User, k *auth.APIKe
 	if agentWrite {
 		editSource = "agent"
 	}
-	s.afterPageWrite(ctx, existing, p, req.Body != nil, agentWrite, u.ID, editSource)
+	s.afterPageWrite(ctx, existing, p, req.Body != nil, agentWrite || req.ResetCollab, u.ID, editSource)
 	// Editing is an "I care about this page" signal — auto-follow it (autowatch).
 	// This is the interactive edit path (REST/MCP); sync edits go through
 	// applyUpdateTx directly and never reach here, so a vault sync won't subscribe.
@@ -845,7 +976,7 @@ func (s *Server) DeletePage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	k, _ := auth.APIKeyFromContext(r.Context())
-	if ae := s.deletePageCore(r.Context(), u, k, id); ae != nil {
+	if ae := s.deletePageCore(r.Context(), u, k, id, deleteViaManual); ae != nil {
 		writeError(w, ae.Status, ae.Code, ae.Message)
 		return
 	}
@@ -855,7 +986,16 @@ func (s *Server) DeletePage(w http.ResponseWriter, r *http.Request) {
 // deletePageCore is the transport-agnostic core behind DELETE /api/pages/{id}
 // and the MCP delete_page tool: editor+ gated; caches the live title onto
 // incoming backlinks before deleting, and clears the page's outgoing links.
-func (s *Server) deletePageCore(ctx context.Context, u *auth.User, k *auth.APIKey, id int64) *apiErr {
+// deleteVia names how a delete arrived, stamped on every row it takes so the
+// Trash can say whether a page went by someone's click, an agent, or a vault
+// sync. Same vocabulary as page_revisions.source.
+const (
+	deleteViaManual = "manual"
+	deleteViaAgent  = "agent"
+	deleteViaSync   = "sync"
+)
+
+func (s *Server) deletePageCore(ctx context.Context, u *auth.User, k *auth.APIKey, id int64, via string) *apiErr {
 	tx, err := s.DB.BeginTx(ctx, nil)
 	if err != nil {
 		return &apiErr{http.StatusInternalServerError, "internal", "begin tx failed"}
@@ -906,9 +1046,10 @@ func (s *Server) deletePageCore(ctx context.Context, u *auth.User, k *auth.APIKe
 			SELECT p.id FROM pages p JOIN subtree s ON p.parent_id = s.id
 		)`
 	rows, err := tx.QueryContext(ctx, subtreeCTE+`
-		UPDATE pages SET deleted_at = tela_now()
+		UPDATE pages SET deleted_at = tela_now(), deleted_root_id = $1,
+		                 deleted_by = $2, deleted_via = $3
 		 WHERE id IN (SELECT id FROM subtree) AND deleted_at IS NULL
-		 RETURNING id`, id)
+		 RETURNING id`, id, u.ID, via)
 	if err != nil {
 		return &apiErr{http.StatusInternalServerError, "internal", "delete page failed"}
 	}
@@ -972,6 +1113,14 @@ func (s *Server) deletePageCore(ctx context.Context, u *auth.User, k *auth.APIKe
 			return &apiErr{http.StatusInternalServerError, "internal", "append change_log failed"}
 		}
 	}
+	// Record the delete in the activity feed — the other half of the audit trail
+	// page.restore writes. Post-commit-ish (recordEvent logs and swallows), and
+	// only for the root: the subtree is one act, not len(subtree) of them.
+	rootID := existing.ID
+	recordEvent(ctx, s.DB, eventInput{
+		Type: evtPageDelete, ActorUserID: &u.ID, TargetKind: "page",
+		TargetID: &rootID, TargetLabel: existing.Title, Detail: via,
+	})
 	// Subscriptions + notifications are polymorphic (no FK on subject_id), so a
 	// page delete must clear its own — else orphaned follows / dead inbox rows
 	// pointing at a gone page survive. (favorites cascades via its FK.)
@@ -1260,7 +1409,7 @@ func (s *Server) applyMoveTx(ctx context.Context, tx *sql.Tx, u *auth.User, k *a
 
 func buildPageTree(ctx context.Context, db *sql.DB, spaceID int64) ([]*pageNode, error) {
 	rows, err := db.QueryContext(ctx,
-		`SELECT id, space_id, parent_id, title, body, position, props, created_at, updated_at, filename
+		`SELECT `+pageCols+`
 		 FROM pages WHERE space_id = $1 AND deleted_at IS NULL
 		 ORDER BY position ASC, id ASC`, spaceID)
 	if err != nil {
@@ -1317,14 +1466,14 @@ func buildPageTree(ctx context.Context, db *sql.DB, spaceID int64) ([]*pageNode,
 // selectPageByIDIncludingDeleted for the resurrect path.
 func selectPageByID(ctx context.Context, db *sql.DB, id int64) (models.Page, error) {
 	row := db.QueryRowContext(ctx,
-		`SELECT id, space_id, parent_id, title, body, position, props, created_at, updated_at, filename
+		`SELECT `+pageCols+`
 		 FROM pages WHERE id = $1 AND deleted_at IS NULL`, id)
 	return scanPageFromRow(row)
 }
 
 func selectPageByIDTx(ctx context.Context, tx *sql.Tx, id int64) (models.Page, error) {
 	row := tx.QueryRowContext(ctx,
-		`SELECT id, space_id, parent_id, title, body, position, props, created_at, updated_at, filename
+		`SELECT `+pageCols+`
 		 FROM pages WHERE id = $1 AND deleted_at IS NULL`, id)
 	return scanPageFromRow(row)
 }
@@ -1341,12 +1490,16 @@ func scanPageFromRows(rows *sql.Rows) (models.Page, error) {
 	return scanPageInto(rows)
 }
 
+// pageCols is the column list scanPageInto reads, in order. Every page SELECT
+// that feeds it uses this, so adding a column can't leave one query behind.
+const pageCols = `id, space_id, parent_id, title, body, position, props, created_at, updated_at, filename, version, status`
+
 func scanPageInto(r rowScanner) (models.Page, error) {
 	var p models.Page
 	var parentID sql.NullInt64
 	var propsRaw []byte
 	var filename sql.NullString
-	if err := r.Scan(&p.ID, &p.SpaceID, &parentID, &p.Title, &p.Body, &p.Position, &propsRaw, &p.CreatedAt, &p.UpdatedAt, &filename); err != nil {
+	if err := r.Scan(&p.ID, &p.SpaceID, &parentID, &p.Title, &p.Body, &p.Position, &propsRaw, &p.CreatedAt, &p.UpdatedAt, &filename, &p.Version, &p.Status); err != nil {
 		return p, err
 	}
 	if parentID.Valid {
@@ -1535,20 +1688,32 @@ func parseWikiLinks(body string) []int64 {
 // heading suffix is trimmed before resolution.
 var wikiBracketRE = regexp.MustCompile(`\[\[([^\[\]]+?)\]\]`)
 
-// parseWikiTitleSlugs extracts `[[Name]]` wikilink names from body and reduces
-// each to a page slug, so `[[Route Analyze]]`, `[[route-analyze]]` and
-// `[[route-analyze|alias]]` all normalise to "route-analyze". Returns unique,
-// non-empty slugs; the canonical `tela://page/{id}` links are parsed separately
-// by parseWikiLinks.
-func parseWikiTitleSlugs(body string) []string {
-	matches := wikiBracketRE.FindAllStringSubmatch(body, -1)
-	if len(matches) == 0 {
+// wikiRef is one `[[Name]]` occurrence: the name as written (for messages that
+// quote the author's own text back), its resolution slug, and the 1-based line
+// it sits on.
+type wikiRef struct {
+	Raw  string
+	Slug string
+	Line int
+}
+
+// parseWikiTitleRefs extracts every `[[Name]]` occurrence from body, reducing
+// each to a page slug so `[[Route Analyze]]`, `[[route-analyze]]` and
+// `[[route-analyze|alias]]` all normalise to "route-analyze". Occurrences are
+// returned in source order WITH duplicates — callers that only want the link
+// targets dedupe (parseWikiTitleSlugs), callers that report to a human need
+// each site.
+func parseWikiTitleRefs(body string) []wikiRef {
+	idx := wikiBracketRE.FindAllStringSubmatchIndex(body, -1)
+	if len(idx) == 0 {
 		return nil
 	}
-	seen := make(map[string]struct{}, len(matches))
-	out := make([]string, 0, len(matches))
-	for _, m := range matches {
-		name := m[1]
+	out := make([]wikiRef, 0, len(idx))
+	line, scanned := 1, 0
+	for _, m := range idx {
+		line += strings.Count(body[scanned:m[0]], "\n")
+		scanned = m[0]
+		name := body[m[2]:m[3]]
 		if i := strings.IndexAny(name, "|#"); i >= 0 {
 			name = name[:i]
 		}
@@ -1556,21 +1721,34 @@ func parseWikiTitleSlugs(body string) []string {
 		if s == "" {
 			continue
 		}
-		if _, ok := seen[s]; ok {
-			continue
-		}
-		seen[s] = struct{}{}
-		out = append(out, s)
+		out = append(out, wikiRef{Raw: strings.TrimSpace(name), Slug: s, Line: line})
 	}
 	return out
 }
 
-// resolveWikiTitleSlugs maps each `[[Name]]` slug to a target page id within
-// sourceID's space, matching on the slug-normalised page title (lowest id wins
-// on a title clash). Resolution is space-scoped so a name can't link across a
-// membership boundary; names that match no page are dropped (nothing to link).
-func resolveWikiTitleSlugs(ctx context.Context, tx *sql.Tx, sourceID int64, slugs []string) ([]int64, error) {
-	rows, err := tx.QueryContext(ctx, `
+// parseWikiTitleSlugs returns the unique, non-empty slugs referenced by body's
+// `[[Name]]` wikilinks. The canonical `tela://page/{id}` links are parsed
+// separately by parseWikiLinks.
+func parseWikiTitleSlugs(body string) []string {
+	refs := parseWikiTitleRefs(body)
+	seen := make(map[string]struct{}, len(refs))
+	out := make([]string, 0, len(refs))
+	for _, r := range refs {
+		if _, ok := seen[r.Slug]; ok {
+			continue
+		}
+		seen[r.Slug] = struct{}{}
+		out = append(out, r.Slug)
+	}
+	return out
+}
+
+// spaceTitleSlugIndex maps every live page title in sourceID's space to its id,
+// slug-normalised (lowest id wins on a title clash). Scoped to the space so a
+// name can never resolve across a membership boundary. Shared by link syncing
+// and by the lint, so "what does [[Name]] resolve to" has exactly one answer.
+func spaceTitleSlugIndex(ctx context.Context, q queryer, sourceID int64) (map[string]int64, error) {
+	rows, err := q.QueryContext(ctx, `
 		SELECT id, title FROM pages
 		WHERE space_id = (SELECT space_id FROM pages WHERE id = $1) AND deleted_at IS NULL
 		ORDER BY id ASC`, sourceID)
@@ -1593,6 +1771,16 @@ func resolveWikiTitleSlugs(ctx context.Context, tx *sql.Tx, sourceID int64, slug
 	}
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("iterate pages for wikilink resolution: %w", err)
+	}
+	return bySlug, nil
+}
+
+// resolveWikiTitleSlugs maps each `[[Name]]` slug to a target page id within
+// sourceID's space. Names that match no page are dropped (nothing to link).
+func resolveWikiTitleSlugs(ctx context.Context, tx *sql.Tx, sourceID int64, slugs []string) ([]int64, error) {
+	bySlug, err := spaceTitleSlugIndex(ctx, tx, sourceID)
+	if err != nil {
+		return nil, err
 	}
 	out := make([]int64, 0, len(slugs))
 	for _, s := range slugs {

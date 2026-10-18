@@ -13,12 +13,6 @@ import { router } from '../../routes/router'
 import { useTier3BodyHits } from '../../lib/useTier3BodyHits'
 import { bodyExcerpt } from '../../lib/search/body-excerpt'
 import {
-  getTheme,
-  setTheme,
-  subscribeToTheme,
-  type ThemeName,
-} from '../../lib/theme'
-import {
   materializeCommands,
   type CommandContext,
   type SubPickerSpec,
@@ -40,14 +34,6 @@ import { useCommandPaletteState } from '../../lib/useCommandPaletteState'
 import { pageHitToCommandItem, navigateToPage } from '../../lib/pageHitItem'
 
 const RECENTS_VISIBLE = 8
-
-// Reactive view of the active theme so commands that read currentTheme always
-// see the freshest value. Subscribes to setTheme() broadcasts.
-function useThemeName(): ThemeName {
-  const [theme, setLocal] = useState<ThemeName>(() => getTheme())
-  useEffect(() => subscribeToTheme(setLocal), [])
-  return theme
-}
 
 // Read current route context imperatively. AppCommandHost lives outside the
 // RouterProvider, so it can't use useParams; instead it reaches into the
@@ -76,7 +62,8 @@ function readRouteContext(): {
 //    search (via useTier2SearchResults), then dedupes tier-2 against tier-1
 //  - recently-viewed snapshot for the empty-state list
 //  - CommandContext + command-registry materialization
-//  - M4.2 new-page dialog bridge (Cmd-N + sidebar "+ New page" + command)
+//  - M4.2 new-page dialog bridge (sidebar "New…" + the `c` keymap binding
+//    + the command palette; NOT Cmd-N, which browsers never deliver)
 //
 // Sits outside RouterProvider in App.tsx (sibling to it), so navigation goes
 // through the imported `router` instance rather than useNavigate. Lives inside
@@ -127,7 +114,6 @@ export function AppCommandHost() {
   }>({ spaceId: null, parentId: null, title: '' })
   const [newSpaceOpen, setNewSpaceOpen] = useState(false)
 
-  const currentTheme = useThemeName()
   const spacesQuery = useSpaces()
   const spaces = spacesQuery.data ?? []
 
@@ -191,13 +177,10 @@ export function AppCommandHost() {
   usePaletteShortcuts({
     onOpenPages: () => openWith('pages'),
     onOpenCommands: () => openWith('commands'),
-    onNewPage: () => openNewPage(),
   })
 
   const ctx = useMemo<CommandContext>(
     () => ({
-      currentTheme,
-      setTheme,
       spaces,
       navigateToSpace: (spaceId) => {
         void router.navigate({
@@ -220,7 +203,7 @@ export function AppCommandHost() {
       },
       closePalette: close,
     }),
-    [currentTheme, spaces, setSubPicker, pushSearchRequest, close],
+    [spaces, setSubPicker, pushSearchRequest, close],
   )
 
   // Recompute commandsItems whenever ctx changes so onSelect closures bind
@@ -241,9 +224,23 @@ export function AppCommandHost() {
     [recents],
   )
 
+  // space_id → name, so title/FTS hits can carry their space on the breadcrumb
+  // line without a per-row lookup. Rebuilt only when the spaces list changes.
+  const spaceNameById = useMemo(() => {
+    const m = new Map<number, string>()
+    for (const s of spaces) m.set(s.id, s.name)
+    return m
+  }, [spaces])
+
   const titleItems = useMemo<CommandItem[]>(
-    () => titleHits.map((h) => pageHitToCommandItem(h, { idPrefix: 'page-t1' })),
-    [titleHits],
+    () =>
+      titleHits.map((h) =>
+        pageHitToCommandItem(h, {
+          idPrefix: 'page-t1',
+          spaceName: spaceNameById.get(h.spaceId),
+        }),
+      ),
+    [titleHits, spaceNameById],
   )
 
   const searchItems = useMemo<CommandItem[]>(() => {
@@ -261,11 +258,22 @@ export function AppCommandHost() {
             spaceId: r.space_id,
             title: r.title,
             breadcrumb: r.breadcrumb,
+            isPublic: r.public,
+            publicPath: r.public_path,
           },
-          { idPrefix: 'page-t2', snippet: r.snippet },
+          {
+            idPrefix: 'page-t2',
+            snippet: r.snippet,
+            // spaceNameById only covers the user's OWN spaces, so a published
+            // space they aren't in has no name here — label it rather than
+            // rendering a bare parent chain that reads like an own page.
+            spaceName: r.public
+              ? 'Published'
+              : spaceNameById.get(r.space_id),
+          },
         ),
       )
-  }, [searchResults, titleHits])
+  }, [searchResults, titleHits, spaceNameById])
 
   // Tier-3 body-fuzzy hits. Dedupe against tier-1 AND tier-2 (a body row whose
   // page is already surfaced as a title or FTS5 hit is noise). Excerpt is
@@ -409,7 +417,7 @@ export function AppCommandHost() {
           setNewPageOpen(next)
           if (!next) {
             // Clear the pre-fill on close so the next open from a non-prefill
-            // path (sidebar button, Cmd-N) doesn't surface the stale title.
+            // path (sidebar button, `c`) doesn't surface the stale title.
             setNewPageDefaults((prev) => ({ ...prev, title: '' }))
           }
         }}

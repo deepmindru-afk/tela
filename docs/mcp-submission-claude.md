@@ -1,7 +1,8 @@
 # tela — Claude connector directory submission
 
 Ready-to-paste payload for `https://clau.de/mcp-directory-submission`.
-Values verified live 2026-06-05; tool table updated 2026-06-29 to reflect 39-tool surface. `‹TODO›` marks anything Cagdas still has to fill or confirm.
+Values verified live 2026-06-05; tool count re-checked 2026-08-28 — the surface is **47 tools**
+(the earlier "39" is stale; count from `Name:` fields across `backend/internal/api/mcp*.go`). `‹TODO›` marks anything Cagdas still has to fill or confirm.
 
 ---
 
@@ -42,8 +43,8 @@ Concrete agent workflows, each grounded in the actual tools:
 |---|---|
 | **Endpoint URL** | `https://telawiki.com/api/mcp` |
 | **Transport** | Streamable HTTP (current MCP transport; SSE not used) |
-| **Auth type** | OAuth 2.1 — WorkOS AuthKit, issuer `https://decisive-relation-32-staging.authkit.app`; PKCE S256 + Dynamic Client Registration. Personal Access Token bearer also accepted. |
-| **Read capabilities** | List/read spaces and pages, list backlinks and shares, read page chunks, full-text and semantic search, Atlas project listing and run status, deck guide/lint/preview, file listings, knowledge hygiene (related, overlaps, gaps), document fetch (Deep Research). |
+| **Auth type** | OAuth 2.1 — WorkOS AuthKit, issuer `https://decisive-relation-32-staging.authkit.app`; PKCE S256 + Dynamic Client Registration. HTTP-transport hosts run the flow automatically; sign-in happens on first use, no token handling. A Personal Access Token bearer is also accepted, but only for stdio-only hosts via the `tela-mcp` npm proxy — the directory flow uses OAuth. |
+| **Read capabilities** | List/read spaces and pages, list backlinks and shares, read page chunks, full-text and semantic search, Atlas project listing and run status, deck guide/lint/preview, file listings, knowledge hygiene (related, overlaps, gaps), document fetch (fixed-shape `search`/`fetch` contract). |
 | **Write capabilities** | Create/update/patch/delete pages and spaces, move pages, add comments, share/revoke links, upload/delete files, trigger Atlas runs, author deck images, submit feedback. All write tools require editor+ scope on the target space; token permissions gate every call. |
 | **Allowed Link URIs** | `https://telawiki.com/*` (the app surfaces page/space deep links under this origin). `‹TODO: confirm whether the form wants this populated; otherwise leave blank›` |
 
@@ -80,12 +81,13 @@ Concrete agent workflows, each grounded in the actual tools:
 | `search` | Search | Keyword (full-text) lookup over title + body, snippet-highlighted. Always available (no embedder). |
 | `research` | Research wiki | Semantic, answer-oriented retrieval: assembled grounding (full relevant page bodies, cited `sources`, flagged `disagreements`, `low_confidence`). Requires a configured embedder. |
 | `read_chunk` | Read chunk | Fetch one chunk's full section text by `chunk_id` (from a `research` source). Spans pages and uploaded files. |
-| `fetch` | Fetch document | Fetch a page's full text by id. Paired with `search` for ChatGPT Deep Research. |
+| `fetch` | Fetch document | Fetch a page's full text by id (the id comes from a search result); the fixed-shape companion to `search`. |
 | `related_pages` | Related pages | Semantic nearest-neighbor lookup from a page's chunks. |
 | `suggest_links` | Suggest links | Pages whose content strongly overlaps a given page — link opportunities. |
 | `find_overlaps` | Find overlaps | Near-duplicate page detection across a space. |
-| `knowledge_gaps` | Knowledge gaps | Topic areas mentioned but not covered in depth (admin-scoped). |
+| `knowledge_gaps` | Knowledge gaps | Questions your wiki failed to answer — a content roadmap (scoped to your own asks + spaces you belong to). |
 | `list_attachments` | List attachments | Uploaded files on a page (id, name, mime, size, url). |
+| `list_comments` | List comments | A page's comment threads, or an inbox of open threads across a space; filter by status and poll with a cursor. |
 | `deck_authoring_guide` | Deck guide | Returns the full slide-authoring guide (layouts, fields, variants). Read before authoring a deck. |
 | `lint_deck` | Lint deck | Validate a deck body's frontmatter, layouts, and field values before saving. |
 | `preview_deck` | Preview deck | Render a live preview URL for a deck body — confirm appearance before committing. |
@@ -101,7 +103,8 @@ Concrete agent workflows, each grounded in the actual tools:
 | `patch_page` | Patch page | false | Surgically edit ONE section of a page by heading path — cheaper and safer than rewriting the full body. |
 | `move_page` | Move page | false | Reparent, reorder, or relocate a page to another space (editor+ on both sides). |
 | `delete_page` | Delete page | **true** | Delete a page (editor+). Backlinks preserved with last-known title. |
-| `add_comment` | Add comment | false | Attach a root comment anchored by a `{prefix, exact, suffix}` text triplet (editor+). |
+| `add_comment` | Add comment | false | Start a comment thread anchored by a `{prefix, exact, suffix}` text triplet, or reply inside one via `parent_id` (editor+). |
+| `update_comment` | Update comment | false | Resolve or reopen a comment thread, or edit the text of a comment the caller wrote (editor+). Idempotent. |
 | `create_space` | Create space | false | Create a space; caller becomes owner. Slug derived from name when omitted. |
 | `update_space` | Update space | false | Patch a space's name and/or slug (editor+). Idempotent. |
 | `delete_space` | Delete space | **true** | Delete a space and all its pages, comments, revisions, share links. Owner only. Irreversible. |

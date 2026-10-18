@@ -65,6 +65,15 @@ type statsUnanswered struct {
 	CreatedAt string `json:"created_at"`
 }
 
+// statsSignupSource is one row of the signup-source breakdown: where the
+// accounts created in the window came from. Source is the collapsed label —
+// utm_source when the link carried one, else the referring host, else "direct"
+// (arrived with neither, which is an answer rather than a gap).
+type statsSignupSource struct {
+	Source string `json:"source"`
+	Count  int64  `json:"count"`
+}
+
 type adminStats struct {
 	// Dense daily buckets (oldest→newest), len == statsWindowDays. `days` are the
 	// 'YYYY-MM-DD' labels the others align to.
@@ -74,6 +83,10 @@ type adminStats struct {
 	Logins []int64  `json:"logins"`
 	Asks   []int64  `json:"asks"`
 	Errors []int64  `json:"errors"`
+	// Accounts created that day. The cumulative series answers "how big is this
+	// instance"; this one answers "how many joined on the 4th" — a question you
+	// otherwise had to reconstruct by diffing the curve by eye.
+	Signups []int64 `json:"signups"`
 	// Cumulative growth over the same days.
 	UsersCum []int64 `json:"users_cum"`
 	PagesCum []int64 `json:"pages_cum"`
@@ -87,6 +100,13 @@ type adminStats struct {
 	Users  int64 `json:"users"`
 	Spaces int64 `json:"spaces"`
 	Pages  int64 `json:"pages"`
+
+	// Where the last 30 days of signups came from, best first. Only accounts
+	// that carried first-touch attribution are counted — SignupSourcesKnown of
+	// NewUsers30 — so accounts created before the capture shipped don't silently
+	// pile up under "direct".
+	SignupSources      []statsSignupSource `json:"signup_sources"`
+	SignupSourcesKnown int64               `json:"signup_sources_known"`
 
 	// Leaderboards (30d).
 	TopPages        []statsTopPage   `json:"top_pages"`
@@ -107,12 +127,12 @@ type adminStats struct {
 
 	// Operator signals: growth/activation + the newest accounts and the questions
 	// the docs couldn't answer. Turns "ask someone to run SQL" into a glance.
-	NewUsers30     int64             `json:"new_users_30"`    // accounts created in the window
-	Activated      int64             `json:"activated"`       // users who have authored ≥1 page revision (all-time)
+	NewUsers30     int64             `json:"new_users_30"`     // accounts created in the window
+	Activated      int64             `json:"activated"`        // users who have authored ≥1 page revision (all-time)
 	ActivatedNew30 int64             `json:"activated_new_30"` // of NewUsers30, how many have made ≥1 page revision (signup→first-edit rate)
 	RetainedNew30  int64             `json:"retained_new_30"`  // users who signed up 8-30d ago and were active in the last 7d (early retention proxy)
-	RecentSignups  []statsSignup     `json:"recent_signups"`  // newest accounts + whether they activated
-	UnansweredAsks []statsUnanswered `json:"unanswered_asks"` // recent Ask questions that returned nothing
+	RecentSignups  []statsSignup     `json:"recent_signups"`   // newest accounts + whether they activated
+	UnansweredAsks []statsUnanswered `json:"unanswered_asks"`  // recent Ask questions that returned nothing
 
 	// Reach / adoption — including the agent surface (tela's first-class audience).
 	WAUPrev      int64 `json:"wau_prev"`      // active users in the 7d BEFORE the last 7 (for a WoW delta)
@@ -121,9 +141,9 @@ type adminStats struct {
 	PublicSpaces int64 `json:"public_spaces"` // spaces published to the open web
 
 	// Billing signals — revenue visibility at a glance.
-	ActiveTrials      int64 `json:"active_trials"`       // users currently on an active (non-expired) trial
-	ExpiredTrials     int64 `json:"expired_trials"`      // trials that ended without converting (trial_plan_key set, trial_ends_at past)
-	PaidSubscriptions int64 `json:"paid_subscriptions"`  // users on any paid plan (not free or trial)
+	ActiveTrials      int64 `json:"active_trials"`      // users currently on an active (non-expired) trial
+	ExpiredTrials     int64 `json:"expired_trials"`     // trials that ended without converting (trial_plan_key set, trial_ends_at past)
+	PaidSubscriptions int64 `json:"paid_subscriptions"` // users on any paid plan (not free or trial)
 
 	// AI service health — the last background-probe result from StartAIHealthProbe.
 	AIHealthy bool   `json:"ai_healthy"`
@@ -136,6 +156,23 @@ func (s *Server) AdminStats(w http.ResponseWriter, r *http.Request) {
 	}
 	ctx := r.Context()
 	now := time.Now().UTC()
+
+	// Activity aggregates hide instance-admin actors by default (the operator's own
+	// views/edits/asks/errors dominate an otherwise-quiet instance); ?include_admins
+	// brings them back. Only the activity/actor-derived figures are filtered — the
+	// population counts (users, pages, signups, billing) always count everyone.
+	includeAdmins := wantIncludeAdmins(r)
+	evtAdmin := adminActorFilter("actor_user_id", includeAdmins)    // bare `events`
+	evtAdminE := adminActorFilter("e.actor_user_id", includeAdmins) // `events e`
+	askAdmin := adminActorFilter("user_id", includeAdmins)          // bare `ask_log`
+	askAdminA := adminActorFilter("a.user_id", includeAdmins)       // `ask_log a`
+	// and prefixes a non-empty filter with " AND " for appending to a WHERE.
+	and := func(f string) string {
+		if f == "" {
+			return ""
+		}
+		return " AND " + f
+	}
 
 	// Dense day axis (oldest→newest) + a day→index map for scattering grouped rows.
 	days := make([]string, statsWindowDays)
@@ -157,9 +194,11 @@ func (s *Server) AdminStats(w http.ResponseWriter, r *http.Request) {
 		Logins:   make([]int64, statsWindowDays),
 		Asks:     make([]int64, statsWindowDays),
 		Errors:   make([]int64, statsWindowDays),
+		Signups:  make([]int64, statsWindowDays),
 		UsersCum: make([]int64, statsWindowDays),
 		PagesCum: make([]int64, statsWindowDays),
 		// Non-nil slices so the JSON is [] not null when empty.
+		SignupSources:   []statsSignupSource{},
 		TopPages:        []statsTopPage{},
 		TopContributors: []statsTopPerson{},
 		TopSpaces:       []statsTopSpace{},
@@ -173,7 +212,7 @@ func (s *Server) AdminStats(w http.ResponseWriter, r *http.Request) {
 		SELECT substr(created_at,1,10) AS day, type, COUNT(*)
 		  FROM events
 		 WHERE created_at >= $1
-		   AND type IN ('page.view','page.edit','auth.login','ask','client.error')
+		   AND type IN ('page.view','page.edit','auth.login','ask','client.error')`+and(evtAdmin)+`
 		 GROUP BY day, type`, cut30); err == nil {
 		defer rows.Close()
 		for rows.Next() {
@@ -210,7 +249,7 @@ func (s *Server) AdminStats(w http.ResponseWriter, r *http.Request) {
 		  COUNT(DISTINCT actor_user_id) FILTER (WHERE created_at >= $3),
 		  COUNT(DISTINCT actor_user_id) FILTER (WHERE created_at >= $4 AND created_at < $2)
 		  FROM events
-		 WHERE actor_user_id IS NOT NULL AND created_at >= $3`,
+		 WHERE actor_user_id IS NOT NULL AND created_at >= $3`+and(evtAdmin),
 		cut1, cut7, cut30, cut14).Scan(&out.DAU, &out.WAU, &out.MAU, &out.WAUPrev)
 
 	// --- Current totals ---
@@ -221,10 +260,10 @@ func (s *Server) AdminStats(w http.ResponseWriter, r *http.Request) {
 		Scan(&out.Users, &out.Spaces, &out.Pages)
 
 	// --- Cumulative growth (baseline before window + running daily new) ---
-	fillCumulative(ctx, s.DB, out.UsersCum, days, idx,
+	fillCumulative(ctx, s.DB, out.UsersCum, out.Signups, days, idx,
 		`SELECT COUNT(*) FROM users WHERE created_at < $1`,
 		`SELECT substr(created_at,1,10), COUNT(*) FROM users WHERE created_at >= $1 GROUP BY 1`, cut30)
-	fillCumulative(ctx, s.DB, out.PagesCum, days, idx,
+	fillCumulative(ctx, s.DB, out.PagesCum, nil, days, idx,
 		`SELECT COUNT(*) FROM pages WHERE deleted_at IS NULL AND created_at < $1`,
 		`SELECT substr(created_at,1,10), COUNT(*) FROM pages WHERE deleted_at IS NULL AND created_at >= $1 GROUP BY 1`, cut30)
 
@@ -234,7 +273,7 @@ func (s *Server) AdminStats(w http.ResponseWriter, r *http.Request) {
 		  FROM events e
 		  JOIN pages p  ON p.id = e.target_id AND p.deleted_at IS NULL
 		  JOIN spaces sp ON sp.id = p.space_id
-		 WHERE e.type = 'page.view' AND e.target_kind = 'page' AND e.created_at >= $1
+		 WHERE e.type = 'page.view' AND e.target_kind = 'page' AND e.created_at >= $1`+and(evtAdminE)+`
 		 GROUP BY e.target_id, p.space_id, p.title, sp.name
 		 ORDER BY c DESC LIMIT 10`, cut30); err == nil {
 		defer rows.Close()
@@ -252,7 +291,7 @@ func (s *Server) AdminStats(w http.ResponseWriter, r *http.Request) {
 	if rows, err := s.DB.QueryContext(ctx, `
 		SELECT actor_label, COUNT(*) c
 		  FROM events
-		 WHERE type = 'page.edit' AND created_at >= $1 AND actor_label <> ''
+		 WHERE type = 'page.edit' AND created_at >= $1 AND actor_label <> ''`+and(evtAdmin)+`
 		 GROUP BY actor_label ORDER BY c DESC LIMIT 10`, cut30); err == nil {
 		defer rows.Close()
 		for rows.Next() {
@@ -271,7 +310,7 @@ func (s *Server) AdminStats(w http.ResponseWriter, r *http.Request) {
 		  FROM events e
 		  JOIN pages p  ON p.id = e.target_id AND p.deleted_at IS NULL
 		  JOIN spaces sp ON sp.id = p.space_id
-		 WHERE e.target_kind = 'page' AND e.type IN ('page.view','page.edit') AND e.created_at >= $1
+		 WHERE e.target_kind = 'page' AND e.type IN ('page.view','page.edit') AND e.created_at >= $1`+and(evtAdminE)+`
 		 GROUP BY sp.id, sp.name ORDER BY c DESC LIMIT 10`, cut30); err == nil {
 		defer rows.Close()
 		for rows.Next() {
@@ -286,14 +325,14 @@ func (s *Server) AdminStats(w http.ResponseWriter, r *http.Request) {
 
 	// --- Asks + answer rate (30d) ---
 	_ = s.DB.QueryRowContext(ctx, `
-		SELECT COUNT(*), COALESCE(SUM(answered),0) FROM ask_log WHERE created_at >= $1`, cut30).
+		SELECT COUNT(*), COALESCE(SUM(answered),0) FROM ask_log WHERE created_at >= $1`+and(askAdmin), cut30).
 		Scan(&out.Asks30, &out.AsksAnswered30)
 
 	// --- Client errors by kind (7d), parsed from the "[kind] …" detail header ---
 	if rows, err := s.DB.QueryContext(ctx, `
 		SELECT COALESCE((regexp_match(detail, '^\[([^\]]+)\]'))[1], 'error') AS kind, COUNT(*) c
 		  FROM events
-		 WHERE type = 'client.error' AND created_at >= $1
+		 WHERE type = 'client.error' AND created_at >= $1`+and(evtAdmin)+`
 		 GROUP BY kind ORDER BY c DESC`, cut7); err == nil {
 		defer rows.Close()
 		for rows.Next() {
@@ -330,7 +369,15 @@ func (s *Server) AdminStats(w http.ResponseWriter, r *http.Request) {
 	_ = s.DB.QueryRowContext(ctx,
 		`SELECT COUNT(*) FROM users WHERE trial_plan_key IS NOT NULL AND trial_ends_at <= tela_now() AND deleted_at IS NULL`).Scan(&out.ExpiredTrials)
 	_ = s.DB.QueryRowContext(ctx,
-		`SELECT COUNT(*) FROM users WHERE plan_key NOT IN ('personal_free','plus_trial') AND deleted_at IS NULL`).Scan(&out.PaidSubscriptions)
+		// subscription_status='trialing' is excluded: those accounts hold a real
+		// subscription whose FIRST CHARGE HAS NOT HAPPENED (bought during a tela
+		// trial, so Polar deferred it) and can still cancel for free. Counting
+		// them as paid is the same class of flattering lie this whole billing
+		// trail exists to remove.
+		`SELECT COUNT(*) FROM users
+		  WHERE plan_key NOT IN ('personal_free','plus_trial')
+		    AND subscription_status <> 'trialing'
+		    AND deleted_at IS NULL`).Scan(&out.PaidSubscriptions)
 
 	// --- AI health (last probe verdict from StartAIHealthProbe) ---
 	out.AIHealthy = s.aiHealthy()
@@ -376,12 +423,46 @@ func (s *Server) AdminStats(w http.ResponseWriter, r *http.Request) {
 		rows.Close()
 	}
 
+	// --- Signup sources (30d) ---
+	// The same collapse attributionSource() does in Go, expressed as SQL so it
+	// can be a GROUP BY: utm_source, else the referrer's host (scheme-stripped
+	// up to the first path segment), else 'direct'. attributedInWindow keeps out
+	// rows with no attribution at all — every account older than the capture —
+	// so the counts describe the cohort we can actually attribute, and the
+	// breakdown and its denominator can never disagree about who's in it.
+	const attributedInWindow = `created_at >= $1
+		   AND (signup_utm_source IS NOT NULL
+		        OR signup_referrer IS NOT NULL
+		        OR signup_landing_path IS NOT NULL)`
+	if rows, err := s.DB.QueryContext(ctx, `
+		SELECT src, COUNT(*) c FROM (
+		  SELECT COALESCE(
+		           NULLIF(signup_utm_source, ''),
+		           NULLIF(split_part(split_part(COALESCE(signup_referrer, ''), '//', 2), '/', 1), ''),
+		           'direct') AS src
+		    FROM users
+		   WHERE `+attributedInWindow+`
+		) t
+		 GROUP BY src ORDER BY c DESC, src LIMIT 10`, cut30); err == nil {
+		defer rows.Close()
+		for rows.Next() {
+			var ss statsSignupSource
+			if err := rows.Scan(&ss.Source, &ss.Count); err != nil {
+				break
+			}
+			out.SignupSources = append(out.SignupSources, ss)
+		}
+		rows.Close()
+	}
+	_ = s.DB.QueryRowContext(ctx,
+		`SELECT COUNT(*) FROM users WHERE `+attributedInWindow, cut30).Scan(&out.SignupSourcesKnown)
+
 	// --- Unanswered Ask questions (30d) — the content-gap to-do list ---
 	if rows, err := s.DB.QueryContext(ctx, `
 		SELECT a.question, COALESCE(NULLIF(u.display_name, ''), u.username, '') AS who, a.created_at
 		  FROM ask_log a
 		  LEFT JOIN users u ON u.id = a.user_id
-		 WHERE a.answered = 0 AND a.created_at >= $1
+		 WHERE a.answered = 0 AND a.created_at >= $1`+and(askAdminA)+`
 		 ORDER BY a.created_at DESC LIMIT 12`, cut30); err == nil {
 		defer rows.Close()
 		for rows.Next() {
@@ -399,8 +480,10 @@ func (s *Server) AdminStats(w http.ResponseWriter, r *http.Request) {
 
 // fillCumulative seeds dst[i] with a running cumulative total across `days`: the
 // baseline count (rows that existed before the window) plus each day's new rows,
-// carried forward. Best-effort — a query error just leaves zeros.
-func fillCumulative(ctx context.Context, db *sql.DB, dst []int64, days []string, idx map[string]int, baselineQ, perDayQ, cut string) {
+// carried forward. When perDayDst is non-nil it also gets the raw per-day counts
+// — same query, so "new that day" costs nothing on top of the curve.
+// Best-effort — a query error just leaves zeros.
+func fillCumulative(ctx context.Context, db *sql.DB, dst, perDayDst []int64, days []string, idx map[string]int, baselineQ, perDayQ, cut string) {
 	var baseline int64
 	_ = db.QueryRowContext(ctx, baselineQ, cut).Scan(&baseline)
 
@@ -423,5 +506,8 @@ func fillCumulative(ctx context.Context, db *sql.DB, dst []int64, days []string,
 	for i := range days {
 		running += perDay[i]
 		dst[i] = running
+		if perDayDst != nil {
+			perDayDst[i] = perDay[i]
+		}
 	}
 }

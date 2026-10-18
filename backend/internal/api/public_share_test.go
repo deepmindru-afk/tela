@@ -2,8 +2,11 @@ package api
 
 import (
 	"fmt"
+	"html"
 	"io"
 	"net/http"
+	"net/http/httptest"
+	"net/url"
 	"os"
 	"regexp"
 	"strings"
@@ -18,8 +21,8 @@ func TestPublicShare_FullFlow(t *testing.T) {
 	ts, d := newWiredServer(t)
 	admin := seedUser(t, d, "admin", "adminpw12", true)
 
-	// A PUBLIC space + page drives the bot OG-card assertions: the /p/{id} card
-	// now renders only for a public space.
+	// A PUBLIC space + page drives the bot OG-card assertions (and the
+	// human-redirect-to-public-reader branch).
 	pubSpace := seedPublicSpace(t, d, "Engineering", "engineering", admin)
 	var pageID int64
 	err := d.QueryRow(`INSERT INTO pages (space_id, parent_id, title, body, position)
@@ -29,7 +32,8 @@ func TestPublicShare_FullFlow(t *testing.T) {
 	}
 
 	// A PRIVATE space + page drives the human-redirect-to-in-app branch and the
-	// bot-must-404 privacy gate (a crawler must not learn a private page's title).
+	// bot title-only card (an always-on permalink card that must carry the title
+	// but never the private body).
 	privSpace := seedSpace(t, d, "Internal", "internal", admin)
 	var privPageID int64
 	if err := d.QueryRow(`INSERT INTO pages (space_id, parent_id, title, body, position)
@@ -109,24 +113,57 @@ func TestPublicShare_FullFlow(t *testing.T) {
 	if resp.StatusCode != http.StatusFound {
 		t.Fatalf("Chrome UA status=%d want 302", resp.StatusCode)
 	}
-	if wantLoc, loc := publicReaderPath(pubSpace, pageID, "Welcome"), resp.Header.Get("Location"); loc != wantLoc {
+	// Redirect target is the CANONICAL pretty URL — sending a human to the id
+	// form would land them on a page that canonicalizes elsewhere.
+	if wantLoc, loc := fmt.Sprintf("/admin/engineering/%d/welcome", pageID), resp.Header.Get("Location"); loc != wantLoc {
 		t.Fatalf("Chrome UA (public) Location=%q want %q", loc, wantLoc)
 	}
 
-	// 5b. Non-bot UA on a PRIVATE page → 302 to the in-app SPA route
-	//     /spaces/{spaceID}/pages/{id}/{slug} (the SPA gates it on a session).
-	resp, _ = get("Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/120.0", fmt.Sprintf("/p/%d", privPageID))
-	if resp.StatusCode != http.StatusFound {
-		t.Fatalf("Chrome UA (private) status=%d want 302", resp.StatusCode)
-	}
-	if wantLoc, loc := pageAppPath(privSpace, privPageID, "Secret"), resp.Header.Get("Location"); loc != wantLoc {
-		t.Fatalf("Chrome UA (private) Location=%q want %q", loc, wantLoc)
+	// 5b. Non-bot UA on a PRIVATE page → 302 to the in-app SPA route (the SPA
+	//     gates it on a session). The Location carries the title slug only when
+	//     the link already did: by bare id it would hand the title to anyone.
+	for path, want := range map[string]string{
+		fmt.Sprintf("/p/%d", privPageID):        pageAppPath(privSpace, privPageID, ""),
+		fmt.Sprintf("/p/%d/guess", privPageID):  pageAppPath(privSpace, privPageID, ""),
+		fmt.Sprintf("/p/%d/secret", privPageID): pageAppPath(privSpace, privPageID, "Secret"),
+	} {
+		resp, _ = get("Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/120.0", path)
+		if resp.StatusCode != http.StatusFound {
+			t.Fatalf("Chrome UA (private) %s status=%d want 302", path, resp.StatusCode)
+		}
+		if loc := resp.Header.Get("Location"); loc != want {
+			t.Fatalf("Chrome UA (private) %s Location=%q want %q", path, loc, want)
+		}
 	}
 
-	// 5c. Bot UA on a PRIVATE page → 404: a crawler must not learn the title of a
-	//     page in a private space (mirrors the og_space.go gate).
-	if respPriv, _ := get("Slackbot-LinkExpanding 1.0", fmt.Sprintf("/p/%d", privPageID)); respPriv.StatusCode != http.StatusNotFound {
-		t.Fatalf("bot on private page status=%d want 404", respPriv.StatusCode)
+	// 5c. Bot UA on a PRIVATE page with its title slug → 200 OG card, TITLE-ONLY:
+	//     the envelope carries the title but never the private body
+	//     (docs/visibility-model.md), and a signed og:image.
+	respPriv, bodyPriv := get("Slackbot-LinkExpanding 1.0", fmt.Sprintf("/p/%d/secret", privPageID))
+	if respPriv.StatusCode != http.StatusOK {
+		t.Fatalf("bot on private page status=%d want 200", respPriv.StatusCode)
+	}
+	if !strings.Contains(bodyPriv, `<meta property="og:title"`) {
+		t.Fatalf("private page OG missing og:title: %s", bodyPriv)
+	}
+	if strings.Contains(bodyPriv, "classified") {
+		t.Fatalf("private page body leaked into OG envelope: %s", bodyPriv)
+	}
+	if !strings.Contains(bodyPriv, "Secret") || !strings.Contains(bodyPriv, "og.png?sig=") {
+		t.Fatalf("private page with its slug: want title + signed og:image: %s", bodyPriv)
+	}
+
+	// 5d. The same private page by bare id or a wrong slug → generic card: no
+	//     title, no space name, no image. Ids are sequential, so this is what
+	//     keeps /p/1..N from listing every private title.
+	for _, path := range []string{fmt.Sprintf("/p/%d", privPageID), fmt.Sprintf("/p/%d/guess", privPageID)} {
+		resp, body := get("Slackbot-LinkExpanding 1.0", path)
+		if resp.StatusCode != http.StatusOK {
+			t.Fatalf("%s status=%d want 200", path, resp.StatusCode)
+		}
+		if strings.Contains(body, "Secret") || strings.Contains(body, "Internal") || strings.Contains(body, "og:image") {
+			t.Fatalf("%s leaked title/space/image to a link without the slug: %s", path, body)
+		}
 	}
 
 	// 6. Missing UA → 302 (treated as human; no UA, no allowlist match).
@@ -373,7 +410,8 @@ func TestPublicShare_UnitHelpers(t *testing.T) {
 			{"TelegramBot (like TwitterBot)", true},
 			{"LinkedInBot/1.0", true},
 			{"WhatsApp/2.0", true},
-			{"Mozilla/5.0 (Windows NT 10.0; Win64; x64) … SkypeUriPreview Preview/0.5 skype-url-preview@microsoft.com", true}, // MS Teams
+			{"Mozilla/5.0 (Windows NT 10.0; Win64; x64) … SkypeUriPreview Preview/0.5 skype-url-preview@microsoft.com", true},   // MS Teams
+			{"Mozilla/5.0 AppleWebKit/537.36 (KHTML, like Gecko); compatible; ChatGPT-User/1.0; +https://openai.com/bot", true}, // seen in our access log
 			{"MyCustomCrawlerBot/1.0", true}, // matches "bot/"
 			{"BotName Bot 5.0", true},        // matches "bot "
 			{"NotABotEater", false},          // no "bot/" or "bot " or named bot
@@ -472,4 +510,27 @@ func TestBotUARegexInSyncWithCaddy(t *testing.T) {
 			}
 		}
 	}
+}
+
+// signedOGImagePath reads a page's og:image off its /p/{id}/{slug} crawler card
+// and returns it as a path (the private-page image needs that URL's sig).
+func signedOGImagePath(t *testing.T, ts *httptest.Server, pageID int64, slug string) string {
+	t.Helper()
+	req, _ := http.NewRequest(http.MethodGet, fmt.Sprintf("%s/p/%d/%s", ts.URL, pageID, slug), nil)
+	req.Header.Set("User-Agent", "Slackbot-LinkExpanding 1.0")
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("fetch card: %v", err)
+	}
+	defer resp.Body.Close()
+	body, _ := io.ReadAll(resp.Body)
+	m := regexp.MustCompile(`property="og:image" content="([^"]+)"`).FindSubmatch(body)
+	if m == nil {
+		t.Fatalf("no og:image on /p/%d/%s: %s", pageID, slug, body)
+	}
+	u, err := url.Parse(html.UnescapeString(string(m[1])))
+	if err != nil {
+		t.Fatalf("parse og:image: %v", err)
+	}
+	return u.RequestURI()
 }

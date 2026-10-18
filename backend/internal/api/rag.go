@@ -22,6 +22,30 @@ import (
 // RAGSearch handles GET /api/rag/search?q=&space_id=&limit=&mode=
 // Hybrid chunk search scoped to the caller's space_access. Returns ranked
 // chunks with page id + heading path for citation.
+// embedRateOK enforces the per-account fair-use limit on the shared embedder,
+// the scarcest resource on a single-box instance. REST variant: on exhaustion it
+// writes 429 + Retry-After and returns false. Keyed per account so one PAT or
+// script can't saturate the embedder for everyone; the ask paths' generation is
+// separately bounded by cloudLimiter. See embedRateErr for the MCP variant.
+func (s *Server) embedRateOK(w http.ResponseWriter, acct account) bool {
+	ok, retry := s.embedLimiter.allow("embed", fmt.Sprintf("%s:%d", acct.Kind, acct.ID))
+	if !ok {
+		w.Header().Set("Retry-After", strconv.Itoa(int(retry.Seconds())+1))
+		writeError(w, http.StatusTooManyRequests, "rate_limited", "AI search rate limit reached; slow down and retry shortly")
+		return false
+	}
+	return true
+}
+
+// embedRateErr is the MCP variant of embedRateOK: a 429 *apiErr (surfaced as a
+// tool error) when the per-account embed budget is spent, nil otherwise.
+func (s *Server) embedRateErr(acct account) *apiErr {
+	if ok, _ := s.embedLimiter.allow("embed", fmt.Sprintf("%s:%d", acct.Kind, acct.ID)); !ok {
+		return &apiErr{http.StatusTooManyRequests, "rate_limited", "AI search rate limit reached; slow down and retry shortly"}
+	}
+	return nil
+}
+
 func (s *Server) RAGSearch(w http.ResponseWriter, r *http.Request) {
 	u, ok := requireUser(w, r)
 	if !ok {
@@ -29,6 +53,9 @@ func (s *Server) RAGSearch(w http.ResponseWriter, r *http.Request) {
 	}
 	if !s.aiEnabled() {
 		writeError(w, http.StatusServiceUnavailable, "rag_disabled", "semantic search is not configured")
+		return
+	}
+	if !s.embedRateOK(w, account{Kind: accountUser, ID: u.ID}) {
 		return
 	}
 
@@ -52,6 +79,9 @@ func (s *Server) RAGSearch(w http.ResponseWriter, r *http.Request) {
 	limit, _ := strconv.Atoi(q.Get("limit"))
 	hits, err := s.rag.Search(r.Context(), u.ID, q.Get("q"), spaceID, limit, q.Get("mode"))
 	if err != nil {
+		if clientCanceled(w, r, err) {
+			return
+		}
 		writeError(w, http.StatusInternalServerError, "internal", "semantic search failed")
 		return
 	}
@@ -189,6 +219,9 @@ func (s *Server) RAGAsk(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusServiceUnavailable, "llm_disabled", "managed AI is not configured")
 		return
 	}
+	if !s.embedRateOK(w, account{Kind: accountUser, ID: u.ID}) {
+		return
+	}
 	r.Body = http.MaxBytesReader(w, r.Body, cloudMaxRequestBytes)
 	var req askRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -208,11 +241,12 @@ func (s *Server) RAGAsk(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Retrieve grounding via the shared seam (also used by draft/answer-to-page).
-	excerpts, hits, top, err := s.askContext(r.Context(), u.ID, req.Question, spaceID, req.Limit)
+	res, err := s.askContext(r.Context(), u.ID, req.Question, spaceID, req.Limit)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "internal", "retrieval failed")
 		return
 	}
+	excerpts, hits, top := res.Context, res.Hits, res.Top
 	// Log every ask with its retrieval confidence (best-effort) — feeds the
 	// knowledge-gaps view, including the zero-hit case (a clear gap).
 	_ = s.rag.LogAsk(r.Context(), u.ID, spaceID, req.Question, len(hits), top)
@@ -242,7 +276,12 @@ func (s *Server) RAGAsk(w http.ResponseWriter, r *http.Request) {
 	if low {
 		answer = lowConfidenceNote + answer
 	}
-	resp := map[string]any{"answer": answer, "sources": hits, "low_confidence": low}
+	resp := map[string]any{
+		"answer": answer, "sources": hits, "low_confidence": low,
+		// How many distinct sources retrieval actually found, and whether the cap
+		// clipped them — so "12 sources" is never mistaken for "the whole corpus".
+		"considered": res.Considered, "truncated": res.Truncated(),
+	}
 	// Suggest follow-up questions so an answer becomes a thread to pull on
 	// (ask-first navigation). Best-effort.
 	if f := s.genFollowups(r.Context(), u, req.Question, answer); len(f) > 0 {
@@ -308,6 +347,9 @@ func (s *Server) RAGAskStream(w http.ResponseWriter, r *http.Request) {
 	if !s.askGuards(w) {
 		return
 	}
+	if !s.embedRateOK(w, account{Kind: accountUser, ID: u.ID}) {
+		return
+	}
 	r.Body = http.MaxBytesReader(w, r.Body, cloudMaxRequestBytes)
 	var req askRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -326,11 +368,12 @@ func (s *Server) RAGAskStream(w http.ResponseWriter, r *http.Request) {
 	// Retrieval + the compute guards run synchronously on the request, BEFORE any
 	// SSE byte, so a retrieval 500 / 429 / cap stays a clean HTTP status. Retrieval
 	// is sub-second; only the long, silent generation gets detached below.
-	excerpts, hits, top, err := s.askContext(r.Context(), u.ID, req.Question, spaceID, req.Limit)
+	res, err := s.askContext(r.Context(), u.ID, req.Question, spaceID, req.Limit)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "internal", "retrieval failed")
 		return
 	}
+	excerpts, hits, top := res.Context, res.Hits, res.Top
 	_ = s.rag.LogAsk(r.Context(), u.ID, spaceID, req.Question, len(hits), top)
 	s.recordRequestEvent(r, eventInput{
 		Type: evtAsk, ActorUserID: &u.ID, ActorLabel: u.Username,
@@ -346,7 +389,10 @@ func (s *Server) RAGAskStream(w http.ResponseWriter, r *http.Request) {
 	// too, not just the answer tokens.
 	low := lowConfidence(s.rag.RerankEnabled(), top)
 	job := newAskJob(newAskID(), u.ID)
-	job.emit("sources", map[string]any{"sources": hits, "low_confidence": low})
+	job.emit("sources", map[string]any{
+		"sources": hits, "low_confidence": low,
+		"considered": res.Considered, "truncated": res.Truncated(),
+	})
 	if len(hits) == 0 {
 		job.emit("token", map[string]string{"t": "I couldn't find anything in your documents to answer that."})
 		job.emit("done", map[string]any{})
@@ -493,6 +539,9 @@ func (s *Server) RAGSuggestLinks(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusServiceUnavailable, "rag_disabled", "semantic features are not configured")
 		return
 	}
+	if !s.embedRateOK(w, account{Kind: accountUser, ID: u.ID}) {
+		return
+	}
 	r.Body = http.MaxBytesReader(w, r.Body, cloudMaxRequestBytes)
 	var req suggestLinksRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -541,17 +590,28 @@ func (s *Server) RAGOverlaps(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"overlaps": pairs})
 }
 
-// RAGGaps handles GET /api/rag/gaps[?since_days=&limit=]
-// Knowledge gaps: the most-asked questions the corpus couldn't answer. Admin-only
-// — it exposes users' questions.
+// RAGGaps handles GET /api/rag/gaps[?space_id=&since_days=&limit=]
+// Knowledge gaps: the most-asked questions the corpus couldn't answer. Open to
+// every signed-in user — rag.GapScope, not this handler, is what keeps one user's
+// questions out of another's view (own asks + asks in spaces they're a member of;
+// instance admins see the whole instance).
 func (s *Server) RAGGaps(w http.ResponseWriter, r *http.Request) {
-	if _, ok := requireInstanceAdmin(w, r); !ok {
+	u, ok := requireUser(w, r)
+	if !ok {
 		return
 	}
 	q := r.URL.Query()
 	sinceDays, _ := strconv.Atoi(q.Get("since_days"))
 	limit, _ := strconv.Atoi(q.Get("limit"))
-	gaps, err := s.rag.KnowledgeGaps(r.Context(), sinceDays, limit)
+	scope := rag.GapScope{UserID: u.ID, Instance: u.IsInstanceAdmin}
+	if sid, err := strconv.ParseInt(q.Get("space_id"), 10, 64); err == nil && sid > 0 {
+		scope.SpaceID = &sid
+	}
+	// A space-scoped bearer key may only ever see its one space.
+	if b := bearerSpace(r); b != nil {
+		scope.SpaceID = b
+	}
+	gaps, err := s.rag.KnowledgeGaps(r.Context(), scope, sinceDays, limit)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "internal", "gaps query failed")
 		return

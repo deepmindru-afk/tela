@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -85,12 +86,25 @@ func (e *OllamaEmbedder) EmbedQuery(ctx context.Context, query string) ([]float3
 	return e.Embed(ctx, queryInstruct(e.instruct, query))
 }
 
-// maxEmbedChars is the initial rune cap on embed input — a first-pass guard so
-// most chunks embed in one shot. It is intentionally loose because token density
-// varies wildly (symbol-heavy markdown can be <2 chars/token), so a char cap
-// can't reliably predict the model's 512-token limit. The real guarantee is the
-// shrink-retry loop in Embed.
-const maxEmbedChars = 1600
+// maxEmbedChars is the rune cap on embed input — a first-pass guard so most
+// chunks embed in one shot; the shrink-retry loop in Embed is the real guarantee.
+//
+// 1600 was sized for mxbai-embed-large's 512-token window. That model is gone:
+// the instance runs qwen3-embedding:0.6b, whose window is orders of magnitude
+// larger, and the old cap was silently truncating most of the corpus. Measured on
+// one Atlas run: 5,944 chunks averaging 3,398 chars (p50 3,428 / p90 6,162) —
+// 67% of them over 1600, so two-thirds of the index had vectors built from under
+// half their text and semantic search was matching on a prefix.
+//
+// 8000 covers the p90 whole. It is a CHAR cap standing in for a token limit, and
+// density varies (symbol-heavy code can be <2 chars/token), so it stays well
+// under the model's real window and the shrink loop still catches outliers.
+//
+// ⚠️ Changing this changes vectors. The chunk hash folds in the model NAME, not
+// this cap, so existing rows are NOT auto-invalidated — run `/tela reindex-all`
+// (and re-run Atlas sources) to rebuild against the new cap, or the index stays a
+// mix of old truncated vectors and new full ones.
+var maxEmbedChars = atoiDefault(os.Getenv("TELA_RAG_MAX_EMBED_CHARS"), 8000)
 
 // embedMinChars is the floor below which we stop shrinking and surface the error
 // rather than embed a near-empty fragment.
@@ -144,6 +158,77 @@ func shrinkToFit(text string, once func(string) ([]float32, bool, error)) ([]flo
 	}
 }
 
+// EmbedStats reports what an embed call actually cost upstream: how many
+// requests it took, and how many tokens the PROVIDER reported. Tokens are read
+// from the response, never estimated from input length — the input is clamped to
+// maxEmbedChars before it is sent, so a length estimate counts text that was
+// never embedded (a 712 KB chunk estimated ~178k tokens against ~400 real ones).
+// Providers that report nothing leave Tokens as a clamped-length estimate, which
+// is still bounded by what was actually sent.
+type EmbedStats struct {
+	Requests int
+	Tokens   int
+}
+
+// estimateTokens approximates tokens for a provider that reports none, from the
+// text that WOULD be sent (i.e. after the clamp), never the raw input.
+func estimateTokens(texts []string) int {
+	n := 0
+	for _, t := range texts {
+		n += (len(clampRunes(t, maxEmbedChars)) + 3) / 4
+	}
+	return n
+}
+
+// embedMany is the shared batch path for every Embedder: it sends the whole
+// slice as ONE upstream request and, if that request fails for ANY reason, falls
+// back to embedding each item on its own. The fallback is what makes batching
+// safe to attempt blindly — a batch 400 can't say WHICH input overflowed, and an
+// endpoint that only speaks the single-input shape (tela cloud's managed embed
+// proxy) rejects the array outright. Per-item retry re-runs shrinkToFit, so the
+// slow path behaves exactly as it did before batching existed.
+//
+// Callers get one vector per text, in order. batch receives inputs pre-clamped
+// to maxEmbedChars (the same first-pass guard shrinkToFit applies) so a routine
+// over-long chunk doesn't cost a whole wasted batch round trip. A nil batch
+// (embedder with no batch transport) goes straight to the per-item path.
+//
+// requests is how many upstream calls this actually cost, so metering reports
+// real load on the embedder rather than the caller's batch count. A shrink-retry
+// inside one() is not counted — it's rare, and counting it would mean threading
+// a tally through shrinkToFit for a number nobody acts on.
+func embedMany(texts []string, batch func([]string) ([][]float32, int, error), one func(string) ([]float32, error)) (vecs [][]float32, st EmbedStats, err error) {
+	if len(texts) == 0 {
+		return nil, EmbedStats{}, nil
+	}
+	if len(texts) > 1 && batch != nil {
+		clamped := make([]string, len(texts))
+		for i, t := range texts {
+			clamped[i] = clampRunes(t, maxEmbedChars)
+		}
+		if v, tok, err := batch(clamped); err == nil {
+			if tok == 0 {
+				tok = estimateTokens(texts)
+			}
+			return v, EmbedStats{Requests: 1, Tokens: tok}, nil
+		}
+		st.Requests = 1 // the failed attempt still hit the embedder
+	}
+	out := make([][]float32, len(texts))
+	for i, t := range texts {
+		v, err := one(t)
+		st.Requests++
+		if err != nil {
+			return nil, st, err
+		}
+		out[i] = v
+	}
+	// The per-item path has no usage to read back (Embed returns only a vector),
+	// so estimate from the clamped text — bounded by what was really sent.
+	st.Tokens = estimateTokens(texts)
+	return out, st, nil
+}
+
 // queryInstruct wraps a search query with the asymmetric instruction prefix per
 // the Qwen3-Embedding model card ("Instruct: {task}\nQuery:{q}"); a blank
 // instruction returns the query unchanged. Shared by both embedders' EmbedQuery.
@@ -154,9 +239,37 @@ func queryInstruct(instruct, query string) string {
 	return "Instruct: " + instruct + "\nQuery:" + query
 }
 
+// EmbedMany embeds a whole batch in ONE upstream request (Ollama's /api/embed
+// takes an `input` array and answers with one row per input). See embedMany for
+// the fallback contract.
+func (e *OllamaEmbedder) EmbedMany(ctx context.Context, texts []string) ([][]float32, EmbedStats, error) {
+	return embedMany(texts,
+		func(in []string) ([][]float32, int, error) {
+			rows, _, err := e.post(ctx, in, len(in))
+			return rows, 0, err // Ollama's /api/embed reports no token usage
+		},
+		func(text string) ([]float32, error) { return e.Embed(ctx, text) },
+	)
+}
+
 // embedOnce does a single embed request. overflow is true when the model
 // rejected the input for exceeding its context window (the retryable case).
 func (e *OllamaEmbedder) embedOnce(ctx context.Context, input string) (vec []float32, overflow bool, err error) {
+	// A bare string, not a 1-element array: tela cloud's managed embed proxy
+	// (api.CloudEmbed) decodes `input` as a string, so the single-item shape
+	// must stay exactly as it was. Batching is the array shape below.
+	rows, over, err := e.post(ctx, input, 1)
+	if err != nil {
+		return nil, over, err
+	}
+	return rows[0], false, nil
+}
+
+// post sends {model, input} to /api/embed and returns one vector row per input.
+// input is either a single string or a []string batch; want is how many rows the
+// caller expects. overflow is true when the model rejected the input for
+// exceeding its context window (the retryable case).
+func (e *OllamaEmbedder) post(ctx context.Context, input any, want int) (rows [][]float32, overflow bool, err error) {
 	body, _ := json.Marshal(map[string]any{"model": e.model, "input": input})
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, e.base+"/api/embed", bytes.NewReader(body))
 	if err != nil {
@@ -192,10 +305,10 @@ func (e *OllamaEmbedder) embedOnce(ctx context.Context, input string) (vec []flo
 	if out.Error != "" {
 		return nil, false, fmt.Errorf("ollama embed: %s", out.Error)
 	}
-	if len(out.Embeddings) == 0 || len(out.Embeddings[0]) == 0 {
-		return nil, false, fmt.Errorf("ollama embed: empty embedding for model %q", e.model)
+	if len(out.Embeddings) != want || len(out.Embeddings[0]) == 0 {
+		return nil, false, fmt.Errorf("ollama embed: got %d vectors for %d inputs (model %q)", len(out.Embeddings), want, e.model)
 	}
-	return out.Embeddings[0], false, nil
+	return out.Embeddings, false, nil
 }
 
 // vecLiteral formats a float32 slice as a pgvector text literal ("[0.1,0.2]").

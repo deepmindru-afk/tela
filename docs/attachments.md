@@ -23,11 +23,19 @@ of the markdown.
 ## API
 
 - `GET  /api/pages/{id}/attachments` — session-authed; lists the page's files
-  with `{id, name, mime, byte_size, hash, url, embedded}`.
+  with `{id, name, mime, byte_size, hash, url, share_path, embedded}`. `url` is
+  the blob (what a body embeds); `share_path` is the file page (what a person
+  gets) — server-computed by `fillLinks`, so no client re-derives it.
 - `POST /api/pages/{id}/attachments` — editor+; multipart `file`. Dedupes
   identical bytes; disambiguates a name collision with a `-<hash8>` suffix so a
   distinct upload never clobbers an existing one (e.g. two pasted `image.png`).
 - `DELETE /api/pages/{id}/attachments/{file_id}` — editor+; soft-delete.
+- `GET  /api/spaces/{id}/files` — session-authed; every live file in the space,
+  page-parented **and** root-level, each with `parent_page_id`/`parent_title`
+  (absent = root). `?parent_page_id={id}|root` filters. Capped at 500 with a
+  `truncated` flag. This is the only listing that reaches a file parented to the
+  space ROOT — where a sync or import drops files beside the page tree, and
+  which the per-page listing cannot see by construction.
 - `GET /api/files/{space_id}/{hash}.{ext}` — **public**, content-addressed,
   immutable cache. Keyed by hash (not path) so a body embed survives a sync
   rename. Raster images (png/jpeg/gif/webp) serve **inline**; everything else is
@@ -38,13 +46,56 @@ The list/upload/delete handlers are thin wrappers over `listPageAttachmentsCore`
 / `uploadPageAttachmentCore` / `deletePageAttachmentCore` — the same cores the
 MCP tools call, so REST and agents share one code path.
 
+## Sharing a file
+
+`/api/files/…` is the BLOB. It forces a download, its name is a 64-hex hash, and
+it unfurls as nothing — pasted in Slack or WhatsApp it is a bare link. So it is
+not what a person should be handing to another person.
+
+**`/f/{hash12}/{filename}`** is (`api/file_page.go` + `routes/file.tsx`). It
+resolves any 8–64 hex *prefix* of the content hash — the filename segment is
+decorative, so a rename never breaks a link already shared — and renders the file
+in tela chrome: the PDF viewer for PDFs, the image inline, a download card
+otherwise, plus Copy link / Download and (public spaces only) a link back to the
+page it is attached to. The Attachments strip's chip copies THIS url
+(`lib/file-link.ts`); nothing in the UI hands out the blob URL any more.
+
+Bot-gated exactly like `/share` and `/public`: Caddy routes crawler UAs to the
+backend, which answers with an OG envelope + a `/f/{hash}/og.png` card (filename
+as the title, `PDF · 46 KB` under it); humans fall through to the SPA at the same
+path. The handler 404s a non-bot as defence in depth, so a missing Caddy gate is
+visible instead of serving the crawler envelope in place of the app.
+
+**The retrofit:** a crawler UA asking for a *non-image* `/api/files/…` blob gets
+that same card instead of the bytes, so the thousands of blob URLs already pasted
+somewhere unfurl too. Raster images are exempt — page bodies embed them and a
+fetcher asking for an image wants the pixels.
+
+**Disclosure.** The card carries filename, type and size — exactly what the
+blob's own `Content-Disposition` already tells anyone holding the URL. The parent
+page's title, and the file's auto-summary, appear ONLY when the owning space is
+public; a private space's file unfurls as "PDF · 46 KB · shared from tela".
+
+Adding a URL shape here means updating BOTH `deploy/proxy/sites.caddy` and
+`frontend/nginx.conf` — nginx serves the SPA shell as its 404 body, so a path
+missing from its allowlist renders perfectly while returning 404.
+
 ## MCP tools
 
 Agents get the same surface (put an image/PDF on a page, or read what's
 attached):
 
+- `list_space_files(space_id, parent_page_id?)` — read; the space-scope listing
+  above. The tool an agent needs when someone asks for "that PDF" and it isn't
+  on a page — `list_attachments` is per-page, so a root-level file is otherwise
+  undiscoverable (linkable only if you already know its hash).
 - `list_attachments(page_id)` — read; each file plus an absolute `download_url`
-  (fetchable over HTTP) and a ready-to-paste `markdown` embed snippet.
+  (fetchable over HTTP), a `share_url` (the file page — the ONLY one to hand a
+  person; the blob downloads on click and unfurls as nothing), and a
+  ready-to-paste `markdown` embed snippet. `upload_attachment` /
+  `confirm_attachment_upload` return the same three, and a `research` / `read_chunk`
+  hit on a FILE source carries `download_url` + `share_url` too — that is how an
+  agent answers "send me the PDF" with a link that previews.
 - `upload_attachment(page_id, name, data_base64)` — editor+; stores the bytes
   (inline base64) and returns the attachment + `markdown`. The agent then
   `update_page`/`patch_page`s the snippet into the body — `![](…)` for images, a
@@ -84,7 +135,9 @@ inline in the reader via a client-side viewer (`ui/pdf-viewer.tsx`).
 ## Notes
 
 - **Serve identity is a capability hash.** Like `/api/images/`, anyone with the
-  URL can fetch the bytes regardless of space privacy. Fine for most wikis; if
+  URL can fetch the bytes regardless of space privacy — which is why the file
+  page above is public too, and why its card stops at what the blob already
+  discloses. Fine for most wikis; if
   strict private-space enforcement is needed, gate the serve route on visibility
   (costs the immutable-cache win).
 - **Storage** is Postgres `bytea`, capped per file by `TELA_WEBDAV_FILE_MAX_BYTES`

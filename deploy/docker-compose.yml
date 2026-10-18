@@ -14,6 +14,9 @@ services:
       TELA_PUBLIC_BASE_URL: ${TELA_PUBLIC_BASE_URL}
       TELA_SHARE_SECRET:    ${TELA_SHARE_SECRET}
       TELA_API_KEY_SECRET:  ${TELA_API_KEY_SECRET}
+      # Encrypts Atlas source tokens + org SSO client secrets at rest. Unset =
+      # generated on first boot and persisted in instance_settings.
+      TELA_CREDENTIAL_KEY:  ${TELA_CREDENTIAL_KEY:-}
       # Org custom domains: stable CNAME target shown to org admins when adding a
       # hostname (defaults to the canonical host). See docs/custom-domains.md.
       TELA_CUSTOM_DOMAIN_TARGET: ${TELA_CUSTOM_DOMAIN_TARGET:-}
@@ -64,6 +67,13 @@ services:
       # Completion length cap (0/unset → in-code default 1024). Raise for long
       # table/enumeration answers that otherwise truncate mid-stream.
       TELA_LLM_MAX_TOKENS: ${TELA_LLM_MAX_TOKENS:-}
+      # Foreground (ask/assist) concurrency gate + overload spill. MAX_INFLIGHT
+      # caps concurrent completions on the primary (default 20); past it a request
+      # waits OVERFLOW_WAIT_MS then spills to OVERFLOW_MODEL (the relief proxy's
+      # tela-chat-overflow alias → L2). Background work bypasses the gate.
+      TELA_LLM_MAX_INFLIGHT:     ${TELA_LLM_MAX_INFLIGHT:-}
+      TELA_LLM_OVERFLOW_MODEL:   ${TELA_LLM_OVERFLOW_MODEL:-}
+      TELA_LLM_OVERFLOW_WAIT_MS: ${TELA_LLM_OVERFLOW_WAIT_MS:-}
       # Optional deep-link from the admin AI-reliability card to the Grafana
       # failover dashboard. Unset → no link shown.
       TELA_GRAFANA_AI_URL: ${TELA_GRAFANA_AI_URL:-}
@@ -226,7 +236,10 @@ services:
   # mode is fully configurable: single (no fallback) | failover (only-down) |
   # loadbalance (throughput). See deploy/.env.example → "AI relief proxy".
   litellm:
-    image: ghcr.io/berriai/litellm:main-stable
+    # Pinned by digest (litellm v1.90.1, main-stable @ 2026-06-30) so pull_policy:
+    # always can't silently grab a breaking build. Bump deliberately: pull a newer
+    # main-stable, verify, then paste its digest here.
+    image: ghcr.io/berriai/litellm:main-stable@sha256:09d98fd0c82d1a3731577fde7fe2f65db0afa4453e9da45c11ecda94d047248f
     profiles: ["relief"]
     entrypoint: ["sh", "-c"]
     command: ["python3 /etc/litellm/gen-config.py > /tmp/litellm.yaml && exec litellm --config /tmp/litellm.yaml --port 4000"]

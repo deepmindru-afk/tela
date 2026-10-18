@@ -54,6 +54,88 @@ public reader (`/public/spaces/{spaceID}/pages/{id}/{slug}`) when the page's
 space is public, instead of the session-gated in-app route; bots still get the OG
 envelope.
 
+### Published ≠ reachable: route every page link through the visibility choice
+
+A published page is world-readable — ranked search surfaces it to non-members
+(`searchAccessSQL` / `rag.accessibleSpacesSQL` union public spaces in), and it's
+SEO-indexed — but the **authed** route `/spaces/{sid}/pages/{pid}` still gates on
+`space_access`. So any link built on the authed path dead-ends every non-member
+who follows it, on content that was deliberately published. That was a real bug:
+a user searched, found a public page, and got "you don't have access."
+
+Two mechanisms keep the two in step; keep both when touching this area:
+
+1. **`GET /api/pages/{id}` degrades instead of walling.** On a bare `forbidden`
+   for a page whose space is public, it answers `403 {code:"forbidden_public",
+   public_path:"/public/spaces/…"}` (`publicReaderFallbackPath`, `pages.go`) and
+   the SPA redirects there (`PageView`). This is the safety net that rescues
+   links already in the wild — a pasted address-bar URL, an old link, a semantic
+   hit. It is **not** a loosening: `api_key_space_scope` denials and missing
+   pages still return the opaque `forbidden`, so ids stay unenumerable.
+2. **Search emits the right URL up front.** `searchHit.public` (from the
+   already-computed `sm.is_member`) marks a hit reachable only via publication;
+   the hit's `url` is then built with `publicReaderPath`, not `pageAppPath`. This
+   feeds the palette *and* the `url` the MCP `search` tool / ChatGPT connector
+   hand to agents — which previously pointed at a route those callers can't read.
+
+Frontend: `pagePath` vs `publicReaderPath` (`lib/slug.ts`) are the pair, and
+`navigateToPage`'s `isPublic` picks between them. Don't re-derive either path
+inline at a new call site.
+
+**Still on the authed route (rides mechanism 1):** the tier-4 semantic palette
+rows. `rag.Hit` carries no membership bit — `hydrate` has no uid in scope — so a
+public-only semantic hit opens via the redirect rather than linking straight to
+the reader. Correct, one hop slower; thread `is_member` through `hydrate` to
+close it.
+
+### Handle URLs answer a real 404 — and the check fails open
+
+`/{handle}`, `/{handle}/{space-slug}` and `/{handle}/{space-slug}/{pageId}` are
+SPA routes, so the frontend nginx used to answer **200 + app shell** for anything
+handle-shaped: every typo, every renamed handle, every dead shared link and every
+machine probe (`/ai.txt` — and `/openapi.json`, until it got its own Caddy route)
+reported itself to crawlers and uptime monitors as a live page. It was invisible
+in a browser, because the SPA renders a perfectly nice "not found" screen either
+way.
+
+Three pieces, and the middle one is the load-bearing constraint:
+
+1. **`GET /api/public/exists/{handle}[/{slug}[/{pageId}]]`**
+   (`public_exists.go`) — a body-less probe over the SAME resolution the reader
+   uses (`resolveHandle` / `handleHasPublicSpace` / `publicSpaceIDForHandle`), so
+   the edge can never disagree with the page. The status IS the answer:
+   **204** exists · **404** definitely doesn't · **500** couldn't tell (DB error).
+   Public + read-only like the rest of `/api/public/`, and it discloses nothing
+   `by-handle` doesn't.
+2. **nginx `auth_request`** on handle-shaped paths (`@handle_spa` in
+   `frontend/nginx.conf`) turns a definite "no" into a real 404 whose body is
+   still the SPA shell — humans see the same branded screen, only the status
+   changes. **It FAILS OPEN by construction:** auth_request only reads 401/403 as
+   a denial, so the `/_handle_exists` location maps the backend's 404 → 403 and
+   *everything else* (timeout, 5xx, backend restarting or absent, unresolvable
+   DNS) becomes a 500 that `error_page … =200 @spa_shell` serves as the old 200
+   shell. Timeouts are explicit and sub-second (300 ms connect / 500 ms read,
+   `resolver_timeout 300ms` — the resolver's own 30 s default is NOT covered by
+   the proxy timeouts). A live public page 404ing on a hiccup is far worse than
+   the bug being fixed.
+3. **`useNoindex()`** (`lib/useHeadMeta.ts`) on the not-found surfaces
+   (`PublicUnavailable`, the router's `notFoundComponent`) — Googlebot executes
+   JS and honours a client-set `robots` meta, which covers the fail-open window
+   and anything the regex misses.
+
+Cost is one cached subrequest: `proxy_cache` keyed on the path with the query
+string and the decorative title slug stripped (the page id resolves a page), 60 s
+per answer, `proxy_cache_use_stale` across a backend blip. A popular space pays
+no per-view round-trip, and publishing a space stops 404ing within a minute.
+
+Real files still win (`try_files $uri` runs before the subrequest is reached),
+and Caddy's bot/OG routes match earlier, so link unfurls are untouched. **The
+handle regex is defined twice** — `frontend/nginx.conf` and
+`deploy/proxy/sites.caddy` — and they must stay in sync; nginx serves the SPA
+shell as its 404 body, so a shape missing from its allowlist renders perfectly
+while returning 404. Verify a new URL shape with
+`curl -o /dev/null -w '%{http_code}'`, never by eye.
+
 ## Shipped (frontend)
 
 - No-login public reader route `/public/spaces/{id}/pages/{id}/{slug}` (reuses
@@ -75,20 +157,17 @@ envelope.
 
 ## Deferred / follow-ups
 
-- **Full SEO for public spaces** — make published spaces properly indexable +
-  shareable. The public reader is a client-rendered SPA, so crawlers need
-  server-rendered/prerendered metadata (today `/p/{id}` emits only a title-only
-  OG envelope, by design for private). Scope:
-  - per-page `<title>` + meta description (derived from the body) rendered for
-    crawlers; **full-body** OG for public pages (not the title-only private form);
-  - OG / Twitter card tags on `/public/…` URLs (title, description, image);
-  - `<link rel="canonical">` per page;
-  - `sitemap.xml` enumerating every public space's pages (public spaces give the
-    enumerable set this needs);
-  - `robots.txt` allowing `/public/…`; JSON-LD (Article/BlogPosting) for rich
-    results;
-  - clean, branded indexable URLs (ties to "clean readable URLs").
-  Tracked in the blog roadmap (tela space 9, page 177) as its own item.
+- **Full SEO for public spaces** — DONE. Bot UAs hitting `/public/…` get a
+  server-rendered OG document (`public_og.go`): per-page `<title>` + meta
+  description (body-derived), OG/Twitter cards, `<link rel="canonical">`,
+  JSON-LD (BlogPosting), and — as of the `feat(seo): render public page body`
+  change — the **full rendered body** in a crawler-visible `<article>`
+  (`renderPublicBodyHTML`, goldmark GFM, raw HTML disabled; custom block
+  directives degrade to their inner text, which is what a crawler wants). Both
+  sitemaps (`sitemap.xml` marketing, `sitemap-public.xml` enumerating every
+  public page) are submitted and `robots.txt` allows `/public/…`. The human
+  path stays the client-rendered SPA. Remaining polish: clean/branded indexable
+  URLs (ties to "clean readable URLs").
 - **`llms.txt`** — an index of a public space's pages (now that there's an
   enumerable public set to point at).
 - **Per-page "Published" in a private space** — explicitly skipped. Publicness is

@@ -121,6 +121,25 @@ func (e recordingEmbedder) Embed(ctx context.Context, text string) ([]float32, e
 	return v, err
 }
 
+// EmbedMany keeps the batch path visible THROUGH the decorator. Without it the
+// batchEmbedder assertion in Service.EmbedMany would fail on the wrapper and
+// every batch would silently degrade to one request per item — which is exactly
+// the bug this seam existed to hide.
+func (e recordingEmbedder) EmbedMany(ctx context.Context, texts []string) ([][]float32, EmbedStats, error) {
+	inner, ok := e.inner.(batchEmbedder)
+	if !ok {
+		return embedMany(texts, nil, func(t string) ([]float32, error) { return e.Embed(ctx, t) })
+	}
+	vecs, st, err := inner.EmbedMany(ctx, texts)
+	if err == nil {
+		// Record the PROVIDER's token count for the batch, not a per-text estimate
+		// of the raw input: the input is clamped before sending, so the estimate
+		// bills text that was never embedded.
+		e.rec(e.inner.Model(), st.Tokens)
+	}
+	return vecs, st, err
+}
+
 func (e recordingEmbedder) Model() string { return e.inner.Model() }
 
 func (s *Service) isPaused() bool { return s.paused != nil && s.paused() }
@@ -153,6 +172,30 @@ func (s *Service) Embed(ctx context.Context, text string) ([]float32, error) {
 		return nil, errEmbedderDisabled
 	}
 	return s.emb.Embed(ctx, text)
+}
+
+// batchEmbedder is the optional batch transport an Embedder can expose: one
+// upstream request for N inputs instead of N requests. Both built-in embedders
+// implement it; a fake or a future provider that doesn't just falls back to
+// per-item, so it stays out of the required Embedder contract.
+type batchEmbedder interface {
+	EmbedMany(ctx context.Context, texts []string) (vecs [][]float32, st EmbedStats, err error)
+}
+
+// EmbedMany embeds a slice of passages, using the embedder's batch transport
+// when it has one. This is the bulk-ingest path (atlas runs a repo through it a
+// batch at a time): a 20k-chunk source is ~1.2k requests here versus ~20k
+// one-at-a-time, and the shared embed GPU is the scarce resource — flooding it
+// starves the chat model that lives on the same card. Returns one vector per
+// text in order, plus how many upstream requests it actually cost.
+func (s *Service) EmbedMany(ctx context.Context, texts []string) (vecs [][]float32, st EmbedStats, err error) {
+	if !s.Enabled() {
+		return nil, EmbedStats{}, errEmbedderDisabled
+	}
+	if b, ok := s.emb.(batchEmbedder); ok {
+		return b.EmbedMany(ctx, texts)
+	}
+	return embedMany(texts, nil, func(t string) ([]float32, error) { return s.emb.Embed(ctx, t) })
 }
 
 // EmbedModel returns the active model name (for the managed proxy response).
@@ -207,6 +250,30 @@ func (s *Service) Ping(ctx context.Context) error {
 		return lc.Live(ctx)
 	}
 	return nil
+}
+
+// probeEmbedInput is the tiny fixed text ProbeEmbed embeds. Short so the probe is
+// cheap and the warm model answers instantly on a healthy link.
+const probeEmbedInput = "healthcheck"
+
+// ProbeEmbed embeds probeEmbedInput end-to-end for the AI-health prober. Unlike
+// Ping — a cheap liveness check that only proves the proxy/host ANSWERS — this
+// exercises the REAL path (proxy → remote model), the same one ask/search hit. A
+// reachable-but-unusable embedder (e.g. a lossy/bufferbloated link that times out
+// on an actual embed while the proxy's liveness endpoint stays up) is caught here
+// but invisible to Ping — which is exactly how a degraded link went undetected.
+// It unwraps the usage-metering decorator so probe traffic is never counted as
+// user usage. The caller scopes the timeout (see aiProbeTimeout).
+func (s *Service) ProbeEmbed(ctx context.Context) error {
+	if !s.Enabled() {
+		return errEmbedderDisabled
+	}
+	emb := s.emb
+	if rec, ok := emb.(recordingEmbedder); ok {
+		emb = rec.inner
+	}
+	_, err := emb.Embed(ctx, probeEmbedInput)
+	return err
 }
 
 func getenv(k, def string) string {

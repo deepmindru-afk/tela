@@ -141,12 +141,32 @@ func (s *Server) CreateCheckout(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// Defer the first charge to the day this account's tela trial would have
+	// ended, instead of billing today and wiping the remaining free days.
+	//
+	// Three gates, all load-bearing:
+	//   1. personal accounts only — orgs are never trialled;
+	//   2. a live trial with whole days left (trialDaysRemaining, ceil);
+	//   3. the tier being bought IS the tier being trialled — deferring payment
+	//      for some OTHER tier would hand out free access to something the trial
+	//      never granted. Moot while personal_plus is the only purchasable
+	//      personal tier, which is exactly why it must be written down now.
+	trialDays := 0
+	if acct.Kind == accountUser {
+		if t := s.loadTrial(ctx, acct.ID, false); t != nil && t.PlanKey == req.PlanKey {
+			if n, ok := trialDaysRemaining(ctx, s.DB, acct.ID); ok {
+				trialDays = n
+			}
+		}
+	}
+
 	url, err := s.billing.CreateCheckout(ctx, billing.CheckoutInput{
 		ProductID:          product,
 		SuccessURL:         s.linkOrigin(r) + "/settings?tab=billing&checkout={CHECKOUT_ID}",
 		ExternalCustomerID: acctExternalID(acct),
 		CustomerEmail:      email,
 		Seats:              seats,
+		TrialDays:          trialDays,
 		Metadata: map[string]string{
 			"plan_key":     req.PlanKey,
 			"account_kind": acct.Kind,
@@ -159,7 +179,18 @@ func (s *Server) CreateCheckout(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadGateway, "billing_error", "could not start checkout")
 		return
 	}
-	s.audit(ctx, r, "billing.checkout", acct.Kind, acct.ID, req.PlanKey)
+	// Recorded on the events feed as billing.*, NOT via s.audit: access_audit is
+	// the access-control trail (org / membership / grant / auto-join / domain —
+	// see audit.go) kept forever for compliance, and its mirror would file this
+	// as `access.billing.checkout`. A checkout start is neither an access change
+	// nor a sibling of one; filing it there put the only billing row we had under
+	// a name no billing query would think to look for.
+	s.recordRequestEvent(r, eventInput{
+		Type:       evtBillingCheckout,
+		TargetKind: acct.Kind,
+		TargetID:   &acct.ID,
+		Detail:     billingDetail("plan="+req.PlanKey, "interval="+interval),
+	})
 	writeJSON(w, http.StatusOK, map[string]string{"url": url})
 }
 
@@ -243,11 +274,13 @@ func (s *Server) PolarWebhook(w http.ResponseWriter, r *http.Request) {
 	}
 	if err := billing.VerifyWebhook(s.billing.WebhookSecret(), r.Header, body); err != nil {
 		slog.Warn("billing: webhook verification failed", "err", err)
+		polarWebhookErrors.WithLabelValues("signature").Inc()
 		writeError(w, http.StatusBadRequest, "invalid_signature", "webhook signature verification failed")
 		return
 	}
 	evt, err := billing.ParseEvent(body)
 	if err != nil {
+		polarWebhookErrors.WithLabelValues("parse").Inc()
 		writeError(w, http.StatusBadRequest, "bad_request", "could not parse event")
 		return
 	}
@@ -268,6 +301,7 @@ func (s *Server) PolarWebhook(w http.ResponseWriter, r *http.Request) {
 	// return 500 so Polar redelivers.
 	if err := s.reconcileBilling(ctx, evt); err != nil {
 		slog.Error("billing: reconcile failed", "type", evt.Type, "id", evt.Data.ID, "err", err)
+		polarWebhookErrors.WithLabelValues("reconcile").Inc()
 		writeError(w, http.StatusInternalServerError, "internal", "reconcile failed")
 		return
 	}
@@ -292,9 +326,47 @@ func (s *Server) reconcileBilling(ctx context.Context, evt billing.Event) error 
 		slog.Warn("billing: event without a resolvable account", "type", evt.Type, "id", evt.Data.ID)
 		return nil
 	}
+
+	// The self-host Enterprise license is a separate SKU (its product is kept out
+	// of the plan map): route its events to license issuance, not plan changes.
+	// Match on the product, OR on a subscription id we already issued against —
+	// Polar's cancel/revoke payloads don't reliably carry product_id, and without
+	// the sub-id fallback such an event would fall through to the plan reconciler
+	// (a no-op there) and leave the license row wrongly showing Active.
+	if s.selfHostProductID != "" &&
+		(evt.Data.ProductID == s.selfHostProductID || s.isSelfHostSubscription(ctx, evt.Data.ID)) {
+		return s.reconcileSelfHostLicense(ctx, evt, acct)
+	}
+
 	table := acctTable(acct.Kind)
 
 	switch evt.Type {
+	case "checkout.updated", "checkout.expired":
+		// Polar's checkout lifecycle — the only signal that says what became of a
+		// URL we minted. Expiry means the page was reached and abandoned, which is
+		// what separates "something blocked them" from "they looked and declined";
+		// without it the trail stops at intent and both readings stay alive
+		// forever. Purely observational: the subscription events remain
+		// authoritative for plan state, so this case touches no columns.
+		//
+		// BOTH types are handled because Polar exposes abandonment two ways — a
+		// status transition on `checkout.updated` and a dedicated
+		// `checkout.expired` — and which one an account receives depends on what
+		// is ticked in the dashboard. Listening for only one is a silent gap: the
+		// endpoint stays green while the signal never arrives. Both are enabled on
+		// the production endpoint; a redelivery of the same expiry under both
+		// names is two rows saying the same true thing, which is the harmless
+		// direction to err in.
+		st := evt.Data.Status
+		if evt.Type == "checkout.expired" && st == "" {
+			st = "expired" // the dedicated event need not restate its own meaning
+		}
+		if st != "" && st != "open" {
+			s.recordBillingEvent(ctx, acct, evtBillingCheckoutStatus,
+				billingDetail("status="+st, "event="+evt.Type, s.planDetail(evt.Data.ProductID)))
+		}
+		return nil
+
 	case "subscription.created", "subscription.active", "subscription.updated":
 		planKey, ok := s.billing.PlanFor(evt.Data.ProductID)
 		if !ok {
@@ -319,14 +391,36 @@ func (s *Server) reconcileBilling(ctx context.Context, evt billing.Event) error 
 		// A user's trial is cleared on a real paid plan so the trial banner stops
 		// and planFor resolves the base plan_key directly.
 		clearTrial := ""
+		trialDaysDeferred := ""
 		if acct.Kind == accountUser && grantPlan {
 			clearTrial = ", trial_plan_key = NULL, trial_ends_at = NULL"
+			// Read what the trial was worth BEFORE the UPDATE wipes it — once
+			// trial_ends_at is NULL nothing can say how many days it had left, and
+			// this is the only moment both facts exist at once.
+			//
+			// Clearing tela's trial here is the HANDOFF, and it is deliberate: from
+			// this event on, Polar owns the trial (status `trialing`,
+			// subscription_trial_end below) and tela's own trial columns must stop
+			// answering for it. Exactly one system owns a given trial at any time;
+			// leaving both set would make planFor and the subscription disagree
+			// about what the account is on.
+			trialDaysDeferred = trialDaysDeferredDetail(ctx, s.DB, acct.ID)
+		}
+		// subscription_trial_end holds a PENDING first charge, so it is set only
+		// while the subscription is actually `trialing`. Polar keeps sending
+		// trial_end after the trial converts, as history; storing that would leave
+		// a stale "first charge on <past date>" for the UI to show forever.
+		var trialEnd any
+		if status == "trialing" {
+			trialEnd = fmtPolarTime(evt.Data.TrialEnd)
 		}
 		setPlan := ""
-		args := []any{status, periodEnd, cancel, nullIfEmpty(evt.Data.ID), custID}
+		args := []any{status, periodEnd, cancel, nullIfEmpty(evt.Data.ID), custID, trialEnd}
 		if grantPlan {
-			setPlan = "plan_key = $6, "
+			// Numbered from the args slice rather than hardcoded: the old literal
+			// "$6" silently depended on nothing ever being added before it.
 			args = append(args, planKey)
+			setPlan = "plan_key = $" + strconv.Itoa(len(args)) + ", "
 		}
 		args = append(args, acct.ID)
 		idPlaceholder := "$" + strconv.Itoa(len(args))
@@ -335,10 +429,18 @@ func (s *Server) reconcileBilling(ctx context.Context, evt billing.Event) error 
 			subscription_period_end = $2,
 			subscription_cancel_at_period_end = $3,
 			polar_subscription_id = $4,
-			polar_customer_id = COALESCE($5, polar_customer_id)`+clearTrial+`,
+			polar_customer_id = COALESCE($5, polar_customer_id),
+			subscription_trial_end = $6`+clearTrial+`,
 			updated_at = tela_now()
 			WHERE id = `+idPlaceholder, args...)
-		return err
+		if err != nil {
+			return err
+		}
+		s.recordBillingEvent(ctx, acct, evtBillingSubUpdate, billingDetail(
+			"status="+status, "plan="+planKey, "event="+evt.Type,
+			boolDetail("granted", grantPlan), trialDaysDeferred,
+			kvTime("polar_trial_end", evt.Data.TrialEnd)))
+		return nil
 
 	case "subscription.canceled":
 		// Cancellation scheduled — access continues to period end. Flag it (the UI
@@ -351,7 +453,15 @@ func (s *Server) reconcileBilling(ctx context.Context, evt billing.Event) error 
 			updated_at = tela_now()
 			WHERE id = $2 AND polar_subscription_id = $3`,
 			fmtPolarTime(evt.Data.CurrentPeriodEnd), acct.ID, evt.Data.ID)
-		return err
+		if err != nil {
+			return err
+		}
+		// cancel_reason is captured at the portal call (CreateBillingPortal), so
+		// the churn reason and the cancellation land in two different places —
+		// name it here so a reader of the feed knows where to look for the why.
+		s.recordBillingEvent(ctx, acct, evtBillingSubCanceled, billingDetail(
+			kvTime("period_end", evt.Data.CurrentPeriodEnd), "reason_in=cancel_reason"))
+		return nil
 
 	case "subscription.revoked":
 		// Period actually ended → downgrade to the free tier and clear sub state.
@@ -365,10 +475,16 @@ func (s *Server) reconcileBilling(ctx context.Context, evt billing.Event) error 
 			subscription_cancel_at_period_end = 0,
 			polar_subscription_id = NULL,
 			subscription_period_end = NULL,
+			subscription_trial_end = NULL,
 			updated_at = tela_now()
 			WHERE id = $2 AND polar_subscription_id = $3`,
 			freePlanKey(acct.Kind), acct.ID, evt.Data.ID)
-		return err
+		if err != nil {
+			return err
+		}
+		s.recordBillingEvent(ctx, acct, evtBillingSubRevoked,
+			billingDetail("plan="+freePlanKey(acct.Kind)))
+		return nil
 
 	case "order.paid":
 		// Renewal or first payment confirming money received. Subscription events
@@ -383,7 +499,14 @@ func (s *Server) reconcileBilling(ctx context.Context, evt billing.Event) error 
 		if err == nil && acct.Kind == accountOrg {
 			go s.syncOrgSeats(context.Background(), acct.ID)
 		}
-		return err
+		if err != nil {
+			return err
+		}
+		// The only event in the set that means money actually moved. Everything
+		// else on the path is intent or state.
+		s.recordBillingEvent(ctx, acct, evtBillingPaid,
+			billingDetail(s.planDetail(evt.Data.ProductID), "order="+evt.Data.ID))
+		return nil
 	}
 	return nil
 }

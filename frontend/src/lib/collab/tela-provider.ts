@@ -63,10 +63,19 @@ export class TelaProvider {
   // here is persisted or CRDT-merged. Consumers (DiagramSession) own their own
   // convergence (reconcileElements) and writeback.
   private ephemeralListeners = new Set<EphemeralListener>()
+  // Server dropped the page's Yjs overlay (TAG_RESET). Only a MOUNTED editor
+  // subscribes (useCollabSession), so an orphan provider from a discarded
+  // render hears it and does nothing.
+  private resetListeners = new Set<() => void>()
   private reconnectAttempts = 0
   private reconnectTimer: number | null = null
   private destroyed = false
   private pageHideHandler: (() => void) | null = null
+  private pageShowHandler: (() => void) | null = null
+  // Local awareness state as it was just before `pagehide` removed it, so
+  // `pageshow` can put it back verbatim (user identity, editingDiagramId, …)
+  // rather than reviving a bare {} and dropping the presence avatar.
+  private localStateBeforeHide: Record<string, unknown> | null = null
 
   // Awareness wire-bridge (#65). The Awareness instance is constructed eagerly
   // so consumers can register on('change') listeners before the ws is open
@@ -89,10 +98,38 @@ export class TelaProvider {
     // page later restores from BFCache, the existing ws.onclose / reconnect
     // path re-opens and PageView's onStatus('connected') effect re-seeds the
     // local user state — no extra hook needed on the restore side.
+    //
+    // The removal MUST be paired with a restore. `pagehide` also fires when the
+    // page is merely backgrounded (app switch / tab hide on mobile), and if the
+    // ws survives that there is no reconnect and therefore no 'connected'
+    // transition to re-seed local presence. y-protocols only re-pings a local
+    // state that still exists, so our entry would stay gone for the rest of the
+    // session — leaving the awareness map empty, the peer permanently
+    // non-leader, and its edits never PATCHed back to pages.body.
     this.pageHideHandler = () => {
+      // Capture only a state we actually have. `pagehide` can fire again with
+      // no `pageshow` between (a second background transition), and overwriting
+      // the captured state with null would leave the restore below with nothing
+      // to put back — stranding this peer outside the awareness map for the
+      // rest of the session, i.e. permanently non-leader whenever another peer
+      // is present, which is the very failure this pair exists to prevent.
+      const local = this.awareness.getLocalState()
+      if (local != null) this.localStateBeforeHide = local
       this.sendAwarenessRemoval()
     }
+    this.pageShowHandler = () => {
+      if (this.destroyed) return
+      if (this.awareness.getLocalState() != null) return
+      // Restore only a state we actually captured. A provider that was never
+      // seeded has no presence to bring back, and reviving it as a bare `{}`
+      // would put a peer with no editor behind it into the awareness map —
+      // exactly the orphan leader election must never pick (session-reaper.ts).
+      if (this.localStateBeforeHide == null) return
+      this.awareness.setLocalState(this.localStateBeforeHide)
+      this.localStateBeforeHide = null
+    }
     window.addEventListener('pagehide', this.pageHideHandler)
+    window.addEventListener('pageshow', this.pageShowHandler)
   }
 
   destroy(): void {
@@ -101,6 +138,10 @@ export class TelaProvider {
     if (this.pageHideHandler) {
       window.removeEventListener('pagehide', this.pageHideHandler)
       this.pageHideHandler = null
+    }
+    if (this.pageShowHandler) {
+      window.removeEventListener('pageshow', this.pageShowHandler)
+      this.pageShowHandler = null
     }
     if (this.reconnectTimer != null) {
       window.clearTimeout(this.reconnectTimer)
@@ -123,6 +164,7 @@ export class TelaProvider {
     if (obs && typeof obs.clear === 'function') obs.clear()
     this.sendAwarenessRemoval()
     this.ephemeralListeners.clear()
+    this.resetListeners.clear()
     this.doc.off('update', this.onDocUpdate)
     this.awareness.destroy()
     if (this.ws) {
@@ -182,6 +224,13 @@ export class TelaProvider {
     this.statusListeners.add(fn)
     return () => {
       this.statusListeners.delete(fn)
+    }
+  }
+
+  onReset(fn: () => void): () => void {
+    this.resetListeners.add(fn)
+    return () => {
+      this.resetListeners.delete(fn)
     }
   }
 
@@ -324,10 +373,12 @@ export class TelaProvider {
     const payload = frame.subarray(1)
     switch (tag) {
       case TAG_RESET:
-        // The body was rewritten out-of-band (an agent MCP write) and the
-        // server dropped the Yjs overlay; this Y.Doc is now stale. Reload to
-        // re-seed from pages.body — DB-wins, per the agent-backend sync design.
-        if (!this.destroyed) window.location.reload()
+        // The body was rewritten out-of-band (agent, file sync, markdown source
+        // mode) and the server dropped the Yjs overlay; this Y.Doc is now stale.
+        // The mounted editor decides what to do (it reloads). Deciding here
+        // reloaded the tab from orphan providers too, e.g. the editor's own
+        // tab after it left for source mode and saved.
+        for (const fn of this.resetListeners) fn()
         return
       case TAG_UPDATE:
         Y.applyUpdate(this.doc, payload, this)

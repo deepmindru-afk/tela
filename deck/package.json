@@ -8,11 +8,13 @@
     "start": "node server.mjs"
   },
   "dependencies": {
+    "@defterjs/core": "^0.1.5",
+    "@defterjs/formula": "^0.1.5",
     "@slidev/cli": "^52.16.0",
     "@slidev/parser": "^52.16.0",
     "echarts": "^5.5.0",
     "playwright-chromium": "1.60.0",
     "sharp": "^0.33.0",
-    "slidev-theme-tahta": "^0.13.1"
+    "slidev-theme-tahta": "^0.13.4"
   }
 }

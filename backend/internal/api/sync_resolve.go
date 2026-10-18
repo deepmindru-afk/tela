@@ -141,8 +141,9 @@ func (s *Server) applySyncResurrect(
 	defer tx.Rollback()
 
 	var curSpace int64
+	var curDeletedAt string
 	err = tx.QueryRowContext(ctx,
-		`SELECT space_id FROM pages WHERE id = $1 AND deleted_at IS NOT NULL`, id).Scan(&curSpace)
+		`SELECT space_id, deleted_at FROM pages WHERE id = $1 AND deleted_at IS NOT NULL`, id).Scan(&curSpace, &curDeletedAt)
 	if errors.Is(err, sql.ErrNoRows) {
 		return models.Page{}, "", false, nil // not trashed → caller creates fresh
 	}
@@ -153,22 +154,49 @@ func (s *Server) applySyncResurrect(
 		return models.Page{}, "", true, ae // auth fail → rollback leaves it trashed
 	}
 
-	if _, err := tx.ExecContext(ctx,
-		`UPDATE pages SET deleted_at = NULL, updated_at = tela_now() WHERE id = $1`, id); err != nil {
-		return models.Page{}, "", true, &apiErr{http.StatusInternalServerError, "internal", "resurrect failed"}
+	if ae := resurrectCascadeTx(ctx, tx, id, curDeletedAt, curSpace); ae != nil {
+		return models.Page{}, "", true, ae
 	}
 	cur, err := selectPageByIDTx(ctx, tx, id) // now live (own write)
 	if err != nil {
 		return models.Page{}, "", true, &apiErr{http.StatusInternalServerError, "internal", "fetch resurrected page failed"}
 	}
 
-	req := pageUpdateRequest{Title: &title, Body: &body, Props: props}
+	// 3-way merge, exactly as the bound path does (spec §5) — a resurrect is not
+	// a licence to clobber. rclone bisync resolves a both-sides edit as
+	// DELETE(loser) + PUT(winner) (`--conflict-loser delete`), which arrives here
+	// rather than in applySyncBound: applying the incoming file blind made that
+	// shape silently last-write-wins, dropping the server-side edit the merge
+	// would have combined. cur is the pre-resurrect (server) state, so it is the
+	// same "theirs" side the bound path merges against.
+	mTitle, mBody, mProps, conflicted, err := s.mergeAgainstBase(ctx, tx, k, cur, title, body, props)
+	if err != nil {
+		return models.Page{}, "", true, &apiErr{http.StatusInternalServerError, "internal", "merge base lookup failed"}
+	}
+	req := pageUpdateRequest{Title: &mTitle, Body: &mBody, Props: mProps}
 	if ae := validateUpdateReq(req); ae != nil {
 		return models.Page{}, "", true, ae
+	}
+	if !syncContentSame(cur, mTitle, mBody, mProps) {
+		// Snapshot the state being merged over IN THE TX, tagged so a conflict's
+		// losing side is findable — same discipline as applySyncBound.
+		priorSource := "sync-prior"
+		if conflicted {
+			priorSource = "sync-conflict"
+		}
+		if _, err := insertPageRevision(ctx, tx, cur.ID, cur.Body, cur.Title, cur.Props, &u.ID, priorSource); err != nil {
+			return models.Page{}, "", true, &apiErr{http.StatusInternalServerError, "internal", "snapshot pre-sync revision failed"}
+		}
 	}
 	p, ae := applyUpdateTx(ctx, tx, id, req)
 	if ae != nil {
 		return models.Page{}, "", true, ae
+	}
+	if conflicted {
+		if _, err := tx.ExecContext(ctx,
+			`UPDATE pages SET sync_conflict_at = tela_now() WHERE id = $1`, id); err != nil {
+			return models.Page{}, "", true, &apiErr{http.StatusInternalServerError, "internal", "flag sync conflict failed"}
+		}
 	}
 	if !syncPlacementSame(cur, spaceID, parentID) {
 		moved, ae := s.applyMoveTx(ctx, tx, u, k, p, syncMoveParams(cur, spaceID, parentID))
@@ -373,7 +401,7 @@ func (s *Server) findSiblingByFilename(ctx context.Context, spaceID int64, paren
 		rows *sql.Rows
 		err  error
 	)
-	const cols = `id, space_id, parent_id, title, body, position, props, created_at, updated_at, filename`
+	const cols = pageCols
 	if parentID == nil {
 		rows, err = s.DB.QueryContext(ctx,
 			`SELECT `+cols+` FROM pages

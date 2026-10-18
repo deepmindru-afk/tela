@@ -169,6 +169,18 @@
       "note": "Set month=YYYY-MM on the directive. Each bullet is `YYYY-MM-DD Title` inside that month. One month per block; all-day only."
     },
     {
+      "id": "poll",
+      "label": "Poll",
+      "hint": "Vote on options, see who voted",
+      "category": "Data",
+      "slash": true,
+      "agent": true,
+      "keywords": ["poll", "vote", "survey", "ballot", "election", "choice"],
+      "syntax": ":::poll{id=\"lunch\"}\n### Where for lunch?\n\n- Lisbon\n- Berlin\n- Barcelona\n:::",
+      "when": "Let readers vote on a set of options; results show counts, bars, and who voted for what.",
+      "note": "Options are top-level list items. Give the block a unique `id`. Votes are recorded in the body as nested `- @username` items under an option — voting happens in the read view (editors only), so you normally don't hand-write voters. `closed` on the directive freezes results."
+    },
+    {
       "id": "chart",
       "label": "Chart",
       "hint": "Bar / line / pie (interactive)",
@@ -199,9 +211,9 @@
       "category": "Media & diagrams",
       "slash": true,
       "agent": true,
-      "keywords": ["mermaid", "diagram", "flowchart", "graph", "sequence"],
+      "keywords": ["mermaid", "diagram", "flowchart", "graph", "sequence", "handdrawn", "elk"],
       "syntax": "```mermaid\ngraph TD\n  A[Start] --> B[End]\n```",
-      "when": "Flowcharts, sequence/state/ER diagrams, pie charts — anything Mermaid supports."
+      "when": "Flowcharts, sequence/class/state/ER/gantt/pie/git/journey — anything Mermaid supports. Colours follow the page theme automatically. Opt into extras with YAML frontmatter at the top of the diagram body: `---\\nconfig:\\n  look: handDrawn\\n---` for a hand-drawn sketch style, or `layout: elk` for tighter routing on dense graphs."
     },
     {
       "id": "excalidraw",
@@ -270,9 +282,9 @@
       "slash": false,
       "agent": true,
       "keywords": [],
-      "syntax": "Euler's identity $e^{i\\pi}+1=0$ is elegant.",
+      "syntax": "Euler's identity $$e^{i\\pi}+1=0$$ is elegant.",
       "when": "Inline LaTeX within a sentence.",
-      "note": "No space directly inside the $…$ delimiters."
+      "note": "Inline math uses DOUBLE dollars, and no space directly inside the $$…$$ delimiters. A single $ is never math, so prices ($3,500) are safe to write as-is."
     },
     {
       "id": "divider",
@@ -294,7 +306,7 @@
       "keywords": ["table", "grid", "comparison", "matrix", "checklist", "sortable"],
       "syntax": "| Feature | Free | Pro |\n| --- | --- | --- |\n| SSO | cross | check |\n| Seats | 3 | dash |",
       "when": "Tabular data, comparisons, and feature matrices (GitHub-flavored markdown).",
-      "note": "Upgrades that round-trip as plain markdown: a cell that is exactly `check`, `cross`, or `dash` (also ✓/✗/–, yes/no, n/a) renders as a green ✓ / red ✗ / muted – icon — ideal for feature-comparison grids. The first column pins when a wide table scrolls, and in the reader, large tables (8+ rows) get clickable sort headers + a filter box."
+      "note": "Upgrades that round-trip as plain markdown: a cell that is exactly `check`, `cross`, or `dash` (also ✓/✗/–, yes/no, n/a) renders as a green ✓ / red ✗ / muted – icon — ideal for feature-comparison grids. The first column pins when a wide table scrolls, and when reading, large tables (8+ rows) get clickable sort headers + a filter box. Keep it narrow enough to read: past roughly ten prose columns the page column shows only a fraction and the rest sits behind a horizontal scroll \u2014 data that wide belongs in a sheet page (sheet: true), linked from the doc."
     },
     {
       "id": "highlight",

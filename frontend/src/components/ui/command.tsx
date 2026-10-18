@@ -125,7 +125,7 @@ function CommandPaletteFooter() {
 const KEYBOARD_HELP: Array<{ keys: string[]; description: string }> = [
   { description: 'Open command palette', keys: [MOD_LABEL, 'K'] },
   { description: 'Open commands', keys: [MOD_LABEL, SHIFT_LABEL, 'P'] },
-  { description: 'Create new page', keys: [MOD_LABEL, 'N'] },
+  { description: 'Create new page', keys: ['c'] },
   { description: 'Navigate items', keys: ['↑', '↓'] },
   { description: 'Select item', keys: ['↵'] },
   { description: 'Close or step back', keys: ['Esc'] },
@@ -571,6 +571,11 @@ export interface CommandInlinePickerProps {
   // matching row each time the query changes.
   value?: string
   onValueChange?: (next: string) => void
+  // Controlled query text. Hosts that derive items FROM what was typed (e.g. the
+  // user picker offering "invite <typed email>") need to read it; omit both for
+  // the default self-managed input.
+  search?: string
+  onSearchChange?: (next: string) => void
 }
 
 // Non-modal inline-picker variant. Embedded inside other dialogs (M4.2 parent
@@ -588,6 +593,8 @@ export const CommandInlinePicker = forwardRef<
     autoFocus = true,
     value,
     onValueChange,
+    search,
+    onSearchChange,
   },
   ref,
 ) {
@@ -607,6 +614,8 @@ export const CommandInlinePicker = forwardRef<
           className="tela-command-input-icon"
         />
         <CmdkInput
+          value={search}
+          onValueChange={onSearchChange}
           placeholder={placeholder}
           className="tela-command-input"
           autoFocus={autoFocus}
@@ -644,24 +653,25 @@ export { CmdkGroup as CommandGroup, CmdkSeparator as CommandSeparator }
 // eslint-disable-next-line react-refresh/only-export-components
 export { prefixForMode }
 
-// Shared utility for app-level mounts: registers the Cmd-K / Cmd-Shift-P /
-// Cmd-N keyboard contract. Callers supply handlers; the hook scopes them to
+// Shared utility for app-level mounts: registers the Cmd-K / Cmd-Shift-P
+// keyboard contract. Callers supply handlers; the hook scopes them to
 // non-editable focus per useGlobalShortcut's rules.
+//
+// Deliberately no Cmd-N: browsers reserve Ctrl/⌘-N for a new window and never
+// dispatch it to the page, so the binding could not fire. Creating a page is
+// 'c' in the keymap (lib/keys/bindings.ts), which is what the UI advertises.
 export interface PaletteShortcuts {
   onOpenPages: () => void
   onOpenCommands: () => void
-  onNewPage?: () => void
 }
 
 // eslint-disable-next-line react-refresh/only-export-components
 export function usePaletteShortcuts({
   onOpenPages,
   onOpenCommands,
-  onNewPage,
 }: PaletteShortcuts): void {
   useGlobalShortcut({
     'mod+k': () => onOpenPages(),
     'mod+shift+p': () => onOpenCommands(),
-    'mod+n': () => onNewPage?.(),
   })
 }

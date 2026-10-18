@@ -1,11 +1,19 @@
+<div align="center">
+
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/submission-assets/logo-lockup-dark.svg">
   <img alt="tela" src="docs/submission-assets/logo-lockup-light.svg" width="184">
 </picture>
 
-# tela
+### The wiki that writes itself — from the code you already ship.
 
-**The wiki that writes itself — from the code you already ship.**
+[![Sign up free](https://img.shields.io/badge/▶%20Try%20tela%20free-telawiki.com-7C3AED?style=for-the-badge&labelColor=1a1a1a)](https://telawiki.com/register)
+&nbsp;
+[![Tour the site](https://img.shields.io/badge/🌐%20Tour%20the%20site-telawiki.com-0b7285?style=for-the-badge&labelColor=1a1a1a)](https://telawiki.com)
+&nbsp;
+[![Self-host it](https://img.shields.io/badge/⚙%20Self--host%20in%20one%20command-make%20up-2496ED?style=for-the-badge&labelColor=1a1a1a)](#quickstart)
+
+**[Home](https://telawiki.com) · [Pricing](https://telawiki.com/pricing/) · [Compare](https://telawiki.com/compare/) · [MCP for agents](https://telawiki.com/mcp/) · [Docs](https://telawiki.com/tela/docs)**
 
 [![License: AGPL-3.0](https://img.shields.io/badge/license-AGPL--3.0-blue.svg)](LICENSE)
 [![GitHub stars](https://img.shields.io/github/stars/zcag/tela?style=flat)](https://github.com/zcag/tela/stargazers)
@@ -13,13 +21,16 @@
 [![Docker](https://img.shields.io/badge/Docker-compose-2496ED?logo=docker&logoColor=white)](deploy/docker-compose.yml)
 [![npm tela-mcp](https://img.shields.io/npm/v/tela-mcp?label=npm%20tela-mcp&color=7C3AED&logo=npm)](https://www.npmjs.com/package/tela-mcp)
 
+</div>
+
 tela is a self-hostable, markdown-native team wiki built for a world where agents are first-class authors and readers. It pairs a Go + PostgreSQL backend with a React 19 / Milkdown editor, live Yjs collaboration, ranked full-text and semantic search, and a built-in Model Context Protocol (MCP) server — so the same knowledge base your team edits in the browser is one your agents can search, read, and write directly. Atlas, its documentation engine, turns the artifacts you already produce into maintained wiki pages. Your content stays canonical markdown forever — `pages.body` is markdown, there is no proprietary block store.
 
-Public instance: **https://telawiki.com**
+> **[👉 Start at telawiki.com](https://telawiki.com)** — the marketing site walks through what tela does (with [pricing](https://telawiki.com/pricing/), a [comparison](https://telawiki.com/compare/), and the [agent/MCP story](https://telawiki.com/mcp/)), and the hosted instance has a free tier: no install, no card.
 
-![Atlas demo](docs/demo.gif)
-
-<!-- TODO: replace docs/demo.gif with the real animated walkthrough (Atlas run → generated pages → an agent editing via MCP). -->
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/submission-assets/tela-page-dark.png">
+  <img alt="tela — a page in the Operations space: spaces and a nested page tree in the sidebar, with stat tiles, a callout, and a Mermaid diagram rendered from plain markdown" src="docs/submission-assets/tela-page-light.png" width="820">
+</picture>
 
 ## Why tela
 
@@ -27,6 +38,7 @@ Public instance: **https://telawiki.com**
 - **Built-in MCP server** — `/api/mcp` is part of the backend, not a bolt-on. Claude, Cursor, and other agents search, read, and author pages with scoped, per-tool write permissions.
 - **Semantic + full-text search** — ranked PostgreSQL FTS works out of the box; add an embedder for `pgvector`-backed semantic retrieval and grounded "ask your docs" answers.
 - **Live collaboration** — real-time multi-cursor editing over Yjs in a Milkdown editor, with comments, backlinks, and revision history.
+- **Teams that run themselves** — users create orgs and invite teammates by email, no admin ticket. Flip a space to public and it becomes a login-free blog surface with per-author home pages.
 - **Self-host & own your markdown** — `pages.body` is canonical markdown forever (no block table). Sync over WebDAV, export to zip/PDF, and run the whole stack with one `make up`.
 
 ## Quickstart
@@ -49,6 +61,14 @@ make up
 ```
 
 The stack comes up behind Caddy on **http://localhost:8780**. On first boot tela runs its embedded migrations automatically and lands you on the `/setup` wizard to create the first admin — unless you set `TELA_ADMIN_PASSWORD` in `deploy/.env`, which bootstraps the admin non-interactively.
+
+### One-click cloud deploy
+
+Prefer managed hosting over running Compose? Deploy the published multi-arch images straight to a platform:
+
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/zcag/tela) &nbsp; [![Deploy to DigitalOcean](https://www.deploytodo.com/do-btn-blue.svg)](https://cloud.digitalocean.com/apps/new?repo=https://github.com/zcag/tela/tree/main)
+
+> After the first deploy, enable pgvector on the managed database once — `CREATE EXTENSION IF NOT EXISTS vector;` — then point the backend's `TELA_PUBLIC_BASE_URL` at your app's public URL. Or skip ops entirely with the [free cloud tier](https://telawiki.com).
 
 Common targets:
 
@@ -228,21 +248,82 @@ For hosts that can't speak HTTP transport (or want a stdio bridge), the [`tela-m
 
 Point `TELA_BASE_URL` at your own origin to use a self-hosted instance. Generate a PAT in **Settings → API tokens**; per-tool write permission is enforced server-side. The proxy requires **Node ≥ 20**. See [`mcp/README.md`](mcp/README.md) for the full tool catalog and troubleshooting.
 
+### One-click install
+
+[![Add to Cursor](https://img.shields.io/badge/Add%20to-Cursor-000000?logo=cursor&logoColor=white)](cursor://anysphere.cursor-deeplink/mcp/install?name=tela&config=eyJ1cmwiOiJodHRwczovL3RlbGF3aWtpLmNvbS9hcGkvbWNwIn0=)
+[![Add to VS Code](https://img.shields.io/badge/Add%20to-VS%20Code-0098FF?logo=visualstudiocode&logoColor=white)](https://insiders.vscode.dev/redirect/mcp/install?name=tela&config=%7B%22type%22%3A%22http%22%2C%22url%22%3A%22https%3A%2F%2Ftelawiki.com%2Fapi%2Fmcp%22%7D)
+
+Both buttons add the HTTP endpoint; auth is handled by OAuth on first use, so no token goes in the link.
+
+### Per-client setup
+
+HTTP-transport hosts connect to the endpoint directly and sign in via OAuth. stdio-only hosts use the `tela-mcp` proxy with a PAT (`TELA_BASE_URL` + `TELA_API_KEY`).
+
+**Claude Code** (CLI, HTTP):
+
+```bash
+claude mcp add --transport http tela https://telawiki.com/api/mcp
+```
+
+**Cursor** (HTTP) — use the button above, or add to `~/.cursor/mcp.json`:
+
+```jsonc
+{ "mcpServers": { "tela": { "url": "https://telawiki.com/api/mcp" } } }
+```
+
+**VS Code** (HTTP) — use the button above, or:
+
+```bash
+code --add-mcp '{"name":"tela","type":"http","url":"https://telawiki.com/api/mcp"}'
+```
+
+**ChatGPT** — install [Tela](https://chatgpt.com/plugins/plugin_asdk_app_6a22ce5f60dc8191a56bf3f66890b1cf) from the plugin directory and sign in. Nothing to paste, no Developer Mode. (The directory plugin talks to the hosted service; for a self-hosted instance add a custom connector with your own URL, as below.)
+
+**Claude.ai / self-hosted ChatGPT** (OAuth connector) — add a custom connector and paste the URL; complete the sign-in:
+
+```
+https://telawiki.com/api/mcp
+```
+
+**Claude Desktop** (stdio proxy) — `claude_desktop_config.json`:
+
+```jsonc
+{
+  "mcpServers": {
+    "tela": {
+      "command": "npx",
+      "args": ["-y", "tela-mcp"],
+      "env": { "TELA_BASE_URL": "https://telawiki.com", "TELA_API_KEY": "tela_pat_xxxxxxxx" }
+    }
+  }
+}
+```
+
+**Windsurf** (stdio proxy) — `~/.codeium/windsurf/mcp_config.json`, same `mcpServers` shape as Claude Desktop above.
+
+**Codex** (stdio proxy) — `~/.codex/config.toml`:
+
+```toml
+[mcp_servers.tela]
+command = "npx"
+args = ["-y", "tela-mcp"]
+env = { TELA_BASE_URL = "https://telawiki.com", TELA_API_KEY = "tela_pat_xxxxxxxx" }
+```
+
+A machine-discovery manifest is published at [`/.well-known/mcp.json`](https://telawiki.com/.well-known/mcp.json).
+
 ## Screenshots
 
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="docs/submission-assets/tela-page-dark.png">
-  <img alt="tela — page view (light)" src="docs/submission-assets/tela-page-light.png" width="820">
-</picture>
-
-<!-- TODO: refresh page-view screenshots when the editor chrome changes. -->
+Ranked full-text search across every space you can read, with the matching line in context:
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/submission-assets/tela-search-dark.png">
-  <img alt="tela — search (light)" src="docs/submission-assets/tela-search-light.png" width="820">
+  <img alt="tela — search: ranked results for “shipment” across the Operations, Engineering, and Product spaces, each with its breadcrumb and the matched term highlighted in context" src="docs/submission-assets/tela-search-light.png" width="820">
 </picture>
 
-<!-- TODO: refresh search screenshots when the search/ask panel changes. -->
+Atlas documents a repo and then audits its own coverage — 6/6 must-cover surfaces documented, 42 citations, and the exact file:line gaps it hasn't covered:
+
+![Atlas coverage audit: 13/19 surface covered, 6/6 must-cover documented, 42 citations with 0 unresolved, and a list of undocumented exports with their file:line locations](docs/demo-atlas-audit.png)
 
 ## Architecture
 
@@ -273,7 +354,7 @@ Both run the same code from this repository.
 
 ## Security
 
-Please report security issues **privately** to **tela@telawiki.com**. Do **not** open a public issue or PR for a vulnerability. Note that a missing or rotated `TELA_API_KEY_SECRET` / `TELA_SHARE_SECRET` leads to forgeable tokens — keep them set and stable.
+Please report security issues **privately** to **tela@telawiki.com**, not as a public issue or PR. Policy and acknowledgements: [`SECURITY.md`](SECURITY.md).
 
 ## License
 

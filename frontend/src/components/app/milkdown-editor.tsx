@@ -60,7 +60,7 @@ import {
   type CollabProviderFactory,
 } from '../../lib/collab/use-collab-session'
 import { slashPlugin, SlashView } from './milkdown-slash'
-import { bubblePlugin, BubbleToolbarView } from './milkdown-bubble-toolbar'
+import { bubblePlugin, BubbleToolbarView, commentSelectionCtx } from './milkdown-bubble-toolbar'
 import { BlockHandleView } from './milkdown-block-handle'
 import { taskCheckboxPlugin } from './milkdown-task-list'
 import {
@@ -95,6 +95,7 @@ import {
 } from './milkdown-stat-grid'
 import { timelineSchema } from './milkdown-timeline'
 import { calendarNodeView, calendarSchema } from './milkdown-calendar'
+import { pollSchema } from './milkdown-poll'
 import { tableEnhancePlugin } from './milkdown-table'
 import { wikilinkPlugin, WikilinkView } from './milkdown-wikilink'
 import {
@@ -151,6 +152,7 @@ import { fileSchema } from './milkdown-file'
 import { createUrlUnfurlPlugin } from './milkdown-url-unfurl'
 import { createTableEdgeSelectPlugin } from './milkdown-table-select'
 import { createPlainPastePlugin } from './milkdown-plain-paste'
+import { createTableFixPlugin } from './milkdown-table-fix'
 import { useQueryClient } from '@tanstack/react-query'
 import { pageKeys } from '../../lib/queries/pages'
 import { navigateToPage } from '../../lib/pageHitItem'
@@ -253,6 +255,9 @@ export interface MilkdownEditorProps {
   onAnchorsResolved?: (
     resolutions: Map<number, { from: number; to: number } | null>,
   ) => void
+  // The bubble toolbar's Comment button (shown only when comments are enabled):
+  // the host opens its comments panel on the live selection.
+  onCommentSelection?: () => void
   // M8.5 — when true, resolved threads still paint a muted underline
   // (`.tela-comment-anchor.is-resolved`). When false (default), the
   // underline disappears for resolved threads. Mirrors the panel's
@@ -292,6 +297,7 @@ function MilkdownEditorInner({
   commentThreads,
   onAnchorClick,
   onAnchorsResolved,
+  onCommentSelection,
   showResolvedAnchors = false,
   wikilinkMode = 'edit',
   pageId = 0,
@@ -317,6 +323,7 @@ function MilkdownEditorInner({
     onSelectionChange,
     onAnchorClick,
     onAnchorsResolved,
+    onCommentSelection,
   })
   callbacks.current = {
     onChange,
@@ -325,6 +332,7 @@ function MilkdownEditorInner({
     onSelectionChange,
     onAnchorClick,
     onAnchorsResolved,
+    onCommentSelection,
   }
 
   // M13.3b — Excalidraw Edit Sheet state. `null` = closed. The click /
@@ -492,6 +500,12 @@ function MilkdownEditorInner({
           ctx.set(bubblePlugin.key, {
             view: pluginViewFactory({ component: BubbleToolbarView }),
           })
+          // Captured once at build, like the comment-anchor plugin: the
+          // trampoline reads the latest handler through the callbacks ref.
+          ctx.set(
+            commentSelectionCtx.key,
+            commentsEnabled ? () => callbacks.current.onCommentSelection?.() : null,
+          )
           ctx.set(wikilinkPlugin.key, {
             view: pluginViewFactory({ component: WikilinkView }),
           })
@@ -624,6 +638,16 @@ function MilkdownEditorInner({
         if (wikilinkMode !== 'share' && !readOnly) {
           const tableEdgeSelect = createTableEdgeSelectPlugin()
           ctx.update(prosePluginsCtx, (existing) => [tableEdgeSelect, ...existing])
+        }
+
+        // Ragged-table repair. A GFM row may carry fewer cells than the header,
+        // which yields a table whose TableMap describes a grid the document
+        // doesn't have — prosemirror-tables then throws RangeError out of its
+        // own handlePaste. Runs for every editable surface, before a user can
+        // touch a table that arrived ragged from markdown.
+        if (wikilinkMode !== 'share' && !readOnly) {
+          const tableFix = createTableFixPlugin()
+          ctx.update(prosePluginsCtx, (existing) => [...existing, tableFix])
         }
 
         // Paste-as-plain-text (Cmd/Ctrl+Shift+V). Prepended last so its
@@ -785,6 +809,9 @@ function MilkdownEditorInner({
       .use(timelineSchema)
       .use(calendarSchema)
       .use(calendarNodeView)
+      // Poll — minimal round-trip schema so `:::poll` survives the strict parser
+      // (isn't unwrapped/stripped on save); the rich vote UI is read-view only.
+      .use(pollSchema)
       // M19 — GFM table upgrades (glyph cells, featured column, sticky first
       // column, reader-side sort/filter). Enhances the stock table; no new
       // node. See milkdown-table.ts.
@@ -804,6 +831,7 @@ function MilkdownEditorInner({
       .use(codeBlockNodeView)
       .use(slashPlugin)
       .use(bubblePlugin)
+      .use(commentSelectionCtx)
       .use(wikilinkPlugin)
       // Emoji shortcodes: `:rocket:` → 🚀 input rule + a caret-anchored
       // `:query` autocomplete picker. The Unicode char is what's stored in the

@@ -6,6 +6,7 @@ import {
   useRevokeSyncConnection,
   useSyncConnections,
   type CreateSyncConnectionInput,
+  type RcloneSetup,
   type SyncConnectionCreated,
 } from '../../lib/queries/sync-connections'
 import { useSpaces } from '../../lib/queries/spaces'
@@ -23,6 +24,7 @@ import {
 } from '../ui/dialog'
 import { Input } from '../ui/input'
 import { Select } from '../ui/select'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs'
 import { ToggleGroup, ToggleGroupItem } from '../ui/toggle'
 import { cn } from '../../lib/utils'
 import { DOCS } from '../../lib/docs'
@@ -395,8 +397,94 @@ interface SetupDialogProps {
   onOpenChange: (open: boolean) => void
 }
 
+type VaultOS = 'linux' | 'macos'
+
+// MountSteps is steps 2–3 for one OS: macOS has no FUSE (macFUSE is a kext
+// needing Reduced Security + a reboot), so it mounts over NFS and keeps the
+// mount alive with a launchd agent instead of a systemd user unit.
+function MountSteps({
+  rclone,
+  macos,
+}: {
+  rclone: RcloneSetup
+  macos: boolean
+}) {
+  return (
+    <>
+      <Step n={2} title="Mount it (try it now)">
+        <p className="m-0 text-[length:var(--text-xs)] text-[var(--text-muted)] font-[family-name:var(--font-sans)] leading-[var(--leading-relaxed)]">
+          Your vault shows up at{' '}
+          <code className="font-[family-name:var(--font-mono)]">
+            {rclone.local_dir}
+          </code>
+          . Edit files with any app — changes sync both ways
+          {rclone.read_only ? ' (read-only)' : ''}. Press Ctrl-C to unmount.
+          {macos ? ' No macFUSE needed — this mounts over NFS.' : ''}
+        </p>
+        <CommandBlock
+          command={macos ? rclone.mount_command_macos : rclone.mount_command}
+        />
+      </Step>
+
+      <Step
+        n={3}
+        title={
+          macos
+            ? 'Keep it mounted (macOS · launchd)'
+            : 'Keep it mounted (Linux · systemd)'
+        }
+      >
+        <p className="m-0 text-[length:var(--text-xs)] text-[var(--text-muted)] font-[family-name:var(--font-sans)] leading-[var(--leading-relaxed)]">
+          So the vault mounts on login and restarts if it drops. Save this as{' '}
+          <code className="font-[family-name:var(--font-mono)]">
+            {macos
+              ? `~/Library/LaunchAgents/${rclone.launchd_label}.plist`
+              : `~/.config/systemd/user/${rclone.service_name}.service`}
+          </code>
+          :
+        </p>
+        <CommandBlock
+          command={macos ? rclone.launchd_plist : rclone.systemd_unit}
+        />
+        <p className="m-0 text-[length:var(--text-xs)] text-[var(--text-muted)] font-[family-name:var(--font-sans)]">
+          Then turn it on:
+        </p>
+        <CommandBlock
+          command={macos ? rclone.launchd_install : rclone.systemd_install}
+        />
+        <p className="m-0 text-[length:var(--text-xs)] text-[var(--text-muted)] font-[family-name:var(--font-sans)] leading-[var(--leading-relaxed)]">
+          {macos ? (
+            <>
+              Check it with{' '}
+              <code className="font-[family-name:var(--font-mono)]">
+                launchctl print gui/$(id -u)/{rclone.launchd_label}
+              </code>
+              .
+            </>
+          ) : (
+            <>
+              Check it with{' '}
+              <code className="font-[family-name:var(--font-mono)]">
+                systemctl --user status {rclone.service_name}
+              </code>
+              .
+            </>
+          )}{' '}
+          On Windows, or to keep real local files instead of a live mount, see
+          the sync docs.
+        </p>
+      </Step>
+    </>
+  )
+}
+
 function SetupDialog({ created, onOpenChange }: SetupDialogProps) {
   const rclone = created?.rclone
+  // Default to the platform the browser is on — the commands differ per OS and
+  // the right one should be the one already on screen.
+  const [os, setOs] = useState<VaultOS>(() =>
+    /mac/i.test(navigator.userAgent) ? 'macos' : 'linux',
+  )
   return (
     <Dialog open={created != null} onOpenChange={onOpenChange}>
       <DialogContent>
@@ -451,47 +539,40 @@ function SetupDialog({ created, onOpenChange }: SetupDialogProps) {
                   className="mt-[2px] shrink-0 text-[var(--accent)]"
                 />
                 <span className="text-[length:var(--text-xs)] text-[var(--text-muted)] font-[family-name:var(--font-sans)] leading-[var(--leading-relaxed)]">
-                  This line contains your access token — treat it like a password.
+                  This line contains your access token — treat it like a
+                  password.
                 </span>
               </div>
+              <p className="m-0 text-[length:var(--text-xs)] text-[var(--text-muted)] font-[family-name:var(--font-sans)] leading-[var(--leading-relaxed)]">
+                Connected a vault on another machine before September 2026? Run
+                this there too — older setups used a client profile that can't
+                report file times, so rclone silently skipped your edits:
+              </p>
+              <CommandBlock command={rclone.fix_vendor_command} />
             </Step>
 
-            <Step n={2} title="Mount it (try it now)">
-              <p className="m-0 text-[length:var(--text-xs)] text-[var(--text-muted)] font-[family-name:var(--font-sans)] leading-[var(--leading-relaxed)]">
-                Your vault shows up at{' '}
-                <code className="font-[family-name:var(--font-mono)]">
-                  {rclone.local_dir}
-                </code>
-                . Edit files with any app — changes sync both ways
-                {rclone.read_only ? ' (read-only)' : ''}. Press Ctrl-C to
-                unmount.
-              </p>
-              <CommandBlock command={rclone.mount_command} />
-            </Step>
-
-            <Step n={3} title="Keep it mounted (Linux · systemd)">
-              <p className="m-0 text-[length:var(--text-xs)] text-[var(--text-muted)] font-[family-name:var(--font-sans)] leading-[var(--leading-relaxed)]">
-                So the vault mounts on login and restarts if it drops. Save this
-                as{' '}
-                <code className="font-[family-name:var(--font-mono)]">
-                  ~/.config/systemd/user/{rclone.service_name}.service
-                </code>
-                :
-              </p>
-              <CommandBlock command={rclone.systemd_unit} />
-              <p className="m-0 text-[length:var(--text-xs)] text-[var(--text-muted)] font-[family-name:var(--font-sans)]">
-                Then turn it on:
-              </p>
-              <CommandBlock command={rclone.systemd_install} />
-              <p className="m-0 text-[length:var(--text-xs)] text-[var(--text-muted)] font-[family-name:var(--font-sans)] leading-[var(--leading-relaxed)]">
-                Check it with{' '}
-                <code className="font-[family-name:var(--font-mono)]">
-                  systemctl --user status {rclone.service_name}
-                </code>
-                . On macOS/Windows, or to keep real local files instead of a live
-                mount, see the sync docs.
-              </p>
-            </Step>
+            <Tabs
+              value={os}
+              onValueChange={(v) => setOs(v as VaultOS)}
+              className="flex flex-col gap-[var(--space-4)]"
+            >
+              <TabsList>
+                <TabsTrigger value="linux">Linux</TabsTrigger>
+                <TabsTrigger value="macos">macOS</TabsTrigger>
+              </TabsList>
+              <TabsContent
+                value="linux"
+                className="flex flex-col gap-[var(--space-4)]"
+              >
+                <MountSteps rclone={rclone} macos={false} />
+              </TabsContent>
+              <TabsContent
+                value="macos"
+                className="flex flex-col gap-[var(--space-4)]"
+              >
+                <MountSteps rclone={rclone} macos />
+              </TabsContent>
+            </Tabs>
 
             <DialogFooter>
               <Button

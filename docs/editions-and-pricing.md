@@ -114,6 +114,16 @@ via the key.
   **Atlas source cap** per tier; overage handled by **purchasable credit top-ups**, not a
   forced tier jump. AI is a **first-class, visible line** in every cloud tier — because AI
   usage (not seats) is the real cloud COGS.
+- **Built-in vs. bring-your-own — the key framing:** the monthly answer allowance meters
+  only tela's **built-in** AI (in-app *ask your docs* / chat on our model). Driving tela from
+  the user's **own agent** over MCP (Claude, ChatGPT, …) runs on *their* model + tokens, so it
+  is **unmetered / unlimited on every tier, including Free** — the connector is the giveaway
+  that makes a stingy free answer-cap acceptable. Semantic *retrieval* (research / semantic
+  search) is never monthly-capped but is **fair-use rate-limited per account** (`TELA_EMBED_RATE_LIMIT`,
+  default 30/min) so the shared embedder can't be saturated; over-limit returns `429 rate_limited`.
+- **Scheduled Atlas refresh is paid.** Free plans get Atlas on **manual refresh only** (drift is
+  still detected, so the stale badge prompts a run); paid tiers + the trial refresh
+  **automatically** on a cadence. Gated by `plans.features.atlas_scheduled` (managed-cloud only).
 - **Self-host (all editions):** **BYO** — point tela at any OpenAI-compatible LLM + an
   Ollama-compatible embedder. To kill the cold-start, ship a **one-command "AI on"**
   (`docker-compose.ai.yml`: a recommended local model, `keep_alive` pinned) so Community
@@ -129,10 +139,13 @@ nobody gates on them) — keep generous, cap only for abuse.
 | | **Free** | **Personal** | **Team** | **Enterprise** |
 |---|---|---|---|---|
 | Who | Trying tela | Individual power user | Any team (the real business) | Compliance / scale |
-| Price | **$0** | **$8/mo** ($72/yr → $6/mo) | **$10/seat/mo** ($96/yr → $8/seat/mo) | Custom |
+| Price | **$0** | **$8/mo** ($72/yr → $6/mo) | **$10/seat/mo** ($96/yr → $8/seat/mo) | Custom (contact-sales, no published price) |
 | Seats | 1 | 1 | 2+ | Negotiated |
-| Managed AI answers / mo | 50 | 1,000 | 2,000 pooled (+credits) | Negotiated |
+| Built-in AI answers / mo | 50 | 3,000 | 5,000 pooled (+credits) | Negotiated |
+| Your own agent (MCP) | Unlimited | Unlimited | Unlimited | Unlimited |
 | Atlas sources | 1 | 5 | 20 | Unlimited |
+| Atlas refresh | Manual | Scheduled (daily/weekly/monthly) | Scheduled (daily/weekly/monthly) | Scheduled (hourly available) |
+| Atlas indexing / mo | 3h | 15h | 30h | Unlimited |
 | Wiki / decks / public spaces / WebDAV / MCP | ✅ | ✅ | ✅ | ✅ |
 | Pages / spaces / storage | Soft ceiling | Generous | Generous | Unlimited |
 | Custom domain | — | ✅ | ✅ | ✅ |
@@ -140,16 +153,29 @@ nobody gates on them) — keep generous, cap only for abuse.
 | SSO / SCIM / audit / governance | — | — | — | ✅ |
 | Support | Community | Community | Email | Priority + SLA |
 
-**Open numbers (flagged):** Team moves **$6 → $10/seat** (below-band today + real AI COGS;
-market mid-tier is $8–15). Free tier carries managed-AI COGS with no revenue — capped to a
+**Cloud Enterprise — `Custom`, contact-sales, NO published price (decided 2026-07-05).** We
+briefly published a `from $15/seat` floor, then reverted: Enterprise is a company-of-record
+deal (SSO/SCIM/audit/governance/SLA/procurement) sold by conversation, shown with no number
+and a `Get in touch` CTA — the norm across the field (Notion/GitLab/Coda all hide it). Note
+the optics that first worried us are already handled at the self-host end: self-host
+Enterprise is `$8` (= a Team seat's displayed price), so it never reads as *more* than Team,
+with or without a cloud number. `plans.org_enterprise.price_cents` is NULL so the in-app card
+also reads "let's talk". Free tier carries managed-AI COGS with no revenue — capped to a
 **taste**; the "I want real AI for free" crowd is routed to **self-host Community** (their
-inference, zero cost to us). Trial: new accounts get a 30-day Personal trial, then settle.
+inference, zero cost to us). Trial: 30-day Personal, granted to every account that
+**created itself** — password registration and social SSO (Google/Microsoft/GitHub)
+alike. Accounts *provisioned for* someone — an org's own SSO connection, an admin,
+the first-boot/CLI admin — get none. That rule lives in exactly one place
+(`backend/internal/api/users_create.go`) because it previously didn't: the trial was
+added to the password INSERT only, so ten weeks of OAuth signups silently landed on
+Free while the pricing page, the FAQ and the Terms all promised otherwise. A scan
+test fails the build if a new `INSERT INTO users` appears outside that helper.
 
 ## 7. Self-host options
 
 | | **Community** | **Enterprise (self-host)** | **Commercial license (core only)** |
 |---|---|---|---|
-| Price | **Free** | Per-seat, annual (license key); self-serve, contact-sales for whales | Flat annual |
+| Price | **Free** | **$8/user/mo**, annual (license key) — = a Team seat; contact-sales for whales | Flat annual |
 | License | AGPL-3.0 | Commercial + EE key | Commercial (AGPL relief) |
 | AI | BYO | BYO | BYO |
 | Gets | Full core (§4) — wiki, Atlas, Ask, decks, sync, MCP, custom domains | Core + all Enterprise features + support/SLA | Full core, no EE, no copyleft obligation |
@@ -163,8 +189,24 @@ inference, zero cost to us). Trial: new accounts get a 30-day Personal trial, th
 - This lets self-host stay **two tiers** (Community + Enterprise) instead of inventing a
   mid rung — one paid SKU, self-serve, negotiated lane on top.
 
-**Open number (flagged):** self-host Enterprise indicative **from ~$12/user/mo billed
-annually**. Commercial-license flat-annual figure: TBD.
+**Self-host Enterprise — `$8/user/mo` billed annually (decided 2026-07-05).** Deliberately
+pegged to a **Team seat's displayed (yearly) price** so it never reads as *more* than Team
+on the default view — the confusing "$12 self-host > $10 Team" optics is removed at the
+number level, not just via the reconciler matrix. Self-host is ~zero marginal cost to serve
+(they run it, their AI), so floor pricing is near-pure margin + adoption for a new tool;
+it's at the market floor (Docmost $3.50, Mattermost $10, Gitea $9.50–19). Commercial-license
+flat-annual figure: TBD.
+
+**Self-serve + renewal — SHIPPED & LIVE (2026-07-05).** Buying is self-serve (Polar seat-based
+product → webhook mints a signed key → emailed + shown in **Settings → Self-host licenses**;
+paste into the instance's **Settings → License**). Renewal is handled two ways: the minted key
+carries a stable `lid`, and a self-hosted instance polls the cloud (`GET /api/public/license/
+refresh`, self-authing by the key's signature) every 12h to **auto-install the renewed key** —
+so EE doesn't lapse on renewal without a manual re-paste. Air-gapped installs (unset
+`TELA_LICENSE_REFRESH_URL`, or no network) fall back to the emailed key + a 14-day grace.
+Seats are **soft-enforced** (over-seat warning, never a block — offline can't count live
+seats). Backend plans/Polar for the CLOUD tiers were reconciled live; cloud Enterprise stays
+contact-sales (no published price).
 
 ## 8. Naming / how it reads (kills the old confusion)
 

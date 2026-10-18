@@ -6,6 +6,8 @@ import { Card, CardBody, CardHeader, CardTitle } from '../../ui/card'
 import { Input } from '../../ui/input'
 import { Select } from '../../ui/select'
 import { EmptyState } from '../../ui/empty-state'
+import { AtlasBudgetNotice } from './AtlasBudgetNotice'
+import { useAtlasBudget } from '../../../lib/queries/atlas'
 import { useSpaces } from '../../../lib/queries/spaces'
 import { usePages } from '../../../lib/queries/pages'
 import {
@@ -30,6 +32,16 @@ export function AtlasProjectSettings() {
   const navigate = useNavigate()
   const q = useAtlasProject(projectId)
   const project = q.data?.project
+  // Hourly is 730 runs/month, which cannot fit ANY capped plan for any repo
+  // (even a 2.5-minute run costs 1,825 min against the most generous 1,800 cap),
+  // so the server refuses it. Hiding it here means the user never picks a value
+  // that is guaranteed to be rejected — but a project already ON hourly (an
+  // unlimited plan, or legacy data) keeps seeing its own setting.
+  const budgetQ = useAtlasBudget()
+  const ownerBudget = budgetQ.data?.budgets.find((b) =>
+    b.projects.some((p) => p.id === Number(projectId)),
+  )
+  const hourlyAllowed = ownerBudget ? ownerBudget.cap_minutes == null : true
 
   const spacesQ = useSpaces()
   const patch = usePatchProject()
@@ -73,9 +85,12 @@ export function AtlasProjectSettings() {
         : output.new_space_name
           ? { new_space_name: output.new_space_name }
           : undefined
+    // Scheduled refresh is a paid capability; if the owner's plan lacks it, force
+    // manual so we never persist an auto cadence the server will silently skip.
+    const effCadence = project.scheduled_allowed ? cadence : ''
     await patch.mutateAsync({
       id: project.id,
-      patch: { name: name.trim() || project.name, cadence, auto_update: cadence !== '', ...(out ? { output: out } : {}) },
+      patch: { name: name.trim() || project.name, cadence: effCadence, auto_update: effCadence !== '', ...(out ? { output: out } : {}) },
     })
     backToProject()
   }
@@ -101,11 +116,27 @@ export function AtlasProjectSettings() {
           <CardHeader><CardTitle>General</CardTitle></CardHeader>
           <CardBody className="flex flex-col gap-[var(--space-4)]">
             <Field label="Name"><Input value={name} onChange={(e) => setName(e.target.value)} /></Field>
-            <Field label="Refresh" hint="How often Atlas re-runs this project to keep its docs current.">
-              <Select value={cadence} onChange={(e) => setCadence(e.target.value as AtlasCadence)}>
-                {CADENCES.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
-              </Select>
-            </Field>
+            {project.scheduled_allowed ? (
+              <Field label="Refresh" hint="How often Atlas re-runs this project to keep its docs current.">
+                <Select value={cadence} onChange={(e) => setCadence(e.target.value as AtlasCadence)}>
+                  {CADENCES.filter((c) => c.value !== 'hourly' || hourlyAllowed || cadence === 'hourly').map((c) => (
+                    <option key={c.value} value={c.value}>{c.label}</option>
+                  ))}
+                </Select>
+                {/* Right under the control that causes it: the cost of a cadence
+                    is invisible from the label, and this is the moment to say so. */}
+                <div className="mt-[var(--space-2)]"><AtlasBudgetNotice projectId={project.id} /></div>
+              </Field>
+            ) : (
+              <Field label="Refresh" hint="Run this project manually any time from its page. Scheduled auto-refresh is available on paid plans.">
+                <Select value="" disabled>
+                  <option value="">Manual — I run it</option>
+                </Select>
+                <a href="/settings?tab=billing" className="mt-[var(--space-1)] inline-block text-[length:var(--text-xs)] font-medium text-[var(--accent)] hover:underline">
+                  Upgrade for scheduled refresh →
+                </a>
+              </Field>
+            )}
           </CardBody>
         </Card>
 

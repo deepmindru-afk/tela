@@ -1,5 +1,7 @@
 package engine
 
+import "fmt"
+
 // Generation prompts. The draft prompt is deliberately strict — ground only in
 // the provided code, cite file:line, diagram with Mermaid — which is the
 // retrieve-then-write pattern that holds up on a local model.
@@ -80,8 +82,17 @@ Write the page in Markdown:
 4. ` + mermaidLabelRules + `
 5. For every significant claim, cite the source inline as ` + "`Sources: [path:start-end]`" + ` using the real line ranges shown.
 6. Use tables where they clarify. Keep it accurate and concrete — name the real symbols.
-Do not include any text outside the page itself.`
+` + summaryDirective + `
+Do not include any other text outside the page itself.`
 }
+
+// summaryDirective asks the drafting model to emit a one-line, user-facing
+// standfirst for the page it just wrote, on the very last line, wrapped in an
+// HTML comment so it's trivially extractable and never renders. Atlas strips it
+// from the body and stamps it as the page's summary (locked), so the auto-
+// summarizer never has to re-derive it. Shared by the narrative + reference
+// draft prompts.
+const summaryDirective = `7. On the VERY LAST line, output a one-sentence plain-text summary of THIS page for someone browsing a list of pages — grounded only in what the page says, no markdown, and stating the substance directly (do NOT open with "This page…" / "This document…") — wrapped exactly as: <!-- SUMMARY: your sentence -->`
 
 // draftUserCode is the git/code draft prompt: the base draft + the code-density
 // rule (no rationale-essay filler). The jira path uses draftUserJira instead.
@@ -134,22 +145,84 @@ Do NOT echo these instructions, the tags, or any header like "existing page". Im
 }
 
 const refSystem = `You are documenting a software system's interface surface. You are given the COMPLETE, authoritative,
-machine-extracted list of items — your job is to document EVERY item, grounded in the code excerpts. Do not omit any item, and do not invent items not in the list.`
+machine-extracted list of items — your job is to document EVERY item, grounded in the source you are given. Do not omit any item, and do not invent items not in the list.
+Never pad an item by restating its own name back as its description.`
 
-func refUser(title, itemList, context string) string {
-	return `# Reference page: ` + title + `
+// refPrompt is the input to one reference-page call. It is a struct because the
+// shape depends on several independent facts (which part, how dense, where the
+// grounding comes from) and a six-argument call reads as noise at the call site.
+type refPrompt struct {
+	title    string
+	itemList string
+	// context is the retrieved-excerpt block, used ONLY where per-item evidence
+	// is unavailable (see evidence).
+	context string
+	part    int
+	total   int
+	// compact writes the items as table rows instead of a section each, for a
+	// surface too large to document richly inside one answer.
+	compact bool
+	// evidence reports that each item in itemList is followed by its own source
+	// lines, so the model is told to read them instead of being handed a block of
+	// excerpts retrieved for the batch as a whole.
+	evidence bool
+}
 
-This is the COMPLETE list of items to document (extracted directly from the source — do not add or drop any):
+// refUser builds the reference-page prompt. A page whose surface is too large
+// for one call is written in PARTS (see refBatchPlan): part 0 opens the page,
+// and later parts continue it — they must not restate an H1, re-introduce the
+// page, or emit a second summary marker, or the published body ends up with a
+// title and standfirst per part. total==1 produces exactly the single-call
+// prompt this used to send, so pages whose surface fits one call — which is
+// every calibrated baseline — are unaffected.
+func refUser(rp refPrompt) string {
+	scope := "This is the COMPLETE list of items to document (extracted directly from the source — do not add or drop any):"
+	if rp.total > 1 {
+		scope = fmt.Sprintf(
+			"This surface is too large for one pass, so you are writing PART %d OF %d. Below is the complete list of items for THIS PART only (extracted directly from the source — do not add or drop any):",
+			rp.part+1, rp.total)
+	}
 
-` + itemList + `
+	// Where the description comes from. With per-item evidence the model reads
+	// the lines printed under each item; without it, the retrieved excerpt block
+	// is all there is (the tracker path, whose items have no real file:line).
+	from, excerpts := "(from the excerpts)", "\nRelevant source excerpts for context:\n\n"+rp.context+"\n"
+	if rp.evidence {
+		from, excerpts = "(from the source lines shown under it)", ""
+	}
 
-Relevant source excerpts for context:
+	// item/group carry no list number: the opening and continuation shapes number
+	// them differently, and the original prompts did too.
+	item := "Document EVERY item in the list — a table or a section each, with what it is, where it lives (`path:line`), and " + from + " what it does."
+	group := "Group sensibly (e.g. by prefix or area) if there are many."
+	if rp.compact {
+		item = "Document EVERY item in the list as ONE ROW of a Markdown table with columns | Item | Location | Description |. Do NOT give each item its own heading — this surface is far too large for that. Location is `path:line`; Description is what the item actually does " + from + "."
+		group = "Group into a few tables by prefix or area if that helps."
+	}
 
-` + context + `
+	var shape string
+	switch {
+	case rp.total == 1:
+		shape = "Write a Markdown reference page:\n1. An H1 title and a short intro explaining what this surface is.\n2. " +
+			item + "\n3. " + group + "\n" + summaryDirective
+	case rp.part == 0:
+		// The H1 rule is explicit because the model otherwise titles this
+		// "<page> (Part 1)" — the parts are stitched into ONE page, so a part
+		// number in the title reads to a reader as if Part 2 went missing.
+		shape = "Write the OPENING of a Markdown reference page:\n1. An H1 title — EXACTLY the page title above, with NO part number: the parts are joined into a single page, so the reader never sees them as separate pages. Then a short intro explaining what this surface is.\n2. " +
+			item + "\n3. " + group + " Later parts will continue this page, so do not write a conclusion.\n" + summaryDirective
+	default:
+		shape = "CONTINUE the reference page — its title, introduction and earlier items are already written:\n" +
+			"1. Do NOT write an H1, do NOT re-introduce the page, and do NOT write a conclusion or a summary line.\n" +
+			"2. Start directly with the content for this part's items.\n3. " + item + "\n4. " + group
+	}
 
-Write a Markdown reference page:
-1. An H1 title and a short intro explaining what this surface is.
-2. Document EVERY item in the list — a table or a section each, with what it is, where it lives (` + "`path:line`" + `), and (from the excerpts) what it does.
-3. Group sensibly (e.g. by prefix or area) if there are many.
-Be exhaustive: every listed item must appear. Ground descriptions in the excerpts; if an item's behavior isn't in the excerpts, document its location and signature anyway.`
+	return `# Reference page: ` + rp.title + `
+
+` + scope + `
+
+` + rp.itemList + `
+` + excerpts + `
+` + shape + `
+Be exhaustive: every listed item must appear. If an item's behaviour is not visible in the source you were given, document its location and signature anyway.`
 }

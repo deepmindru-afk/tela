@@ -1,9 +1,11 @@
 package api
 
 import (
+	"context"
 	"database/sql"
 	"errors"
 	"net/http"
+	"net/url"
 )
 
 // Unified GitHub-style handle URLs. ONE namespace where {handle} is a user OR
@@ -48,7 +50,7 @@ func (s *Server) GetPublicByHandle(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	kind, ownerID, name, bio, ok := s.resolveHandle(r, handle)
+	kind, ownerID, name, bio, ok := s.resolveHandle(r.Context(), handle)
 	if !ok {
 		writeError(w, http.StatusNotFound, "not_found", "no such handle")
 		return
@@ -95,7 +97,7 @@ func (s *Server) GetPublicByHandleSpace(w http.ResponseWriter, r *http.Request) 
 		writeError(w, http.StatusNotFound, "not_found", "no such public space")
 		return
 	}
-	kind, ownerID, _, _, ok := s.resolveHandle(r, handle)
+	kind, ownerID, _, _, ok := s.resolveHandle(r.Context(), handle)
 	if !ok {
 		writeError(w, http.StatusNotFound, "not_found", "no such public space")
 		return
@@ -128,15 +130,25 @@ func (s *Server) GetPublicByHandleSpace(w http.ResponseWriter, r *http.Request) 
 
 // resolveHandle maps a handle to (kind, ownerID, displayName, bio). User
 // namespace wins on a collision. bio is the user's bio (orgs have none → "").
-// ok=false when the handle matches no user and no org.
-func (s *Server) resolveHandle(r *http.Request, handle string) (kind string, ownerID int64, name, bio string, ok bool) {
+// ok=false when the handle matches no user and no org — OR when the lookup
+// itself failed, which every caller here renders as the same 404. The existence
+// probe (public_exists.go) must NOT conflate those (a DB error there would turn
+// a live URL into a hard 404 at the edge), so it calls lookupHandle instead.
+func (s *Server) resolveHandle(ctx context.Context, handle string) (kind string, ownerID int64, name, bio string, ok bool) {
+	kind, ownerID, name, bio, err := s.lookupHandle(ctx, handle)
+	return kind, ownerID, name, bio, err == nil
+}
+
+// lookupHandle is resolveHandle with the error kept: sql.ErrNoRows for "no such
+// handle", anything else for "we couldn't tell".
+func (s *Server) lookupHandle(ctx context.Context, handle string) (kind string, ownerID int64, name, bio string, err error) {
 	var (
 		uid         int64
 		username    string
 		displayName string
 		userBio     string
 	)
-	err := s.DB.QueryRowContext(r.Context(),
+	err = s.DB.QueryRowContext(ctx,
 		`SELECT id, username, display_name, bio FROM users WHERE LOWER(username) = LOWER($1)`, handle).
 		Scan(&uid, &username, &displayName, &userBio)
 	if err == nil {
@@ -144,23 +156,95 @@ func (s *Server) resolveHandle(r *http.Request, handle string) (kind string, own
 		if n == "" {
 			n = username
 		}
-		return handleKindUser, uid, n, userBio, true
+		return handleKindUser, uid, n, userBio, nil
 	}
 	if !errors.Is(err, sql.ErrNoRows) {
-		return "", 0, "", "", false
+		return "", 0, "", "", err
 	}
 
 	var (
 		oid     int64
 		orgName string
 	)
-	err = s.DB.QueryRowContext(r.Context(),
+	err = s.DB.QueryRowContext(ctx,
 		`SELECT id, name FROM orgs WHERE LOWER(slug) = LOWER($1)`, handle).
 		Scan(&oid, &orgName)
 	if err == nil {
-		return handleKindOrg, oid, orgName, "", true
+		return handleKindOrg, oid, orgName, "", nil
 	}
-	return "", 0, "", "", false
+	return "", 0, "", "", err
+}
+
+// handleHasPublicSpace reports whether the account has ≥1 public space under
+// handleOwnerWhere — the SAME predicate that decides whether /{handle} resolves.
+// The OG/sitemap surfaces gate on this so they can never advertise a card for a
+// home that 404s (which is exactly what the org-attribution bug produced).
+// A failed query reads as "no" here — an OG card is better skipped than wrong.
+// The existence probe needs the difference, so it calls the -Err form.
+func (s *Server) handleHasPublicSpace(ctx context.Context, kind string, ownerID int64) bool {
+	ok, err := s.queryHandleHasPublicSpace(ctx, kind, ownerID)
+	return err == nil && ok
+}
+
+// queryHandleHasPublicSpace is handleHasPublicSpace with the error kept.
+func (s *Server) queryHandleHasPublicSpace(ctx context.Context, kind string, ownerID int64) (bool, error) {
+	var ok bool
+	err := s.DB.QueryRowContext(ctx,
+		`SELECT EXISTS(SELECT 1 FROM spaces s
+		                WHERE s.visibility = 'public' AND `+handleOwnerWhere(kind)+`)`, ownerID).Scan(&ok)
+	return ok, err
+}
+
+// spaceHandlePath returns a public space's canonical pretty path,
+// /{handle}/{space-slug} — the ORG's slug when the space is org-owned, else the
+// personal owner's username. This is the URL people are told to share, so it is
+// what canonical tags and the sitemap advertise; the id form
+// (/public/spaces/{id}) stays live as an alternate. Empty when no handle
+// resolves (an ownerless space), so callers fall back to the id path rather than
+// emitting a broken canonical.
+func (s *Server) spaceHandlePath(ctx context.Context, spaceID int64, slug string) string {
+	var handle string
+	_ = s.DB.QueryRowContext(ctx,
+		`SELECT `+spaceHandleExpr+` FROM spaces s LEFT JOIN orgs o ON o.id = s.org_id
+		  WHERE s.id = $1`, spaceID).Scan(&handle)
+	return handleSpacePath(handle, slug)
+}
+
+// spaceHandleExpr resolves a space's owning handle over the `spaces s LEFT JOIN
+// orgs o` shape — org slug, else the personal owner's username, else ”. Shared
+// so the per-space lookup and the sitemap's bulk query stay identical (the
+// sitemap must not re-derive it per row: that's an N+1 inside an open cursor).
+const spaceHandleExpr = `COALESCE(o.slug,
+	(SELECT u.username FROM space_members m JOIN users u ON u.id = m.user_id
+	  WHERE m.space_id = s.id AND m.role = 'owner' ORDER BY m.user_id ASC LIMIT 1), '')`
+
+// handleSpacePath builds /{handle}/{space-slug}, or "" when either part is
+// missing so callers fall back to the id path.
+func handleSpacePath(handle, slug string) string {
+	if handle == "" || slug == "" {
+		return ""
+	}
+	return "/" + url.PathEscape(handle) + "/" + url.PathEscape(slug)
+}
+
+// handleOwnerWhere is the ownership predicate for a handle home, over the
+// `spaces s` alias with the owner id as $1. ONE definition — the space list, the
+// posts strip and the by-slug lookup must agree on what a handle owns, or a
+// space shows on a home it can't be opened from (or vice versa).
+//
+// The user branch is deliberately `org_id IS NULL`: setting up an org space
+// leaves you a space_members 'owner' row on it, so without the guard every
+// public ORG space its creator set up was attributed to their PERSONAL handle —
+// listed on their home AND served at /{user}/{slug} alongside the canonical
+// /{org}/{slug}. Org spaces belong to the org handle, and only there.
+func handleOwnerWhere(kind string) string {
+	if kind == handleKindOrg {
+		return `s.org_id = $1`
+	}
+	return `(s.org_id IS NULL
+	         AND (s.personal_user_id = $1
+	              OR EXISTS (SELECT 1 FROM space_members m
+	                          WHERE m.space_id = s.id AND m.user_id = $1 AND m.role = 'owner')))`
 }
 
 // handlePostDTO is one post on a handle home's "Latest" strip — a top-level
@@ -169,6 +253,9 @@ func (s *Server) resolveHandle(r *http.Request, handle string) (kind string, own
 type handlePostDTO struct {
 	SpaceID   int64  `json:"space_id"`
 	SpaceName string `json:"space_name"`
+	// SpaceSlug lets the home's cards link at the canonical
+	// /{handle}/{space-slug}/{id}/{slug} — the handle is the home's own.
+	SpaceSlug string `json:"space_slug"`
 	ID        int64  `json:"id"`
 	Title     string `json:"title"`
 	CreatedAt string `json:"created_at"`
@@ -180,19 +267,11 @@ type handlePostDTO struct {
 // PUBLIC spaces (same ownership scope as publicSpacesForHandle). Public-only —
 // the visibility gate keeps private spaces out.
 func (s *Server) recentPostsForHandle(r *http.Request, kind string, ownerID int64, limit int) ([]handlePostDTO, error) {
-	var where string
-	switch kind {
-	case handleKindOrg:
-		where = `s.org_id = $1`
-	default:
-		where = `(s.personal_user_id = $1
-		          OR EXISTS (SELECT 1 FROM space_members m
-		                      WHERE m.space_id = s.id AND m.user_id = $1 AND m.role = 'owner'))`
-	}
+	where := handleOwnerWhere(kind)
 	rows, err := s.DB.QueryContext(r.Context(), `
-		SELECT s.id, s.name, p.id, p.title, p.body, p.props, p.created_at, p.updated_at
+		SELECT s.id, s.name, s.slug, p.id, p.title, p.body, p.props, p.created_at, p.updated_at
 		  FROM pages p JOIN spaces s ON s.id = p.space_id
-		 WHERE s.visibility = 'public' AND p.parent_id IS NULL AND p.deleted_at IS NULL AND `+where+`
+		 WHERE s.visibility = 'public' AND p.parent_id IS NULL AND p.deleted_at IS NULL AND p.status = 'published' AND `+where+`
 		 ORDER BY p.created_at DESC, p.id DESC
 		 LIMIT $2`, ownerID, limit)
 	if err != nil {
@@ -207,7 +286,7 @@ func (s *Server) recentPostsForHandle(r *http.Request, kind string, ownerID int6
 			body     string
 			propsRaw []byte
 		)
-		if err := rows.Scan(&d.SpaceID, &d.SpaceName, &d.ID, &d.Title, &body, &propsRaw, &d.CreatedAt, &d.UpdatedAt); err != nil {
+		if err := rows.Scan(&d.SpaceID, &d.SpaceName, &d.SpaceSlug, &d.ID, &d.Title, &body, &propsRaw, &d.CreatedAt, &d.UpdatedAt); err != nil {
 			return nil, err
 		}
 		d.blogCardMeta = blogMetaFor(body, decodeProps(propsRaw))
@@ -217,20 +296,12 @@ func (s *Server) recentPostsForHandle(r *http.Request, kind string, ownerID int6
 }
 
 // publicSpacesForHandle returns the owner account's PUBLIC spaces with the
-// discover-style projection (page_count + last activity). For a user that means
-// the spaces they own — their personal home (spaces.personal_user_id) or a team
-// space they own (the space_members 'owner' row); for an org, spaces.org_id.
-// Public-visibility only — never leaks a private space.
+// discover-style projection (page_count + last activity). Ownership scope is
+// handleOwnerWhere — for a user, their personal home or an org-less space they
+// own; for an org, spaces.org_id. Public-visibility only — never leaks a
+// private space.
 func (s *Server) publicSpacesForHandle(r *http.Request, kind string, ownerID int64) ([]handleSpaceDTO, error) {
-	var where string
-	switch kind {
-	case handleKindOrg:
-		where = `s.org_id = $1`
-	default:
-		where = `(s.personal_user_id = $1
-		          OR EXISTS (SELECT 1 FROM space_members m
-		                      WHERE m.space_id = s.id AND m.user_id = $1 AND m.role = 'owner'))`
-	}
+	where := handleOwnerWhere(kind)
 	rows, err := s.DB.QueryContext(r.Context(), `
 		SELECT s.id, s.name, s.slug, s.description,
 		       agg.page_count, agg.last_updated
@@ -238,7 +309,7 @@ func (s *Server) publicSpacesForHandle(r *http.Request, kind string, ownerID int
 		  LEFT JOIN LATERAL (
 		         SELECT COUNT(*) AS page_count, MAX(p.updated_at) AS last_updated
 		           FROM pages p
-		          WHERE p.space_id = s.id AND p.deleted_at IS NULL
+		          WHERE p.space_id = s.id AND p.deleted_at IS NULL AND p.status = 'published'
 		       ) agg ON TRUE
 		 WHERE s.visibility = 'public' AND `+where+`
 		 ORDER BY agg.last_updated DESC NULLS LAST, s.id DESC`, ownerID)
@@ -273,23 +344,23 @@ func (s *Server) publicSpaceIDForHandle(r *http.Request, kind string, ownerID in
 		owner string
 	)
 	if kind == handleKindOrg {
+		// The byline handle is the OWNING handle — the org's slug. Returning the
+		// space_members owner here (whoever created it) made every consumer think
+		// an org space lived on that person's personal handle: the reader then
+		// built its whole nav as /{creator}/{space-slug}/…, which 404s.
 		err := s.DB.QueryRowContext(r.Context(),
-			`SELECT s.id, COALESCE((SELECT u.username FROM space_members m JOIN users u ON u.id = m.user_id
-			                         WHERE m.space_id = s.id AND m.role = 'owner' ORDER BY m.user_id ASC LIMIT 1), '')
-			   FROM spaces s
+			`SELECT s.id, o.slug
+			   FROM spaces s JOIN orgs o ON o.id = s.org_id
 			  WHERE s.org_id = $1 AND s.slug = $2 AND s.visibility = 'public'
 			  LIMIT 1`, ownerID, slug).Scan(&id, &owner)
 		return id, owner, err
 	}
-	// User: their personal home OR a team space they own. The byline handle is
-	// the user themselves.
+	// User: their personal home OR an org-less space they own (handleOwnerWhere).
+	// The byline handle is the user themselves.
 	err := s.DB.QueryRowContext(r.Context(),
 		`SELECT s.id, u.username
 		   FROM spaces s JOIN users u ON u.id = $1
-		  WHERE s.slug = $2 AND s.visibility = 'public'
-		    AND (s.personal_user_id = $1
-		         OR EXISTS (SELECT 1 FROM space_members m
-		                     WHERE m.space_id = s.id AND m.user_id = $1 AND m.role = 'owner'))
+		  WHERE s.slug = $2 AND s.visibility = 'public' AND `+handleOwnerWhere(handleKindUser)+`
 		  LIMIT 1`, ownerID, slug).Scan(&id, &owner)
 	return id, owner, err
 }

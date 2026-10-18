@@ -146,9 +146,18 @@ type atlasProjectDTO struct {
 	NextDue            string         `json:"next_due,omitempty"`
 	SourcesCount       int            `json:"sources_count"`
 	StaleSources       int            `json:"stale_sources"` // generated sources now behind upstream
+	// UnreachableSources is how many sources the drift probe currently can't reach
+	// (deleted repo, dead credential). Counted separately from StaleSources — and
+	// shown ahead of it — because a project whose sources are all unreachable was
+	// otherwise indistinguishable from a fresh one on this list.
+	UnreachableSources int `json:"unreachable_sources"`
 	LastRun            *atlasLastRun  `json:"last_run"`
 	CreatedAt          string         `json:"created_at"`
 	CanManage          bool           `json:"can_manage"`
+	// ScheduledAllowed reports whether the owning account's plan includes scheduled
+	// Atlas auto-refresh (paid/trial). When false, auto_update is a no-op server-side
+	// (the scheduler skips it) — the UI shows manual-only + an upgrade affordance.
+	ScheduledAllowed bool `json:"scheduled_allowed"`
 }
 
 // atlasProjectListCols is the SELECT list shared by the list + single-project
@@ -162,6 +171,7 @@ const atlasProjectSelect = `
 	       p.output_parent_page_id, p.cadence, p.auto_update, p.last_refresh_at, p.created_at,
 	       (SELECT count(*) FROM atlas_sources s WHERE s.project_id = p.id),
 	       (SELECT count(*) FROM atlas_sources s WHERE s.project_id = p.id AND s.stale_since <> '' AND s.ref <> ''),
+	       (SELECT count(*) FROM atlas_sources s WHERE s.project_id = p.id AND s.probe_error <> ''),
 	       lr.id, lr.status, lr.coverage_json
 	  FROM atlas_projects p
 	  LEFT JOIN spaces sp ON sp.id = p.output_space_id
@@ -180,7 +190,7 @@ func scanProjectDTO(sc interface{ Scan(...any) error }) (atlasProjectDTO, error)
 	var cadence, lastRefresh string
 	if err := sc.Scan(&d.ID, &d.Name, &d.Owner.Kind, &d.Owner.ID, &ownerName,
 		&spaceID, &spaceName, &parent, &cadence, &auto, &lastRefresh, &d.CreatedAt,
-		&d.SourcesCount, &d.StaleSources, &lastRunID, &lastStatus, &covJSON); err != nil {
+		&d.SourcesCount, &d.StaleSources, &d.UnreachableSources, &lastRunID, &lastStatus, &covJSON); err != nil {
 		return d, err
 	}
 	d.Owner.Name = ownerName.String
@@ -229,6 +239,7 @@ func (s *Server) listAtlasProjectsFor(ctx context.Context, u *auth.User) ([]atla
 			return nil, err
 		}
 		d.CanManage = s.atlasOwnerManageErr(ctx, u, d.Owner.Kind, d.Owner.ID) == nil
+		d.ScheduledAllowed = s.scheduledAtlasAllowed(ctx, account{Kind: d.Owner.Kind, ID: d.Owner.ID})
 		out = append(out, d)
 	}
 	return out, rows.Err()
@@ -294,6 +305,10 @@ func (s *Server) CreateAtlasProject(w http.ResponseWriter, r *http.Request) {
 	if cadence == "" && autoUpdate {
 		cadence = "daily"
 	}
+	if ae := s.checkCadenceAffordable(r.Context(), account{Kind: req.OwnerKind, ID: req.OwnerID}, cadence); ae != nil {
+		writeError(w, ae.Status, ae.Code, ae.Message)
+		return
+	}
 
 	// Resolve the output space. An explicit space must be writable by the caller; a
 	// new_space_name is materialized now; neither defers to the first run.
@@ -350,6 +365,7 @@ func (s *Server) CreateAtlasProject(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	d.CanManage = true
+	d.ScheduledAllowed = s.scheduledAtlasAllowed(r.Context(), account{Kind: d.Owner.Kind, ID: d.Owner.ID})
 	writeJSON(w, http.StatusCreated, map[string]any{"project": d})
 }
 
@@ -377,6 +393,7 @@ func (s *Server) GetAtlasProject(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	d.CanManage = s.atlasOwnerManageErr(r.Context(), u, d.Owner.Kind, d.Owner.ID) == nil
+	d.ScheduledAllowed = s.scheduledAtlasAllowed(r.Context(), account{Kind: d.Owner.Kind, ID: d.Owner.ID})
 
 	sources, err := s.listProjectSources(r.Context(), projectID)
 	if err != nil {
@@ -433,6 +450,17 @@ func (s *Server) PatchAtlasProject(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusBadRequest, "invalid_cadence", "cadence must be hourly|daily|weekly|monthly or empty")
 			return
 		}
+		// A cadence the plan can never pay for is refused here rather than
+		// discovered as a 402 once the month's allowance is gone.
+		acct, ae := s.atlas.ownerAccount(r.Context(), projectID)
+		if ae != nil {
+			writeError(w, ae.Status, ae.Code, ae.Message)
+			return
+		}
+		if ae := s.checkCadenceAffordable(r.Context(), acct, *req.Cadence); ae != nil {
+			writeError(w, ae.Status, ae.Code, ae.Message)
+			return
+		}
 		if _, err := s.DB.ExecContext(r.Context(), `UPDATE atlas_projects SET cadence=$1 WHERE id=$2`, *req.Cadence, projectID); err != nil {
 			writeError(w, http.StatusInternalServerError, "internal", "update project failed")
 			return
@@ -470,6 +498,7 @@ func (s *Server) PatchAtlasProject(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	d.CanManage = true
+	d.ScheduledAllowed = s.scheduledAtlasAllowed(r.Context(), account{Kind: d.Owner.Kind, ID: d.Owner.ID})
 	writeJSON(w, http.StatusOK, map[string]any{"project": d})
 }
 
@@ -639,10 +668,17 @@ func (s *Server) createProjectFolder(ctx context.Context, spaceID int64, parentI
 		pos = int(maxPos.Int64) + 1
 	}
 	body := fmt.Sprintf("Documentation for **%s**, generated and maintained by atlas. Each source publishes under its own page below.\n", name)
+	// The index page's summary is deterministic (it's a template, not agent-drafted),
+	// so stamp it directly and lock it — the auto-summarizer must never touch it (a
+	// bare one-liner is exactly what it mis-summarizes or abstains on).
+	props := propsJSON(map[string]any{
+		"summary":      fmt.Sprintf("Documentation for %s, generated and maintained by atlas; each source is documented on its own page.", name),
+		"summary_lock": true,
+	})
 	var id int64
 	if err := s.DB.QueryRowContext(ctx,
-		`INSERT INTO pages (space_id, parent_id, title, body, position) VALUES ($1,$2,$3,$4,$5) RETURNING id`,
-		spaceID, nullableInt64(parentID), name, body, pos).Scan(&id); err != nil {
+		`INSERT INTO pages (space_id, parent_id, title, body, position, props) VALUES ($1,$2,$3,$4,$5,$6::jsonb) RETURNING id`,
+		spaceID, nullableInt64(parentID), name, body, pos, props).Scan(&id); err != nil {
 		return 0, &apiErr{http.StatusInternalServerError, "internal", "create project folder"}
 	}
 	return id, nil

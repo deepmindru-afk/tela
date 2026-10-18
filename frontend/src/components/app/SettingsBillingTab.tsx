@@ -198,6 +198,16 @@ function BillingActions({
           <p className="m-0 text-[length:var(--text-xs)] text-[var(--text-muted)]">
             Cancels on {localDateFromSqlite(sub.period_end)} — access continues until then.
           </p>
+        ) : sub.status === 'trialing' ? (
+          // Subscribed during a trial: Polar holds the card and bills when the
+          // trial lapses. This case MUST come before the "Renews on" fallback —
+          // that date is this account's first-ever charge, and calling it a
+          // renewal tells someone who has paid nothing that they already have.
+          <p className="m-0 text-[length:var(--text-xs)] text-[var(--text-muted)]">
+            {sub.trial_end
+              ? `Free until ${localDateFromSqlite(sub.trial_end)} — your first charge is on that date. Cancel before then and you won't be charged.`
+              : "You're on a free trial — cancel before it ends and you won't be charged."}
+          </p>
         ) : sub.status === 'past_due' ? (
           <p className="m-0 text-[length:var(--text-xs)] text-[var(--danger)]">
             Payment past due — update your card to keep this plan.
@@ -230,24 +240,44 @@ function BillingActions({
       p.price_cents > 0,
   )
   if (targets.length === 0) return null
+  // A live trial of a tier we're selling changes what these buttons MEAN. The
+  // trial grants that tier already, and converting forfeits the remaining free
+  // days (no trial period is passed to Polar, and the webhook clears
+  // trial_ends_at), so "Upgrade to Personal" beside a "Current: Personal" badge
+  // read as either broken or a scam — and the screen said "trial" nowhere,
+  // because its only source was the banner, which stays quiet until day 23.
+  // Say the deal out loud instead; the button is honest either way.
+  const trial = usage.trial
   return (
-    <div className="flex flex-wrap items-center gap-[var(--space-2)] border-t border-[var(--border-subtle)] pt-[var(--space-3)]">
-      {targets.map((p) => {
-        // Bill yearly only when the tier actually has a yearly product; else the
-        // toggle is a no-op for that tier and it stays monthly.
-        const interval: BillingPeriod = period === 'year' && p.price_cents_yearly != null ? 'year' : 'month'
-        return (
-          <Button
-            key={p.key}
-            variant="primary"
-            size="sm"
-            disabled={busy}
-            onClick={() => checkout.mutate({ plan_key: p.key, org_id: orgId, interval }, { onError })}
-          >
-            Upgrade to {p.name} · {compactPrice(p, interval)}
-          </Button>
-        )
-      })}
+    <div className="flex flex-col gap-[var(--space-2)] border-t border-[var(--border-subtle)] pt-[var(--space-3)]">
+      {trial ? (
+        <p className="m-0 text-[length:var(--text-xs)] text-[var(--text-muted)]">
+          {trial.ended
+            ? `Your ${trial.plan_name} trial has ended — full access continues until ${localDateFromSqlite(trial.grace_ends_at)}.`
+            : `You're on a free ${trial.plan_name} trial until ${localDateFromSqlite(trial.ends_at)} — everything in that plan is already unlocked. Subscribe now and you keep the rest of it free: your first charge is on ${localDateFromSqlite(trial.ends_at)}, and cancelling before then costs nothing.`}
+        </p>
+      ) : null}
+      <div className="flex flex-wrap items-center gap-[var(--space-2)]">
+        {targets.map((p) => {
+          // Bill yearly only when the tier actually has a yearly product; else the
+          // toggle is a no-op for that tier and it stays monthly.
+          const interval: BillingPeriod = period === 'year' && p.price_cents_yearly != null ? 'year' : 'month'
+          // "Upgrade" is a lie for the tier you are already trialling — nothing
+          // is gained. Only the wording changes; the action is the same.
+          const isTrialledTier = trial != null && trial.plan_key === p.key
+          return (
+            <Button
+              key={p.key}
+              variant={isTrialledTier && !trial?.ended ? 'secondary' : 'primary'}
+              size="sm"
+              disabled={busy}
+              onClick={() => checkout.mutate({ plan_key: p.key, org_id: orgId, interval }, { onError })}
+            >
+              {isTrialledTier ? 'Subscribe to' : 'Upgrade to'} {p.name} · {compactPrice(p, interval)}
+            </Button>
+          )
+        })}
+      </div>
     </div>
   )
 }
@@ -287,8 +317,9 @@ function UsageCard({
           ) : null}
         </div>
         {usage ? (
-          <Badge variant="accent" className="shrink-0">
+          <Badge variant={usage.trial ? 'muted' : 'accent'} className="shrink-0">
             {usage.plan.name}
+            {usage.trial ? ' · Trial' : ''}
           </Badge>
         ) : null}
       </div>
@@ -324,7 +355,7 @@ function UsageCard({
           ) : null}
           <Metric
             icon={<Sparkles width={15} height={15} />}
-            label="AI calls / mo"
+            label="Built-in AI / mo"
             used={usage.usage.llm_calls}
             max={usage.plan.max_llm_calls_per_month}
           />
@@ -352,14 +383,27 @@ function UsageCard({
   )
 }
 
+
+// Atlas indexing budget in the unit people think in. Minutes read as precision
+// the estimate doesn't have; hours read as a budget.
+function formatAtlasMinutes(min: number | null | undefined): string {
+  if (min == null) return 'Unlimited'
+  return min >= 60 ? `${Math.round(min / 60)}h` : `${min} min`
+}
+
 // A compact spec line for a plan in the comparison grid.
 function planSpecs(p: Plan): string[] {
   // Tiers are metered on AI (Atlas sources + monthly answers) and, for orgs,
   // seats — not pages/spaces (unlimited on every tier now). Storage is a quiet
   // backstop, shown as a usage line, not sold.
   const specs = [
-    `${formatCount(p.max_atlas_sources)} Atlas source${p.max_atlas_sources === 1 ? '' : 's'}`,
-    `${formatCount(p.max_llm_calls_per_month)} AI answers / mo`,
+    `${formatCount(p.max_atlas_sources)} Atlas source${p.max_atlas_sources === 1 ? '' : 's'} · ${p.features?.atlas_scheduled ? 'scheduled refresh' : 'manual refresh'}`,
+    // The indexing budget is the limit that actually binds — a source count says
+    // nothing about cost, since a run ranges 5-80 minutes. Read from the plans
+    // API so it cannot drift from the backend the way hardcoded copy does.
+    `${formatAtlasMinutes(p.max_atlas_minutes_per_month)} of Atlas indexing / mo`,
+    `${formatCount(p.max_llm_calls_per_month)} built-in AI answers / mo`,
+    `Unlimited with your own agent (MCP)`,
     `${formatStorageLimit(p.max_storage_bytes)} attachments`,
   ]
   if (p.account_kind === 'org') specs.push(`${formatCount(p.max_members)} member${p.max_members === 1 ? '' : 's'}`)
@@ -369,10 +413,15 @@ function planSpecs(p: Plan): string[] {
 function PlanCatalog({
   plans,
   currentKey,
+  trialKey,
   period,
 }: {
   plans: Plan[]
   currentKey: string | undefined
+  // The tier being TRIALLED, when that's why it reads as current. Without it the
+  // catalog badges a trialled tier "Current" — true about access, misleading
+  // about ownership, and the reason the paid button beside it looked absurd.
+  trialKey?: string
   period: BillingPeriod
 }) {
   const groups: { kind: 'user' | 'org'; label: string }[] = [
@@ -392,6 +441,7 @@ function PlanCatalog({
             <div className="grid gap-[var(--space-3)] sm:grid-cols-2 lg:grid-cols-3">
               {tiers.map((p) => {
                 const isCurrent = p.key === currentKey
+                const isTrial = isCurrent && p.key === trialKey
                 return (
                   <Card
                     key={p.key}
@@ -404,7 +454,11 @@ function PlanCatalog({
                   >
                     <div className="flex items-center justify-between gap-[var(--space-2)]">
                       <span className="font-medium text-[var(--text-primary)]">{p.name}</span>
-                      {isCurrent ? <Badge variant="accent">Current</Badge> : null}
+                      {isCurrent ? (
+                        <Badge variant={isTrial ? 'muted' : 'accent'}>
+                          {isTrial ? 'Trial' : 'Current'}
+                        </Badge>
+                      ) : null}
                     </div>
                     <p className="m-0 flex items-baseline gap-[var(--space-2)]">
                       <span className="text-[length:var(--text-xl)] font-semibold text-[var(--text-primary)]">
@@ -446,7 +500,7 @@ export function SettingsBillingTab() {
   const me = useMe()
   const orgs = useOrgs()
   const myUsage = useMyUsage()
-  const plans = usePlans()
+  const plans = usePlans('billing')
   const isAdmin = me.data?.is_instance_admin ?? false
   // Honor a ?interval=year deep-link (e.g. from the landing's yearly toggle) so a
   // "Get Personal yearly" click lands here pre-set to yearly.
@@ -568,7 +622,12 @@ export function SettingsBillingTab() {
           <h3 className="m-0 text-[length:var(--text-base)] font-medium text-[var(--text-primary)]">
             Tiers
           </h3>
-          <PlanCatalog plans={plans.data} currentKey={myUsage.data?.plan.key} period={period} />
+          <PlanCatalog
+            plans={plans.data}
+            currentKey={myUsage.data?.plan.key}
+            trialKey={myUsage.data?.trial?.plan_key}
+            period={period}
+          />
         </section>
       ) : null}
 

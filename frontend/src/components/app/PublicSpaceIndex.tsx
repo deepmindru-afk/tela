@@ -61,7 +61,10 @@ export function PublicSpaceIndex({ space, pages }: PublicSpaceIndexProps) {
   useHeadMeta({
     title: `${space.name}${activeTag ? ` · ${activeTag}` : ''} — tela`,
     description: space.description || `Posts from ${space.name}.`,
-    canonicalPath: `/public/spaces/${space.id}`,
+    canonicalPath:
+      space.owner_handle && space.slug
+        ? `/${space.owner_handle}/${space.slug}`
+        : `/public/spaces/${space.id}`,
     image: `/api/public/spaces/${space.id}/og.png`,
     ogType: 'website',
     feedHref: feedUrl,
@@ -84,8 +87,8 @@ export function PublicSpaceIndex({ space, pages }: PublicSpaceIndexProps) {
                 <span>
                   by{' '}
                   <Link
-                    to="/u/$username"
-                    params={{ username: space.owner_handle }}
+                    to="/$handle"
+                    params={{ handle: space.owner_handle }}
                     className="font-medium text-[var(--text-primary)] no-underline hover:text-[var(--accent)]"
                   >
                     @{space.owner_handle}
@@ -146,6 +149,10 @@ export function PublicSpaceIndex({ space, pages }: PublicSpaceIndexProps) {
           {showFeatured ? (
             <PostCard
               spaceId={space.id}
+
+              handle={space.owner_handle}
+
+              spaceSlug={space.slug}
               post={featured}
               featured
               headingLevel={2}
@@ -161,6 +168,10 @@ export function PublicSpaceIndex({ space, pages }: PublicSpaceIndexProps) {
               return (
                 <PostCard
                   spaceId={space.id}
+
+                  handle={space.owner_handle}
+
+                  spaceSlug={space.slug}
                   post={grid[0]}
                   headingLevel={2}
                   sectionLabel={sectionLabel(pages, grid[0].id)}
@@ -172,6 +183,10 @@ export function PublicSpaceIndex({ space, pages }: PublicSpaceIndexProps) {
                   <PostCard
                     key={p.id}
                     spaceId={space.id}
+
+                    handle={space.owner_handle}
+
+                    spaceSlug={space.slug}
                     post={p}
                     headingLevel={2}
                     sectionLabel={sectionLabel(pages, p.id)}

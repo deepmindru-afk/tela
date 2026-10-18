@@ -46,7 +46,7 @@ export function CredentialsDialog({
         name: name.trim(),
         kind,
         value: value.trim(),
-        meta: kind === 'jira' && user.trim() ? { username: user.trim() } : undefined,
+        meta: user.trim() ? (kind === 'jira' ? { email: user.trim() } : { username: user.trim() }) : undefined,
       })
       setAdding(false)
       setName('')
@@ -108,18 +108,26 @@ export function CredentialsDialog({
               <div className="grid grid-cols-2 gap-[var(--space-3)]">
                 <Field label="Name"><Input value={name} onChange={(e) => setName(e.target.value)} placeholder="github-readonly" /></Field>
                 <Field label="Type">
-                  <Select value={kind} onChange={(e) => setKind(e.target.value as AtlasSourceType)}>
+                  <Select value={kind} onChange={(e) => { setKind(e.target.value as AtlasSourceType); setUser('') }}>
                     <option value="git">Git token</option>
                     <option value="jira">Jira token</option>
                   </Select>
                 </Field>
               </div>
-              {kind === 'jira' && <Field label="Jira username / email"><Input value={user} onChange={(e) => setUser(e.target.value)} placeholder="you@org.com" /></Field>}
+              {kind === 'jira' ? (
+                <Field label="Jira account email" hint="Jira authenticates as email + token; the token alone will not work.">
+                  <Input value={user} onChange={(e) => setUser(e.target.value)} placeholder="you@org.com" />
+                </Field>
+              ) : (
+                <Field label="Git username" hint="Optional — GitHub and GitLab are handled automatically. Set it for other hosts (Bitbucket: x-token-auth).">
+                  <Input value={user} onChange={(e) => setUser(e.target.value)} placeholder="x-access-token" />
+                </Field>
+              )}
               <Field label="Token" hint="Stored encrypted; never displayed again."><Input type="password" value={value} onChange={(e) => setValue(e.target.value)} placeholder="ghp_…" /></Field>
               {err && <p className="text-[length:var(--text-sm)] text-[var(--accent-negative-fg)]">{err}</p>}
               <div className="flex justify-end gap-[var(--space-2)]">
                 <Button variant="ghost" size="sm" onClick={() => setAdding(false)}>Cancel</Button>
-                <Button variant="primary" size="sm" disabled={!name.trim() || !value.trim() || create.isPending} onClick={add}>
+                <Button variant="primary" size="sm" disabled={!name.trim() || !value.trim() || (kind === 'jira' && !user.trim()) || create.isPending} onClick={add}>
                   {create.isPending && <Loader2 className="size-[var(--space-4)] motion-safe:animate-spin" />}Save credential
                 </Button>
               </div>

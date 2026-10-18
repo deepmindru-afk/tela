@@ -62,10 +62,19 @@ export function NewProjectDialog({
         owner_kind: owner.kind,
         owner_id: owner.id,
         output: out,
-        // Sensible default: keep docs current automatically. Drift is detected
-        // every ~15 min (free); regeneration runs hourly and only for sources
-        // that actually moved. Adjustable in project settings.
-        cadence: 'hourly',
+        // Default to automatic WEEKLY refresh. The scheduler regenerates only
+        // sources that actually moved; on Free it's a no-op the server skips
+        // (drift is still detected, so the stale badge prompts a manual run) and
+        // it activates automatically on upgrade. Editable in settings.
+        //
+        // This was 'hourly' until 2026-08-10, which re-indexed the whole repo
+        // every hour for anyone who never opened settings — and since the plan
+        // meters GPU minutes, hourly spent a month's budget in about a day and
+        // then paused updates until the 1st. Weekly costs a fraction of that and
+        // keeps refreshing all month, so it is the better default in the user's
+        // interest as well as the box's. Keep it in step with the DB default
+        // (migration 0074) if either changes.
+        cadence: 'weekly',
         auto_update: true,
       })
       onOpenChange(false)
@@ -81,7 +90,7 @@ export function NewProjectDialog({
         <DialogHeader>
           <DialogTitle>New Atlas project</DialogTitle>
           <DialogDescription>
-            A project bundles sources into one output space. You'll add the repos / Jira projects next, then run it. It checks for changes every ~15 min and auto-regenerates hourly by default — change that in settings.
+            A project bundles sources into one output space. You'll add the repos / Jira projects next, then run it. Paid plans keep it refreshed automatically on a schedule; you can always run it manually. Adjust in settings.
           </DialogDescription>
         </DialogHeader>
 

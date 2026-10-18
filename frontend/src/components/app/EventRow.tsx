@@ -2,6 +2,8 @@ import type { ComponentType } from 'react'
 import {
   AlertTriangle,
   Bug,
+  Clock,
+  CreditCard,
   Eye,
   FilePlus,
   LogIn,
@@ -50,6 +52,28 @@ function describe(type: string): Descriptor {
       return { Icon: Terminal, group: 'api', tone: 'muted', verb: 'API request' }
     case 'client.error':
       return { Icon: Bug, group: 'error', tone: 'danger', verb: 'hit a client error' }
+    // billing.* — the money path, in order: saw the prices, pressed the button,
+    // Polar's verdict on that session, subscription state, money, trial dates.
+    case 'billing.plans_viewed':
+      return { Icon: Eye, group: 'billing', tone: 'muted', verb: 'viewed plans' }
+    case 'billing.checkout':
+      return { Icon: CreditCard, group: 'billing', tone: 'accent', verb: 'started checkout' }
+    case 'billing.checkout_status':
+      return { Icon: CreditCard, group: 'billing', tone: 'muted', verb: 'checkout ended' }
+    case 'billing.subscription_update':
+      return { Icon: CreditCard, group: 'billing', tone: 'accent', verb: 'subscription updated' }
+    case 'billing.subscription_canceled':
+      return { Icon: CreditCard, group: 'billing', tone: 'danger', verb: 'scheduled a cancellation' }
+    case 'billing.subscription_revoked':
+      return { Icon: CreditCard, group: 'billing', tone: 'danger', verb: 'lost their subscription' }
+    case 'billing.payment':
+      return { Icon: CreditCard, group: 'billing', tone: 'accent', verb: 'paid' }
+    case 'billing.trial_started':
+      return { Icon: Clock, group: 'billing', tone: 'muted', verb: 'started a trial' }
+    case 'billing.trial_ending':
+      return { Icon: Clock, group: 'billing', tone: 'muted', verb: "trial is ending" }
+    case 'billing.trial_expired':
+      return { Icon: Clock, group: 'billing', tone: 'danger', verb: 'trial expired' }
     default:
       if (type.startsWith('access.')) {
         // 'access.org_member.add' → 'org member add'
@@ -68,9 +92,56 @@ const BADGE_VARIANT: Record<Tone, 'muted' | 'accent'> = {
   accent: 'accent',
 }
 
-export function EventRow({ event }: { event: EventEntry }) {
+// A run of consecutive identical events collapsed into one feed row. `head` is
+// the newest occurrence (the feed is newest-first); `count` and `oldestAt` cover
+// the whole run.
+export interface EventGroup {
+  head: EventEntry
+  count: number
+  oldestAt: string
+}
+
+// collapseKey identifies "the same repeated action": same type, same actor, same
+// target, same detail. client.error rows are never collapsed — each carries its
+// own message/stack, and they have a dedicated grouped view (the Errors tab).
+function collapseKey(e: EventEntry): string | null {
+  if (e.type === 'client.error') return null
+  const actor = e.actor_user_id != null ? `u${e.actor_user_id}` : `l:${e.actor_label}`
+  return [e.type, actor, e.target_kind, e.target_id ?? '', e.detail].join('|')
+}
+
+// collapseEvents folds consecutive identical events into groups so a burst of
+// autosave edits (or repeated views) reads as one "×N" row instead of a wall of
+// duplicates. Order-preserving; only *adjacent* matches merge, so the timeline is
+// never reordered. Recomputes over the full loaded list, so a run that straddles
+// an infinite-scroll page boundary still merges as more loads in.
+export function collapseEvents(events: EventEntry[]): EventGroup[] {
+  const out: (EventGroup & { key: string | null })[] = []
+  for (const e of events) {
+    const key = collapseKey(e)
+    const prev = out[out.length - 1]
+    if (key != null && prev && prev.key === key) {
+      prev.count++
+      prev.oldestAt = e.created_at // newest-first, so each later row is older
+    } else {
+      out.push({ head: e, count: 1, oldestAt: e.created_at, key })
+    }
+  }
+  return out
+}
+
+export function EventRow({
+  event,
+  count = 1,
+  oldestAt,
+}: {
+  event: EventEntry
+  count?: number
+  oldestAt?: string
+}) {
   const d = describe(event.type)
   const actor = event.actor_label || 'anonymous'
+  const collapsed = count > 1
   // page.* events carry a title in target_label; render it set off from the verb.
   const showTarget = event.target_label !== ''
   return (
@@ -101,6 +172,14 @@ export function EventRow({ event }: { event: EventEntry }) {
               </>
             ) : null}
           </span>
+          {collapsed ? (
+            <span
+              className="shrink-0 rounded-[var(--radius-xs)] bg-[var(--surface-3)] px-[var(--space-1)] text-[length:var(--text-xs)] font-medium tabular-nums text-[var(--text-muted)]"
+              title={`${count} times`}
+            >
+              ×{count}
+            </span>
+          ) : null}
           {event.detail && d.group !== 'access' && d.group !== 'error' ? (
             <span className="truncate max-w-full text-[length:var(--text-xs)] text-[var(--text-muted)]">
               {event.detail}
@@ -116,7 +195,11 @@ export function EventRow({ event }: { event: EventEntry }) {
         ) : null}
         <span className="text-[length:var(--text-xs)] text-[var(--text-muted)] font-[family-name:var(--font-sans)]">
           {relativeTimeFromSqlite(event.created_at)}
-          {event.ip ? ` · ${event.ip}` : ''}
+          {collapsed && oldestAt
+            ? ` · earliest ${relativeTimeFromSqlite(oldestAt)}`
+            : event.ip
+              ? ` · ${event.ip}`
+              : ''}
         </span>
       </div>
       <Badge variant={BADGE_VARIANT[d.tone]}>{d.group}</Badge>

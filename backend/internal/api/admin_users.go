@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/zcag/tela/backend/internal/auth"
 )
@@ -35,10 +36,32 @@ type adminUserDTO struct {
 	LastActiveAt *string         `json:"last_active_at,omitempty"`
 	Usage        *adminUserUsage `json:"usage,omitempty"`
 	Orgs         int             `json:"orgs,omitempty"`             // org memberships
-	LLMCalls     int64           `json:"llm_calls,omitempty"`        // AI calls this calendar month
 	HasAPIKey    bool            `json:"has_api_key,omitempty"`      // ≥1 non-revoked PAT
 	UsedMCP      bool            `json:"used_mcp,omitempty"`         // connected MCP (PAT-via-/api/mcp OR any MCP request, incl. OAuth)
 	McpLastSeen  *string         `json:"mcp_last_seen_at,omitempty"` // last authenticated MCP request, any credential
+	// Activity inside the requested ?window= (admin_user_metrics.go). Always set
+	// on list rows, including for accounts that did nothing (all-zero).
+	Metrics *adminUserMetrics `json:"metrics,omitempty"`
+	// Lifecycle label (admin_user_segments.go): power|regular|dabbler|churned|never.
+	// Always computed from the last 30 days, never from the selected window.
+	Segment string `json:"segment,omitempty"`
+	// First-touch signup attribution (signup_attribution.go). Absent for every
+	// account created before it shipped, and for any signup that arrived without
+	// the landing cookie — the UI shows nothing rather than guessing "unknown".
+	Signup *adminUserSignup `json:"signup,omitempty"`
+}
+
+// adminUserSignup is where one account came from. Source is the collapsed
+// one-word answer (utm_source → referrer host → "direct"); the rest are the raw
+// fields behind it, so an admin can see the actual campaign and landing page.
+type adminUserSignup struct {
+	Source      string `json:"source"`
+	Medium      string `json:"medium,omitempty"`
+	Campaign    string `json:"campaign,omitempty"`
+	Term        string `json:"term,omitempty"`
+	Content     string `json:"content,omitempty"`
+	Referrer    string `json:"referrer,omitempty"`
+	LandingPath string `json:"landing_path,omitempty"`
 }
 
 // adminUserUsage is the per-user resource snapshot the admin list shows: current
@@ -65,16 +88,24 @@ type adminUserPatchRequest struct {
 	Password        *string `json:"password"`
 }
 
-// ListAdminUsers returns every user row, including inactive ones, sorted by
-// username ASC. Instance-admin only.
+// ListAdminUsers returns every user row, including inactive ones, newest account
+// first (most recent signup on top), each enriched with its activity inside
+// ?window=1m|3m|all. Instance-admin only.
+//
+// The whole population ships in one payload and the table sorts client-side:
+// this list is admin-only and bounded, so paging + server-side sort keys would
+// buy nothing but two more things to keep in sync.
 func (s *Server) ListAdminUsers(w http.ResponseWriter, r *http.Request) {
 	if _, ok := requireInstanceAdmin(w, r); !ok {
 		return
 	}
+	now := time.Now().UTC()
+	win := parseAdminUserWindow(r.URL.Query().Get("window"), now)
 	rows, err := s.DB.QueryContext(r.Context(), `
-		SELECT id, username, display_name, email, email_verified_at, is_instance_admin, is_active, plan_key, created_at, updated_at, mcp_last_seen_at
+		SELECT id, username, display_name, email, email_verified_at, is_instance_admin, is_active, plan_key, created_at, updated_at, mcp_last_seen_at,
+		       signup_referrer, signup_utm_source, signup_utm_medium, signup_utm_campaign, signup_utm_term, signup_utm_content, signup_landing_path
 		  FROM users
-		 ORDER BY username ASC`)
+		 ORDER BY created_at DESC, id DESC`)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "internal", "list users failed")
 		return
@@ -116,10 +147,9 @@ func (s *Server) ListAdminUsers(w http.ResponseWriter, r *http.Request) {
 
 	// Org-membership counts.
 	orgCount := scanInt64Map(ctx, s.DB, `SELECT user_id, COUNT(*) FROM org_members GROUP BY user_id`)
-	// AI calls this calendar month, per personal account.
-	llm := scanInt64Map(ctx, s.DB,
-		`SELECT account_id, llm_calls FROM cloud_usage
-		  WHERE account_kind='user' AND period = to_char((now() AT TIME ZONE 'UTC'),'YYYY-MM')`)
+	// Windowed activity: edits, pages created, views, asks, sign-ins, days active,
+	// AI calls — one batched aggregate each.
+	metrics := loadAdminUserMetrics(ctx, s.DB, win)
 	// MCP signal per user: has a live PAT, and/or has actually hit /api/mcp with one.
 	hasKey, usedMCP := map[int64]bool{}, map[int64]bool{}
 	if kr, err := s.DB.QueryContext(ctx, `
@@ -144,7 +174,12 @@ func (s *Server) ListAdminUsers(w http.ResponseWriter, r *http.Request) {
 			users[i].LastActiveAt = &ls
 		}
 		users[i].Orgs = int(orgCount[id])
-		users[i].LLMCalls = llm[id]
+		if m, ok := metrics[id]; ok {
+			users[i].Metrics = m
+		} else {
+			users[i].Metrics = &adminUserMetrics{Weeks: make([]int64, adminUserWeeks)}
+		}
+		users[i].Segment = classifySegment(users[i].Metrics, users[i].LastActiveAt, now)
 		users[i].HasAPIKey = hasKey[id]
 		users[i].UsedMCP = users[i].UsedMCP || usedMCP[id] // scan set it from mcp_last_seen_at (covers OAuth)
 		u, err := s.buildUsage(ctx, account{Kind: accountUser, ID: id})
@@ -158,7 +193,17 @@ func (s *Server) ListAdminUsers(w http.ResponseWriter, r *http.Request) {
 			MaxStorageBytes: u.Plan.MaxStorageBytes,
 		}
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"users": users})
+	weeks, _ := weekAxis(now)
+	writeJSON(w, http.StatusOK, map[string]any{
+		"users":  users,
+		"window": win.Key,
+		// Week-start dates (Monday, oldest→newest) that every row's `weeks`
+		// series is aligned to — the x-axis for the sparklines and the cohort grid.
+		"weeks": weeks,
+		// The retention horizon behind the events-derived columns (views,
+		// sign-ins, days active) — they cannot see further back than this.
+		"events_since": eventsHorizon(ctx, s.DB),
+	})
 }
 
 // CreateAdminUser inserts a new user. 409 on duplicate username, 400 on
@@ -184,18 +229,10 @@ func (s *Server) CreateAdminUser(w http.ResponseWriter, r *http.Request) {
 	}
 	// Email is optional for admin-created users. When present it must be valid;
 	// admin-created accounts are treated as pre-confirmed (no verify email).
-	var email, verifiedAt any
-	if raw := normalizeEmail(req.Email); raw != "" {
-		if !validEmail(raw) {
-			writeError(w, http.StatusBadRequest, "bad_request", "email must be a valid address")
-			return
-		}
-		email = raw
-		verifiedAt = nowStamp()
-	}
-	isAdmin := 0
-	if req.IsInstanceAdmin != nil && *req.IsInstanceAdmin {
-		isAdmin = 1
+	email := normalizeEmail(req.Email)
+	if email != "" && !validEmail(email) {
+		writeError(w, http.StatusBadRequest, "bad_request", "email must be a valid address")
+		return
 	}
 
 	hash, err := auth.HashPassword(req.Password)
@@ -205,10 +242,16 @@ func (s *Server) CreateAdminUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	ctx := r.Context()
-	var id int64
-	err = s.DB.QueryRowContext(ctx, `
-		INSERT INTO users (username, email, email_verified_at, password_hash, is_instance_admin, is_active)
-		VALUES ($1, $2, $3, $4, $5, 1) RETURNING id`, username, email, verifiedAt, hash, isAdmin).Scan(&id)
+	// No trial: this account was provisioned by an operator, not created by the
+	// person using it — and on a self-hosted instance a trial banner on every
+	// admin-made account would be pure noise. See users_create.go.
+	id, err := insertUser(ctx, s.DB, newUser{
+		Username:     username,
+		Email:        email,
+		Verified:     email != "",
+		PasswordHash: hash,
+		IsAdmin:      req.IsInstanceAdmin != nil && *req.IsInstanceAdmin,
+	})
 	if err != nil {
 		if isUniqueConstraintErr(err) {
 			writeError(w, http.StatusConflict, "conflict", "username or email already exists")
@@ -448,12 +491,14 @@ type adminUserScanner interface {
 
 func scanAdminUserRow(s adminUserScanner) (adminUserDTO, error) {
 	var (
-		dto             adminUserDTO
-		email, verified sql.NullString
-		mcpSeen         sql.NullString
-		isAdmin, active int
+		dto                                   adminUserDTO
+		email, verified                       sql.NullString
+		mcpSeen                               sql.NullString
+		isAdmin, active                       int
+		ref, src, med, camp, term, cont, land sql.NullString
 	)
-	if err := s.Scan(&dto.ID, &dto.Username, &dto.DisplayName, &email, &verified, &isAdmin, &active, &dto.PlanKey, &dto.CreatedAt, &dto.UpdatedAt, &mcpSeen); err != nil {
+	if err := s.Scan(&dto.ID, &dto.Username, &dto.DisplayName, &email, &verified, &isAdmin, &active, &dto.PlanKey, &dto.CreatedAt, &dto.UpdatedAt, &mcpSeen,
+		&ref, &src, &med, &camp, &term, &cont, &land); err != nil {
 		return adminUserDTO{}, err
 	}
 	dto.Email = nullableString(email)
@@ -463,6 +508,19 @@ func scanAdminUserRow(s adminUserScanner) (adminUserDTO, error) {
 	dto.McpLastSeen = nullableString(mcpSeen)
 	if mcpSeen.Valid {
 		dto.UsedMCP = true // any MCP request (PAT or OAuth) counts as connected
+	}
+	// Attribution, collapsed to the label the admin screens lead with. Left nil
+	// when the row carries none, so the UI can show nothing at all.
+	attr := signupAttribution{
+		Referrer: ref.String, Source: src.String, Medium: med.String, Campaign: camp.String,
+		Term: term.String, Content: cont.String, LandingPath: land.String,
+	}
+	if label := attributionSource(attr); label != "" {
+		dto.Signup = &adminUserSignup{
+			Source: label, Medium: attr.Medium, Campaign: attr.Campaign,
+			Term: attr.Term, Content: attr.Content,
+			Referrer: attr.Referrer, LandingPath: attr.LandingPath,
+		}
 	}
 	return dto, nil
 }
@@ -488,14 +546,16 @@ func scanInt64Map(ctx context.Context, d *sql.DB, query string, args ...any) map
 
 func selectAdminUserByID(ctx context.Context, d *sql.DB, id int64) (adminUserDTO, error) {
 	row := d.QueryRowContext(ctx, `
-		SELECT id, username, display_name, email, email_verified_at, is_instance_admin, is_active, plan_key, created_at, updated_at, mcp_last_seen_at
+		SELECT id, username, display_name, email, email_verified_at, is_instance_admin, is_active, plan_key, created_at, updated_at, mcp_last_seen_at,
+		       signup_referrer, signup_utm_source, signup_utm_medium, signup_utm_campaign, signup_utm_term, signup_utm_content, signup_landing_path
 		  FROM users WHERE id = $1`, id)
 	return scanAdminUserRow(row)
 }
 
 func selectAdminUserByIDTx(ctx context.Context, tx *sql.Tx, id int64) (adminUserDTO, error) {
 	row := tx.QueryRowContext(ctx, `
-		SELECT id, username, display_name, email, email_verified_at, is_instance_admin, is_active, plan_key, created_at, updated_at, mcp_last_seen_at
+		SELECT id, username, display_name, email, email_verified_at, is_instance_admin, is_active, plan_key, created_at, updated_at, mcp_last_seen_at,
+		       signup_referrer, signup_utm_source, signup_utm_medium, signup_utm_campaign, signup_utm_term, signup_utm_content, signup_landing_path
 		  FROM users WHERE id = $1`, id)
 	return scanAdminUserRow(row)
 }

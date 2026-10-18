@@ -34,6 +34,12 @@ type Space struct {
 	// Populated only on the single-space fetch (GET /api/spaces/{id} and the
 	// MCP get_space tool); omitted elsewhere.
 	MyRole string `json:"my_role,omitempty"`
+	// PublicPath is the space's canonical public path (/{handle}/{space-slug})
+	// when it is published, '' otherwise. Server-derived so clients never
+	// re-implement the owning-handle rule (org slug vs personal username) — that
+	// duplication is what let org spaces be advertised under their creator's
+	// personal handle. Populated only on the single-space fetch, like MyRole.
+	PublicPath string `json:"public_path,omitempty"`
 }
 
 type Page struct {
@@ -46,6 +52,12 @@ type Page struct {
 	Props     map[string]any `json:"props,omitempty"`
 	CreatedAt string         `json:"created_at"`
 	UpdatedAt string         `json:"updated_at"`
+	// Version advances on every title/body/props change (a DB trigger). Send it
+	// back as base_version on a write to refuse overwriting a newer edit.
+	Version int64 `json:"version"`
+	// Status is 'published' or 'draft'. A draft never appears on a public
+	// surface (public spaces, share links) until it's published.
+	Status string `json:"status"`
 	// Filename is the stable on-disk name a sync client (WebDAV/rclone) gave this
 	// page, stamped server-side on sync-create. nil → the /dav/ name falls back to
 	// slugify(title). Governs only the sync surface's filename, never the URL slug.

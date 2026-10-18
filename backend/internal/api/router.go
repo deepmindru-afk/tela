@@ -32,7 +32,7 @@ func HandlerWithServer(d *sql.DB) (http.Handler, *Server) {
 	srv := New(d)
 	mux := http.NewServeMux()
 	registerRoutes(srv, mux)
-	return requestLogger(mux, srv.hostOrgMiddleware(auth.Middleware(d, srv.auditWriter)(mux))), srv
+	return requestLogger(mux, srv.hostOrgMiddleware(auth.Middleware(d, srv.auditWriter, srv.allowAPIKey)(mux))), srv
 }
 
 func registerRoutes(srv *Server, mux *http.ServeMux) {
@@ -83,6 +83,12 @@ func registerRoutes(srv *Server, mux *http.ServeMux) {
 	// Served at BOTH the root well-known and the path-scoped variant — Claude
 	// probes `/.well-known/oauth-protected-resource/<mcp-path>` then falls back
 	// to the root. Must be routed through Caddy in prod (new top-level path).
+	// Machine-readable REST description (OpenAPI 3.1), go:embed'd next to the
+	// routes it documents. On auth.IsPublicPath via the /api/public/ prefix —
+	// a static document, no DB, no caller data. Caddy exposes it at the
+	// conventional /openapi.json (see deploy/proxy/sites.caddy). api/openapi.go.
+	mux.HandleFunc("GET /api/public/openapi.json", srv.ServeOpenAPI)
+
 	mux.HandleFunc("GET /.well-known/oauth-protected-resource", srv.ServePRM)
 	mux.HandleFunc("GET /.well-known/oauth-protected-resource/api/mcp", srv.ServePRM)
 
@@ -134,6 +140,8 @@ func registerRoutes(srv *Server, mux *http.ServeMux) {
 	mux.HandleFunc("PATCH /api/spaces/{id}", srv.UpdateSpace)
 	mux.HandleFunc("DELETE /api/spaces/{id}", srv.DeleteSpace)
 	mux.HandleFunc("POST /api/spaces/{id}/transfer", srv.TransferSpace)
+	mux.HandleFunc("GET /api/spaces/{id}/trash", srv.ListSpaceTrash)
+	mux.HandleFunc("DELETE /api/spaces/{id}/trash", srv.EmptySpaceTrash)
 	mux.HandleFunc("GET /api/spaces/{id}/index-version", srv.GetSpaceIndexVersion)
 	mux.HandleFunc("POST /api/spaces/{id}/import", srv.ImportSpace)
 	mux.HandleFunc("GET /api/spaces/{id}/export.zip", srv.ExportSpaceMarkdownZip)
@@ -146,6 +154,7 @@ func registerRoutes(srv *Server, mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/atlas/credentials", srv.CreateAtlasCredential)
 	mux.HandleFunc("DELETE /api/atlas/credentials/{id}", srv.DeleteAtlasCredential)
 
+	mux.HandleFunc("GET /api/atlas/budget", srv.GetAtlasBudget)
 	mux.HandleFunc("GET /api/atlas/projects", srv.ListAtlasProjects)
 	mux.HandleFunc("POST /api/atlas/projects", srv.CreateAtlasProject)
 	mux.HandleFunc("GET /api/atlas/projects/{id}", srv.GetAtlasProject)
@@ -171,6 +180,8 @@ func registerRoutes(srv *Server, mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/pages/{id}/view", srv.RecordPageView)
 	mux.HandleFunc("PATCH /api/pages/{id}", srv.UpdatePage)
 	mux.HandleFunc("DELETE /api/pages/{id}", srv.DeletePage)
+	mux.HandleFunc("POST /api/pages/{id}/restore", srv.RestorePage)
+	mux.HandleFunc("POST /api/pages/{id}/purge", srv.PurgePage)
 	mux.HandleFunc("POST /api/pages/{id}/move", srv.MovePage)
 	mux.HandleFunc("GET /api/pages/{id}/backlinks", srv.Backlinks)
 	mux.HandleFunc("GET /api/pages/{id}/provenance", srv.PageProvenance)
@@ -196,8 +207,12 @@ func registerRoutes(srv *Server, mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/pages/{id}/deck/cover", srv.ServePageDeckCover)
 	mux.HandleFunc("GET /api/pages/{id}/deck/outline", srv.GetPageDeckOutline)
 	mux.HandleFunc("POST /api/pages/{id}/deck/parse", srv.PostPageDeckParse)
+	mux.HandleFunc("POST /api/pages/{id}/deck/lint", srv.PostPageDeckLint)
+	// Prose-page counterpart to deck/lint: renders-vs-source divergences, advisory.
+	mux.HandleFunc("POST /api/pages/{id}/lint", srv.PostPageLint)
 	mux.HandleFunc("GET /api/pages/{id}/deck.pdf", srv.ExportPageDeckPDF)
 	mux.HandleFunc("GET /api/pages/{id}/deck.pptx", srv.ExportPageDeckPPTX)
+	mux.HandleFunc("GET /api/pages/{id}/deck.md", srv.ExportPageDeckMarkdown)
 	mux.HandleFunc("GET /api/deck/d/{renderId}/{file}", srv.ServeDeckAsset)
 	mux.HandleFunc("GET /api/deck/themes", srv.ServeDeckThemes)
 
@@ -205,6 +220,15 @@ func registerRoutes(srv *Server, mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/pages/{id}/comments", srv.CreateComment)
 	mux.HandleFunc("PATCH /api/comments/{id}", srv.PatchComment)
 	mux.HandleFunc("DELETE /api/comments/{id}", srv.DeleteComment)
+
+	mux.HandleFunc("POST /api/pages/{id}/polls/{pollId}/vote", srv.VotePoll)
+	mux.HandleFunc("POST /api/users/resolve", srv.ResolveUsers)
+
+	mux.HandleFunc("GET /api/me/digest/preview", srv.DigestPreview)
+	mux.HandleFunc("GET /api/me/digest", srv.GetDigestPref)
+	mux.HandleFunc("PATCH /api/me/digest", srv.SetDigestPref)
+	mux.HandleFunc("GET /api/admin/digest/preview", srv.AdminDigestPreview)
+	mux.HandleFunc("GET /api/digest/unsubscribe", srv.DigestUnsubscribe)
 
 	mux.HandleFunc("GET /api/pages/{id}/revisions", srv.ListPageRevisions)
 	mux.HandleFunc("GET /api/pages/{id}/revisions/{rev_id}", srv.GetPageRevision)
@@ -218,6 +242,10 @@ func registerRoutes(srv *Server, mux *http.ServeMux) {
 	// rclone-synced into its folder). Session-authed read; the bytes are served
 	// by the public /api/files/ route below.
 	mux.HandleFunc("GET /api/pages/{id}/attachments", srv.ListPageAttachments)
+	// Space-scope listing — the same files plus the ones parented to the space
+	// ROOT, which no per-page listing can reach (a sync/import drops them beside
+	// the tree). ?parent_page_id=<id>|root narrows it.
+	mux.HandleFunc("GET /api/spaces/{id}/files", srv.ListSpaceFiles)
 	mux.HandleFunc("POST /api/pages/{id}/attachments", srv.UploadPageAttachment)
 	mux.HandleFunc("DELETE /api/pages/{id}/attachments/{file_id}", srv.DeletePageAttachment)
 
@@ -261,6 +289,9 @@ func registerRoutes(srv *Server, mux *http.ServeMux) {
 	// /api/ routes). See public_spaces.go + docs/public-spaces.md.
 	// Cross-tenant public-space directory (the publishing "network"); self-
 	// authenticates by listing only visibility='public' spaces. See public_discover.go.
+	// File metadata for the shareable file page (/f/{hash}) — name, type, size
+	// and the blob URL. See file_page.go.
+	mux.HandleFunc("GET /api/public/files/{hash}", srv.GetPublicFile)
 	mux.HandleFunc("GET /api/public/discover", srv.GetPublicDiscover)
 	mux.HandleFunc("GET /api/public/spaces/{id}", srv.GetPublicSpace)
 	mux.HandleFunc("GET /api/public/spaces/{id}/tree", srv.GetPublicSpaceTree)
@@ -275,6 +306,17 @@ func registerRoutes(srv *Server, mux *http.ServeMux) {
 	mux.HandleFunc("GET /public/spaces/{id}/pages/{page_id}", srv.HandlePublicReaderOG)
 	mux.HandleFunc("GET /public/spaces/{id}/pages/{page_id}/{slug}", srv.HandlePublicReaderOG)
 	mux.HandleFunc("GET /u/{username}", srv.HandlePublicUserOG)
+	// Unified handle URLs (/{handle}, /{handle}/{space-slug}) — the form the docs
+	// tell people to share, so they must unfurl too. Registered under an explicit
+	// /api/public/og/ prefix rather than as root wildcards: `GET /{handle}/{slug}`
+	// overlaps the /dav/ subtree without either being a subset, which ServeMux
+	// rejects at registration (it panics). Caddy bot-gates the pretty URL and
+	// REWRITES to these, the same shape @page_bots already uses for /p/{id}.
+	mux.HandleFunc("GET /api/public/og/handles/{handle}", srv.HandleHandleHomeOG)
+	mux.HandleFunc("GET /api/public/og/handles/{handle}/{spaceSlug}", srv.HandleHandleSpaceOG)
+	mux.HandleFunc("GET /api/public/og/handles/{handle}/{spaceSlug}/{pageId}", srv.HandleHandlePageOG)
+	mux.HandleFunc("GET /api/public/og/handles/{handle}/{spaceSlug}/{pageId}/{slug}", srv.HandleHandlePageOG)
+	mux.HandleFunc("GET /api/public/handles/{handle}/og.png", srv.HandleHandleOGImage)
 	// Feature routes with a public purpose but no page/space (e.g. /ask): Caddy
 	// bot-gates the HTML to the backend (humans get the SPA); the og.png is served
 	// to all UAs. On auth.IsPublicPath. See api/og_feature.go.
@@ -306,6 +348,14 @@ func registerRoutes(srv *Server, mux *http.ServeMux) {
 	// public_handles.go.
 	mux.HandleFunc("GET /api/public/by-handle/{handle}", srv.GetPublicByHandle)
 	mux.HandleFunc("GET /api/public/by-handle/{handle}/spaces/{slug}", srv.GetPublicByHandleSpace)
+	// Body-less existence probe for those same three URL shapes, called by the
+	// frontend nginx (auth_request) on every handle-shaped request so a path with
+	// nothing behind it answers a REAL 404 instead of a 200 app shell. 204 = yes,
+	// 404 = definitely not, 500 = couldn't tell (the edge fails open). See
+	// public_exists.go + the auth_request block in frontend/nginx.conf.
+	mux.HandleFunc("GET /api/public/exists/{handle}", srv.PublicHandleExists)
+	mux.HandleFunc("GET /api/public/exists/{handle}/{slug}", srv.PublicHandleExists)
+	mux.HandleFunc("GET /api/public/exists/{handle}/{slug}/{pageId}", srv.PublicHandleExists)
 
 	// M17.A.1 Feedback submit-only channel. Session OR bearer (any scope —
 	// the bearer carve-out lives in auth.scopeAllowsRequest so the MCP
@@ -357,6 +407,10 @@ func registerRoutes(srv *Server, mux *http.ServeMux) {
 	// (admin_client_errors.go), plus per-issue recent occurrences.
 	mux.HandleFunc("GET /api/admin/client-errors", srv.ListClientErrorGroups)
 	mux.HandleFunc("GET /api/admin/client-errors/{fingerprint}", srv.ListClientErrorOccurrences)
+	// Prometheus http_sd feed of active custom domains so the monitoring stack
+	// probes every custom domain dynamically (uptime + cert) with no per-domain
+	// config (admin_blackbox_targets.go).
+	mux.HandleFunc("GET /api/admin/blackbox-targets", srv.BlackboxTargets)
 	mux.HandleFunc("GET /api/admin/usage", srv.AdminUsage)
 	// Instance-analytics dashboard (admin_stats.go): activity time-series, growth,
 	// leaderboards, AI + error pulse, knowledge health — aggregated from events.
@@ -367,10 +421,19 @@ func registerRoutes(srv *Server, mux *http.ServeMux) {
 	// AI endpoints & reliability (ai_endpoints.go): per-service health, latency,
 	// and the relief-proxy topology — the in-app failover breakdown.
 	mux.HandleFunc("GET /api/admin/ai-endpoints", srv.AdminAIEndpoints)
+	// Per-space / per-org activity for the People table's group-by (same windows
+	// as GET /api/admin/users, keyed by content or by team instead of by person).
+	mux.HandleFunc("GET /api/admin/activity/groups", srv.AdminActivityGroups)
 	mux.HandleFunc("GET /api/admin/feedback", srv.ListFeedback)
 	mux.HandleFunc("POST /api/admin/feedback/seen", srv.MarkFeedbackSeen)
+	// Registered after /seen: a literal segment and a wildcard can coexist here
+	// because they're distinct methods, but keep the order so the intent is
+	// obvious if /seen ever gains a PATCH.
+	mux.HandleFunc("PATCH /api/admin/feedback/{id}", srv.UpdateFeedbackStatus)
 	mux.HandleFunc("GET /api/admin/settings", srv.GetInstanceSettings)
 	mux.HandleFunc("PATCH /api/admin/settings", srv.PatchInstanceSettings)
+	mux.HandleFunc("GET /api/admin/updates", srv.GetUpdateStatus)
+	mux.HandleFunc("POST /api/admin/updates/check", srv.CheckForUpdate)
 	mux.HandleFunc("GET /api/admin/license", srv.GetLicense)
 	mux.HandleFunc("PUT /api/admin/license", srv.PutLicense)
 	mux.HandleFunc("DELETE /api/admin/license", srv.DeleteLicense)
@@ -399,6 +462,12 @@ func registerRoutes(srv *Server, mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/users/me/pinned-spaces", srv.ListPinnedSpaces)
 	mux.HandleFunc("PUT /api/spaces/{id}/pin", srv.AddPinnedSpace)
 	mux.HandleFunc("DELETE /api/spaces/{id}/pin", srv.DeletePinnedSpace)
+
+	// Per-user hidden spaces (sidebar declutter — NOT access control; /spaces,
+	// search and the palette still list them). Same shape as the pins above.
+	mux.HandleFunc("GET /api/users/me/hidden-spaces", srv.ListHiddenSpaces)
+	mux.HandleFunc("PUT /api/spaces/{id}/hide", srv.AddHiddenSpace)
+	mux.HandleFunc("DELETE /api/spaces/{id}/hide", srv.DeleteHiddenSpace)
 
 	// Notifications inbox (caller-scoped). Emitted best-effort from event sources
 	// (today: page-body @-mentions); see docs/notifications.md.
@@ -455,6 +524,14 @@ func registerRoutes(srv *Server, mux *http.ServeMux) {
 	mux.HandleFunc("PATCH /api/spaces/{id}/members/{user_id}", srv.PatchSpaceMember)
 	mux.HandleFunc("DELETE /api/spaces/{id}/members/{user_id}", srv.DeleteSpaceMember)
 
+	// Share a space by email (space_invites.go). POST resolves to an immediate
+	// member grant when the address already has an account, otherwise to a pending
+	// token invite delivered by mail; the invitee accepts via the shared
+	// /invite/{token} flow below (or auto-joins on email verify). Owner-gated.
+	mux.HandleFunc("GET /api/spaces/{id}/invites", srv.ListSpaceInvites)
+	mux.HandleFunc("POST /api/spaces/{id}/invites", srv.CreateSpaceInvite)
+	mux.HandleFunc("DELETE /api/spaces/{id}/invites/{inviteId}", srv.RevokeSpaceInvite)
+
 	// #153 Organizations. A space can be shared with a whole org (grantable
 	// principal); access resolves through the space_access view. Org CRUD is
 	// instance-admin gated; membership is org-admin gated; auto-join domains are
@@ -510,6 +587,15 @@ func registerRoutes(srv *Server, mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/billing/checkout", srv.CreateCheckout)
 	mux.HandleFunc("POST /api/billing/portal", srv.CreateBillingPortal)
 	mux.HandleFunc("POST /api/billing/webhook", srv.PolarWebhook)
+	// Self-serve self-host Enterprise licensing (selfhost_license.go): buy a key,
+	// list your keys. The webhook above mints + emails on purchase.
+	mux.HandleFunc("POST /api/billing/selfhost-checkout", srv.CreateSelfHostCheckout)
+	mux.HandleFunc("POST /api/billing/selfhost-portal", srv.CreateSelfHostPortal)
+	mux.HandleFunc("GET /api/licenses", srv.ListSelfHostLicenses)
+	// PUBLIC (under /api/public/, on IsPublicPath): a self-hosted instance polls
+	// this with its current key to pull the renewed one — self-authenticates by
+	// the key's signature. See selfhost_license.go.
+	mux.HandleFunc("GET /api/public/license/refresh", srv.RefreshSelfHostLicense)
 	mux.HandleFunc("GET /api/orgs/{id}/members", srv.ListOrgMembers)
 	mux.HandleFunc("POST /api/orgs/{id}/members", srv.AddOrgMember)
 	mux.HandleFunc("PATCH /api/orgs/{id}/members/{user_id}", srv.PatchOrgMember)
@@ -519,6 +605,7 @@ func registerRoutes(srv *Server, mux *http.ServeMux) {
 	// the invitee accepts via POST /api/me/accept-invite (session) or auto-joins
 	// on email verify. GET /api/invites/{token} is public (self-auth via token,
 	// for the logged-out accept page) — see org_invites.go + auth.IsPublicPath.
+	// The token lookup + accept serve BOTH org and space invites (invites.go).
 	mux.HandleFunc("GET /api/orgs/{id}/invites", srv.ListOrgInvites)
 	mux.HandleFunc("POST /api/orgs/{id}/invites", srv.CreateOrgInvite)
 	mux.HandleFunc("DELETE /api/orgs/{id}/invites/{inviteId}", srv.RevokeOrgInvite)
@@ -583,6 +670,15 @@ func registerRoutes(srv *Server, mux *http.ServeMux) {
 	// (incl. share/public readers). MUST be on auth.IsPublicPath via the
 	// /api/files/ HasPrefix branch. Non-image types are forced to download.
 	mux.HandleFunc("GET /api/files/{space_id}/{file}", srv.ServeSpaceFile)
+
+	// Shareable file page (/f/{hash}/{name}, file_page.go). Bot-gated like
+	// /share: crawler UAs get the file card here, humans fall through to the SPA
+	// route of the same path. og.png is registered before the {name} pattern so
+	// the literal wins regardless of mux iteration order. MUST be on
+	// auth.IsPublicPath.
+	mux.HandleFunc("GET /f/{hash}", srv.HandleFilePage)
+	mux.HandleFunc("GET /f/{hash}/og.png", srv.HandleFileOGImage)
+	mux.HandleFunc("GET /f/{hash}/{name}", srv.HandleFilePage)
 
 	// M11.0 OG share: public unauthenticated route. Crawler UAs get OG HTML;
 	// real browsers get 302'd to the SPA. MUST be on auth.IsPublicPath.

@@ -3,15 +3,14 @@ package api
 import (
 	"context"
 	"log/slog"
+	"strings"
 	"time"
-
-	"github.com/zcag/tela/backend/internal/atlas/engine"
 )
 
 // The scheduler runs two decoupled passes off a 1-minute base tick:
 //   - detection: a cheap no-clone drift probe per source (git ls-remote / jira
 //     count), at most every atlasDetectInterval, recording staleness for the UI
-//     + the regen gate. No generation.
+//   - the regen gate. No generation.
 //   - regen: a delta for each STALE source, on the project's (slower) cadence.
 const (
 	atlasPollInterval   = time.Minute
@@ -143,27 +142,67 @@ func (m *atlasManager) detectStaleness(ctx context.Context) {
 // first time a probe sees upstream past `ref` (preserved across probes until a
 // regen clears it), cleared when a probe sees them back in sync. checked_at is
 // always stamped so a broken source isn't re-hammered every minute.
+//
+// A FAILED probe records why in probe_error, which is what the UI renders as
+// "Unreachable". It deliberately leaves stale_since alone: a probe that couldn't
+// reach upstream knows nothing about drift, and "unknown" must not be written as
+// either in-sync or behind. Both success paths clear probe_error, so a source
+// that comes back stops being reported.
 func (m *atlasManager) probeStaleness(ctx context.Context, sourceID int64) {
 	src, err := m.loadSource(ctx, sourceID)
 	if err != nil {
 		return
 	}
-	has, herr := engine.HasChanges(ctx, m.resolveCoreSource(ctx, src), src.Ref)
+	has, herr := m.hasChanges(ctx, m.resolveCoreSource(ctx, src), src.Ref)
 	if herr != nil {
 		slog.Warn("atlas: detection probe failed", "source", sourceID, "err", herr)
-		_, _ = m.s.DB.ExecContext(ctx, `UPDATE atlas_sources SET upstream_checked_at = tela_now() WHERE id = $1`, sourceID)
+		_, _ = m.s.DB.ExecContext(ctx,
+			`UPDATE atlas_sources SET upstream_checked_at = tela_now(), probe_error = $2 WHERE id = $1`,
+			sourceID, probeErrText(herr))
 		return
 	}
 	if has {
 		_, _ = m.s.DB.ExecContext(ctx,
 			`UPDATE atlas_sources
-			    SET upstream_checked_at = tela_now(),
+			    SET upstream_checked_at = tela_now(), probe_error = '',
 			        stale_since = CASE WHEN stale_since = '' THEN tela_now() ELSE stale_since END
 			  WHERE id = $1`, sourceID)
 	} else {
 		_, _ = m.s.DB.ExecContext(ctx,
-			`UPDATE atlas_sources SET upstream_checked_at = tela_now(), stale_since = '' WHERE id = $1`, sourceID)
+			`UPDATE atlas_sources SET upstream_checked_at = tela_now(), probe_error = '', stale_since = '' WHERE id = $1`, sourceID)
 	}
+}
+
+// atlasProbeErrMax caps a stored probe error. The text is shown to the source's
+// owner verbatim, and git happily returns several lines of remote output.
+const atlasProbeErrMax = 500
+
+// probeErrText renders a probe failure for storage. Secrets are already redacted
+// upstream (the git connector scrubs the auth'd URL out of command output; jira
+// auth rides a header, never the error), so this only trims and truncates.
+// Never returns "" for a non-nil error — '' is the column's "probe succeeded".
+func probeErrText(err error) string {
+	s := strings.TrimSpace(err.Error())
+	if s == "" {
+		return "probe failed"
+	}
+	if len(s) > atlasProbeErrMax {
+		s = strings.TrimSpace(s[:atlasProbeErrMax]) + "…"
+	}
+	return s
+}
+
+// scheduledAtlasAllowed reports whether the account's plan includes scheduled
+// Atlas auto-regen — the heaviest AI pipeline (fetch + embed + LLM per source),
+// run on a cadence whether or not the owner is online. It's a paid capability;
+// free plans get manual refresh only. Gated on managed cloud only: self-host
+// plan flags aren't trustworthy entitlements (mirrors entitled() /
+// checkAndRecordLLMCall), so self-host always allows it.
+func (s *Server) scheduledAtlasAllowed(ctx context.Context, acct account) bool {
+	if !s.managedCloud {
+		return true
+	}
+	return s.featureEnabled(ctx, acct, "atlas_scheduled")
 }
 
 // pollRegen regenerates, on each auto_update project's cadence, only the sources
@@ -172,12 +211,14 @@ func (m *atlasManager) probeStaleness(ctx context.Context, sourceID int64) {
 func (m *atlasManager) pollRegen(ctx context.Context) {
 	now := time.Now()
 	type due struct {
-		id      int64
-		cadence string
-		last    string
+		id        int64
+		cadence   string
+		last      string
+		ownerKind string
+		ownerID   int64
 	}
 	rows, err := m.s.DB.QueryContext(ctx,
-		`SELECT id, cadence, last_refresh_at FROM atlas_projects WHERE auto_update = 1`)
+		`SELECT id, cadence, last_refresh_at, owner_kind, owner_id FROM atlas_projects WHERE auto_update = 1`)
 	if err != nil {
 		slog.Error("atlas: regen poll", "err", err)
 		return
@@ -185,7 +226,7 @@ func (m *atlasManager) pollRegen(ctx context.Context) {
 	var pending []due
 	for rows.Next() {
 		var d due
-		if err := rows.Scan(&d.id, &d.cadence, &d.last); err != nil {
+		if err := rows.Scan(&d.id, &d.cadence, &d.last, &d.ownerKind, &d.ownerID); err != nil {
 			continue
 		}
 		pending = append(pending, d)
@@ -200,7 +241,13 @@ func (m *atlasManager) pollRegen(ctx context.Context) {
 		if !atlasIsDue(d.cadence, last, now) {
 			continue
 		}
-		m.regenProject(ctx, d.id)
+		// Scheduled auto-regen is a paid capability; free plans get Atlas on manual
+		// refresh only. We still stamp last_refresh_at below (matching the existing
+		// "measure cadence from this poll" semantics) so a skipped free project
+		// isn't re-evaluated every tick. Manual run paths are unaffected.
+		if m.s.scheduledAtlasAllowed(ctx, account{Kind: d.ownerKind, ID: d.ownerID}) {
+			m.regenProject(ctx, d.id)
+		}
 		if _, err := m.s.DB.ExecContext(ctx,
 			`UPDATE atlas_projects SET last_refresh_at = tela_now() WHERE id = $1`, d.id); err != nil {
 			slog.Error("atlas: stamp last_refresh_at", "project", d.id, "err", err)
@@ -227,7 +274,10 @@ func (m *atlasManager) regenProject(ctx context.Context, projectID int64) {
 	}
 	rows.Close()
 	for _, id := range ids {
-		if _, _, ae := m.StartDelta(ctx, id); ae != nil && ae.Code != "run_active" {
+		// run_active and quota_exceeded are expected steady states, not faults: the
+		// source simply stays stale and the next tick retries (a quota clears on the
+		// 1st). Warning on them would emit an hourly line forever per blocked source.
+		if _, _, ae := m.StartDelta(ctx, id); ae != nil && ae.Code != "run_active" && ae.Code != "quota_exceeded" {
 			slog.Warn("atlas: scheduled delta", "source", id, "code", ae.Code, "msg", ae.Message)
 		}
 	}

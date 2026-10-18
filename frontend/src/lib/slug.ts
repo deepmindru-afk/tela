@@ -57,9 +57,43 @@ export function buildWikilinkResolveIndex(
 }
 
 // pagePath builds the in-app route path for a page, with the cosmetic slug
-// appended when the title yields one.
+// appended when the title yields one. Mirrors the backend's pageAppPath.
 export function pagePath(spaceId: number, pageId: number, title: string): string {
   const base = `/spaces/${spaceId}/pages/${pageId}`
+  const s = pageSlug(title)
+  return s ? `${base}/${s}` : base
+}
+
+// publicReaderPath builds the no-login reader route for a page in a PUBLIC
+// space. Mirrors the backend's publicReaderPath.
+//
+// Which of the two a page gets is a real decision, not a formatting detail: the
+// authed route 403s for anyone without space_access, so linking a published
+// page there dead-ends every non-member who finds it via search or a shared
+// URL. Route the choice through this pair — don't re-derive either path inline.
+export function publicReaderPath(
+  spaceId: number,
+  pageId: number,
+  title: string,
+): string {
+  const base = `/public/spaces/${spaceId}/pages/${pageId}`
+  const s = pageSlug(title)
+  return s ? `${base}/${s}` : base
+}
+
+// handleReaderPath is the CANONICAL public page URL:
+// /{handle}/{space-slug}/{id}/{slug}. Mirrors the backend's readerPathUnder.
+// Prefer it wherever the owning handle is known (a public space payload carries
+// owner_handle); publicReaderPath above stays the fallback for callers that only
+// have the space id. The id segment resolves the page, so the trailing slug is
+// decorative and a rename never breaks a shared link.
+export function handleReaderPath(
+  handle: string,
+  spaceSlug: string,
+  pageId: number,
+  title: string,
+): string {
+  const base = `/${handle}/${spaceSlug}/${pageId}`
   const s = pageSlug(title)
   return s ? `${base}/${s}` : base
 }

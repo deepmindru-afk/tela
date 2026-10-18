@@ -28,6 +28,21 @@
 	# own cert in direct-TLS mode). Applies to every response. No preload.
 	header Strict-Transport-Security "max-age=31536000; includeSubDomains"
 
+	# ── Access log ──────────────────────────────────────────────────────────
+	# The ONLY record of where someone who lands straight on the app came from.
+	# The Umami tracker is on the marketing landing alone, so a visitor who
+	# arrives at /login or a shared page from an MCP directory, the docs, or
+	# another instance is invisible to analytics — and that cohort is roughly a
+	# third of signups, with double the agent-adoption rate of the rest. Caddy's
+	# JSON log carries client_ip, uri and Referer (Cookie/Authorization are
+	# redacted), which answers it. It also timestamps every /analytics/api/send
+	# beacon, so an Umami session can be tied back to the request that made it.
+	# Rolls at 100 MB, 10 files. Point TELA_ACCESS_LOG elsewhere to relocate it.
+	log {
+		output file {$TELA_ACCESS_LOG:/var/log/caddy/tela-access.jsonl}
+		format json
+	}
+
 	# The on-demand-TLS ask endpoint is for Caddy only (container-to-container).
 	# 404 it from the WAN so the public internet can't probe which hostnames are
 	# active. Caddy's own `ask` call hits the backend directly, not this block.
@@ -48,6 +63,31 @@
 	}
 	handle /p/* {
 		header X-Robots-Tag "noindex"
+		reverse_proxy {$TELA_UPSTREAM_BACKEND:backend:8080}
+	}
+
+	# Glama MCP connector ownership verification. Static JSON that claims the
+	# io.github.zcag/tela remote-connector listing for the maintainer's Glama
+	# account so Glama attaches introspection credentials + scores it. The email
+	# is already public in this repo's git history (commit authorship). noindex.
+	handle /.well-known/glama.json {
+		header Content-Type application/json
+		header X-Robots-Tag "noindex"
+		respond `{"$schema":"https://glama.ai/mcp/schemas/connector.json","maintainers":[{"email":"cagdassalur@gmail.com"}]}` 200
+	}
+
+	# Machine-readable REST description (OpenAPI 3.1). The document is go:embed'd
+	# in the backend next to the routes it describes (api/openapi.go) and served
+	# on the already-public /api/public/ prefix; this block is only the pretty,
+	# crawler-facing name for it. Agent directories and MCP indexers probe
+	# /openapi.json by convention (agent-tools.org's reviewer does, and it was
+	# answering 200 with the SPA's HTML shell before this route existed — the
+	# @handle regex further down matches "openapi.json", so it fell through to
+	# the frontend, which serves index.html as its 404 body). Same rewrite shape
+	# as /sitemap-public.xml below. Indexable — this is a machine entry point,
+	# so deliberately NO noindex.
+	handle /openapi.json {
+		rewrite * /api/public/openapi.json
 		reverse_proxy {$TELA_UPSTREAM_BACKEND:backend:8080}
 	}
 
@@ -109,13 +149,37 @@
 	# Mirror of botUASubstrings in backend/internal/api/public_share.go — keep in sync.
 	@share_bots {
 		path /share/*
-		header_regexp User-Agent "(?i)(slackbot-linkexpanding|twitterbot|facebookexternalhit|facebookcatalog|discordbot|telegrambot|linkedinbot|whatsapp|mastodon|cardyb|slack-imgproxy|pinterest|skypeuripreview|embedly|iframely|bot/|bot\s)"
+		header_regexp User-Agent "(?i)(slackbot-linkexpanding|twitterbot|facebookexternalhit|facebookcatalog|discordbot|telegrambot|linkedinbot|whatsapp|mastodon|cardyb|slack-imgproxy|pinterest|skypeuripreview|embedly|iframely|chatgpt-user|bot/|bot\s)"
 	}
 	handle @share_bots {
 		header X-Robots-Tag "noindex"
 		reverse_proxy {$TELA_UPSTREAM_BACKEND:backend:8080}
 	}
 	handle /share/* {
+		header X-Robots-Tag "noindex"
+		reverse_proxy {$TELA_UPSTREAM_FRONTEND:frontend:80}
+	}
+
+	# Shareable file pages (/f/{hash}/{name}, backend file_page.go): the link to
+	# share for an attachment, instead of the raw /api/files blob (which downloads
+	# and unfurls as nothing). og.png → backend for ALL UAs; the HTML is bot-gated
+	# and humans fall through to the SPA route of the same path. noindex — most of
+	# these files live in private spaces. Keep the UA regex in sync with
+	# botUASubstrings in backend/internal/api/public_share.go.
+	@file_og path /f/*/og.png
+	handle @file_og {
+		header X-Robots-Tag "noindex"
+		reverse_proxy {$TELA_UPSTREAM_BACKEND:backend:8080}
+	}
+	@file_bots {
+		path /f/*
+		header_regexp User-Agent "(?i)(slackbot-linkexpanding|twitterbot|facebookexternalhit|facebookcatalog|discordbot|telegrambot|linkedinbot|whatsapp|mastodon|cardyb|slack-imgproxy|pinterest|skypeuripreview|embedly|iframely|chatgpt-user|bot/|bot\s)"
+	}
+	handle @file_bots {
+		header X-Robots-Tag "noindex"
+		reverse_proxy {$TELA_UPSTREAM_BACKEND:backend:8080}
+	}
+	handle /f/* {
 		header X-Robots-Tag "noindex"
 		reverse_proxy {$TELA_UPSTREAM_FRONTEND:frontend:80}
 	}
@@ -129,7 +193,7 @@
 	# wins). Mirror of botUASubstrings in backend/internal/api/public_share.go.
 	@public_bots {
 		path /public/* /u/*
-		header_regexp User-Agent "(?i)(slackbot-linkexpanding|twitterbot|facebookexternalhit|facebookcatalog|discordbot|telegrambot|linkedinbot|whatsapp|mastodon|cardyb|slack-imgproxy|pinterest|skypeuripreview|embedly|iframely|bot/|bot\s)"
+		header_regexp User-Agent "(?i)(slackbot-linkexpanding|twitterbot|facebookexternalhit|facebookcatalog|discordbot|telegrambot|linkedinbot|whatsapp|mastodon|cardyb|slack-imgproxy|pinterest|skypeuripreview|embedly|iframely|chatgpt-user|bot/|bot\s)"
 	}
 	handle @public_bots {
 		reverse_proxy {$TELA_UPSTREAM_BACKEND:backend:8080}
@@ -148,7 +212,7 @@
 	}
 	@discover_bots {
 		path /discover
-		header_regexp User-Agent "(?i)(slackbot-linkexpanding|twitterbot|facebookexternalhit|facebookcatalog|discordbot|telegrambot|linkedinbot|whatsapp|mastodon|cardyb|slack-imgproxy|pinterest|skypeuripreview|embedly|iframely|bot/|bot\s)"
+		header_regexp User-Agent "(?i)(slackbot-linkexpanding|twitterbot|facebookexternalhit|facebookcatalog|discordbot|telegrambot|linkedinbot|whatsapp|mastodon|cardyb|slack-imgproxy|pinterest|skypeuripreview|embedly|iframely|chatgpt-user|bot/|bot\s)"
 	}
 	handle @discover_bots {
 		reverse_proxy {$TELA_UPSTREAM_BACKEND:backend:8080}
@@ -159,18 +223,19 @@
 
 	# In-app page deep links (/spaces/{id}/pages/{id}/...) are what people copy
 	# from the address bar to share. Bot UAs get a server-rendered OG card by
-	# rewriting to that page's /p/{id} permalink (backend HandlePublicShare →
+	# rewriting to that page's /p/{id}/{slug} permalink, slug kept (a private page's
+	# card shows its title only to a link carrying its slug; backend HandlePublicShare →
 	# title-only card, branded to the org's custom domain when the page has one);
 	# humans fall through to the app SPA below, unchanged. noindex (these are
 	# app deep links). Keep the UA regex + capture in sync with botUASubstrings
 	# in backend/internal/api/public_share.go.
 	@page_bots {
-		path_regexp pageog ^/spaces/[0-9]+/pages/([0-9]+)(?:/.*)?$
-		header_regexp User-Agent "(?i)(slackbot-linkexpanding|twitterbot|facebookexternalhit|facebookcatalog|discordbot|telegrambot|linkedinbot|whatsapp|mastodon|cardyb|slack-imgproxy|pinterest|skypeuripreview|embedly|iframely|bot/|bot\s)"
+		path_regexp pageog ^/spaces/[0-9]+/pages/([0-9]+)(/[^/]+)?(?:/.*)?$
+		header_regexp User-Agent "(?i)(slackbot-linkexpanding|twitterbot|facebookexternalhit|facebookcatalog|discordbot|telegrambot|linkedinbot|whatsapp|mastodon|cardyb|slack-imgproxy|pinterest|skypeuripreview|embedly|iframely|chatgpt-user|bot/|bot\s)"
 	}
 	handle @page_bots {
 		header X-Robots-Tag "noindex"
-		rewrite * /p/{re.pageog.1}
+		rewrite * /p/{re.pageog.1}{re.pageog.2}
 		reverse_proxy {$TELA_UPSTREAM_BACKEND:backend:8080}
 	}
 
@@ -185,7 +250,7 @@
 	}
 	@space_bots {
 		path_regexp ^/spaces/[0-9]+$
-		header_regexp User-Agent "(?i)(slackbot-linkexpanding|twitterbot|facebookexternalhit|facebookcatalog|discordbot|telegrambot|linkedinbot|whatsapp|mastodon|cardyb|slack-imgproxy|pinterest|skypeuripreview|embedly|iframely|bot/|bot\s)"
+		header_regexp User-Agent "(?i)(slackbot-linkexpanding|twitterbot|facebookexternalhit|facebookcatalog|discordbot|telegrambot|linkedinbot|whatsapp|mastodon|cardyb|slack-imgproxy|pinterest|skypeuripreview|embedly|iframely|chatgpt-user|bot/|bot\s)"
 	}
 	handle @space_bots {
 		header X-Robots-Tag "noindex"
@@ -205,7 +270,7 @@
 	}
 	@feature_bots {
 		path /ask /graph /atlas
-		header_regexp User-Agent "(?i)(slackbot-linkexpanding|twitterbot|facebookexternalhit|facebookcatalog|discordbot|telegrambot|linkedinbot|whatsapp|mastodon|cardyb|slack-imgproxy|pinterest|skypeuripreview|embedly|iframely|bot/|bot\s)"
+		header_regexp User-Agent "(?i)(slackbot-linkexpanding|twitterbot|facebookexternalhit|facebookcatalog|discordbot|telegrambot|linkedinbot|whatsapp|mastodon|cardyb|slack-imgproxy|pinterest|skypeuripreview|embedly|iframely|chatgpt-user|bot/|bot\s)"
 	}
 	handle @feature_bots {
 		header X-Robots-Tag "noindex"
@@ -220,9 +285,10 @@
 
 	# ── Umami analytics tracking endpoints ───────────────────────────────────
 	# Only the two paths the browser needs: the tracking snippet and the collection
-	# endpoint. The Umami dashboard is NOT exposed publicly (Umami's Next.js uses
-	# root-relative paths and breaks behind a subpath proxy). Access the dashboard
-	# via SSH tunnel to loopback:3001 on the host.
+	# endpoint. The dashboard is NOT served from this subpath — Umami's Next.js
+	# uses root-relative paths and breaks behind one — but it IS reachable, at
+	# https://analytics.telawiki.com, which is its own vhost on the external edge
+	# (outside this repo) proxying the same loopback:3001. No SSH tunnel needed.
 	# The bare /analytics and /analytics/ paths get a clean Caddy 404 (which
 	# handle_errors serves as the branded landing 404 page).
 	handle /analytics/script.js {
@@ -290,7 +356,7 @@
 			header /_astro/* Cache-Control "public, max-age=31536000, immutable"
 			# HTML shell must revalidate so a redeploy/edit is picked up at once
 			# (the fingerprinted /_astro assets above stay immutable).
-			@landing_html path / /mcp /mcp/ /pricing /pricing/ /privacy /privacy/ /terms /terms/ /404 /404.html
+			@landing_html path / /mcp /mcp/ /pricing /pricing/ /privacy /privacy/ /terms /terms/ /support /support/ /404 /404.html
 			header @landing_html Cache-Control "no-cache"
 			file_server
 		}
@@ -306,15 +372,58 @@
 			reverse_proxy {$TELA_UPSTREAM_FRONTEND:frontend:80}
 		}
 
+		# Bot UAs on a handle URL get a server-rendered card, rewritten to the
+		# backend's OG routes (same shape as @page_bots above). Without this the
+		# pretty URL — the one the docs tell people to share — unfurled as nothing:
+		# the SPA canonicalizes to /public/* client-side, which a link-preview
+		# fetcher never executes. Two matchers because the rewrite target differs
+		# by segment count. MUST precede @handle (first match wins). Keep the path
+		# regexes in sync with @handle below, and the UA regex with botUASubstrings
+		# in backend/internal/api/public_share.go.
+		@handle_home_bots {
+			path_regexp handlehome ^/([A-Za-z0-9][A-Za-z0-9._-]*)$
+			header_regexp User-Agent "(?i)(slackbot-linkexpanding|twitterbot|facebookexternalhit|facebookcatalog|discordbot|telegrambot|linkedinbot|whatsapp|mastodon|cardyb|slack-imgproxy|pinterest|skypeuripreview|embedly|iframely|chatgpt-user|bot/|bot\s)"
+		}
+		handle @handle_home_bots {
+			rewrite * /api/public/og/handles/{re.handlehome.1}
+			reverse_proxy {$TELA_UPSTREAM_BACKEND:backend:8080}
+		}
+		@handle_space_bots {
+			path_regexp handlespace ^/([A-Za-z0-9][A-Za-z0-9._-]*)/([A-Za-z0-9._-]+)$
+			header_regexp User-Agent "(?i)(slackbot-linkexpanding|twitterbot|facebookexternalhit|facebookcatalog|discordbot|telegrambot|linkedinbot|whatsapp|mastodon|cardyb|slack-imgproxy|pinterest|skypeuripreview|embedly|iframely|chatgpt-user|bot/|bot\s)"
+		}
+		handle @handle_space_bots {
+			rewrite * /api/public/og/handles/{re.handlespace.1}/{re.handlespace.2}
+			reverse_proxy {$TELA_UPSTREAM_BACKEND:backend:8080}
+		}
+		# Page reader: /{handle}/{space-slug}/{pageId}[/{slug}]. The numeric id is
+		# what resolves the page; the trailing slug is decorative, so it is passed
+		# through but never required.
+		@handle_page_bots {
+			path_regexp handlepage ^/([A-Za-z0-9][A-Za-z0-9._-]*)/([A-Za-z0-9._-]+)/([0-9]+)(?:/([A-Za-z0-9._-]*))?$
+			header_regexp User-Agent "(?i)(slackbot-linkexpanding|twitterbot|facebookexternalhit|facebookcatalog|discordbot|telegrambot|linkedinbot|whatsapp|mastodon|cardyb|slack-imgproxy|pinterest|skypeuripreview|embedly|iframely|chatgpt-user|bot/|bot\s)"
+		}
+		handle @handle_page_bots {
+			rewrite * /api/public/og/handles/{re.handlepage.1}/{re.handlepage.2}/{re.handlepage.3}
+			reverse_proxy {$TELA_UPSTREAM_BACKEND:backend:8080}
+		}
+
 		# GitHub-style handle pages: /{handle} (user/org public home) and
 		# /{handle}/{space-slug} (public space). These ARE the open-web surface, so
-		# — like /public and /u — they stay INDEXABLE (no noindex header). The SPA
-		# resolves the handle client-side; bot OG/JSON-LD for these is served via the
-		# /public/* + /u/* backend routes the client canonicalizes to. Handle-shaped
-		# = one or two slug segments (dots allowed, e.g. gulden.gullu). Anything that
-		# isn't a real landing file, a known app route, or handle-shaped falls to the
-		# noindex fallback below.
-		@handle path_regexp ^/[A-Za-z0-9][A-Za-z0-9._-]*(/[A-Za-z0-9._-]+)?$
+		# — like /public and /u — they stay INDEXABLE (no noindex header). Humans
+		# get the SPA, which resolves the handle client-side; bot UAs were captured
+		# above. Handle-shaped = one or two slug segments (dots allowed, e.g.
+		# gulden.gullu), optionally followed by a numeric page id + decorative slug.
+		# Anything that isn't a real landing file, a known app route, or
+		# handle-shaped falls to the noindex fallback below.
+		#
+		# KEEP THIS REGEX IN SYNC with the handle `location ~` in
+		# frontend/nginx.conf — the shape is defined twice, and only nginx knows
+		# whether the handle actually EXISTS (it auth_requests the backend's
+		# /api/public/exists/… probe and 404s a definite miss). A path that is
+		# handle-shaped here but not there gets no existence check; one that is
+		# shaped there but not here never reaches nginx at all.
+		@handle path_regexp ^/[A-Za-z0-9][A-Za-z0-9._-]*(/[A-Za-z0-9._-]+(/[0-9]+(/[A-Za-z0-9._-]*)?)?)?$
 		handle @handle {
 			reverse_proxy {$TELA_UPSTREAM_FRONTEND:frontend:80}
 		}
@@ -376,10 +485,28 @@ https:// {
 	}
 	@share_bots {
 		path /share/*
-		header_regexp User-Agent "(?i)(slackbot-linkexpanding|twitterbot|facebookexternalhit|facebookcatalog|discordbot|telegrambot|linkedinbot|whatsapp|mastodon|cardyb|slack-imgproxy|pinterest|skypeuripreview|embedly|iframely|bot/|bot\s)"
+		header_regexp User-Agent "(?i)(slackbot-linkexpanding|twitterbot|facebookexternalhit|facebookcatalog|discordbot|telegrambot|linkedinbot|whatsapp|mastodon|cardyb|slack-imgproxy|pinterest|skypeuripreview|embedly|iframely|chatgpt-user|bot/|bot\s)"
 	}
 	handle @share_bots {
 		reverse_proxy {$TELA_UPSTREAM_BACKEND:backend:8080}
+	}
+
+	# Shareable file pages shared from this org's white-label domain (mirror of the
+	# canonical block; backend brands the card via the request host). Block-scoped
+	# noindex already applies.
+	@file_og path /f/*/og.png
+	handle @file_og {
+		reverse_proxy {$TELA_UPSTREAM_BACKEND:backend:8080}
+	}
+	@file_bots {
+		path /f/*
+		header_regexp User-Agent "(?i)(slackbot-linkexpanding|twitterbot|facebookexternalhit|facebookcatalog|discordbot|telegrambot|linkedinbot|whatsapp|mastodon|cardyb|slack-imgproxy|pinterest|skypeuripreview|embedly|iframely|chatgpt-user|bot/|bot\s)"
+	}
+	handle @file_bots {
+		reverse_proxy {$TELA_UPSTREAM_BACKEND:backend:8080}
+	}
+	handle /f/* {
+		reverse_proxy {$TELA_UPSTREAM_FRONTEND:frontend:80}
 	}
 
 	# App needs these; all under the block-scoped noindex above.
@@ -406,11 +533,11 @@ https:// {
 	# noindex already applies. Mirror of the canonical block; keep the UA regex in
 	# sync with botUASubstrings in backend/internal/api/public_share.go.
 	@page_bots {
-		path_regexp pageog ^/spaces/[0-9]+/pages/([0-9]+)(?:/.*)?$
-		header_regexp User-Agent "(?i)(slackbot-linkexpanding|twitterbot|facebookexternalhit|facebookcatalog|discordbot|telegrambot|linkedinbot|whatsapp|mastodon|cardyb|slack-imgproxy|pinterest|skypeuripreview|embedly|iframely|bot/|bot\s)"
+		path_regexp pageog ^/spaces/[0-9]+/pages/([0-9]+)(/[^/]+)?(?:/.*)?$
+		header_regexp User-Agent "(?i)(slackbot-linkexpanding|twitterbot|facebookexternalhit|facebookcatalog|discordbot|telegrambot|linkedinbot|whatsapp|mastodon|cardyb|slack-imgproxy|pinterest|skypeuripreview|embedly|iframely|chatgpt-user|bot/|bot\s)"
 	}
 	handle @page_bots {
-		rewrite * /p/{re.pageog.1}
+		rewrite * /p/{re.pageog.1}{re.pageog.2}
 		reverse_proxy {$TELA_UPSTREAM_BACKEND:backend:8080}
 	}
 
@@ -422,7 +549,7 @@ https:// {
 	}
 	@space_bots {
 		path_regexp ^/spaces/[0-9]+$
-		header_regexp User-Agent "(?i)(slackbot-linkexpanding|twitterbot|facebookexternalhit|facebookcatalog|discordbot|telegrambot|linkedinbot|whatsapp|mastodon|cardyb|slack-imgproxy|pinterest|skypeuripreview|embedly|iframely|bot/|bot\s)"
+		header_regexp User-Agent "(?i)(slackbot-linkexpanding|twitterbot|facebookexternalhit|facebookcatalog|discordbot|telegrambot|linkedinbot|whatsapp|mastodon|cardyb|slack-imgproxy|pinterest|skypeuripreview|embedly|iframely|chatgpt-user|bot/|bot\s)"
 	}
 	handle @space_bots {
 		reverse_proxy {$TELA_UPSTREAM_BACKEND:backend:8080}
@@ -438,7 +565,7 @@ https:// {
 	}
 	@feature_bots {
 		path /ask /graph /discover /atlas
-		header_regexp User-Agent "(?i)(slackbot-linkexpanding|twitterbot|facebookexternalhit|facebookcatalog|discordbot|telegrambot|linkedinbot|whatsapp|mastodon|cardyb|slack-imgproxy|pinterest|skypeuripreview|embedly|iframely|bot/|bot\s)"
+		header_regexp User-Agent "(?i)(slackbot-linkexpanding|twitterbot|facebookexternalhit|facebookcatalog|discordbot|telegrambot|linkedinbot|whatsapp|mastodon|cardyb|slack-imgproxy|pinterest|skypeuripreview|embedly|iframely|chatgpt-user|bot/|bot\s)"
 	}
 	handle @feature_bots {
 		reverse_proxy {$TELA_UPSTREAM_BACKEND:backend:8080}
@@ -454,7 +581,7 @@ https:// {
 	}
 	@root_bots {
 		path /
-		header_regexp User-Agent "(?i)(slackbot-linkexpanding|twitterbot|facebookexternalhit|facebookcatalog|discordbot|telegrambot|linkedinbot|whatsapp|mastodon|cardyb|slack-imgproxy|pinterest|skypeuripreview|embedly|iframely|bot/|bot\s)"
+		header_regexp User-Agent "(?i)(slackbot-linkexpanding|twitterbot|facebookexternalhit|facebookcatalog|discordbot|telegrambot|linkedinbot|whatsapp|mastodon|cardyb|slack-imgproxy|pinterest|skypeuripreview|embedly|iframely|chatgpt-user|bot/|bot\s)"
 	}
 	handle @root_bots {
 		reverse_proxy {$TELA_UPSTREAM_BACKEND:backend:8080}

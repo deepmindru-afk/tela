@@ -7,7 +7,15 @@
 //   node scripts/blocks-manifest.mjs --check    # verify in sync + full coverage (CI)
 //
 // SOURCE  frontend/src/components/app/blocks-manifest.json
+//         frontend/src/lib/markdown/transforms/unknown-directives.ts  (directive names)
+//         frontend/src/lib/markdown/transforms/callouts.ts            (callout types)
 // GEN     backend/internal/api/blocks_gen.json   (go:embed can't reach into frontend/)
+//
+// The two name lists ride along because the backend page lint (internal/pagelint)
+// has to know which `:::name` / `> [!TYPE]` the RENDERER recognizes: an unlisted
+// one still parses, then silently unwraps to its bare children. Hand-copying the
+// lists into Go would drift exactly where the lint is meant to be authoritative,
+// so they're extracted from the frontend source and gate-checked like the blocks.
 //
 // Coverage: every frontend/src/components/app/milkdown-*.ts(x) is either an
 // authorable block (mapped to >=1 manifest id in PLUGIN_BLOCKS) or declared
@@ -22,6 +30,8 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 const SRC = join(ROOT, 'frontend/src/components/app/blocks-manifest.json')
 const GEN = join(ROOT, 'backend/internal/api/blocks_gen.json')
 const PLUGIN_DIR = join(ROOT, 'frontend/src/components/app')
+const DIRECTIVES_SRC = join(ROOT, 'frontend/src/lib/markdown/transforms/unknown-directives.ts')
+const CALLOUTS_SRC = join(ROOT, 'frontend/src/lib/markdown/transforms/callouts.ts')
 
 // milkdown-* plugins that are NOT authorable blocks (no manifest entry expected).
 const INFRA = new Set([
@@ -39,9 +49,11 @@ const INFRA = new Set([
   'milkdown-placeholder', // empty-editor placeholder text (no node)
   'milkdown-plain-paste', // Cmd/Ctrl+Shift+V paste-as-plain-text keymap (no node)
   'milkdown-slash', // the slash menu itself
+  'milkdown-table-fix', // repairs ragged tables so table ops don't throw (no node)
   'milkdown-table-select', // table cell-selection behavior (no node)
   'milkdown-upload-placeholder', // transient upload placeholder decoration (no node)
   'milkdown-templates', // composed snippets, not a block type
+  'milkdown-turn-into', // block-type transforms shared by slash / block handle / bubble (no node)
   'milkdown-excalidraw-presence', // live "editing" badge decoration for the `excalidraw` block (no node)
   'milkdown-typography', // smart-quote/dash/ellipsis input rules (no node)
   'milkdown-url-unfurl', // link unfurl decoration
@@ -63,6 +75,7 @@ const PLUGIN_BLOCKS = {
   'milkdown-kanban': ['kanban'],
   'milkdown-math': ['equation', 'inline-math'],
   'milkdown-mermaid': ['mermaid'],
+  'milkdown-poll': ['poll'],
   'milkdown-pullquote': ['pull-quote'],
   'milkdown-stat-grid': ['stat-grid'],
   'milkdown-table': ['table'],
@@ -89,6 +102,7 @@ const VIEW_RENDERED = new Set([
   'wikilink', 'tabs',
   'pull-quote', 'embed', 'file', 'timeline',
   'kanban', 'stat-grid', 'calendar', 'collapsible',
+  'poll',
 ])
 // Rendered as children (content preserved, chrome not yet ported). Tracked so
 // the gap is explicit and reviewable, never silent. Currently empty — the full
@@ -102,9 +116,54 @@ function loadSource() {
   return raw.blocks
 }
 
+// Pull the string members out of a named array/Set literal in a TS source file.
+// Deliberately strict: if the declaration moves or changes shape the extraction
+// fails loudly here rather than silently emitting an empty list, which would
+// make the backend lint quietly stop flagging unknown names.
+function extractStringList(file, decl) {
+  const src = readFileSync(file, 'utf8')
+  const at = src.indexOf(decl)
+  if (at < 0) fail(`${file} no longer declares ${decl} — update scripts/blocks-manifest.mjs`)
+  const open = src.indexOf('[', at)
+  const close = src.indexOf(']', open)
+  if (open < 0 || close < 0) fail(`${file}: could not read the array literal after ${decl}`)
+  const names = [...src.slice(open + 1, close).matchAll(/'([^']+)'|"([^"]+)"/g)].map(
+    (m) => m[1] ?? m[2],
+  )
+  if (names.length === 0) fail(`${file}: ${decl} extracted as empty`)
+  return names
+}
+
+// A block's DIRECTIVE name is whatever its own `syntax` opens with, derived
+// rather than hand-declared so it can't drift from the example agents are shown.
+//
+// It is deliberately NOT the same namespace as the block `id`: `quote` is the
+// plain markdown blockquote, while the pull-quote block (id `pull-quote`) writes
+// `:::quote`. Forcing the two names equal is impossible — they collide. Making
+// the relationship explicit and checked is the fix; the backend also uses it to
+// tell an author who wrote `:::stat-grid` (the id) that the directive is
+// `:::stats`, which is exactly the mistake found on a live page.
+function directiveOf(block) {
+  const m = /^:::([A-Za-z][A-Za-z0-9_-]*)/.exec(block.syntax ?? '')
+  return m ? m[1] : null
+}
+
 // Deterministic serialization for a stable git diff (2-space indent, trailing nl).
 function render(blocks) {
-  return JSON.stringify({ blocks }, null, 2) + '\n'
+  return (
+    JSON.stringify(
+      {
+        blocks: blocks.map((b) => {
+          const directive = directiveOf(b)
+          return directive ? { ...b, directive } : b
+        }),
+        directives: extractStringList(DIRECTIVES_SRC, 'KNOWN_DIRECTIVE_NAMES'),
+        calloutTypes: extractStringList(CALLOUTS_SRC, 'CALLOUT_TYPES'),
+      },
+      null,
+      2,
+    ) + '\n'
+  )
 }
 
 function fail(msg) {
@@ -125,7 +184,12 @@ function checkCoverage(blocks) {
 
   // Every milkdown-* plugin must be classified (block or infra).
   const plugins = readdirSync(PLUGIN_DIR)
-    .filter((f) => /^milkdown-.*\.tsx?$/.test(f) && !f.endsWith('.stories.tsx'))
+    .filter(
+      (f) =>
+        /^milkdown-.*\.tsx?$/.test(f) &&
+        !f.endsWith('.stories.tsx') &&
+        !/\.test\.tsx?$/.test(f),
+    )
     .map((f) => f.replace(/\.tsx?$/, ''))
   for (const p of plugins) {
     if (!INFRA.has(p) && !(p in PLUGIN_BLOCKS)) {
@@ -141,6 +205,21 @@ function checkCoverage(blocks) {
       if (!b[k]) problems.push(`block "${b.id ?? '?'}" missing field "${k}"`)
     }
     if (b.agent && !b.when) problems.push(`agent block "${b.id}" missing "when"`)
+  }
+
+  // A block whose syntax is a `:::directive` must use a name the RENDERER
+  // recognizes. Otherwise the palette documents a block that parses and then
+  // silently unwraps to bare text — invisible in the source, and the exact
+  // failure `unknown-directive` reports.
+  const known = new Set(extractStringList(DIRECTIVES_SRC, 'KNOWN_DIRECTIVE_NAMES'))
+  for (const b of blocks) {
+    const d = directiveOf(b)
+    if (d && !known.has(d)) {
+      problems.push(
+        `block "${b.id}" documents \`:::${d}\`, which the renderer doesn't know — ` +
+          `add it to KNOWN_DIRECTIVE_NAMES (and give it a view renderer) or fix the syntax`,
+      )
+    }
   }
 
   // Every authorable block must declare a view-render status (rendered or

@@ -3,6 +3,7 @@ import * as Y from 'yjs'
 import { TelaProvider, type TelaProviderStatus } from './tela-provider'
 import { useLeaderElection } from './use-leader-election'
 import { useDiagramEditors } from './use-awareness'
+import { claimSession, trackUnclaimed } from './session-reaper'
 
 // Owns the live-collab session for one editor: the Y.Doc + provider, the
 // connection status, leader election, and per-diagram presence. Extracted from
@@ -60,13 +61,35 @@ export function useCollabSession(
   const ref = useRef<CollabSession | null>(null)
   if (collabPageId != null && ref.current == null) {
     const created = createProvider(collabPageId)
-    // Seed local awareness so this peer is visible in the awareness map and
-    // leader election can claim leadership — without it getStates() is empty
-    // and no save would ever fire. (Provider-agnostic, so every factory gets it.)
-    created.provider.awareness.setLocalState({})
+    // Building a provider here opens a ws from a render React may still throw
+    // away, and only a mounted component ever runs the teardown effect below.
+    // Park it with the reaper until the claim effect proves this render
+    // committed; see session-reaper.ts for what the orphans do to saves.
+    trackUnclaimed(created)
     ref.current = created
   }
   const session = ref.current
+
+  // Claim the render-built session so the reaper spares it. Keyed on `session`
+  // and NOT on [] — the ref can be refilled after this effect has already run:
+  // StrictMode's mount → cleanup → mount destroys the first provider and nulls
+  // the ref, and the next render builds a second one (a suspend-after-mount or
+  // an Activity reveal does the same). A []-claim never sees that replacement,
+  // so the reaper would destroy the LIVE provider 30s into the session.
+  //
+  // No awareness seed here: y-protocols' Awareness constructor already calls
+  // setLocalState({}) itself, so a provider is in its own map — and, once its
+  // 15s clock renewal broadcasts, in every peer's map — from construction.
+  // Deferring a seed cannot keep an orphan out of the room; reaping it can.
+  //
+  // Claiming is also where the reset reload is wired: the server's TAG_RESET
+  // (body rewritten out-of-band) re-seeds a MOUNTED editor from pages.body by
+  // reloading, while an orphan hears it and does nothing.
+  useEffect(() => {
+    if (!session) return
+    claimSession(session)
+    return session.provider.onReset(() => window.location.reload())
+  }, [session])
 
   const [status, setStatus] = useState<TelaProviderStatus>(
     () => session?.provider.getStatus() ?? 'connected',

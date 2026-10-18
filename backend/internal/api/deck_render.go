@@ -31,6 +31,7 @@ import (
 //   GET  /api/pages/{id}/deck/spa/{path...} (gated)  — live interactive SPA (Present)
 //   GET  /api/pages/{id}/deck/outline       (gated)  — structure, no render
 //   POST /api/pages/{id}/deck/parse         (gated)  — parse a draft (editor outline)
+//   POST /api/pages/{id}/deck/lint          (gated)  — validate a draft (editor advisory)
 //   GET  /api/pages/{id}/deck.pdf|.pptx      (gated)  — export
 //   GET  /api/deck/d/{renderId}/{file}      (public) — a rendered PNG (content-addressed)
 
@@ -392,6 +393,28 @@ func (s *Server) ExportPageDeckPPTX(w http.ResponseWriter, r *http.Request) {
 	_, _ = w.Write(pptx)
 }
 
+// ExportPageDeckMarkdown (GET /api/pages/{id}/deck.md): session-authed. Returns
+// the deck's raw Slidev source — the page body verbatim (headmatter and all),
+// tela asset URLs absolutized so images resolve outside tela. Unlike the generic
+// /md export (which prepends a tela frontmatter block for round-trip), this is
+// directly usable with `slidev slides.md`; the reader still supplies the
+// slidev-theme-tahta look (npm) itself. The runnable-project bundle is a
+// deliberate non-goal here (see docs/deck.md).
+func (s *Server) ExportPageDeckMarkdown(w http.ResponseWriter, r *http.Request) {
+	p, ok := s.requirePageRead(w, r)
+	if !ok {
+		return
+	}
+	if !isDeckBag(p.Props) {
+		writeError(w, http.StatusBadRequest, "not_a_deck", "page is not a deck")
+		return
+	}
+	w.Header().Set("Content-Type", "text/markdown; charset=utf-8")
+	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%q", pageFileSlug(p.Title)+".md"))
+	w.Header().Set("X-Content-Type-Options", "nosniff")
+	_, _ = w.Write([]byte(absolutizeDeckAssets(p.Body)))
+}
+
 // GetPageDeckOutline (GET /api/pages/{id}/deck/outline): session-authed. Returns
 // the deck's structure (slide count, titles, layouts, speaker notes, detected
 // features) via the sidecar's /parse — no render, no Chromium. Powers the deck's
@@ -423,15 +446,11 @@ func (s *Server) GetPageDeckOutline(w http.ResponseWriter, r *http.Request) {
 // live editor outline. Page-scoped so it isn't an open parser proxy; the body is
 // the unsaved text, so it can't reuse the saved-body /outline route.
 func (s *Server) PostPageDeckParse(w http.ResponseWriter, r *http.Request) {
-	if _, ok := s.requirePageRead(w, r); !ok {
+	body, ok := s.readDeckDraft(w, r)
+	if !ok {
 		return
 	}
-	body, err := io.ReadAll(io.LimitReader(r.Body, 4<<20)) // decks are markdown; 4MB is ample
-	if err != nil {
-		writeError(w, http.StatusBadRequest, "bad_request", "could not read body")
-		return
-	}
-	resp, err := deckPost(r.Context(), "/parse", string(body), deckConfig{})
+	resp, err := deckPost(r.Context(), "/parse", body, deckConfig{})
 	if err != nil {
 		writeError(w, http.StatusBadGateway, "deck_unavailable", "deck service unavailable")
 		return
@@ -445,6 +464,45 @@ func (s *Server) PostPageDeckParse(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	_, _ = io.Copy(w, resp.Body)
+}
+
+// readDeckDraft gates on page read access and returns the DRAFT markdown from the
+// request body — the shared front half of the two editor-buffer routes (/parse,
+// /lint). Page-scoped so neither is an open proxy to the sidecar.
+func (s *Server) readDeckDraft(w http.ResponseWriter, r *http.Request) (string, bool) {
+	if _, ok := s.requirePageRead(w, r); !ok {
+		return "", false
+	}
+	body, err := io.ReadAll(io.LimitReader(r.Body, 4<<20)) // decks are markdown; 4MB is ample
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "bad_request", "could not read body")
+		return "", false
+	}
+	return string(body), true
+}
+
+// PostPageDeckLint (POST /api/pages/{id}/deck/lint): session-authed. Validates the
+// DRAFT editor buffer against the theme contract — the same tahta-lint report the
+// agent-facing lint_deck tool returns and deckWriteGate blocks agent writes on.
+//
+// Advisory ONLY. Agent writes are gated because an agent ships and walks away; a
+// human autosaves keystroke-by-keystroke through transiently-broken states, so
+// gating them would fight the editor. But not gating had meant no signal at all:
+// a structural error (e.g. a raw `"` inside a `:prop="…"` binding, which fails the
+// whole slidev build) stayed invisible until Present 502'd. This route makes it
+// visible while they type without ever blocking a save.
+func (s *Server) PostPageDeckLint(w http.ResponseWriter, r *http.Request) {
+	body, ok := s.readDeckDraft(w, r)
+	if !ok {
+		return
+	}
+	out, err := s.deckLint(r.Context(), body)
+	if err != nil {
+		writeError(w, http.StatusBadGateway, "deck_unavailable", "deck service unavailable")
+		return
+	}
+	noStore(w)
+	writeJSON(w, http.StatusOK, out)
 }
 
 // ServeDeckThemes (GET /api/deck/themes): PUBLIC. Proxies the sidecar's theme

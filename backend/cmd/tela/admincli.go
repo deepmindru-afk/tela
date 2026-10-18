@@ -6,10 +6,16 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"sort"
+	"strconv"
+	"strings"
 	"text/tabwriter"
+	"time"
 
 	"github.com/zcag/tela/backend/internal/api"
 	"github.com/zcag/tela/backend/internal/auth"
+	"github.com/zcag/tela/backend/internal/secretbox"
+	"github.com/zcag/tela/backend/internal/settings"
 )
 
 // Operational CLI subcommands, dispatched from main after migrations run. They
@@ -62,12 +68,18 @@ func runSetPlan(d *sql.DB, args []string) {
 	if planKind != kind {
 		fatal("set-plan: plan is for a different account kind", "plan_key", planKey, "plan_kind", planKind, "target_kind", kind)
 	}
-	table := "users"
+	table, set := "users", "plan_key = $1, updated_at = tela_now()"
 	if kind == "org" {
 		table = "orgs"
+	} else {
+		// Clear any active trial so the assignment takes effect NOW — otherwise
+		// the trial CASE in planFor keeps overriding it for up to ~37 days and the
+		// operator sees the command do nothing. Mirrors the admin HTTP set-plan
+		// (usage.go) and the billing webhook, which both already clear it.
+		set += ", trial_plan_key = NULL, trial_ends_at = NULL"
 	}
 	res, err := d.ExecContext(ctx,
-		`UPDATE `+table+` SET plan_key = $1, updated_at = tela_now() WHERE id = $2`, planKey, idStr)
+		`UPDATE `+table+` SET `+set+` WHERE id = $2`, planKey, idStr)
 	if err != nil {
 		fatal("set-plan", "err", err)
 	}
@@ -75,6 +87,120 @@ func runSetPlan(d *sql.DB, args []string) {
 		fatal("set-plan: no matching row", "kind", kind, "id", idStr)
 	}
 	slog.Info("set-plan", "kind", kind, "id", idStr, "plan_key", planKey)
+}
+
+// creditMetrics are the plan columns a top-up may raise. Listed explicitly so a
+// typo is rejected at the CLI rather than becoming an inert row nobody notices —
+// applyCredits ignores unknown metrics by design, which is safe but silent.
+var creditMetrics = map[string]bool{
+	"max_atlas_minutes_per_month": true,
+	"max_atlas_runs_per_month":    true,
+	"max_atlas_files_per_run":     true,
+	"max_embed_tokens_per_month":  true,
+	"max_llm_calls_per_month":     true,
+	"max_atlas_sources":           true,
+	"max_spaces":                  true,
+	"max_pages_per_space":         true,
+	"max_storage_bytes":           true,
+	"max_members":                 true,
+}
+
+// runGrant: `tela grant <user|org> <id> <metric> <amount> <reason> [period]`
+// — add a per-account quota top-up.
+//
+// ADDITIVE to the account's tier cap, and scoped to one calendar month unless a
+// period is given (” would mean every period; pass "always" for that). A reason
+// is REQUIRED: an exception nobody can explain later is indistinguishable from a
+// mistake, and this is the only record that it was deliberate.
+func runGrant(d *sql.DB, args []string) {
+	if len(args) < 5 {
+		fatal("usage: tela grant <user|org> <id> <metric> <amount> <reason> [YYYY-MM|always]  (default period = current month)")
+	}
+	kind, idStr, metric, amountStr, reason := args[0], args[1], args[2], args[3], args[4]
+	if kind != "user" && kind != "org" {
+		fatal("grant: kind must be 'user' or 'org'")
+	}
+	if !creditMetrics[metric] {
+		keys := make([]string, 0, len(creditMetrics))
+		for k := range creditMetrics {
+			keys = append(keys, k)
+		}
+		sort.Strings(keys)
+		fatal("grant: unknown metric", "metric", metric, "known", strings.Join(keys, ", "))
+	}
+	amount, err := strconv.ParseInt(amountStr, 10, 64)
+	if err != nil {
+		fatal("grant: amount must be an integer", "amount", amountStr)
+	}
+	period := time.Now().UTC().Format("2006-01")
+	if len(args) >= 6 {
+		if args[5] == "always" {
+			period = ""
+		} else {
+			if _, err := time.Parse("2006-01", args[5]); err != nil {
+				fatal("grant: period must be YYYY-MM or 'always'", "period", args[5])
+			}
+			period = args[5]
+		}
+	}
+	ctx := context.Background()
+
+	// Verify the target exists — a grant against a typo'd id is silently inert.
+	table := "users"
+	if kind == "org" {
+		table = "orgs"
+	}
+	var exists int
+	if err := d.QueryRowContext(ctx, `SELECT 1 FROM `+table+` WHERE id = $1`, idStr).Scan(&exists); err != nil {
+		fatal("grant: no such account", "kind", kind, "id", idStr)
+	}
+	if _, err := d.ExecContext(ctx,
+		`INSERT INTO account_credits (account_kind, account_id, period, metric, amount, reason)
+		 VALUES ($1,$2,$3,$4,$5,$6)`, kind, idStr, period, metric, amount, reason); err != nil {
+		fatal("grant", "err", err)
+	}
+	shown := period
+	if shown == "" {
+		shown = "always"
+	}
+	slog.Info("grant: top-up recorded", "kind", kind, "id", idStr, "metric", metric,
+		"amount", amount, "period", shown, "reason", reason)
+}
+
+// runCredits: `tela credits [<user|org> <id>]` — list top-ups, newest first.
+func runCredits(d *sql.DB, args []string) {
+	ctx := context.Background()
+	q := `SELECT id, account_kind, account_id, period, metric, amount, reason, created_at
+	        FROM account_credits`
+	var rows *sql.Rows
+	var err error
+	if len(args) == 2 {
+		q += ` WHERE account_kind = $1 AND account_id = $2`
+		rows, err = d.QueryContext(ctx, q+` ORDER BY id DESC`, args[0], args[1])
+	} else {
+		rows, err = d.QueryContext(ctx, q+` ORDER BY id DESC`)
+	}
+	if err != nil {
+		fatal("credits", "err", err)
+	}
+	defer rows.Close()
+	tw := tabwriter.NewWriter(os.Stdout, 0, 2, 2, ' ', 0)
+	fmt.Fprintln(tw, "ID\tACCOUNT\tPERIOD\tMETRIC\tAMOUNT\tREASON\tCREATED")
+	for rows.Next() {
+		var (
+			id, acctID, amount           int64
+			kind, period, metric, reason string
+			created                      string
+		)
+		if err := rows.Scan(&id, &kind, &acctID, &period, &metric, &amount, &reason, &created); err != nil {
+			fatal("credits: scan", "err", err)
+		}
+		if period == "" {
+			period = "always"
+		}
+		fmt.Fprintf(tw, "%d\t%s:%d\t%s\t%s\t%d\t%s\t%s\n", id, kind, acctID, period, metric, amount, reason, created)
+	}
+	tw.Flush()
 }
 
 // runListUsers: `tela list-users` — id, username, email, admin/active flags, plan.
@@ -106,4 +232,63 @@ func runListUsers(d *sql.DB) {
 		fatal("list-users", "err", err)
 	}
 	tw.Flush()
+}
+
+// runRewrapCredentials encrypts credentials still stored as plaintext — rows
+// written before internal/secretbox landed. Not required for correctness (an
+// unsealed value is read back verbatim, which is what makes the upgrade a no-op),
+// but until it runs, encryption-at-rest protects nothing that already existed.
+// Idempotent: already-sealed rows are skipped, so it is safe on every deploy.
+func runRewrapCredentials(d *sql.DB) {
+	ctx := context.Background()
+	st, err := settings.New(ctx, d)
+	if err != nil {
+		fatal("rewrap-credentials: load settings", "err", err)
+	}
+	if err := secretbox.Init(ctx, st); err != nil {
+		fatal("rewrap-credentials: init credential key", "err", err)
+	}
+	atlas := rewrapColumn(ctx, d, "atlas_credentials", "id", "value")
+	sso := rewrapColumn(ctx, d, "org_sso", "org_id", "client_secret")
+	slog.Info("rewrap-credentials: done", "atlas_credentials", atlas, "org_sso", sso)
+}
+
+// rewrapColumn seals every unsealed non-empty value in table.col, keyed by idCol.
+// Read-then-write rather than one UPDATE because the encryption happens in Go.
+func rewrapColumn(ctx context.Context, d *sql.DB, table, idCol, col string) int {
+	rows, err := d.QueryContext(ctx, fmt.Sprintf(
+		`SELECT %s, %s FROM %s WHERE %s <> ''`, idCol, col, table, col))
+	if err != nil {
+		fatal("rewrap-credentials: read", "table", table, "err", err)
+	}
+	type row struct {
+		id    int64
+		value string
+	}
+	var pending []row
+	for rows.Next() {
+		var r row
+		if err := rows.Scan(&r.id, &r.value); err != nil {
+			rows.Close()
+			fatal("rewrap-credentials: scan", "table", table, "err", err)
+		}
+		if !secretbox.IsSealed(r.value) {
+			pending = append(pending, r)
+		}
+	}
+	rows.Close()
+	if err := rows.Err(); err != nil {
+		fatal("rewrap-credentials: iterate", "table", table, "err", err)
+	}
+	for _, r := range pending {
+		sealed, err := secretbox.Seal(r.value)
+		if err != nil {
+			fatal("rewrap-credentials: seal", "table", table, "id", r.id, "err", err)
+		}
+		if _, err := d.ExecContext(ctx, fmt.Sprintf(
+			`UPDATE %s SET %s = $1 WHERE %s = $2`, table, col, idCol), sealed, r.id); err != nil {
+			fatal("rewrap-credentials: update", "table", table, "id", r.id, "err", err)
+		}
+	}
+	return len(pending)
 }

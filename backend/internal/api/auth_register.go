@@ -7,12 +7,38 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
+	"os"
 	"strconv"
 	"strings"
 
 	"github.com/zcag/tela/backend/internal/auth"
 	"github.com/zcag/tela/backend/internal/mailer"
+	"github.com/zcag/tela/backend/internal/settings"
 )
+
+// seedRegistrationDefault stamps the initial registration_open value from the
+// TELA_REGISTRATION_OPEN env on first boot, but only when no operator choice
+// exists yet. This lets a packaged deploy (e.g. the Umbrel app) ship
+// self-registration closed without changing tela's open-by-default behaviour
+// anywhere else. Once the key is present — including any later admin toggle in
+// the settings UI — the store is authoritative and the env is ignored, so the
+// toggle sticks across restarts. Absent both, registration stays open.
+func seedRegistrationDefault(ctx context.Context, st *settings.Store) {
+	if _, ok := st.Get("registration_open"); ok {
+		return
+	}
+	v := strings.TrimSpace(os.Getenv("TELA_REGISTRATION_OPEN"))
+	if v == "" {
+		return
+	}
+	open := "true"
+	if strings.EqualFold(v, "false") || v == "0" {
+		open = "false"
+	}
+	if err := st.Set(ctx, "registration_open", open, nil); err != nil {
+		slog.Warn("settings: seed registration_open from env", "err", err)
+	}
+}
 
 type registerRequest struct {
 	Email    string `json:"email"`
@@ -27,8 +53,10 @@ type registerRequest struct {
 // beats enumeration-resistance.
 func (s *Server) Register(w http.ResponseWriter, r *http.Request) {
 	// Instance toggle: an operator can close self-registration at runtime via the
-	// admin settings (registration_open=false). Absent/"true" = open (the
-	// default for an open team wiki). Admins can still create users directly.
+	// admin settings (registration_open=false), or seed the default at deploy
+	// time with TELA_REGISTRATION_OPEN (see seedRegistrationDefault). Absent/
+	// "true" = open (the default for an open team wiki). Admins can still create
+	// users directly.
 	if v, ok := s.settings.Get("registration_open"); ok && v == "false" {
 		writeError(w, http.StatusForbidden, "registration_closed", "self-registration is disabled on this instance")
 		return
@@ -71,16 +99,20 @@ func (s *Server) Register(w http.ResponseWriter, r *http.Request) {
 	}
 
 	ctx := r.Context()
-	var userID int64
-	// Auto-apply a 30-day trial of the paid personal tier. planFor resolves the
-	// effective plan from trial_ends_at, so this needs no billing engine and
-	// downgrades gracefully to personal_free at expiry.
-	err = s.DB.QueryRowContext(ctx, `
-		INSERT INTO users (username, email, password_hash, is_instance_admin, is_active,
-			trial_plan_key, trial_ends_at)
-		VALUES ($1, $2, $3, 0, 1, 'personal_plus',
-			to_char((now() AT TIME ZONE 'UTC') + interval '30 days', 'YYYY-MM-DD HH24:MI:SS'))
-		RETURNING id`, username, email, hash).Scan(&userID)
+	// Where this signup came from, read once off the landing's first-touch
+	// cookie (signup_attribution.go). Best-effort by construction: no cookie
+	// means the row simply carries no attribution.
+	attr := readSignupAttribution(r)
+	// Trial: this account created itself, so it gets the signup trial (see
+	// users_create.go for the rule and why it lives in one place). The email is
+	// unverified until the link below is followed.
+	userID, err := insertUser(ctx, s.DB, newUser{
+		Username:     username,
+		Email:        email,
+		PasswordHash: hash,
+		Trial:        true,
+		Attribution:  &attr,
+	})
 	if err != nil {
 		if isUniqueConstraintErr(err) {
 			// Either the username or the email collided. The message stays
@@ -92,9 +124,17 @@ func (s *Server) Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	recordTrialStarted(ctx, s.DB, userID, username, signupTrialPlan, signupTrialDays)
+
 	// Mint + send the confirmation link. A send failure is logged but does not
 	// fail the request — the account exists and the user can use "resend".
 	s.sendVerification(ctx, s.linkOrigin(r), userID, username, email, s.emailBrandForRequest(r))
+
+	// Tell the instance admins someone signed up — fired here (not at email
+	// confirmation) so an account that never verifies is still visible. DedupKey
+	// keeps it one-ever per new user. Display name is empty at signup, so the
+	// notification falls back to the username.
+	s.notifyUserRegistered(ctx, userID, username, "", email)
 
 	writeJSON(w, http.StatusCreated, map[string]any{"ok": true, "email": email})
 }
@@ -134,15 +174,6 @@ func (s *Server) VerifyEmail(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "internal", "consume token failed")
 		return
 	}
-	// Capture whether this is the FIRST confirmation (the row was still
-	// unverified): only then do we tell the admins, so a stray re-verify with a
-	// second outstanding link can't re-notify.
-	var alreadyVerified bool
-	if err := tx.QueryRowContext(ctx,
-		`SELECT email_verified_at IS NOT NULL FROM users WHERE id = $1`, userID).Scan(&alreadyVerified); err != nil {
-		writeError(w, http.StatusInternalServerError, "internal", "load user failed")
-		return
-	}
 	if _, err := tx.ExecContext(ctx, `
 		UPDATE users SET email_verified_at = COALESCE(email_verified_at, tela_now()),
 		                 updated_at = tela_now()
@@ -156,10 +187,14 @@ func (s *Server) VerifyEmail(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Provision the personal space now that the account is real (idempotent).
-	var username, email, displayName string
-	if err := s.DB.QueryRowContext(ctx, `SELECT username, COALESCE(email, ''), display_name FROM users WHERE id = $1`, userID).Scan(&username, &email, &displayName); err == nil {
-		if _, err := EnsurePersonalSpace(ctx, s.DB, userID, username); err != nil {
+	var username, email string
+	if err := s.DB.QueryRowContext(ctx, `SELECT username, COALESCE(email, '') FROM users WHERE id = $1`, userID).Scan(&username, &email); err == nil {
+		if spaceID, err := EnsurePersonalSpace(ctx, s.DB, userID, username); err != nil {
 			slog.Error("personal space for verified user", "user_id", userID, "username", username, "err", err)
+		} else {
+			// Otherwise the first screen a brand-new account ever sees is the
+			// "No pages in Personal" empty state.
+			s.seedPersonalWelcomePage(ctx, userID, username, spaceID)
 		}
 		// Enroll into any org whose auto-join domain matches the just-confirmed
 		// address (#153).
@@ -167,10 +202,6 @@ func (s *Server) VerifyEmail(w http.ResponseWriter, r *http.Request) {
 		// And into any org that emailed this address an invitation — so a signup
 		// that came in through an invite link lands in the team automatically.
 		s.applyPendingInvites(ctx, userID, email)
-		// Tell the instance admins a new account went live (first confirmation only).
-		if !alreadyVerified {
-			s.notifyUserRegistered(ctx, userID, username, displayName, email)
-		}
 	}
 
 	dto, err := s.authUserByID(ctx, userID)

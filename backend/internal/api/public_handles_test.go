@@ -3,8 +3,10 @@ package api
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"testing"
 )
 
@@ -72,6 +74,217 @@ func TestByHandle_UserHome(t *testing.T) {
 		if sp.ID == priv {
 			t.Fatalf("private space %d leaked", priv)
 		}
+	}
+}
+
+// TestByHandle_UserHomeExcludesOrgSpaces: setting up an org space leaves the
+// creator a space_members 'owner' row on it, which used to attribute every
+// public ORG space to its creator's PERSONAL handle — listed on their home and
+// served at /{user}/{slug} beside the canonical /{org}/{slug}. A user handle
+// must show only their own (org-less) spaces; the org handle keeps the rest.
+func TestByHandle_UserHomeExcludesOrgSpaces(t *testing.T) {
+	ts, d := newWiredServer(t)
+	erin := seedUser(t, d, "erin", "erinpw123", false)
+
+	own := seedPublicSpace(t, d, "Erin Blog", "erin-blog", erin)
+
+	// A public org space erin created — she holds the 'owner' member row.
+	org := seedOrg(t, d, "Widget Co", "widgetco")
+	orgSpace := seedOrgSpace(t, d, "Widget Docs", "widget-docs", org)
+	seedMember(t, d, orgSpace, erin, "owner")
+	mustExec(t, d, `UPDATE spaces SET visibility = 'public' WHERE id = $1`, orgSpace)
+	mustExec(t, d, `INSERT INTO pages (space_id, parent_id, title, body, position) VALUES ($1, NULL, 'Org Post', 'b', 0)`, orgSpace)
+
+	status, out := getByHandle(t, tsWrap{ts.URL}, "erin")
+	if status != http.StatusOK {
+		t.Fatalf("status=%d want 200", status)
+	}
+	if len(out.Spaces) != 1 || out.Spaces[0].ID != own {
+		t.Fatalf("spaces=%+v want only her own space (%d)", out.Spaces, own)
+	}
+
+	// The org home still lists it — the space moved handles, it didn't vanish.
+	status, orgOut := getByHandle(t, tsWrap{ts.URL}, "widgetco")
+	if status != http.StatusOK {
+		t.Fatalf("org home status=%d want 200", status)
+	}
+	if len(orgOut.Spaces) != 1 || orgOut.Spaces[0].ID != orgSpace {
+		t.Fatalf("org spaces=%+v want %d", orgOut.Spaces, orgSpace)
+	}
+
+	// And it is no longer SERVED under her handle (the duplicate-URL half).
+	resp, err := http.Get(ts.URL + "/api/public/by-handle/erin/spaces/widget-docs")
+	if err != nil {
+		t.Fatalf("GET: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusNotFound {
+		t.Fatalf("org space under user handle status=%d want 404", resp.StatusCode)
+	}
+}
+
+// TestSitemap_AgreesWithHandleHomes: the sitemap must advertise exactly the
+// handle homes that resolve. An owner row on a public ORG space gives the user
+// no handle home, so listing their /u/{name} advertised a 404; the org's own
+// home is the real page and was missing entirely.
+func TestSitemap_AgreesWithHandleHomes(t *testing.T) {
+	ts, d := newWiredServer(t)
+	frank := seedUser(t, d, "frank", "frankpw123", false) // org-space owner only
+	gina := seedUser(t, d, "gina", "ginapw1234", false)   // has her own public space
+
+	org := seedOrg(t, d, "Zeta Co", "zetaco")
+	orgSpace := seedOrgSpace(t, d, "Zeta Docs", "zeta-docs", org)
+	seedMember(t, d, orgSpace, frank, "owner")
+	mustExec(t, d, `UPDATE spaces SET visibility = 'public' WHERE id = $1`, orgSpace)
+	seedPublicSpace(t, d, "Gina Blog", "gina-blog", gina)
+
+	resp, err := http.Get(ts.URL + "/api/public/sitemap.xml")
+	if err != nil {
+		t.Fatalf("GET sitemap: %v", err)
+	}
+	defer resp.Body.Close()
+	raw, _ := io.ReadAll(resp.Body)
+	body := string(raw)
+
+	if strings.Contains(body, "/frank</loc>") {
+		t.Fatalf("sitemap advertises /frank, which 404s (org-space owner only)\n%s", body)
+	}
+	if !strings.Contains(body, "/gina</loc>") {
+		t.Fatalf("sitemap dropped /gina, whose handle home resolves\n%s", body)
+	}
+	if !strings.Contains(body, "/zetaco</loc>") {
+		t.Fatalf("sitemap missing the org home /zetaco\n%s", body)
+	}
+
+	// The invariant, asserted directly: every author home listed must resolve.
+	for _, h := range []string{"gina"} {
+		if status, _ := getByHandle(t, tsWrap{ts.URL}, h); status != http.StatusOK {
+			t.Fatalf("sitemap lists /u/%s but it returns %d", h, status)
+		}
+	}
+	if status, _ := getByHandle(t, tsWrap{ts.URL}, "frank"); status != http.StatusNotFound {
+		t.Fatalf("frank's handle home should 404 (org spaces belong to the org)")
+	}
+}
+
+// TestHandleOG_UnfurlsBothURLShapes: the pretty handle URLs are what the docs
+// tell people to share, so they must render a bot card — and gate on exactly the
+// same ownership rule as the handle home, so a card never advertises a 404.
+func TestHandleOG_UnfurlsBothURLShapes(t *testing.T) {
+	ts, d := newWiredServer(t)
+	hana := seedUser(t, d, "hana", "hanapw1234", false)
+	own := seedPublicSpace(t, d, "Hana Blog", "hana-blog", hana)
+	mustExec(t, d, `INSERT INTO pages (space_id, parent_id, title, body, position) VALUES ($1, NULL, 'First Post', 'b', 0)`, own)
+
+	org := seedOrg(t, d, "Kappa Co", "kappaco")
+	orgSpace := seedOrgSpace(t, d, "Kappa Docs", "kappa-docs", org)
+	seedMember(t, d, orgSpace, hana, "owner")
+	mustExec(t, d, `UPDATE spaces SET visibility = 'public' WHERE id = $1`, orgSpace)
+
+	og := func(path string) (int, string) {
+		t.Helper()
+		resp, err := http.Get(ts.URL + path)
+		if err != nil {
+			t.Fatalf("GET %s: %v", path, err)
+		}
+		defer resp.Body.Close()
+		b, _ := io.ReadAll(resp.Body)
+		return resp.StatusCode, string(b)
+	}
+
+	// User home card.
+	status, body := og("/api/public/og/handles/hana")
+	if status != http.StatusOK || !strings.Contains(body, `property="og:title"`) {
+		t.Fatalf("handle home OG status=%d body=%s", status, body)
+	}
+	if !strings.Contains(body, "/hana/hana-blog") {
+		t.Fatalf("handle home card should link its spaces\n%s", body)
+	}
+	// It must NOT advertise the org space — that lives on the org's handle.
+	if strings.Contains(body, "kappa-docs") {
+		t.Fatalf("handle home card leaked an org space\n%s", body)
+	}
+
+	// An ORG space's byline handle must be the ORG's slug, not the creator's
+	// username. The reader builds its entire nav from this, so returning the
+	// creator made every link /{creator}/{space-slug}/… — which 404s.
+	resp, err := http.Get(ts.URL + "/api/public/by-handle/kappaco/spaces/kappa-docs")
+	if err != nil {
+		t.Fatalf("GET org space: %v", err)
+	}
+	defer resp.Body.Close()
+	var env struct {
+		Space struct {
+			OwnerHandle string `json:"owner_handle"`
+		} `json:"space"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&env); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if env.Space.OwnerHandle != "kappaco" {
+		t.Fatalf("org space owner_handle=%q want kappaco (hana created it)", env.Space.OwnerHandle)
+	}
+
+	// Org home card renders too (previously no card existed for org handles).
+	if status, body = og("/api/public/og/handles/kappaco"); status != http.StatusOK ||
+		!strings.Contains(body, "Kappa Co") || !strings.Contains(body, `"Organization"`) {
+		t.Fatalf("org home OG status=%d body=%s", status, body)
+	}
+	// An org is its own site, so the title must not double as "X — X".
+	if strings.Contains(body, "Kappa Co — Kappa Co") {
+		t.Fatalf("org card title doubled\n%s", body)
+	}
+
+	// Space card via the pretty URL. Canonical is the pretty form on BOTH shapes,
+	// so the id URL consolidates onto it instead of competing.
+	if status, body = og("/api/public/og/handles/hana/hana-blog"); status != http.StatusOK ||
+		!strings.Contains(body, "Hana Blog") {
+		t.Fatalf("handle space OG status=%d body=%s", status, body)
+	}
+	if !strings.Contains(body, `<link rel="canonical" href="/hana/hana-blog">`) {
+		t.Fatalf("canonical should be the pretty handle form\n%s", body)
+	}
+
+	// Page card via the pretty URL, and the rename-proofing that justifies keeping
+	// the id in the path: a STALE slug still resolves, because the id governs.
+	var pid int64
+	mustQueryRow(t, d, `SELECT id FROM pages WHERE space_id = $1 AND title = 'First Post'`, &pid, own)
+	for _, p := range []string{
+		fmt.Sprintf("/api/public/og/handles/hana/hana-blog/%d/first-post", pid),
+		fmt.Sprintf("/api/public/og/handles/hana/hana-blog/%d/a-totally-stale-slug", pid),
+		fmt.Sprintf("/api/public/og/handles/hana/hana-blog/%d", pid),
+	} {
+		status, body = og(p)
+		if status != http.StatusOK || !strings.Contains(body, "First Post") {
+			t.Fatalf("%s status=%d body=%s", p, status, body)
+		}
+		want := fmt.Sprintf(`<link rel="canonical" href="/hana/hana-blog/%d/first-post">`, pid)
+		if !strings.Contains(body, want) {
+			t.Fatalf("%s canonical should be %s\n%s", p, want, body)
+		}
+	}
+	// A page id that isn't in this space must 404, not leak another space's page.
+	if status, _ = og(fmt.Sprintf("/api/public/og/handles/hana/hana-blog/%d", pid+9999)); status != http.StatusNotFound {
+		t.Fatalf("foreign page id status=%d want 404", status)
+	}
+
+	// The org space is NOT reachable under the user's handle (matches the API).
+	if status, _ = og("/api/public/og/handles/hana/kappa-docs"); status != http.StatusNotFound {
+		t.Fatalf("org space under user handle OG status=%d want 404", status)
+	}
+	// Unknown handle, and a handle with no public presence, both 404.
+	seedUser(t, d, "ivan", "ivanpw1234", false)
+	for _, p := range []string{"/api/public/og/handles/nosuchhandle", "/api/public/og/handles/ivan"} {
+		if status, _ = og(p); status != http.StatusNotFound {
+			t.Fatalf("%s status=%d want 404", p, status)
+		}
+	}
+	// The card image follows the same gate.
+	if status, _ = og("/api/public/handles/hana/og.png"); status != http.StatusOK {
+		t.Fatalf("handle og.png status=%d want 200", status)
+	}
+	if status, _ = og("/api/public/handles/ivan/og.png"); status != http.StatusNotFound {
+		t.Fatalf("no-presence og.png status=%d want 404", status)
 	}
 }
 

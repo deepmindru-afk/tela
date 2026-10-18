@@ -107,3 +107,33 @@ by the "Adding a new block" checklist by convention, not by CI:
 `agent: false` blocks (headings, lists, dividers, **date**, **excalidraw**) stay
 out of the agent guide — basics agents already know, or editor-only blocks like
 excalidraw whose JSON scene isn't hand-writable.
+
+## The same principle, applied to import
+
+The block palette isn't the only capability agents were blind to. **Bulk import**
+(`POST /api/spaces/{id}/import`) already turns a markdown tree into a page tree,
+carries frontmatter into `props` (so `sheet: true` yields a real sheet), and has a
+`dry_run` preview — but nothing on the MCP surface referenced it, so an agent asked
+to "import this folder" hand-created pages one file at a time and never converted
+spreadsheets to sheets. Same capability-not-disclosed failure as flat pages.
+
+The fix mirrors the sheet/deck guides: an **`import_guide` tool + `tela://import-guide`
+resource + a pointer in the server Instructions** (`mcp_import.go`, content in
+`import_guide.md`). Because file bytes can't ride MCP's 4 MiB request cap, the guide
+is disclosure only — it hands an agent-with-shell the recipe: convert Office files
+locally (docx → pandoc → md page; xlsx → GFM + `sheet: true` → live sheet, formulas
+preserved), attach PDFs/images, then drive the endpoint's dry-run → confirm → commit
+loop. No server-side conversion, no sidecar, no change to the importer itself.
+
+## The other half: showing agents what the reader did
+
+Disclosure tells an agent what it *can* write. It doesn't tell it what the reader
+actually *did* with what it wrote — and those differ, silently, in ways no amount
+of re-reading the source can reveal (a `:::typo` unwraps to bare content, raw HTML
+is dropped on the floor, a collapsible missing a blank line vanishes whole).
+
+`lint_page` and `preview_page` close that loop, the way `lint_deck`/`preview_deck`
+close it for decks. They reuse this manifest: the generator lifts the frontend's
+`KNOWN_DIRECTIVE_NAMES` and `CALLOUT_TYPES` into `blocks_gen.json` next to the
+block palette, so the lint's idea of a valid block can't drift from the reader's.
+Full design in [`page-lint.md`](page-lint.md).

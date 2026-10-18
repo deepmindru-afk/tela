@@ -53,6 +53,33 @@ var (
 		[]string{"kind"},
 	)
 
+	// emailSends counts transactional email send attempts by result (ok|error).
+	// Email is a SILENT-failure surface: a broken relay means verify / reset /
+	// invite / digest mail just vanishes with no error the user or an admin sees
+	// server-side — so this counter is the only alertable signal that delivery
+	// has stopped. Bumped by the meteredMailer wrapper around every Send.
+	emailSends = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "tela_email_send_total",
+			Help: "Transactional email send attempts by result (ok|error).",
+		},
+		[]string{"result"},
+	)
+
+	// polarWebhookErrors counts Polar billing webhook deliveries that FAILED to
+	// process, by reason (signature|parse|reconcile). signature failures include
+	// internet noise (any POST to the public webhook path with a bad/absent
+	// signature), so the alert keys only on parse|reconcile — those happen AFTER
+	// the signature verifies, i.e. a genuinely-authenticated Polar event we then
+	// couldn't handle, which is a real billing bug worth paging on.
+	polarWebhookErrors = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "tela_polar_webhook_errors_total",
+			Help: "Polar webhook deliveries that failed to process, by reason (signature|parse|reconcile).",
+		},
+		[]string{"reason"},
+	)
+
 	// atlasKills counts Atlas runs killed by the stuck-run watchdog (running for
 	// more than atlasRunTimeout = 4h). Any increment is a signal that a run hung
 	// badly enough to hit the watchdog; a spike means something is systematically
@@ -61,6 +88,17 @@ var (
 		Name: "tela_atlas_stuck_runs_killed_total",
 		Help: "Atlas runs killed by the 4h stuck-run watchdog.",
 	})
+
+	// atlasRuns counts Atlas runs by terminal status. Without it a broken source is
+	// completely silent: run outcomes live only in atlas_runs.status, are never
+	// logged, and so reach neither Prometheus nor Loki. One source failed 47
+	// consecutive runs over three weeks — hourly, on the same encoding bug — and
+	// raised nothing; it surfaced only because someone read the table by hand.
+	// The watchdog counter next door catches HUNG runs, not fast-failing ones.
+	atlasRuns = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Name: "tela_atlas_runs_total",
+		Help: "Atlas runs by terminal status (done|failed).",
+	}, []string{"status"})
 
 	// polarLastWebhook tracks the Unix timestamp of the last successfully
 	// processed Polar webhook. Alertable when it's been silent for >24h while
@@ -83,6 +121,17 @@ var (
 		},
 		[]string{"kind"},
 	)
+
+	// aiForegroundSpills counts foreground (ask/assist) completions spilled to the
+	// overflow target because the primary concurrency gate was saturated — i.e. L1
+	// is healthy but overloaded. Distinct from a down-failover (which LiteLLM
+	// handles and exports separately): any sustained increase here means live
+	// traffic is exceeding L1's capacity and bleeding onto the (often paid) relief
+	// layer — the alertable "lower the gate or add capacity" signal.
+	aiForegroundSpills = prometheus.NewCounter(prometheus.CounterOpts{
+		Name: "tela_llm_foreground_spill_total",
+		Help: "Foreground (ask/assist) completions spilled to the overflow target due to a saturated primary concurrency gate.",
+	})
 
 	// aiUp reports each backing AI service's reachability as seen by the
 	// background health prober: 1 = reachable, 0 = down, absent = not configured.
@@ -115,10 +164,14 @@ func init() {
 		httpRequests,
 		httpDuration,
 		clientErrors,
+		emailSends,
+		polarWebhookErrors,
 		aiTokens,
+		aiForegroundSpills,
 		aiUp,
 		aiProbeLatency,
 		atlasKills,
+		atlasRuns,
 		polarLastWebhook,
 		// Go runtime + process collectors (goroutines, GC, memory, open FDs,
 		// CPU, etc.).

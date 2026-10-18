@@ -9,12 +9,29 @@ import (
 	"testing"
 )
 
-func TestListAdminUsers_OkSortedByUsername(t *testing.T) {
+// The admin users list is newest-account-first (most recent signup on top), not
+// alphabetical — the operator wants to see who just joined.
+func TestListAdminUsers_NewestFirst(t *testing.T) {
 	d := newAPITestDB(t)
 	srv := New(d)
 	adminID := seedUser(t, d, "admin", "adminpw123", true)
-	seedUser(t, d, "charlie", "charliepw", false)
-	seedUser(t, d, "bob", "bobpw1234", false)
+	charlieID := seedUser(t, d, "charlie", "charliepw", false)
+	bobID := seedUser(t, d, "bob", "bobpw1234", false)
+
+	// Stamp distinct created_at so the ordering is unambiguous (admin oldest, bob
+	// newest) regardless of same-second insert ties.
+	for _, s := range []struct {
+		id int64
+		ts string
+	}{
+		{adminID, "2026-01-01 00:00:00"},
+		{charlieID, "2026-02-01 00:00:00"},
+		{bobID, "2026-03-01 00:00:00"},
+	} {
+		if _, err := d.Exec(`UPDATE users SET created_at=$1 WHERE id=$2`, s.ts, s.id); err != nil {
+			t.Fatalf("stamp created_at: %v", err)
+		}
+	}
 
 	req := userRequest(http.MethodGet, "/api/admin/users", "", authUser(adminID, "admin", true))
 	rec := recordHandler(srv.ListAdminUsers, req)
@@ -22,14 +39,15 @@ func TestListAdminUsers_OkSortedByUsername(t *testing.T) {
 		t.Fatalf("status=%d body=%q want 200", rec.Code, rec.Body.String())
 	}
 	body := rec.Body.String()
-	adminIdx := strings.Index(body, `"admin"`)
 	bobIdx := strings.Index(body, `"bob"`)
 	charlieIdx := strings.Index(body, `"charlie"`)
+	adminIdx := strings.Index(body, `"admin"`)
 	if adminIdx < 0 || bobIdx < 0 || charlieIdx < 0 {
 		t.Fatalf("missing user(s) in body=%q", body)
 	}
-	if !(adminIdx < bobIdx && bobIdx < charlieIdx) {
-		t.Fatalf("ordering wrong: admin=%d bob=%d charlie=%d body=%q", adminIdx, bobIdx, charlieIdx, body)
+	// Newest first: bob (Mar) < charlie (Feb) < admin (Jan) by position.
+	if !(bobIdx < charlieIdx && charlieIdx < adminIdx) {
+		t.Fatalf("ordering wrong (want newest first): bob=%d charlie=%d admin=%d body=%q", bobIdx, charlieIdx, adminIdx, body)
 	}
 }
 
@@ -288,3 +306,169 @@ func TestDeleteAdminUser_Idempotent(t *testing.T) {
 // intStr is a tiny strconv.FormatInt alias used throughout the M6.2 tests
 // to build path strings like /api/admin/users/{id}.
 func intStr(id int64) string { return strconv.FormatInt(id, 10) }
+
+// The People table's activity columns are window-scoped: an old edit counts
+// under ?window=all but must fall outside 1m, and every row carries a metrics
+// block even when the account did nothing.
+func TestListAdminUsers_WindowedMetrics(t *testing.T) {
+	d := newAPITestDB(t)
+	srv := New(d)
+	ctx := context.Background()
+
+	admin := seedUser(t, d, "admin", "adminpw123", true)
+	alice := seedUser(t, d, "alice", "alicepw123", false)
+	seedUser(t, d, "idle", "idlepw1234", false) // never does anything — the all-zero row
+	spaceID := seedSpace(t, d, "Alice Space", "alice-space", alice)
+	oldPage := seedPage(t, d, spaceID, "Alice Note")
+	newPage := seedPage(t, d, spaceID, "Fresh Note")
+
+	// oldPage was created a year ago (agent-written) and edited today; newPage
+	// was created today. So the window decides BOTH how many edits alice has
+	// and how many pages she counts as having created.
+	if _, err := d.ExecContext(ctx,
+		`INSERT INTO page_revisions (page_id, title, body, author_id, source, byte_size, created_at)
+		 VALUES ($1,'Alice Note','y',$3,'agent', 1, '2025-01-01 00:00:00'),
+		        ($1,'Alice Note','x',$3,'manual',1, tela_now()),
+		        ($2,'Fresh Note','z',$3,'create',1, tela_now())`,
+		oldPage, newPage, alice); err != nil {
+		t.Fatalf("seed revisions: %v", err)
+	}
+	// One view today, one outside the 1m window.
+	if _, err := d.ExecContext(ctx,
+		`INSERT INTO events (type, actor_user_id, created_at)
+		 VALUES ('page.view',$1, tela_now()), ('page.view',$1,'2025-01-01 00:00:00')`,
+		alice); err != nil {
+		t.Fatalf("seed events: %v", err)
+	}
+
+	get := func(window string) map[string]adminUserDTO {
+		t.Helper()
+		rec := recordHandler(srv.ListAdminUsers,
+			userRequest(http.MethodGet, "/api/admin/users?window="+window, "", authUser(admin, "admin", true)))
+		if rec.Code != http.StatusOK {
+			t.Fatalf("window=%s status=%d body=%q", window, rec.Code, rec.Body.String())
+		}
+		var out struct {
+			Users  []adminUserDTO `json:"users"`
+			Window string         `json:"window"`
+		}
+		if err := json.Unmarshal(rec.Body.Bytes(), &out); err != nil {
+			t.Fatalf("decode: %v body=%q", err, rec.Body.String())
+		}
+		want := window
+		if window == "bogus" {
+			want = "1m" // unknown values fall back, never 500 or list everything
+		}
+		if out.Window != want {
+			t.Fatalf("window echo=%q want %q", out.Window, want)
+		}
+		by := map[string]adminUserDTO{}
+		for _, u := range out.Users {
+			if u.Metrics == nil {
+				t.Fatalf("metrics nil for %q", u.Username)
+			}
+			by[u.Username] = u
+		}
+		return by
+	}
+
+	month := get("1m")
+	if got := month["alice"].Metrics; got.Edits != 2 || got.AgentEdits != 0 || got.Views != 1 {
+		t.Fatalf("1m alice metrics = %+v, want edits=2 agent=0 views=1", got)
+	}
+	if got := month["alice"].Metrics; got.HumanEdits != 2 || got.SyncEdits != 0 {
+		t.Fatalf("1m alice edit split = %+v, want human=2 sync=0", got)
+	}
+	// Only newPage was created inside the window; the year-old page's first
+	// revision falls outside it, so editing it today doesn't re-count as a
+	// creation.
+	if got := month["alice"].Metrics.PagesCreated; got != 1 {
+		t.Fatalf("1m alice pages_created=%d want 1 (only the page first written in-window)", got)
+	}
+	if got := month["idle"].Metrics; got.Edits != 0 || got.Views != 0 || got.DaysActive != 0 {
+		t.Fatalf("idle account should be all-zero, got %+v", got)
+	}
+
+	all := get("all")
+	if got := all["alice"].Metrics; got.Edits != 3 || got.AgentEdits != 1 || got.Views != 2 {
+		t.Fatalf("all alice metrics = %+v, want edits=3 agent=1 views=2", got)
+	}
+	if got := all["alice"].Metrics.PagesCreated; got != 2 {
+		t.Fatalf("all alice pages_created=%d want 2", got)
+	}
+	if got := all["alice"].Metrics.DaysActive; got != 2 {
+		t.Fatalf("all alice days_active=%d want 2 (two distinct event days)", got)
+	}
+
+	get("bogus")
+}
+
+// Days-active must count authored revisions, not only events. The file-sync
+// write path records NO events, so an events-only measure filed the instance's
+// heaviest writers as dormant while their edit count said otherwise — and the
+// lifecycle segment inherited the lie.
+func TestListAdminUsers_SyncWriterIsNotDormant(t *testing.T) {
+	d := newAPITestDB(t)
+	srv := New(d)
+	ctx := context.Background()
+
+	admin := seedUser(t, d, "admin", "adminpw123", true)
+	vault := seedUser(t, d, "vault", "vaultpw123", false)
+	spaceID := seedSpace(t, d, "Vault", "vault", vault)
+	pageID := seedPage(t, d, spaceID, "Synced Note")
+
+	// Three sync snapshots across two distinct days, and not one event row.
+	if _, err := d.ExecContext(ctx,
+		`INSERT INTO page_revisions (page_id, title, body, author_id, source, byte_size, created_at)
+		 VALUES ($1,'Synced Note','a',$2,'sync-prior',   1, to_char(now() - interval '1 day','YYYY-MM-DD HH24:MI:SS')),
+		        ($1,'Synced Note','b',$2,'sync-prior',   1, to_char(now() - interval '1 day','YYYY-MM-DD HH24:MI:SS')),
+		        ($1,'Synced Note','c',$2,'sync-conflict',1, tela_now())`,
+		pageID, vault); err != nil {
+		t.Fatalf("seed revisions: %v", err)
+	}
+
+	rec := recordHandler(srv.ListAdminUsers,
+		userRequest(http.MethodGet, "/api/admin/users?window=1m", "", authUser(admin, "admin", true)))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status=%d body=%q", rec.Code, rec.Body.String())
+	}
+	var out struct {
+		Users []adminUserDTO `json:"users"`
+		Weeks []string       `json:"weeks"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &out); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	var row *adminUserDTO
+	for i := range out.Users {
+		if out.Users[i].Username == "vault" {
+			row = &out.Users[i]
+		}
+	}
+	if row == nil {
+		t.Fatal("vault user missing from list")
+	}
+	m := row.Metrics
+	if m.Edits != 3 || m.SyncEdits != 3 || m.HumanEdits != 0 {
+		t.Fatalf("edit split = %+v, want edits=3 sync=3 human=0", m)
+	}
+	if m.DaysActive != 2 {
+		t.Fatalf("days_active=%d, want 2 (from revisions alone — there are no events)", m.DaysActive)
+	}
+	if row.Segment == segNever {
+		t.Fatalf("a user writing every day is not %q", segNever)
+	}
+	// The weekly series is the axis every sparkline and the cohort grid indexes
+	// into, so it must be dense and aligned for every row.
+	if len(out.Weeks) != adminUserWeeks {
+		t.Fatalf("weeks axis = %d entries, want %d", len(out.Weeks), adminUserWeeks)
+	}
+	for _, u := range out.Users {
+		if len(u.Metrics.Weeks) != adminUserWeeks {
+			t.Fatalf("%s has %d week buckets, want %d", u.Username, len(u.Metrics.Weeks), adminUserWeeks)
+		}
+	}
+	if last := m.Weeks[len(m.Weeks)-1]; last == 0 {
+		t.Fatalf("this week's bucket is 0 for a user who wrote today: %v", m.Weeks)
+	}
+}

@@ -41,6 +41,8 @@ import { createRequire } from 'node:module'
 import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
 import { parse, stringify, prettifySlide, detectFeatures } from '@slidev/parser/core'
+import { parse as parseSheet, projectProse, projectValuesModel, applyOp, applyOps } from '@defterjs/core'
+import { createEngine } from '@defterjs/formula'
 import { lint as tahtaLint } from 'slidev-theme-tahta/lint.mjs'
 import { treat as tahtaTreat } from 'slidev-theme-tahta/imagine.mjs'
 
@@ -51,6 +53,10 @@ const CACHE = process.env.DECK_CACHE || join(ROOT, 'cache')
 const WORK = join(CACHE, 'work')
 const SLIDEV = join(ROOT, 'node_modules', '.bin', 'slidev')
 const PORT = Number(process.env.PORT || 3344)
+
+// Sheet (Defter) formula engine — dependency-free; created once. Powers the
+// /project endpoint that materializes computed cell values for RAG indexing.
+const sheetEngine = createEngine()
 const MAX_CONCURRENCY = Number(process.env.DECK_CONCURRENCY || 2)
 
 // Bump when the theme or render pipeline changes so cached decks re-render/re-build.
@@ -528,6 +534,46 @@ const server = http.createServer(async (req, res) => {
       const r = await tahtaLint(md)
       const issues = (r.issues || []).map((it) => ({ ...it, slide: (it.slide ?? 0) + 1 }))
       res.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify({ ...r, issues }))
+    } else if (req.method === 'POST' && path === '/project') {
+      // Materialize a Defter (sheet) body into self-describing prose with COMPUTED
+      // formula values, for RAG/search indexing. tela's Go backend can strip
+      // styling + project literals in-process; only the TS formula engine lives
+      // here, so this fills in totals/variances/lookups as their numbers.
+      const md = await readBody(req)
+      const model = parseSheet(md)
+      const prose = projectProse(model, { computed: sheetEngine.compute(model) })
+      res.writeHead(200, { 'content-type': 'text/plain; charset=utf-8' }).end(prose)
+    } else if (req.method === 'POST' && path === '/sheet-cells') {
+      // The top-left window of a sheet with formulas materialized to COMPUTED
+      // display values (number formats applied) — for the OG share-card grid
+      // preview, so it shows numbers, not `=source`.
+      const md = await readBody(req)
+      const vm = projectValuesModel(parseSheet(md), { computed: sheetEngine.compute(parseSheet(md)) })
+      const sh = vm.sheets[0]
+      const cells = []
+      if (sh) {
+        const cols = Math.min(sh.width, 5)
+        for (let r = 0; r < sh.grid.length && r < 5; r++) cells.push(sh.grid[r].slice(0, cols))
+      }
+      res.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify({ cells }))
+    } else if (req.method === 'POST' && path === '/apply') {
+      // Apply a structured SheetOp (or a batch) to a Defter body → new canonical
+      // markdown, reusing @defterjs/core's reference-rewriting. Body JSON:
+      // {body, op} or {body, ops}. 200 {body} on success; 422 {error} on a bad op
+      // (bad A1 ref, unknown sheet, out-of-range) so the host relays it to the agent.
+      let payload
+      try {
+        payload = JSON.parse(await readBody(req))
+      } catch {
+        return void res.writeHead(400, { 'content-type': 'application/json' }).end(JSON.stringify({ error: 'invalid json' }))
+      }
+      try {
+        const src = String(payload.body ?? '')
+        const next = Array.isArray(payload.ops) ? applyOps(src, payload.ops) : applyOp(src, payload.op)
+        res.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify({ body: next }))
+      } catch (e) {
+        res.writeHead(422, { 'content-type': 'application/json' }).end(JSON.stringify({ error: String((e && e.message) || e) }))
+      }
     } else if (req.method === 'POST' && path === '/treat') {
       // tahta's deterministic image TREAT step (tahta-imagine): crop to 16:9 →
       // scheme-aware duotone (palette-lock) → grain → optional scrim, reading the

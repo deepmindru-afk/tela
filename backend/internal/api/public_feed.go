@@ -61,7 +61,7 @@ func (s *Server) GetPublicSpaceFeed(w http.ResponseWriter, r *http.Request) {
 	rows, err := s.DB.QueryContext(r.Context(),
 		`SELECT id, title, body, props, created_at
 		   FROM pages
-		  WHERE space_id = $1 AND parent_id IS NULL AND deleted_at IS NULL
+		  WHERE space_id = $1 AND parent_id IS NULL AND deleted_at IS NULL AND status = 'published'
 		  ORDER BY created_at DESC, id DESC
 		  LIMIT 50`, id)
 	if err != nil {
@@ -71,6 +71,8 @@ func (s *Server) GetPublicSpaceFeed(w http.ResponseWriter, r *http.Request) {
 	defer rows.Close()
 
 	base := canonicalBaseURL()
+	// One feed = one space, so resolve its pretty prefix once, not per item.
+	prefix := s.spacePrettyPrefix(r.Context(), id)
 	items := []rssItem{}
 	for rows.Next() {
 		var (
@@ -84,7 +86,7 @@ func (s *Server) GetPublicSpaceFeed(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusInternalServerError, "internal", "scan feed row failed")
 			return
 		}
-		link := base + publicReaderPath(id, pid, title)
+		link := base + readerPathUnder(prefix, id, pid, title)
 		items = append(items, rssItem{
 			Title:       title,
 			Link:        link,

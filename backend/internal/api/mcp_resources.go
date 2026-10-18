@@ -42,6 +42,27 @@ func (s *Server) registerMCPResources(server *mcp.Server) {
 		MIMEType:    "text/markdown",
 	}, s.mcpReadDeckAuthoringGuide)
 
+	// Sheet authoring guide — defter's Defter-format contract, tela-framed, so an
+	// agent authors valid spreadsheets (compact tables + defter-style) not guesses.
+	server.AddResource(&mcp.Resource{
+		Name:        "sheet-authoring-guide",
+		Title:       "Tela spreadsheet / sheet authoring guide",
+		Description: "How to make a spreadsheet in tela: the Defter text format (compact GFM tables + a ```defter-style block), coordinates, formulas, number formats, styling, and charts. Read this for any 'spreadsheet', 'budget', 'tracker', or 'table with formulas' request.",
+		URI:         sheetAuthoringGuideURI,
+		MIMEType:    "text/markdown",
+	}, s.mcpReadSheetAuthoringGuide)
+
+	// Import guide — how to bulk-import an existing folder of files (Office docs,
+	// spreadsheets, PDFs) into a space as a page tree: convert locally, then drive
+	// the import endpoint's dry-run → confirm → commit loop.
+	server.AddResource(&mcp.Resource{
+		Name:        "import-guide",
+		Title:       "Tela import guide (bring in an existing folder of files)",
+		Description: "How to bulk-import an existing folder of documents into tela: converting Word docs to pages and spreadsheets to live sheets locally, attaching PDFs/images, and the import endpoint's dry-run → confirm → commit contract. Read this for any 'import', 'migrate my docs', or 'bring in this folder' request.",
+		URI:         importGuideURI,
+		MIMEType:    "text/markdown",
+	}, s.mcpReadImportGuide)
+
 	server.AddResourceTemplate(&mcp.ResourceTemplate{
 		Name:        "page",
 		Title:       "Tela page",

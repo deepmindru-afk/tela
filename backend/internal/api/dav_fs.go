@@ -144,7 +144,7 @@ func (fs *davFS) Stat(ctx context.Context, name string) (os.FileInfo, error) {
 	leaf := segs[len(segs)-1]
 	if p, isFile, found := t.resolve(segs[1:]); found {
 		if isFile {
-			return pageFileInfo(leaf, p), nil
+			return pageFileInfo(leaf, p, st.syncMtimes(ctx, fs.s.DB, sp.id)[p.ID]), nil
 		}
 		// Directory form: a page-as-collection is statable for ANY page (so MKCOL /
 		// PUT into a leaf that is gaining its first child resolves), independent of
@@ -233,7 +233,7 @@ func (fs *davFS) openRead(ctx context.Context, segs []string) (webdavFile, error
 				slog.Error("dav: sync base seed on read", "page_id", p.ID, "err", err)
 			}
 		}
-		return newDavReadFile(leaf, p), nil
+		return newDavReadFile(leaf, p, st.syncMtimes(ctx, fs.s.DB, sp.id)[p.ID]), nil
 	}
 	return fs.dirFromChildren(leaf, davModTime(p.UpdatedAt), t, p.ID, fileSet), nil
 }
@@ -437,7 +437,7 @@ func (fs *davFS) RemoveAll(ctx context.Context, name string) error {
 			return os.ErrPermission
 		}
 	}
-	return davMapErr(fs.s.deletePageCore(ctx, pr.u, pr.k, p.ID))
+	return davMapErr(fs.s.deletePageCore(ctx, pr.u, pr.k, p.ID, deleteViaSync))
 }
 
 // countLiveSpacePages returns the number of live (non-deleted) pages in a space

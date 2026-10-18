@@ -24,17 +24,32 @@ type usageOut struct {
 		StorageBytes int64  `json:"storage_bytes"`
 		Members      *int64 `json:"members,omitempty"`
 		LLMCalls     int64  `json:"llm_calls"` // managed AI calls this calendar month
+		// Atlas cost meters for this calendar month, so the UI can show how close an
+		// account is BEFORE a run is refused. AtlasRuns excludes failed runs, matching
+		// what the gate counts.
+		AtlasRuns   int64 `json:"atlas_runs"`
+		EmbedTokens int64 `json:"embed_tokens"`
 	} `json:"usage"`
 	// Subscription is the live Polar billing state, omitted when the account has
 	// never subscribed (status 'none'). Drives the "Manage subscription" button
 	// and the "cancels on <date>" notice in the UI.
 	Subscription *subscriptionOut `json:"subscription,omitempty"`
+	// Trial is the live signup trial, if any — ungated, unlike the app-wide
+	// banner (see loadTrial). Personal accounts only; orgs are never trialled.
+	// The billing screen needs it to say what the plan badge actually means and
+	// what pressing the paid button would cost you.
+	Trial *trialDTO `json:"trial,omitempty"`
 }
 
 type subscriptionOut struct {
-	Status            string  `json:"status"`     // active|canceled|past_due
+	Status            string  `json:"status"`     // trialing|active|canceled|past_due
 	PeriodEnd         *string `json:"period_end"` // paid-through, when known
 	CancelAtPeriodEnd bool    `json:"cancel_at_period_end"`
+	// TrialEnd is the PENDING first-charge date while status is `trialing` —
+	// set when a subscription was bought during a tela trial and Polar deferred
+	// the charge. Absent otherwise. Not the same as PeriodEnd, which is the
+	// billing period; the UI must say "first charge", never "renews".
+	TrialEnd *string `json:"trial_end,omitempty"`
 }
 
 // buildUsage assembles the plan + live usage snapshot for an account.
@@ -47,6 +62,9 @@ func (s *Server) buildUsage(ctx context.Context, acct account) (usageOut, error)
 		return usageOut{}, err
 	}
 	out.Plan = p
+	if acct.Kind == accountUser {
+		out.Trial = s.loadTrial(ctx, acct.ID, false)
+	}
 
 	if out.Usage.Spaces, err = countOwnedSpaces(ctx, s.DB, acct); err != nil {
 		return usageOut{}, err
@@ -60,6 +78,12 @@ func (s *Server) buildUsage(ctx context.Context, acct account) (usageOut, error)
 			return usageOut{}, err
 		}
 		out.Usage.Members = &n
+	}
+	if out.Usage.AtlasRuns, err = countAtlasRunsThisMonth(ctx, s.DB, acct); err != nil {
+		return usageOut{}, err
+	}
+	if out.Usage.EmbedTokens, err = sumEmbedTokensThisMonth(ctx, s.DB, acct); err != nil {
+		return usageOut{}, err
 	}
 	// AI calls used this calendar month (the same period cloud_usage is keyed by).
 	if err = s.DB.QueryRowContext(ctx,
@@ -76,17 +100,22 @@ func (s *Server) buildUsage(ctx context.Context, acct account) (usageOut, error)
 		status    string
 		periodEnd sql.NullString
 		cancelInt int
+		trialEnd  sql.NullString
 	)
 	if err = s.DB.QueryRowContext(ctx,
-		`SELECT subscription_status, subscription_period_end, subscription_cancel_at_period_end
+		`SELECT subscription_status, subscription_period_end, subscription_cancel_at_period_end,
+		        subscription_trial_end
 		   FROM `+acctTable(acct.Kind)+` WHERE id = $1`, acct.ID).
-		Scan(&status, &periodEnd, &cancelInt); err != nil {
+		Scan(&status, &periodEnd, &cancelInt, &trialEnd); err != nil {
 		return usageOut{}, err
 	}
 	if status != "none" && status != "" {
 		sub := &subscriptionOut{Status: status, CancelAtPeriodEnd: cancelInt == 1}
 		if periodEnd.Valid {
 			sub.PeriodEnd = &periodEnd.String
+		}
+		if trialEnd.Valid {
+			sub.TrialEnd = &trialEnd.String
 		}
 		out.Subscription = sub
 	}
@@ -150,6 +179,15 @@ func (s *Server) ListPlans(w http.ResponseWriter, r *http.Request) {
 	if err := rows.Err(); err != nil {
 		writeError(w, http.StatusInternalServerError, "internal", "iterate plans failed")
 		return
+	}
+	// ?src=billing marks the render of the paid tiers to a real person, as
+	// opposed to the same catalog being read by the admin tier-picker. It is the
+	// step BEFORE intent: without it, someone who opened the billing screen and
+	// declined is indistinguishable from someone who never saw a price, and the
+	// two call for opposite fixes. Undercounts slightly by design — the client
+	// caches the catalog, so a revisit inside its stale window sends no request.
+	if r.URL.Query().Get("src") == "billing" {
+		s.recordRequestEvent(r, eventInput{Type: evtBillingPlansViewed})
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"plans": plans})
 }

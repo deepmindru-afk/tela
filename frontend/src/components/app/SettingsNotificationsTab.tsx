@@ -4,6 +4,7 @@ import {
   type NotificationPref,
 } from '../../lib/queries/notification-prefs'
 import { useAutowatch, useSetAutowatch } from '../../lib/queries/subscriptions'
+import { useDigestPref, useSetDigestPref } from '../../lib/queries/digest'
 import { useMe } from '../../lib/queries/auth'
 import { Checkbox } from '../ui/checkbox'
 import { cn } from '../../lib/utils'
@@ -35,6 +36,11 @@ const EVENTS: { type: string; label: string; desc: string; adminOnly?: boolean }
     desc: 'When someone gives you access to a space.',
   },
   {
+    type: 'atlas_run',
+    label: 'Atlas runs',
+    desc: 'When an Atlas generation run you manage finishes or fails.',
+  },
+  {
     type: 'user_registered',
     label: 'New signups',
     desc: 'When a new account confirms its email on this instance.',
@@ -51,6 +57,8 @@ export function SettingsNotificationsTab() {
   const update = useUpdateNotificationPref()
   const autowatch = useAutowatch()
   const setAutowatch = useSetAutowatch()
+  const digest = useDigestPref()
+  const setDigest = useSetDigestPref()
   const me = useMe()
   const events = EVENTS.filter((ev) => !ev.adminOnly || me.data?.is_instance_admin)
 
@@ -67,6 +75,25 @@ export function SettingsNotificationsTab() {
         Choose what you’re notified about. Follow a page or space (the bell icon in
         its header) to get its updates.
       </p>
+
+      <label className="flex items-start gap-[var(--space-3)] rounded-[var(--radius-md)] border border-[var(--border-subtle)] px-[var(--space-4)] py-[var(--space-3)]">
+        <Checkbox
+          checked={digest.data?.frequency === 'weekly'}
+          disabled={digest.isLoading || setDigest.isPending}
+          aria-label="Weekly digest email"
+          onCheckedChange={(v) => setDigest.mutate(v === true ? 'weekly' : 'off')}
+          className="mt-[2px]"
+        />
+        <span className="flex flex-col gap-[1px]">
+          <span className="text-[length:var(--text-sm)] text-[var(--text-primary)] font-medium">
+            Weekly digest email
+          </span>
+          <span className="text-[length:var(--text-xs)] text-[var(--text-muted)]">
+            A Monday-morning recap of what changed across your spaces — and anything
+            that needs you. Quiet weeks send nothing.
+          </span>
+        </span>
+      </label>
 
       <label className="flex items-start gap-[var(--space-3)] rounded-[var(--radius-md)] border border-[var(--border-subtle)] px-[var(--space-4)] py-[var(--space-3)]">
         <Checkbox
@@ -142,11 +169,6 @@ export function SettingsNotificationsTab() {
           ))}
         </div>
       )}
-
-      <p className="m-0 text-[length:var(--text-xs)] text-[var(--text-muted)]">
-        Email delivery isn’t live yet — your Email choices are saved and take effect
-        when it ships.
-      </p>
     </section>
   )
 }

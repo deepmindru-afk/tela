@@ -19,6 +19,8 @@ import {
 } from './atlas-lib'
 import { NewProjectDialog } from './NewProjectDialog'
 import { CredentialsDialog } from './CredentialsDialog'
+import { AtlasQuotaBar } from './AtlasQuotaBar'
+import { AtlasBudgetNotice } from './AtlasBudgetNotice'
 
 function freshnessOf(p: AtlasProject): { f: Freshness; label: string } {
   const r = p.last_run
@@ -31,6 +33,11 @@ function freshnessOf(p: AtlasProject): { f: Freshness; label: string } {
     case 'failed':
       return { f: 'failed', label: 'Failed' }
     case 'done':
+      // Checked before staleness: an unreachable source can't report drift, so
+      // stale_sources stays 0 and the card would otherwise read Fresh forever.
+      if (p.unreachable_sources > 0) {
+        return { f: 'unreachable', label: `${p.unreachable_sources} unreachable` }
+      }
       if (p.stale_sources > 0) {
         return { f: 'stale', label: p.last_refresh_at ? `Stale · built ${fmtRelative(p.last_refresh_at)}` : 'Stale' }
       }
@@ -77,11 +84,12 @@ export function AtlasHome() {
   }, [me, orgs])
 
   const counts = useMemo(() => {
-    const c = { fresh: 0, running: 0, failed: 0, stale: 0 }
+    const c = { fresh: 0, running: 0, failed: 0, stale: 0, unreachable: 0 }
     for (const p of projects) {
       const { f } = freshnessOf(p)
       if (f === 'fresh') c.fresh++
       else if (f === 'stale') c.stale++
+      else if (f === 'unreachable') c.unreachable++
       else if (f === 'running' || f === 'pending') c.running++
       else if (f === 'failed') c.failed++
     }
@@ -98,8 +106,13 @@ export function AtlasHome() {
           <p className="mt-[var(--space-2)] text-[length:var(--text-sm)] text-[var(--text-muted)]">
             {projects.length === 0
               ? 'Living documentation, generated from your systems and kept current.'
-              : `${projects.length} project${projects.length === 1 ? '' : 's'} · ${counts.fresh} fresh${counts.stale ? ` · ${counts.stale} stale` : ''}${counts.running ? ` · ${counts.running} generating` : ''}${counts.failed ? ` · ${counts.failed} failed` : ''}`}
+              : `${projects.length} project${projects.length === 1 ? '' : 's'} · ${counts.fresh} fresh${counts.stale ? ` · ${counts.stale} stale` : ''}${counts.unreachable ? ` · ${counts.unreachable} unreachable` : ''}${counts.running ? ` · ${counts.running} generating` : ''}${counts.failed ? ` · ${counts.failed} failed` : ''}`}
           </p>
+          {/* Account-level, because the budget is per account: a user with three
+              projects cannot tell from any one of them whether the total fits. */}
+          {projects.length > 0 && (
+            <div className="mt-[var(--space-3)] max-w-[34rem]"><AtlasBudgetNotice /></div>
+          )}
         </div>
         <div className="flex items-center gap-[var(--space-2)]">
           <Button variant="ghost" onClick={() => setCredsOpen(true)}>
@@ -110,6 +123,8 @@ export function AtlasHome() {
           </Button>
         </div>
       </div>
+
+      <AtlasQuotaBar />
 
       {projectsQ.isLoading ? (
         <p className="mt-[var(--space-6)] text-[length:var(--text-sm)] text-[var(--text-muted)]">Loading projects…</p>
@@ -164,7 +179,7 @@ function ProjectRow({ p, first }: { p: AtlasProject; first: boolean }) {
   const { f, label } = freshnessOf(p)
   const navigate = useNavigate()
   const schedule =
-    p.cadence && p.auto_update
+    p.cadence && p.auto_update && p.scheduled_allowed
       ? `auto · ${p.cadence}${p.next_due ? ` · ${fmtUntil(p.next_due)}` : ''}`
       : 'manual'
   return (

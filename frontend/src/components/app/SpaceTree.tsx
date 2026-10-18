@@ -4,6 +4,8 @@ import {
   Building2,
   ChevronDown,
   ChevronRight,
+  Eye,
+  EyeOff,
   FileDown,
   Globe,
   Lock,
@@ -41,7 +43,12 @@ import {
 } from '../ui/dropdown-menu'
 import { Input } from '../ui/input'
 import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip'
+import { useMe } from '../../lib/queries/auth'
 import { useSpaceAccess } from '../../lib/queries/space-grants'
+import {
+  useHiddenSpaces,
+  useToggleHiddenSpace,
+} from '../../lib/queries/hidden-spaces'
 import { useFreshness } from '../../lib/queries/freshness'
 import { useSummaries } from '../../lib/queries/summaries'
 import { spaceStaleLabel } from './staleness'
@@ -108,10 +115,13 @@ export function SpaceTree({ activeSpaceId, activePageId }: SpaceTreeProps) {
   // flag (else everything reads behind — noise on an instance that isn't running
   // it). Failed summaries are excluded (see staleness.ts) so the dot stays a
   // "catching up" signal, not a stuck error.
+  // Opt-out (Settings → Search index): when off, no dot is computed at all.
+  const showDot = useMe().data?.show_backfill_dot ?? true
   const freshness = useFreshness()
   const summaries = useSummaries()
   const staleLabelBySpace = useMemo(() => {
     const indexing = new Map<number, number>()
+    if (!showDot) return new Map<number, string>()
     if (freshness.data?.enabled) {
       for (const f of freshness.data.spaces) {
         if (f.stale_pages > 0) indexing.set(f.space_id, f.stale_pages)
@@ -129,10 +139,31 @@ export function SpaceTree({ activeSpaceId, activePageId }: SpaceTreeProps) {
       if (label) labels.set(id, label)
     }
     return labels
-  }, [freshness.data, summaries.data])
+  }, [freshness.data, summaries.data, showDot])
 
   // Alphabetical order useSpaces() already gives us, clustered by org below.
   const all = spaces.data ?? []
+
+  // Per-user hidden spaces — a sidebar-only declutter (they stay in /spaces,
+  // search and the palette). The active space is always revealed: navigating
+  // into a space must never make it vanish from the tree.
+  const hiddenQuery = useHiddenSpaces()
+  const [showHidden, setShowHidden] = useState(false)
+  // hiddenIds = what the row shows as hidden (drives muting + the menu label);
+  // tuckedIds = what the reveal actually tucks away, i.e. minus the active
+  // space. Intersected with the spaces we hold — the API list is re-gated, but
+  // the two queries can be a beat apart.
+  const hiddenIds = useMemo(() => {
+    const ids = new Set(hiddenQuery.data ?? [])
+    return new Set(all.filter((s) => ids.has(s.id)).map((s) => s.id))
+  }, [hiddenQuery.data, all])
+  const tuckedIds = useMemo(() => {
+    const ids = new Set(hiddenIds)
+    if (activeSpaceId != null) ids.delete(activeSpaceId)
+    return ids
+  }, [hiddenIds, activeSpaceId])
+
+  const visible = showHidden ? all : all.filter((s) => !tuckedIds.has(s.id))
 
   const renderRow = (space: Space) => (
     <SpaceRow
@@ -140,6 +171,7 @@ export function SpaceTree({ activeSpaceId, activePageId }: SpaceTreeProps) {
       space={space}
       active={space.id === activeSpaceId}
       activePageId={activePageId}
+      hidden={hiddenIds.has(space.id)}
       staleLabel={staleLabelBySpace.get(space.id) ?? null}
       expanded={expandedSpaces.set.has(String(space.id))}
       onToggleExpand={() => expandedSpaces.toggle(String(space.id))}
@@ -218,7 +250,28 @@ export function SpaceTree({ activeSpaceId, activePageId }: SpaceTreeProps) {
           </Card>
         ) : null}
 
-        {renderGrouped(all)}
+        {renderGrouped(visible)}
+
+        {/* Hidden-spaces reveal — deliberately quiet, and only there when you
+            actually hid something. Revealed rows stay in their own cluster,
+            just muted. */}
+        {tuckedIds.size > 0 ? (
+          <button
+            type="button"
+            onClick={() => setShowHidden((v) => !v)}
+            aria-expanded={showHidden}
+            className="mt-[var(--space-1)] flex w-full items-center gap-[var(--space-1)] rounded-[var(--radius-sm)] bg-transparent border-0 px-[var(--space-1)] py-[var(--space-1)] cursor-pointer outline-none text-[length:var(--text-xs)] text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--sidebar-item-hover)] focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+          >
+            {showHidden ? (
+              <EyeOff width={12} height={12} aria-hidden className="shrink-0" />
+            ) : (
+              <Eye width={12} height={12} aria-hidden className="shrink-0" />
+            )}
+            <span className="truncate">
+              {showHidden ? 'Hide hidden' : `Show hidden (${tuckedIds.size})`}
+            </span>
+          </button>
+        ) : null}
       </section>
     </div>
   )
@@ -339,6 +392,8 @@ interface SpaceRowProps {
   space: Space
   active: boolean
   activePageId: number | null
+  /** Hidden for this user — rendered muted, only while the reveal is on. */
+  hidden: boolean
   staleLabel: string | null
   expanded: boolean
   onToggleExpand: () => void
@@ -349,6 +404,7 @@ function SpaceRow({
   space,
   active,
   activePageId,
+  hidden,
   staleLabel,
   expanded,
   onToggleExpand,
@@ -357,6 +413,7 @@ function SpaceRow({
   const [renameOpen, setRenameOpen] = useState(false)
   const [shareOpen, setShareOpen] = useState(false)
   const [deleteOpen, setDeleteOpen] = useState(false)
+  const toggleHidden = useToggleHiddenSpace()
   const { download: downloadZip } = useFileDownload(
     `/api/spaces/${space.id}/export.zip`,
     { fallbackName: 'space.zip' },
@@ -394,6 +451,7 @@ function SpaceRow({
             'flex-1 min-w-0 text-left truncate py-[var(--space-2)]',
             'font-[family-name:var(--font-sans)] text-[length:var(--text-sm)] leading-[var(--leading-tight)]',
             'text-[var(--text-primary)] bg-transparent border-0 cursor-pointer outline-none',
+            hidden && 'text-[var(--text-muted)]',
             active && 'text-[var(--accent)] font-medium',
           )}
         >
@@ -403,7 +461,8 @@ function SpaceRow({
         </button>
 
         {/* Resting state stays calm: only a published space flags itself, plus a
-            staleness rollup. Both yield to the access cluster + ⋯ on hover. */}
+            staleness rollup. The globe yields to the access cluster + ⋯ on hover;
+            the staleness dot only recedes, so its tooltip stays hoverable. */}
         {space.visibility === 'public' ? (
           <Globe
             width={13}
@@ -413,11 +472,7 @@ function SpaceRow({
           />
         ) : null}
 
-        {staleLabel ? (
-          <span className="shrink-0 inline-flex items-center group-hover:hidden">
-            <StalenessDot label={staleLabel} />
-          </span>
-        ) : null}
+        {staleLabel ? <StalenessDot label={staleLabel} /> : null}
 
         {/* Access cluster + actions — revealed on hover (or on the active row for
             no-hover devices), so the row reads as just a name at rest. Click the
@@ -466,6 +521,21 @@ function SpaceRow({
             </DropdownMenuItem>
             <DropdownMenuItem onSelect={() => void downloadZip()}>
               <FileDown width={14} height={14} /> Export Markdown (.zip)
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onSelect={() =>
+                void toggleHidden.mutate({ spaceId: space.id, hidden })
+              }
+            >
+              {hidden ? (
+                <>
+                  <Eye width={14} height={14} /> Unhide space
+                </>
+              ) : (
+                <>
+                  <EyeOff width={14} height={14} /> Hide space
+                </>
+              )}
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem destructive onSelect={() => setDeleteOpen(true)}>

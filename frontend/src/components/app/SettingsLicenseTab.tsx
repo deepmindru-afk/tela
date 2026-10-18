@@ -21,6 +21,8 @@ export function SettingsLicenseTab() {
   const lic = info.data?.license
   const envLocked = info.data?.env_locked ?? false
   const active = lic?.valid ?? false
+  const seatUsage = info.data?.seat_usage
+  const overSeats = seatUsage ? seatUsage.used > seatUsage.licensed : false
 
   async function install() {
     setError(null)
@@ -56,6 +58,14 @@ export function SettingsLicenseTab() {
       {info.isError ? (
         <p className="m-0 text-[length:var(--text-sm)] text-[var(--danger)]">
           Could not load license status.
+        </p>
+      ) : null}
+
+      {overSeats && seatUsage ? (
+        <p className="m-0 rounded-[var(--radius-md)] border border-[var(--warning-border,var(--border))] bg-[var(--warning-bg,var(--surface-sunk))] px-[var(--space-3)] py-[var(--space-2)] text-[length:var(--text-sm)] text-[var(--text-primary)]">
+          This instance has <strong>{seatUsage.used}</strong> active users but the license covers{' '}
+          <strong>{seatUsage.licensed}</strong> seats. Enterprise features stay on — please update your
+          subscription’s seat count to stay licensed.
         </p>
       ) : null}
 
@@ -104,7 +114,14 @@ export function SettingsLicenseTab() {
             <dt className="text-[var(--text-muted)]">Expires</dt>
             <dd className="m-0 text-[var(--text-primary)]">{lic.expires_at ? lic.expires_at.slice(0, 10) : 'Never'}</dd>
           </dl>
-        ) : (
+        ) : null}
+
+        {active && info.data?.refreshable ? (
+          <p className="m-0 text-[length:var(--text-xs)] text-[var(--text-muted)]">
+            Auto-renews from telawiki.com when your subscription renews — no manual re-install needed
+            (as long as this instance can reach it).
+          </p>
+        ) : active ? null : (
           <p className="m-0 text-[length:var(--text-sm)] text-[var(--text-muted)]">
             No license installed. The whole product works without one — Enterprise features
             stay locked until a key is added.

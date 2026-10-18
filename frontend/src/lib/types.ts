@@ -27,6 +27,10 @@ export interface Space {
   visibility?: 'private' | 'public'
   // Blog standfirst shown on a public space's front page. Present on list/detail.
   description?: string
+  // Canonical public path (/{handle}/{space-slug}) when published, absent
+  // otherwise. Server-derived — never re-derive the owning-handle rule (org slug
+  // vs personal username) client-side. Present only on the single-space fetch.
+  public_path?: string
   created_at: string
   updated_at: string
   // Access summary — present on the spaces list (sidebar), optional elsewhere.
@@ -77,6 +81,17 @@ export interface Page {
   // from the GET /api/pages/{id} sibling field. Optional so older cached rows
   // and optimistic nodes stay valid.
   exposure?: PageExposure | null
+  // Short permalink /p/{id}/{key} (server-computed, unguessable per page): what
+  // "Copy short link" hands out, and "Copy link" when the title has no slug. A
+  // private page's link preview shows its title only to a link carrying its
+  // slug or this key. Attached by `usePage` from the GET sibling field.
+  short_path?: string
+  // Advances on every title/body/props change; send back as base_version to
+  // refuse a write over an edit you haven't seen.
+  version?: number
+  // 'draft' pages are labelled in the app and kept off public spaces and
+  // share links until published. Absent on older cached rows = published.
+  status?: 'draft' | 'published'
 }
 
 export interface PageTreeNode extends Page {
@@ -188,9 +203,29 @@ export interface Plan {
   price_cents: number | null
   price_period: string
   price_cents_yearly: number | null
+  // Cost-shaped Atlas caps; null = unlimited.
+  max_atlas_files_per_run: number | null
+  max_atlas_runs_per_month: number | null
+  max_embed_tokens_per_month: number | null
+  // GPU minutes — the cap that actually binds, since a run ranges 5-80 min and
+  // a source count says nothing about cost.
+  max_atlas_minutes_per_month: number | null
 }
 
 // GET /api/usage and /api/orgs/{id}/usage. members is present for orgs only.
+// Mirrors backend/internal/api/auth.go's trialDTO. Drives the app-wide trial
+// banner (from `me.trial`, gated to the last 7 days) and the billing screen
+// (from `usage.trial`, ungated).
+export interface TrialStatus {
+  // The trialled tier's key — lets a caller tell whether a plan it is offering
+  // to sell is the one already being trialled.
+  plan_key: string
+  plan_name: string
+  ends_at: string
+  grace_ends_at: string
+  ended: boolean
+}
+
 export interface Usage {
   account_kind: 'user' | 'org'
   account_id: number
@@ -200,14 +235,28 @@ export interface Usage {
     storage_bytes: number
     members?: number
     llm_calls: number
+    // Atlas cost meters for the current calendar month. atlas_runs excludes
+    // failed runs, matching what the server's gate counts.
+    atlas_runs: number
+    embed_tokens: number
   }
   // Live Polar billing state; absent until the account has subscribed. Drives
   // the "Manage subscription" button and the cancel/past-due notices.
   subscription?: {
-    status: 'active' | 'canceled' | 'past_due'
+    // `trialing` = bought during a tela trial, so Polar deferred the first
+    // charge; a real subscription that has not been billed yet.
+    status: 'trialing' | 'active' | 'canceled' | 'past_due'
     period_end: string | null
     cancel_at_period_end: boolean
+    // Pending first-charge date while `trialing`. NOT period_end (the billing
+    // period) — say "first charge", never "renews".
+    trial_end?: string
   }
+  // The live signup trial, if any. Unlike `me.trial` (which the backend gates to
+  // the last 7 days so the app-wide banner isn't nagging), this is present for
+  // the whole trial — the billing screen must always know what its plan badge
+  // means. Personal accounts only.
+  trial?: TrialStatus
 }
 
 export interface UpdateSpaceInput {
@@ -223,6 +272,10 @@ export interface CreatePageInput {
   parent_id?: number | null
   title: string
   body?: string
+  // Free-form page props at creation — used to stamp a doc-type (e.g.
+  // `{ sheet: true }` for a spreadsheet, `{ deck: true }` for a deck). The
+  // backend keeps a verbatim body for these types (no frontmatter stripping).
+  props?: Record<string, unknown>
 }
 
 // PATCH /api/pages/{id} only accepts title and body — space_id and parent_id are
@@ -233,6 +286,11 @@ export interface UpdatePageInput {
   // Replace the whole props bag (PUT semantics) — e.g. mark a page a deck + its
   // theme. Reserved keys are ignored server-side.
   props?: Record<string, unknown>
+  status?: 'draft' | 'published'
+  // Refuse the write (409 version_conflict) if the page moved past this version.
+  base_version?: number
+  // The body was edited outside the live collab session: live editors reload.
+  reset_collab?: boolean
 }
 
 // `parent_id`: omit to keep current; pass explicit `null` to make root.
@@ -290,10 +348,77 @@ export interface AdminUserRow {
   usage: AdminUserUsage | null
   // List-only enrichments (absent ⇒ zero/false).
   orgs?: number // org memberships
-  llm_calls?: number // AI calls this calendar month
   has_api_key?: boolean // ≥1 non-revoked PAT
   used_mcp?: boolean // connected MCP (any credential, incl. OAuth)
   mcp_last_seen_at?: string | null // last authenticated MCP request
+  // Activity inside the requested window. Always present on list rows.
+  metrics?: AdminUserMetrics
+  segment?: AdminUserSegment
+  // First-touch signup attribution. Absent for every account created before the
+  // capture shipped and for any signup that arrived without the landing cookie —
+  // show nothing in that case, never "unknown".
+  signup?: AdminUserSignup
+}
+
+// Where one account came from (backend's adminUserSignup). `source` is the
+// collapsed answer — utm_source, else the referring host, else 'direct'; the
+// rest are the raw fields behind it.
+export interface AdminUserSignup {
+  source: string
+  medium?: string
+  campaign?: string
+  term?: string
+  content?: string
+  referrer?: string
+  landing_path?: string
+}
+
+// Which slice of history the admin People table is showing. '1m'/'3m' are
+// rolling day windows; 'all' is everything the tables still hold — see
+// AdminUsersPage.events_since for what that means for the events-derived
+// columns.
+export type AdminUserWindow = '1m' | '3m' | 'all'
+
+// One user's activity inside that window (backend's adminUserMetrics).
+export interface AdminUserMetrics {
+  // edits is the total; the three below partition it by who wrote the revision.
+  edits: number
+  human_edits: number // typed in the app
+  agent_edits: number // written through an agent (MCP)
+  sync_edits: number // snapshots taken by file sync
+  pages_created: number // pages whose first revision is theirs
+  views: number
+  asks: number
+  logins: number
+  days_active: number // distinct days with an event OR an authored revision
+  llm_calls: number // metered AI calls (calendar-month grain)
+  // Days active over a fixed last-30-days, whatever window is selected — what
+  // the lifecycle segment is computed from.
+  days30: number
+  // Active days per ISO week (0-7), oldest→newest, aligned to AdminUsersPage.weeks.
+  // Drives the trend sparkline, its delta, and the retention grid.
+  weeks: number[]
+}
+
+// Lifecycle label computed server-side (admin_user_segments.go). Always over the
+// last 30 days, so it describes the person rather than the selected window.
+export type AdminUserSegment =
+  | 'power'
+  | 'regular'
+  | 'dabbler'
+  | 'churned'
+  | 'never' 
+
+// GET /api/admin/users — the population plus the window it was computed over.
+export interface AdminUsersPage {
+  users: AdminUserRow[]
+  window: AdminUserWindow
+  // Oldest surviving `events` row: views / sign-ins / days-active cannot see
+  // further back than this, whatever window is selected. '' when empty.
+  events_since: string
+  // Week-start dates (Monday, oldest→newest) every row's `metrics.weeks` is
+  // aligned to — the shared x-axis for sparklines and the cohort grid.
+  weeks: string[]
 }
 
 // Per-user resource snapshot in the admin list — current usage beside the plan
@@ -530,6 +655,10 @@ export interface FeedbackContext {
   user_agent?: string
 }
 
+// Triage state of a feedback row (migration 0071). Distinct from the unread
+// badge, which is a per-admin "last opened the tab" watermark: seen ≠ handled.
+export type FeedbackStatus = 'open' | 'done' | 'wontfix'
+
 // One submitted feedback row, instance-admin read (GET /api/admin/feedback).
 export interface FeedbackEntry {
   id: number
@@ -542,6 +671,9 @@ export interface FeedbackEntry {
   username: string | null
   via_api_key: boolean
   context: FeedbackContext | null
+  status: FeedbackStatus
+  // Server-derived: set when status left 'open', cleared when it returns.
+  resolved_at: string | null
 }
 
 // Request body for POST /api/feedback from the in-app widget. Subject is
@@ -575,8 +707,13 @@ export interface AdminAccountUsage {
 export interface KnowledgeGap {
   question: string
   asks: number
+  /** Retrieved anything at all — nearly always true, so not the interesting number. */
   answered: number
+  /** Retrieved something RELEVANT. A gap is a question this stayed low on. */
+  grounded: number
   avg_hits: number
+  /** Best top-score the question ever got — how close the corpus came. */
+  best_score: number
   last_asked: string
 }
 export interface AdminUsage {
@@ -610,6 +747,8 @@ export interface ApiKeyRow {
 export interface ApiErrorBody {
   error: string
   code: string
+  // code=forbidden_public only — the no-login reader route to redirect to.
+  public_path?: string
 }
 
 export function parseSqliteTs(s: string): Date {
@@ -619,3 +758,4 @@ export function parseSqliteTs(s: string): Date {
   const withZone = /[zZ]|[+-]\d{2}:?\d{2}$/.test(iso) ? iso : iso + 'Z'
   return new Date(withZone)
 }
+

@@ -12,14 +12,12 @@ import {
   postDateFromSqlite,
 } from '../../lib/relativeTime'
 import { useHeadMeta } from '../../lib/useHeadMeta'
-import { pageSlug } from '../../lib/slug'
+import { internalRoutePath } from '../../lib/markdown/link-target'
 import {
-  getTheme,
-  setTheme,
-  subscribeToTheme,
-  THEMES,
-  type ThemeName,
-} from '../../lib/theme'
+  stampHeadingIds,
+  scrollToHashIn,
+} from '../../lib/markdown/heading-anchors'
+import { ThemeSwitcher } from '../ThemeSwitcher'
 import { Button } from '../ui/button'
 import {
   DropdownMenu,
@@ -116,6 +114,11 @@ export interface ReaderShellProps {
   /** Frontmatter standfirst — when set, a hover hint by the title shows it. */
   summary?: string | null
   body: string
+  /**
+   * When set, renders in place of the markdown body — for non-prose doc-types
+   * (e.g. a sheet's read-only grid). `body` is still used for reading-time/meta.
+   */
+  bodySlot?: ReactNode
   updatedAt: string
   /** Decoration mode for the read-only editor. */
   wikilinkMode: 'edit' | 'share'
@@ -136,6 +139,11 @@ export interface ReaderShellProps {
    * decides whether/where to navigate (no-op for out-of-scope or broken).
    */
   onNavigateWikilink: (targetPageId: number) => void
+  // SPA-navigate an ordinary internal page link (not a wikilink). Optional and
+  // supplied as a prop rather than via a router hook, because ReaderShell also
+  // renders in print/share/public and in Storybook — omitting it keeps the
+  // browser's own (full-load) behaviour, which is what those want.
+  onNavigateInternal?: (to: string) => void
   /** Far-left of the top bar — close button (read) or wordmark (share). */
   topbarLeading?: ReactNode
   /** Right of the top bar, before the Display/Print controls — e.g. Sign in. */
@@ -190,9 +198,12 @@ export function ReaderShell({
   title,
   summary,
   body,
+  bodySlot,
   updatedAt,
+  wikilinkMode,
   wikilinkResolveIndex,
   onNavigateWikilink,
+  onNavigateInternal,
   topbarLeading,
   topbarTrailing,
   sidebar,
@@ -213,9 +224,6 @@ export function ReaderShell({
   const [font, setFont] = useState<ReaderFont>(() =>
     readPref<ReaderFont>(FONT_KEY, 'sans', ['sans', 'serif']),
   )
-  const [theme, setThemeState] = useState<ThemeName>(() => getTheme())
-  useEffect(() => subscribeToTheme(setThemeState), [])
-
   const minutes = useMemo(() => readingMinutes(body), [body])
 
   // `[[Name]]` resolution for MarkdownView, scoped to the reading context
@@ -265,21 +273,17 @@ export function ReaderShell({
   const handleContentReady = useCallback((root: HTMLElement | null) => {
     if (!root) return
     requestAnimationFrame(() => {
-      const els = Array.from(
-        root.querySelectorAll('h1, h2, h3'),
-      ) as HTMLElement[]
-      const entries: TocEntry[] = []
       // Stable, human-readable slug ids (deduped) so a heading deep-link
       // (`#getting-started`) survives across loads — unlike the old positional
       // `reader-h-${i}`, which changed the moment a heading was added above.
-      const used = new Map<string, number>()
-      els.forEach((el, i) => {
-        const text = (el.textContent ?? '').trim()
-        if (!text) return
-        const base = pageSlug(text) || `section-${i + 1}`
-        const n = used.get(base) ?? 0
-        used.set(base, n + 1)
-        el.id = n === 0 ? base : `${base}-${n + 1}`
+      // MarkdownView already stamped these; re-running is idempotent and covers
+      // a non-MarkdownView root (a sheet's grid renders its own DOM).
+      const entries = stampHeadingIds(root).filter((e) => e.level <= 3)
+      const els: HTMLElement[] = []
+      for (const entry of entries) {
+        const el = document.getElementById(entry.id)
+        if (!el) continue
+        els.push(el)
         el.classList.add('reader-heading')
         // Hover affordance: a click-to-copy anchor injected once per heading.
         // The reader dispatches no transactions, so poking PM's static DOM is
@@ -296,18 +300,14 @@ export function ReaderShell({
           const a = el.querySelector(':scope > .reader-anchor') as HTMLElement
           a.setAttribute('href', `#${el.id}`)
         }
-        entries.push({ id: el.id, text, level: Number(el.tagName[1]) })
-      })
-      headingsRef.current = els.filter((el) => el.id && el.textContent?.trim())
+      }
+      headingsRef.current = els
       setToc(entries)
       wireFootnotes(root)
       // Honour a deep-link hash now that ids exist (the browser couldn't on
-      // load — the article hadn't rendered yet).
-      const hash = decodeURIComponent(window.location.hash.slice(1))
-      if (hash) {
-        const target = document.getElementById(hash)
-        if (target) target.scrollIntoView({ block: 'start' })
-      }
+      // load — the article hadn't rendered yet). Scoped to this root so it
+      // can't match a heading in another mounted copy of the same body.
+      scrollToHashIn(root, window.location.hash)
       // PDF export readiness signal (gotenberg waits on this). Wait for fonts,
       // then for any charts to finish painting (ECharts lazy-loads ~1MB + renders
       // async, so a fixed delay isn't enough), then a short settle so async
@@ -343,16 +343,34 @@ export function ReaderShell({
   useEffect(() => {
     const sc = scrollRef.current
     if (!sc) return
+    // Read progress from whatever actually scrolls. On touch the inner frame is
+    // released (so a pinch-zoomed page can be panned — see reader.css), and what
+    // takes over depends on where the reader is mounted: the document on
+    // /share, but the fixed ?view=read overlay in the app. Resolve it by walking
+    // up rather than assuming — a wrong guess silently freezes the progress bar
+    // and the TOC scroll-spy.
+    const findScroller = (from: HTMLElement): HTMLElement | null => {
+      for (let el: HTMLElement | null = from; el; el = el.parentElement) {
+        const oy = window.getComputedStyle(el).overflowY
+        if (oy === 'auto' || oy === 'scroll') return el
+      }
+      return null
+    }
+    const scroller = findScroller(sc)
+    const metrics =
+      scroller ?? document.scrollingElement ?? document.documentElement
+    const scrollTarget: Window | HTMLElement = scroller ?? window
     let raf = 0
     const update = () => {
       raf = 0
-      const max = sc.scrollHeight - sc.clientHeight
-      const p = max > 0 ? sc.scrollTop / max : 0
+      const max = metrics.scrollHeight - metrics.clientHeight
+      const p = max > 0 ? metrics.scrollTop / max : 0
       if (progressRef.current) {
         progressRef.current.style.setProperty('--reader-progress', String(p))
       }
       if (topbarRef.current) {
-        topbarRef.current.dataset.scrolled = sc.scrollTop > 4 ? 'true' : 'false'
+        topbarRef.current.dataset.scrolled =
+          metrics.scrollTop > 4 ? 'true' : 'false'
       }
       // Active heading = last one whose top has crossed a band below the bar.
       const threshold = sc.getBoundingClientRect().top + 96
@@ -369,10 +387,10 @@ export function ReaderShell({
     const onScroll = () => {
       if (!raf) raf = requestAnimationFrame(update)
     }
-    sc.addEventListener('scroll', onScroll, { passive: true })
+    scrollTarget.addEventListener('scroll', onScroll, { passive: true })
     update()
     return () => {
-      sc.removeEventListener('scroll', onScroll)
+      scrollTarget.removeEventListener('scroll', onScroll)
       if (raf) cancelAnimationFrame(raf)
     }
   }, [toc])
@@ -435,15 +453,30 @@ export function ReaderShell({
         window.setTimeout(() => delete anchor.dataset.copied, 1100)
         return
       }
-      const id = parseWikilinkPageId(anchor.getAttribute('href') ?? '')
-      if (id == null) return
+      const href = anchor.getAttribute('href') ?? ''
+      const id = parseWikilinkPageId(href)
+      if (id == null) {
+        // Not a wikilink — an ordinary markdown link to another tela page still
+        // deserves SPA navigation instead of a full document reload. Modifier
+        // and middle clicks, external links (target=_blank), #anchors and
+        // server-owned paths all fall through untouched.
+        if (!onNavigateInternal) return
+        if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return
+        if (anchor.target === '_blank') return
+        const to = internalRoutePath(href)
+        if (!to) return
+        e.preventDefault()
+        e.stopPropagation()
+        onNavigateInternal(to)
+        return
+      }
       e.preventDefault()
       e.stopPropagation()
       onNavigateWikilink(id)
     }
     el.addEventListener('click', onClick, true)
     return () => el.removeEventListener('click', onClick, true)
-  }, [onNavigateWikilink, jumpTo])
+  }, [onNavigateWikilink, onNavigateInternal, jumpTo])
 
   return (
     <div
@@ -513,22 +546,9 @@ export function ReaderShell({
                 </div>
                 <div className="reader-prefs-group">
                   <span className="reader-prefs-label">Theme</span>
-                  <ToggleGroup
-                    type="single"
-                    value={theme}
-                    onValueChange={(v) => {
-                      if (!v) return
-                      setTheme(v as ThemeName)
-                      setThemeState(v as ThemeName)
-                    }}
-                    aria-label="Theme"
-                  >
-                    {THEMES.map((t) => (
-                      <ToggleGroupItem key={t} value={t} className="capitalize">
-                        {t}
-                      </ToggleGroupItem>
-                    ))}
-                  </ToggleGroup>
+                  {/* The shared control, not a copy. Inline here: this menu is
+                      already an open panel, so there's nothing to collapse. */}
+                  <ThemeSwitcher inline />
                 </div>
               </div>
             </DropdownMenuContent>
@@ -602,18 +622,22 @@ export function ReaderShell({
                   </>
                 ) : null}
               </div>
-              <MarkdownView
-                key={`reader-${pageId}`}
-                body={body}
-                pageId={pageId}
-                resolveWikilink={resolveWikilink}
-                // Reader wikilink hrefs use the `tela://page/N` scheme the
-                // shell's click + hover-preview already intercept (see below);
-                // the browser treats the scheme as dead, so nav is fully ours.
-                pageHref={(id) => `tela://page/${id}`}
-                wikilinkUnresolved="plain"
-                onReady={handleContentReady}
-              />
+              {bodySlot ?? (
+                <MarkdownView
+                  key={`reader-${pageId}`}
+                  body={body}
+                  pageId={pageId}
+                  // App read view lets members vote; share/public are read-only.
+                  canVote={wikilinkMode === 'edit'}
+                  resolveWikilink={resolveWikilink}
+                  // Reader wikilink hrefs use the `tela://page/N` scheme the
+                  // shell's click + hover-preview already intercept (see below);
+                  // the browser treats the scheme as dead, so nav is fully ours.
+                  pageHref={(id) => `tela://page/${id}`}
+                  wikilinkUnresolved="plain"
+                  onReady={handleContentReady}
+                />
+              )}
               {articleFooter}
             </article>
           </div>

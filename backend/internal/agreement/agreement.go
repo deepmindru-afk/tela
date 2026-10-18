@@ -21,11 +21,15 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"os"
+	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
+	"unicode"
 
 	"github.com/zcag/tela/backend/internal/llm"
 	"github.com/zcag/tela/backend/internal/rag"
@@ -93,7 +97,12 @@ func (s *Service) Model() string { return s.llm.Model() }
 // the whole corpus. Bump it on any judging change. (Same idea as rag folding its
 // model name into chunk hashes.) hashSeed must be byte-identical to the SQL the
 // sweep uses to recompute the expected hash (see sweepStale).
-const agreementVersion = "v2"
+//
+// v3: pairwise judging. A bump is not always required — the excerpt-truncation fix
+// deliberately skipped one, because truncation could only invent a dispute and the
+// damage was bounded to rows with dispute > 0, which were deleted for a targeted
+// re-judge. This change alters clean verdicts too, so it pays for the full sweep.
+const agreementVersion = "v3"
 
 var hashSeed = agreementVersion + ":"
 
@@ -102,12 +111,32 @@ func srcHash(body string) string {
 	return hex.EncodeToString(h[:])
 }
 
+// truncMarker terminates a clamped excerpt. The prompt names it verbatim — keep
+// the two in sync.
+const truncMarker = "\n…[excerpt truncated]"
+
+// clamp trims s to the per-page prompt budget, cutting at a LINE boundary and
+// saying that it cut. Both halves are load-bearing: an unmarked mid-token cut is
+// indistinguishable from the page's real content, so a bisected value reads to the
+// model as a *different* value. That is exactly how a page stating
+// `2026-09-04T06:15:32Z` at char 698 of a 700-char budget was judged to contradict
+// a page stating the same timestamp — the model was shown "202" and, as the prompt
+// demands, dutifully named the two "conflicting values".
 func clamp(s string, n int) string {
 	r := []rune(s)
 	if len(r) <= n {
 		return s
 	}
-	return string(r[:n])
+	r = r[:n]
+	// Prefer the last line break in the back half; a single line longer than the
+	// budget falls through to a hard cut, which the marker still flags.
+	for i := len(r) - 1; i >= n/2; i-- {
+		if r[i] == '\n' {
+			r = r[:i]
+			break
+		}
+	}
+	return strings.TrimRight(string(r), " \t\n") + truncMarker
 }
 
 // Dispute is one contradicting same-space page, recorded for the trust strip.
@@ -117,19 +146,27 @@ type Dispute struct {
 	Reason string `json:"reason"`
 }
 
-const agreementSystem = `You audit a TARGET wiki page against other pages from the SAME wiki for factual agreement. Classify each numbered page with exactly one verdict.
+// pairSystem judges ONE pair of passages. Everything it asks for is checkable:
+// the two values must be quoted as they appear, so unverifiedPair can hold the
+// answer against the text rather than parsing a prose argument for it.
+const pairSystem = `You are given TWO passages, each from a different page of the same wiki. Decide whether they make CONFLICTING claims.
 
-The test for CONTRADICT is a SHARED SUBJECT. A page contradicts the target ONLY IF both pages make a claim about the SAME specific thing — the same component, service, endpoint, port, host, value, owner, or behaviour — AND those two claims cannot both be true. Before you answer contradict, name that one shared thing and the two conflicting values. If you cannot, it is NOT a contradiction.
+Answer contradict ONLY IF both passages state something about the SAME specific thing — the same component, service, endpoint, port, host, path, value, person, date, owner or behaviour — and the two statements cannot both be true. Quote the two conflicting values EXACTLY as they appear, one from each passage. If you cannot quote a real value from each side, it is not a contradiction.
 
-It is NOT a contradiction when the pages describe DIFFERENT things (different services, adapters, machines, network types, environments), when they differ only in scope, detail, or recency, or when one simply omits what the other states. Two distinct components having different ports, hosts, or behaviours is normal coexistence — that is unrelated, not a conflict. Similar-sounding names (e.g. "PTN Flow" vs "RTN Flow", "Nokia X" vs "Nokia Y") are usually DIFFERENT components, not the same one disagreeing.
+The two values must be the same KIND of thing measured the same way — two ports, two dates for one event, two names for one company — so that if one is right the other must be wrong. An identifier against a name, a count of one thing against a count of something else, or a value against a description of it can both be true at once: that is neutral. Each value must also be specific enough to look up; "basically the same" or "the first big one" is not a value.
 
-A page CORROBORATES the target when it states or supports the same fact about a shared subject. Everything else is UNRELATED. When you are unsure between contradict and unrelated, choose unrelated.
+Answer agree when they state the same fact about a shared subject.
 
-Output ONE line per page, exactly in the form: INDEX|VERDICT|REASON
-- VERDICT is one of: corroborate, contradict, unrelated
-- For contradict, REASON MUST name the shared subject and the two conflicting values, e.g. "report service port: target 2480 vs 8444".
-- For corroborate, REASON is a brief phrase. For unrelated, leave REASON empty.
-No preamble, no extra lines.`
+Answer neutral for everything else: different things that merely look alike, one passage adding detail the other omits, a difference of scope or recency, boilerplate, navigation or link lists, or two copies of the same text with no conflicting claim. A passage that merely describes or quotes a disagreement is not itself in one. When you are unsure between contradict and neutral, answer neutral.
+
+Either passage may be an EXCERPT cut short at "…[excerpt truncated]"; anything ending at that cut is incomplete and must never be read as a conflicting value.
+
+Output exactly ONE line and nothing else: five fields separated by "|", in this order — verdict, shared subject, the value from passage A, the value from passage B, and a why of at most 15 words.
+Examples of the exact output form:
+contradict|report service port|8090|2480|same service given two different ports
+agree|auth backend|||both name the same LDAP server
+neutral|kafka setup|||different components, no claim in common
+The verdict is agree, contradict or neutral. Leave both value fields empty unless the verdict is contradict.`
 
 // AgreePage computes and stores the agreement signal for one page. Idempotent via
 // the body hash (force bypasses). Skips the LLM call entirely when the page has
@@ -175,20 +212,63 @@ func (s *Service) AgreePage(ctx context.Context, pageID int64, force bool) error
 
 	var corroborate, dispute int
 	disputes := []Dispute{}
-	if len(neighbors) > 0 {
-		var b strings.Builder
-		fmt.Fprintf(&b, "TARGET PAGE:\nTitle: %s\n%s\n\nOTHER PAGES:\n", title, clamp(body, maxTextChars))
-		for i, n := range neighbors {
-			fmt.Fprintf(&b, "[%d] %s\n%s\n\n", i+1, n.Title, clamp(n.Body, maxTextChars))
-		}
-		b.WriteString("Classify each numbered page.")
-		out, err := s.llm.Complete(ctx, agreementSystem, b.String())
+	candidates := []candidate{}
+	// One call per neighbour, each a two-passage question. The old shape — one call
+	// holding the target plus all five neighbours — made the model find the shared
+	// subject across six texts itself, and a model ordered to name two conflicting
+	// values with no pair in front of it invents one. A pair call costs ~1s against
+	// ~5s for the six-way call, so five of them spend the same and ask something the
+	// model can actually answer.
+	targetText := clamp(body, maxTextChars)
+	for _, n := range neighbors {
+		nbrText := clamp(n.Body, maxTextChars)
+		user := fmt.Sprintf("PASSAGE A — from page %q\n%s\n\nPASSAGE B — from page %q\n%s",
+			title, targetText, n.Title, nbrText)
+		// Background work: bypass the foreground gate and never spill to the relief layer.
+		out, err := s.llm.Complete(llm.WithBackground(ctx), pairSystem, user)
 		if err != nil {
 			s.recordFailure(ctx, pageID, err)
-			return fmt.Errorf("agreement page %d: %w", pageID, err)
+			return fmt.Errorf("agreement page %d vs %d: %w", pageID, n.PageID, err)
 		}
-		corroborate, dispute, disputes = parseVerdicts(out, neighbors)
+		v := parsePairVerdict(out)
+		switch {
+		case strings.HasPrefix(v.Verdict, "agree"), strings.HasPrefix(v.Verdict, "corrob"):
+			corroborate++
+		case strings.HasPrefix(v.Verdict, "contra"):
+			// A conflict we cannot verify against the two passages is not raised at
+			// all — it counts as neutral, which is what an unsure model was told to say.
+			if why := unverifiedPair(v, targetText, nbrText); why != "" {
+				slog.Debug("agreement: dropped an unverifiable conflict",
+					"page_id", pageID, "against", n.PageID, "why", why, "raw", out)
+				continue
+			}
+			if s.restatesOneValue(ctx, v) {
+				slog.Debug("agreement: dropped one value restated two ways",
+					"page_id", pageID, "against", n.PageID, "a", v.ValueA, "b", v.ValueB)
+				continue
+			}
+			candidates = append(candidates, candidate{
+				d: Dispute{PageID: n.PageID, Title: n.Title, Reason: v.Reason()},
+				v: v, nbrTitle: n.Title, nbrText: nbrText})
+		}
 	}
+	// Identity fields are decided across the page's whole candidate set, so this
+	// runs after every neighbour has been judged — and before the swap, so a
+	// conflict already known to be junk never costs a second call.
+	for _, c := range dropIdentityFields(candidates, pageID) {
+		ok, err := s.confirmsSwapped(ctx, c.v, c.nbrTitle, c.nbrText, title, targetText)
+		if err != nil {
+			s.recordFailure(ctx, pageID, err)
+			return fmt.Errorf("agreement confirm %d vs %d: %w", pageID, c.d.PageID, err)
+		}
+		if !ok {
+			slog.Debug("agreement: conflict not confirmed from the other side",
+				"page_id", pageID, "against", c.d.PageID, "reason", c.d.Reason)
+			continue
+		}
+		disputes = append(disputes, c.d)
+	}
+	dispute = len(disputes)
 
 	payload, _ := json.Marshal(disputes)
 	if _, err := s.db.ExecContext(ctx, `
@@ -205,41 +285,290 @@ func (s *Service) AgreePage(ctx context.Context, pageID int64, force bool) error
 	return nil
 }
 
-// parseVerdicts reads the model's "INDEX|VERDICT|REASON" lines back into tallies.
-// Lenient: it tolerates a bracketed index ([2]) and stray lines, and ignores any
-// index outside the neighbour range.
-func parseVerdicts(out string, neighbors []rag.Neighbor) (int, int, []Dispute) {
-	corr, disp := 0, 0
-	disputes := []Dispute{}
+// pairVerdict is one judged pair, as the model is told to report it. Because the
+// values arrive in their own fields rather than inside a sentence, checking them
+// is exact — the earlier prose-scraping heuristics are gone with the six-way call.
+type pairVerdict struct {
+	Verdict string
+	Subject string
+	ValueA  string
+	ValueB  string
+	Why     string
+}
+
+// Reason renders what the trust strip shows.
+func (v pairVerdict) Reason() string {
+	head := v.Subject
+	if head == "" {
+		head = "conflicting values"
+	}
+	out := head + ": " + v.ValueA + " vs " + v.ValueB
+	if v.Why != "" {
+		out += " — " + v.Why
+	}
+	return out
+}
+
+// parsePairVerdict reads the model's single line. Lenient about what wraps it: a
+// preamble line, a code fence, or the field names echoed back as a leading token
+// (which the model does when the format is spelled out), but not about the fields
+// themselves — a line it cannot read yields an empty verdict, which counts as
+// neutral rather than as anything raised.
+func parsePairVerdict(out string) pairVerdict {
 	for _, ln := range strings.Split(out, "\n") {
-		ln = strings.TrimSpace(ln)
-		if ln == "" {
+		ln = strings.TrimSpace(strings.Trim(strings.TrimSpace(ln), "`"))
+		if ln == "" || !strings.Contains(ln, "|") {
 			continue
 		}
-		parts := strings.SplitN(ln, "|", 3)
-		if len(parts) < 2 {
+		f := strings.Split(ln, "|")
+		for i := range f {
+			f[i] = strings.TrimSpace(f[i])
+		}
+		if strings.EqualFold(f[0], "verdict") && len(f) > 1 {
+			f = f[1:] // the header echoed back
+		}
+		v := strings.ToLower(f[0])
+		if !strings.HasPrefix(v, "agree") && !strings.HasPrefix(v, "corrob") &&
+			!strings.HasPrefix(v, "contra") && !strings.HasPrefix(v, "neutral") &&
+			!strings.HasPrefix(v, "unrelated") {
 			continue
 		}
-		idxTok := strings.Trim(strings.TrimSpace(parts[0]), "[]().")
-		idx, err := strconv.Atoi(idxTok)
-		if err != nil || idx < 1 || idx > len(neighbors) {
-			continue
+		p := pairVerdict{Verdict: v}
+		if len(f) > 1 {
+			p.Subject = f[1]
 		}
-		verdict := strings.ToLower(strings.TrimSpace(parts[1]))
-		reason := ""
-		if len(parts) == 3 {
-			reason = strings.TrimSpace(parts[2])
+		if len(f) > 2 {
+			p.ValueA = f[2]
 		}
-		switch {
-		case strings.HasPrefix(verdict, "corrob"):
-			corr++
-		case strings.HasPrefix(verdict, "contra"):
-			disp++
-			n := neighbors[idx-1]
-			disputes = append(disputes, Dispute{PageID: n.PageID, Title: n.Title, Reason: reason})
+		if len(f) > 3 {
+			p.ValueB = f[3]
+		}
+		if len(f) > 4 {
+			p.Why = strings.Join(f[4:], " ")
+		}
+		return p
+	}
+	return pairVerdict{}
+}
+
+// unverifiedPair returns why a contradict cannot be supported by the two passages,
+// or "" when it stands. The rules come from a sweep of the live corpus, where a
+// model ordered to produce a value pair produced one whether or not it had it: the
+// same value quoted on both sides, a value refining the other rather than
+// conflicting with it, and values appearing in neither page at all — page 63 is
+// 69,987 characters and does not contain the port it was said to state.
+func unverifiedPair(v pairVerdict, aText, bText string) string {
+	a, b := normValue(v.ValueA), normValue(v.ValueB)
+	switch {
+	case a == "" || b == "":
+		return "no value quoted from each side"
+	case a == b, sameTokens(a, b):
+		// sameTokens catches the paraphrase normValue cannot: "three hours per day"
+		// against "three hours/day" is not equal and neither contains the other,
+		// because the difference sits mid-string as " per " against "/".
+		return "the same value on both sides (" + a + ")"
+	case len(a) > 1 && len(b) > 1 && (strings.Contains(a, b) || strings.Contains(b, a)):
+		return "one value only refines the other (" + a + " / " + b + ")"
+	// The model named two different FIELDS rather than two values of one field —
+	// "different timestamps for cursor and watermark", "Object / publication date",
+	// "counts of tracks and pages". Both sides then sail through the kind check,
+	// being two dates or two numbers, while never having been about one thing. The
+	// giveaway is that it could not name a single shared subject and said so.
+	case namesTwoFields(v.Subject), namesTwoFields(v.Why):
+		return "the subject names two different fields, not one"
+
+	case !quotedIn(a, aText):
+		return "value " + a + " is not in passage A"
+	case !quotedIn(b, bText):
+		return "value " + b + " is not in passage B"
+	}
+	return ""
+}
+
+// sameTokens reports whether two values carry exactly the same content words once
+// punctuation and connectors are gone — the same value written differently. Bag
+// equality is deliberately strict: it can only fire when NOTHING differs but the
+// wording, so it cannot collapse two values that actually disagree.
+func sameTokens(a, b string) bool {
+	ta, tb := valueTokens(a), valueTokens(b)
+	if len(ta) == 0 || len(ta) != len(tb) {
+		return false
+	}
+	for i := range ta {
+		if ta[i] != tb[i] {
+			return false
 		}
 	}
-	return corr, disp, disputes
+	return true
+}
+
+// valueConnectors are dropped before comparing: they carry no value of their own,
+// and they are exactly what differs between "three hours per day" and "hours/day".
+var valueConnectors = map[string]bool{
+	"per": true, "of": true, "the": true, "a": true, "an": true, "and": true,
+	"to": true, "in": true, "on": true, "at": true, "for": true, "is": true,
+	"was": true, "as": true, "by": true, "with": true, "from": true,
+}
+
+func valueTokens(v string) []string {
+	fields := strings.FieldsFunc(strings.ToLower(v), func(r rune) bool {
+		return !unicode.IsLetter(r) && !unicode.IsDigit(r)
+	})
+	out := fields[:0]
+	for _, f := range fields {
+		if !valueConnectors[f] {
+			out = append(out, f)
+		}
+	}
+	sort.Strings(out)
+	return out
+}
+
+// candidate is a conflict that survived the per-pair checks and still has to
+// clear dropIdentityFields, which can only judge it against its siblings.
+type candidate struct {
+	d        Dispute
+	v        pairVerdict
+	nbrTitle string
+	nbrText  string
+}
+
+// dropIdentityFields removes conflicts over a field that IDENTIFIES the page
+// rather than describing something shared — a project code, a media object id.
+// Every page carries its own, so two pages stating different ones are not
+// disagreeing, they are being themselves; the model cannot see this from one pair
+// because within that pair it looks exactly like a value clash.
+//
+// The tell is in the shape of the page's own findings: the same subject raised
+// against several neighbours, this page's value the same each time and theirs all
+// different. Measured over the live corpus it drops 10 findings — a project's "Mã
+// CSE" against four sibling projects, a media page's Vimeo id against three other
+// takes — every one of them junk, and it touches no real conflict: a page with two
+// genuine conflicts raises them under different subjects (a payroll document-holder
+// and a payroll accountant) or with different values of its own.
+//
+// Deliberately NOT widened to the whole space. The same signature there — one value
+// per page under a shared subject — is also what a REAL infrastructure conflict
+// looks like, where each service page names its own port and the disagreement is
+// over which port a shared service listens on. Two singleton findings escape this
+// narrower rule; that is the price of not killing those.
+func dropIdentityFields(cands []candidate, pageID int64) []candidate {
+	type key struct{ subject, mine string }
+	theirs := map[key]map[string]bool{}
+	for _, c := range cands {
+		k := key{normValue(c.v.Subject), normValue(c.v.ValueA)}
+		if theirs[k] == nil {
+			theirs[k] = map[string]bool{}
+		}
+		theirs[k][normValue(c.v.ValueB)] = true
+	}
+	out := []candidate{}
+	for _, c := range cands {
+		k := key{normValue(c.v.Subject), normValue(c.v.ValueA)}
+		if len(theirs[k]) >= 2 {
+			slog.Debug("agreement: dropped an identity field, not a shared fact",
+				"page_id", pageID, "against", c.d.PageID, "subject", c.v.Subject, "value", c.v.ValueA)
+			continue
+		}
+		out = append(out, c)
+	}
+	return out
+}
+
+// confirmsSwapped re-asks the same question with the two passages exchanged and
+// requires the same verdict naming the same two values. A conflict that survives
+// being read from the other side is one the model holds regardless of which page
+// it was shown first.
+//
+// This is NOT a second opinion from a better model — L2 is a failure path, and
+// asking THIS model whether it was sure kept 24 of 26 junk findings while dropping
+// 15 true ones, with three runs at temperature 0.7 giving byte-identical answers.
+// Its mistakes are stable, not uncertain; only changing the question moves them.
+//
+// It is a deliberate precision-over-recall setting, chosen with its cost known:
+// measured over 52 live findings it holds 94% precision but keeps 39% of the real
+// conflicts, since at temperature 0 the model is also plainly order-sensitive — so
+// some of what it discards is true. Fewer warnings that are right was the call.
+func (s *Service) confirmsSwapped(ctx context.Context, v pairVerdict, aTitle, aText, bTitle, bText string) (bool, error) {
+	user := fmt.Sprintf("PASSAGE A — from page %q\n%s\n\nPASSAGE B — from page %q\n%s",
+		aTitle, aText, bTitle, bText)
+	out, err := s.llm.Complete(llm.WithBackground(ctx), pairSystem, user)
+	if err != nil {
+		return false, err
+	}
+	got := parsePairVerdict(out)
+	if !strings.HasPrefix(got.Verdict, "contra") {
+		return false, nil
+	}
+	// The same pair of values, in either order — the passages were swapped, so the
+	// sides are expected to be.
+	want := []string{normValue(v.ValueA), normValue(v.ValueB)}
+	have := []string{normValue(got.ValueA), normValue(got.ValueB)}
+	sort.Strings(want)
+	sort.Strings(have)
+	return want[0] == have[0] && want[1] == have[1], nil
+}
+
+// namesTwoFields spots a subject or justification joining two field names. Both
+// patterns demand words on either side, so "13 and 16" (two values of ONE field)
+// and a date like 2026-09-04 are untouched.
+func namesTwoFields(s string) bool {
+	return twoFieldsSlash.MatchString(s) || twoFieldsAnd.MatchString(s)
+}
+
+var (
+	twoFieldsSlash = regexp.MustCompile(`(?i)\b[a-z]{3,}\s*/\s*[a-z]{3,}\b`)
+	twoFieldsAnd   = regexp.MustCompile(`(?i)\b(?:different|two)\b[^.]*\b[a-z]{3,}\s+and\s+[a-z]{3,}\b`)
+)
+
+// quotedIn checks the model really took the value out of that passage. A long span
+// is allowed to have been trimmed or re-punctuated on its way back — its opening is
+// enough — but a short literal (a port, a host, a date) must be there as written.
+func quotedIn(value, text string) bool {
+	t := normValue(text)
+	if strings.Contains(t, value) {
+		return true
+	}
+	if len([]rune(value)) > 20 {
+		return strings.Contains(t, string([]rune(value)[:20]))
+	}
+	return false
+}
+
+func normValue(s string) string {
+	return strings.Trim(strings.ToLower(strings.Join(strings.Fields(s), " ")), "\"'`.,;:|()")
+}
+
+// distinctValuesSystem asks the narrowest question there is, and only about a
+// conflict that has already passed every deterministic check: are these two values
+// actually different? A model quoting faithfully still restates one value two ways
+// ("13-track list" against "13 soundtrack tracks"), which no string comparison can
+// see. The quotable-string rule is load-bearing — without it the model calls two
+// taglines "the same" because they mean roughly the same, and a real conflict
+// disappears.
+const distinctValuesSystem = `You are given two values, each quoted from a different wiki page, which a reviewer claims conflict.
+
+Decide whether they are THE SAME value expressed differently — different wording, formatting, units, abbreviation, spelling, or one simply rephrasing the other — or DIFFERENT values that genuinely disagree.
+
+Two values that name the same thing at different levels of detail are the SAME.
+Two values that a reader would have to choose between are DIFFERENT.
+
+If the value is a QUOTABLE STRING — a name, title, tagline, label, slogan, identifier or exact wording someone would copy — then any difference in wording makes them DIFFERENT, however close the meaning. Only call those the same when the difference is purely formatting: case, punctuation, spacing, or an abbreviation of the identical words.
+
+Answer with exactly one word: same or different.`
+
+// restatesOneValue reports whether the pair is one value written two ways. It fails
+// OPEN — any error keeps the conflict — because a wrong "same" deletes a real
+// finding silently, while a wrong "different" only leaves one noisy row a reader
+// can see and dismiss.
+func (s *Service) restatesOneValue(ctx context.Context, v pairVerdict) bool {
+	out, err := s.llm.Complete(llm.WithBackground(ctx), distinctValuesSystem,
+		fmt.Sprintf("Subject: %s\nA: %s\nB: %s", v.Subject, v.ValueA, v.ValueB))
+	if err != nil {
+		slog.Debug("agreement: value confirmation failed, keeping the conflict", "err", err)
+		return false
+	}
+	return strings.HasPrefix(strings.ToLower(strings.TrimSpace(out)), "same")
 }
 
 // DisputesFor returns the cached disputes for each given page (clean rows only,

@@ -2,6 +2,9 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ApiError, api } from '../api'
 import { pageKeys } from './pages'
 import { spaceKeys } from './spaces'
+import type { TrialStatus } from '../types'
+
+export type { TrialStatus }
 
 // Mirrors backend/internal/api/auth.go's authUserDTO.
 export interface AuthUser {
@@ -19,17 +22,17 @@ export interface AuthUser {
   trial?: TrialStatus
   // Unread feedback count for the admin inbox badge (instance admins only).
   feedback_unseen?: number
+  // A newer tela release to tell an instance admin about (self-host update
+  // check), e.g. "0.11.0". Absent when there is none or the check is off.
+  update_available?: string
   // Whether the user has ever made an authenticated MCP request (any credential).
   // Drives the "connect an agent" nudge.
   mcp_connected?: boolean
+  // Whether to show the sidebar backfill (staleness) dot. Account-level, so it
+  // follows the user across devices. Absent on an older server → treat as on.
+  show_backfill_dot?: boolean
 }
 
-export interface TrialStatus {
-  plan_name: string
-  ends_at: string
-  grace_ends_at: string
-  ended: boolean
-}
 
 export interface LoginInput {
   // Email or username.
@@ -70,15 +73,23 @@ export function useMe() {
   })
 }
 
-// Patch the caller's own profile (display name and/or bio). Only the supplied
+// Patch the caller's own profile (display name, bio, UI preferences). Only the supplied
 // fields are sent; the server echoes back the saved values, which we merge into
 // the me cache in place so the settings form and any open /u/{handle} preview
 // reflect them.
 export function useUpdateProfile() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async (input: { display_name?: string; bio?: string }) => {
-      return api<{ display_name?: string; bio?: string }>('/api/users/me', {
+    mutationFn: async (input: {
+      display_name?: string
+      bio?: string
+      show_backfill_dot?: boolean
+    }) => {
+      return api<{
+        display_name?: string
+        bio?: string
+        show_backfill_dot?: boolean
+      }>('/api/users/me', {
         method: 'PATCH',
         body: JSON.stringify(input),
       })

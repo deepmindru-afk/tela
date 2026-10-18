@@ -1,6 +1,7 @@
 # Publishes public multi-arch images to GHCR on a version tag, so tela can be
 # installed from one-click app stores (Umbrel/CasaOS/Render/DO/Portainer/…).
-# Tag a release (e.g. `git tag v0.7.0 && git push origin v0.7.0`) → this builds
+# Cut a release with `make release VERSION=v0.11.0` (bumps the one-click
+# template pins, tags, pushes) → this builds
 # and pushes ghcr.io/zcag/tela-{backend,frontend,deck,proxy}:<version> + :latest
 # for linux/amd64 + linux/arm64. Or trigger manually with an explicit version.
 name: Release images

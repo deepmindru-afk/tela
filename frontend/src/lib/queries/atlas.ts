@@ -15,6 +15,41 @@ import { api } from '../api'
 export type AtlasOwnerKind = 'user' | 'org'
 export type AtlasSourceType = 'git' | 'jira'
 export type AtlasCadence = '' | 'hourly' | 'daily' | 'weekly' | 'monthly'
+// Projected monthly Atlas GPU spend against the plan cap (GET /api/atlas/budget).
+// cap_minutes null = unlimited plan. `estimated` means at least one project had
+// too little run history to cost from its own past, so the corpus median stood
+// in — the UI must say so rather than present it as measured.
+export type AtlasBudgetProject = {
+  id: number
+  name: string
+  cadence: string
+  auto_update: boolean
+  sources: number
+  minutes_per_run: number
+  runs_per_month: number
+  projected_minutes: number
+  estimated: boolean
+}
+
+// One entry per account the caller can see (their personal one + each org they
+// belong to). The cap is per ACCOUNT, so a project must be matched to the budget
+// that actually governs it rather than to "the" budget.
+export type AtlasBudgetEntry = AtlasBudget & {
+  owner_kind: 'user' | 'org'
+  owner_id: number
+  owner_name: string
+}
+
+export type AtlasBudget = {
+  cap_minutes: number | null
+  used_minutes: number
+  projected_minutes: number
+  over: boolean
+  estimated: boolean
+  projects: AtlasBudgetProject[]
+  suggestion: { cadence: string; projected_minutes: number; applies_to: number[] } | null
+}
+
 export type AtlasRunStatus =
   | 'pending'
   | 'running'
@@ -62,9 +97,17 @@ export interface AtlasProject {
   // Generated sources whose upstream has moved past what's published (drift
   // detection); 0 when everything's in sync. Distinct from last_run status.
   stale_sources: number
+  // Sources the drift probe currently can't reach (deleted repo, dead
+  // credential). Outranks stale_sources in the UI: unreachable isn't a degree of
+  // staleness, it's not knowing.
+  unreachable_sources: number
   last_run: AtlasLastRun | null
   created_at: string
   can_manage: boolean
+  // Whether the owning account's plan includes scheduled auto-refresh (paid/trial).
+  // When false, auto_update is a server-side no-op — the UI offers manual-only and
+  // an upgrade affordance instead of the automatic cadences.
+  scheduled_allowed: boolean
 }
 
 // ── source ────────────────────────────────────────────────────────────────────
@@ -87,6 +130,10 @@ export interface AtlasSource {
   // Drift: a timestamp when detection has seen upstream move past the last
   // generated ref; absent/'' when the docs match upstream.
   stale_since?: string
+  // Why the last drift probe failed; absent/'' when it succeeded. Set means
+  // upstream is unreachable, which must be shown ABOVE staleness and above the
+  // last run's status — that run may have succeeded weeks before the source died.
+  probe_error?: string
   last_run_id?: number
   last_run_status?: AtlasRunStatus
   last_must_rate?: number
@@ -301,6 +348,7 @@ export const atlasKeys = {
   sourceRuns: (sourceId: number) =>
     [...atlasKeys.all, 'source-runs', sourceId] as const,
   run: (runId: number) => [...atlasKeys.all, 'run', runId] as const,
+  budget: () => [...atlasKeys.all, 'budget'] as const,
 }
 
 // ── queries ───────────────────────────────────────────────────────────────────
@@ -312,6 +360,19 @@ export function useAtlasProjects() {
   return useQuery({
     queryKey: atlasKeys.projects(),
     queryFn: () => api<{ projects: AtlasProject[] }>('/api/atlas/projects'),
+    staleTime: 30_000,
+  })
+}
+
+// Projected monthly Atlas GPU spend for the caller's personal account, against
+// their plan cap. Drives the budget warning: the cap is denominated in GPU
+// minutes while the user configures sources + cadence, so nobody can do this
+// arithmetic themselves. Refetched on focus because changing a cadence in
+// another tab should not leave a stale verdict on screen.
+export function useAtlasBudget() {
+  return useQuery({
+    queryKey: atlasKeys.budget(),
+    queryFn: () => api<{ budgets: AtlasBudgetEntry[] }>('/api/atlas/budget'),
     staleTime: 30_000,
   })
 }

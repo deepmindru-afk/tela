@@ -1,10 +1,17 @@
 package api
 
 import (
+	"context"
+	"crypto/hmac"
+	"crypto/sha256"
 	"database/sql"
+	"encoding/base64"
+	"encoding/hex"
 	"errors"
+	"fmt"
 	"net/http"
 	"regexp"
+	"strconv"
 	"strings"
 )
 
@@ -30,6 +37,7 @@ var botUASubstrings = []string{
 	"skypeuripreview", // Microsoft Teams / Skype link preview (…SkypeUriPreview Preview/0.5)
 	"embedly",         // Embedly fetcher — powers cards in Notion, Medium, Ghost, …
 	"iframely",        // Iframely fetcher — powers cards in Confluence, many editors
+	"chatgpt-user",    // ChatGPT fetching a link a user pasted; its UA ends in "openai.com/bot", which bot/ and "bot " both miss
 	"bot/",
 	"bot ",
 }
@@ -55,7 +63,7 @@ func (s *Server) HandlePublicShare(w http.ResponseWriter, r *http.Request) {
 		ownerOrgID int64 // NULL space.org_id scans as 0 via COALESCE
 	)
 	err := s.DB.QueryRowContext(r.Context(),
-		`SELECT p.title, p.body, sp.name, p.space_id, sp.visibility, COALESCE(sp.org_id, 0)
+		`SELECT p.title, p.body, sp.name, p.space_id, `+pageVisibilityExpr+`, COALESCE(sp.org_id, 0)
 		   FROM pages p
 		   JOIN spaces sp ON sp.id = p.space_id
 		  WHERE p.id = $1 AND p.deleted_at IS NULL`, pageID,
@@ -75,21 +83,38 @@ func (s *Server) HandlePublicShare(w http.ResponseWriter, r *http.Request) {
 		// (the SPA gates it on a session as before). The SPA page route is nested
 		// under the space (/spaces/{spaceID}/pages/{id}/{slug}); a bare
 		// /pages/{id} no longer resolves and renders the SPA's not-found view.
-		dest := pageAppPath(spaceID, pageID, title)
+		// A private page's slug is its title, so the redirect only carries one the
+		// link already had; otherwise Location would hand the title to anyone who
+		// asks by id (the same enumeration the crawler card guards against). The
+		// SPA fills the slug in after login.
+		dest := pageAppPath(spaceID, pageID, "")
+		if s.linkProvesTitle(r.Context(), r.PathValue("slug"), title, pageID) {
+			dest = pageAppPath(spaceID, pageID, title)
+		}
 		if visibility == spaceVisibilityPublic {
-			dest = publicReaderPath(spaceID, pageID, title)
+			dest = s.canonicalPagePath(r.Context(), spaceID, pageID, title)
 		}
 		http.Redirect(w, r, dest, http.StatusFound)
 		return
 	}
 
-	// Bot UAs must also respect space visibility — private-space pages must not
-	// leak their titles via OG cards. Mirrors the gate added to og_space.go.
-	if visibility != spaceVisibilityPublic {
-		writeNotFoundHTML(w)
+	// A private page's title is shown only to a link that already carries it: the
+	// trailing slug must equal the current title's slug. Page ids are sequential,
+	// so without this anyone could walk /p/1..N and harvest every private title
+	// and space name. Every link people actually share has the slug (Copy link,
+	// the address bar via Caddy's deep-link rewrite), so a real unfurl still shows
+	// the title; a bare or stale /p/{id} gets a generic card.
+	if visibility != spaceVisibilityPublic && !s.linkProvesTitle(r.Context(), r.PathValue("slug"), title, pageID) {
+		s.writeGenericPageOGHTML(r, w, pageID)
 		return
 	}
 
+	// Title-only OG card for EVERY page, public or private. /p/{id} is an
+	// always-on permalink card by design (docs/visibility-model.md): the envelope
+	// carries only the title + a generated image, NEVER the body — so a private
+	// page's contents don't leak, while a pasted link still unfurls anywhere. A
+	// deck gets its first-slide cover via /p/{id}/og.png (public + private alike);
+	// the rich body excerpt stays gated behind an explicit /share/{token} link.
 	s.writeOGHTML(r, w, pageID, title, body, spaceName, ownerOrgID)
 }
 
@@ -123,8 +148,99 @@ func (s *Server) writeOGHTML(r *http.Request, w http.ResponseWriter, pageID int6
 	origin := s.ogOriginForPage(r, pageID)
 	// Canonical permalink carries the cosmetic slug (/p/{id}/{slug}); the id is
 	// still what resolves, so a stale slug never breaks.
-	writeOGHTMLWithURL(w, pageID, title, body, spaceName,
-		origin+pagePermalinkPath(pageID, title), origin, s.ogSiteName(r, ownerOrgID))
+	writeOGHTMLWithURL(w, title, body, spaceName, origin+pagePermalinkPath(pageID, title),
+		s.ogImageURL(origin, pageID), s.ogSiteName(r, ownerOrgID))
+}
+
+// slugMatchesTitle reports whether a URL's trailing slug is the current slug of
+// title. A title with no slug (emoji/CJK-only) never matches: there is nothing
+// in the link to prove the sender knew it.
+func slugMatchesTitle(slug, title string) bool {
+	want := pageSlug(title)
+	return want != "" && slug == want
+}
+
+// pageVisibilityExpr is a page's EFFECTIVE visibility (for a query joining
+// pages p and spaces sp): public only when its space is public AND it is
+// published. A draft in a public space is handled exactly like a private page.
+const pageVisibilityExpr = `CASE WHEN sp.visibility = 'public' AND p.status = 'published' THEN 'public' ELSE 'private' END`
+
+// linkProvesTitle reports whether a /p/{id}/{seg} link may be told the title:
+// seg is the title's slug, the page's link key (pageLinkKey, which the app hands
+// out where a slug can't serve: the short link, and titles with no slug), or the
+// slug of an EARLIER title, so a link shared before a rename keeps unfurling.
+// Each needs knowledge of the page a walker of ids doesn't have.
+func (s *Server) linkProvesTitle(ctx context.Context, seg, title string, pageID int64) bool {
+	if seg == "" {
+		return false
+	}
+	if slugMatchesTitle(seg, title) || hmac.Equal([]byte(seg), []byte(s.pageLinkKey(pageID))) {
+		return true
+	}
+	rows, err := s.DB.QueryContext(ctx, `SELECT DISTINCT title FROM page_revisions WHERE page_id = $1`, pageID)
+	if err != nil {
+		return false
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var t string
+		if rows.Scan(&t) == nil && slugMatchesTitle(seg, t) {
+			return true
+		}
+	}
+	return false
+}
+
+// pageLinkKey is a page's unguessable short link segment: 12 hex of an HMAC of
+// its id. It survives renames, and like a slug it only goes to people the app
+// showed the page to, so it can stand in for one without reopening enumeration.
+func (s *Server) pageLinkKey(pageID int64) string {
+	return hex.EncodeToString(s.pageHMAC("tela-page-link-v1", pageID)[:6])
+}
+
+// pageShortPath is the short permalink the app's "Copy short link" hands out.
+func (s *Server) pageShortPath(pageID int64) string {
+	return "/p/" + strconv.FormatInt(pageID, 10) + "/" + s.pageLinkKey(pageID)
+}
+
+// pageHMAC is an HMAC of a page id under a purpose-derived key, so the OG image
+// sig and the link key can't be swapped for one another.
+func (s *Server) pageHMAC(purpose string, pageID int64) []byte {
+	k := hmac.New(sha256.New, s.shareSecret)
+	k.Write([]byte(purpose))
+	mac := hmac.New(sha256.New, k.Sum(nil))
+	mac.Write([]byte(strconv.FormatInt(pageID, 10)))
+	return mac.Sum(nil)
+}
+
+// writeGenericPageOGHTML is the card for a private page reached without its
+// title: no title, no space name, no image, and branded only by the request's
+// host (a custom domain), never by the page's owning org, which would itself
+// say whose page the id is.
+func (s *Server) writeGenericPageOGHTML(r *http.Request, w http.ResponseWriter, pageID int64) {
+	origin := s.originFor(r)
+	if origin == "" {
+		origin = canonicalBaseURL()
+	}
+	site := s.ogSiteName(r, 0)
+	writeGenericOGHTML(w, "A page on "+site, "Open the link to view it.",
+		fmt.Sprintf("%s/p/%d", origin, pageID), site)
+}
+
+// ogImageURL is a page's OG image URL, signed. /p/{id}/og.png renders a private
+// page's title (and a deck's first slide) only for a valid sig, so the image
+// can't be fetched by walking ids either; the sig only ever reaches a crawler
+// inside an envelope that already passed the slug check (or a share link).
+func (s *Server) ogImageURL(origin string, pageID int64) string {
+	return fmt.Sprintf("%s/p/%d/og.png?sig=%s", origin, pageID, s.ogImageSig(pageID))
+}
+
+func (s *Server) ogImageSig(pageID int64) string {
+	return base64.RawURLEncoding.EncodeToString(s.pageHMAC("tela-og-image-v1", pageID)[:16])
+}
+
+func (s *Server) validOGImageSig(pageID int64, sig string) bool {
+	return hmac.Equal([]byte(sig), []byte(s.ogImageSig(pageID)))
 }
 
 func writeNotFoundHTML(w http.ResponseWriter) {
